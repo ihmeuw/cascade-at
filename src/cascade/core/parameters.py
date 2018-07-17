@@ -1,5 +1,5 @@
 class _ParameterHierarchy:
-    """An immutable store which gives dot notation acess to hierarchical key-value data
+    """An immutable store which gives dot notation access to hierarchical key-value data
     """
 
     def __init__(self, **kwargs):
