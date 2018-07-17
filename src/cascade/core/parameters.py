@@ -16,7 +16,7 @@ class _ParameterHierarchy:
 
 
 class ParameterProperty:
-    """A property like object which coverts dictionaries into _ParameterHierarchy objects on assignment.
+    """A property like object which converts dictionaries into _ParameterHierarchy objects on assignment.
     """
 
     def __init__(self):
