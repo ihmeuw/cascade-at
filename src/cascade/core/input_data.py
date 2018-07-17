@@ -5,7 +5,7 @@ class Rates:
 
 
 class InputData:
-    """Container for all the input daat necessary to run a model.
+    """Container for all the input data necessary to run a model.
 
     TODO: This is missing a bunch of slots which we will add in incrementally.
     """
