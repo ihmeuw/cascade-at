@@ -44,14 +44,30 @@ def test_freeze_bundle__did_freeze(
     mock_bundle_id = mocker.patch("cascade.input_data.db.bundle._get_bundle_id")
     mock_bundle_id.return_value = 123
 
-    mock_get_data = mocker.patch("cascade.input_data.db.bundle._get_tier_2_bundle_data")
-    mock_put_data = mocker.patch(
+    mock_get_bundle_data = mocker.patch(
+        "cascade.input_data.db.bundle._get_tier_2_bundle_data"
+    )
+    mock_put_bundle_data = mocker.patch(
         "cascade.input_data.db.bundle._upload_bundle_data_to_tier_3"
+    )
+    mock_get_covariate_data = mocker.patch(
+        "cascade.input_data.db.bundle._get_tier_2_study_covariates"
+    )
+    mock_put_covariate_data = mocker.patch(
+        "cascade.input_data.db.bundle._upload_study_covariates_to_tier_3"
     )
 
     assert freeze_bundle(mock_execution_context)
 
-    mock_put_data.assert_called_with(mock_execution_context, mock_get_data())
+    cursor = mock_database_access["cursor"]
+    model_version_id = mock_execution_context.parameters.model_version_id
+    # TODO Test if these happen within the same transaciton
+    mock_put_bundle_data.assert_called_with(
+        cursor, model_version_id, mock_get_bundle_data()
+    )
+    mock_put_covariate_data.assert_called_with(
+        cursor, model_version_id, mock_get_covariate_data()
+    )
 
 
 def test_freeze_bundle__did_not_freeze(
@@ -60,10 +76,14 @@ def test_freeze_bundle__did_not_freeze(
     mock_check = mocker.patch("cascade.input_data.db.bundle._bundle_is_frozen")
     mock_check.return_value = True
 
-    mock_put_data = mocker.patch(
+    mock_put_bundle_data = mocker.patch(
         "cascade.input_data.db.bundle._upload_bundle_data_to_tier_3"
+    )
+    mock_put_covariate_data = mocker.patch(
+        "cascade.input_data.db.bundle._upload_study_covariates_to_tier_3"
     )
 
     assert not freeze_bundle(mock_execution_context)
 
-    assert not mock_put_data.called
+    assert not mock_put_bundle_data.called
+    assert not mock_put_covariate_data.called
