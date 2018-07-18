@@ -110,11 +110,36 @@ def _get_tier_2_bundle_data(execution_context):
     return bundle_rows
 
 
-def _upload_bundle_data_to_tier_3(execution_context, bundle_data):
+def _get_tier_2_study_covariates(execution_context):
+    """Downloads the tier 2 study covariate mappings for the bundle associated with the current model_version_id.
+    """
+    database = execution_context.parameters.bundle_database
+
+    bundle_id = _get_bundle_id(execution_context)
+
+    query = f"""
+    SELECT
+        bundle_id,
+        seq,
+        study_covariate_id
+    FROM
+        epi.bundle_dismod_study_covariate
+    WHERE
+        bundle_id = %(bundle_id)s
+         """
+    with cursor(database=database) as c:
+        c.execute(query, args={"bundle_id": bundle_id})
+        covariate_rows = list(c)
+        CODELOG.debug(
+            f"Downloaded {len(covariate_rows)} lines of study covariates for bundle_id {bundle_id} from '{database}'"
+        )
+
+    return covariate_rows
+
+
+def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
     """Updloads bundle data to tier 3 attached to the current model_version_id.
     """
-
-    model_version_id = execution_context.parameters.model_version_id
 
     insert_query = f"""
     INSERT INTO epi.t3_model_version_dismod (
@@ -156,12 +181,29 @@ def _upload_bundle_data_to_tier_3(execution_context, bundle_data):
     )
     """
 
-    with cursor(execution_context) as c:
-        c.executemany(insert_query, bundle_data)
+    cursor.executemany(insert_query, bundle_data)
 
-    CODELOG.debug(
-        f"uploaded {len(bundle_data)} lines of bundle data to '{execution_context.parameters.database}'"
+    CODELOG.debug(f"uploaded {len(bundle_data)} lines of bundle data")
+
+
+def _upload_study_covariates_to_tier_3(cursor, model_version_id, covariate_data):
+    """Updloads study covariate mappings to tier 3 attached to the current model_version_id.
+    """
+
+    insert_query = f"""
+    INSERT INTO epi.t3_model_version_study_covariate (
+        model_version_id,
+        bundle_id,
+        seq,
+        study_covariate_id
+    ) VALUES (
+        {model_version_id}, %s, %s, %s
     )
+    """
+
+    cursor.executemany(insert_query, covariate_data)
+
+    CODELOG.debug(f"uploaded {len(covariate_data)} lines of covariate")
 
 
 def freeze_bundle(execution_context) -> bool:
@@ -189,5 +231,8 @@ def freeze_bundle(execution_context) -> bool:
             f"Freezing bundle data for model_version_id {model_version_id} on '{database}'"
         )
         bundle_data = _get_tier_2_bundle_data(execution_context)
-        _upload_bundle_data_to_tier_3(execution_context, bundle_data)
+        covariate_data = _get_tier_2_study_covariates(execution_context)
+        with cursor(execution_context) as c:
+            _upload_bundle_data_to_tier_3(c, model_version_id, bundle_data)
+            _upload_study_covariates_to_tier_3(c, model_version_id, covariate_data)
         return True
