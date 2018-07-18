@@ -54,12 +54,10 @@ def _get_bundle_id(execution_context):
         return bundle_ids[0][0]
 
 
-def _get_tier_2_bundle_data(execution_context):
+def _get_tier_2_bundle_data(execution_context, bundle_id):
     """Downloads the tier 2 data for the bundle associated with the current model_version_id.
     """
     database = execution_context.parameters.bundle_database
-
-    bundle_id = _get_bundle_id(execution_context)
 
     query = f"""
     SELECT
@@ -112,12 +110,10 @@ def _get_tier_2_bundle_data(execution_context):
     return bundle_rows
 
 
-def _get_tier_2_study_covariates(execution_context):
+def _get_tier_2_study_covariates(execution_context, bundle_id):
     """Downloads the tier 2 study covariate mappings for the bundle associated with the current model_version_id.
     """
     database = execution_context.parameters.bundle_database
-
-    bundle_id = _get_bundle_id(execution_context)
 
     query = f"""
     SELECT
@@ -232,8 +228,9 @@ def freeze_bundle(execution_context) -> bool:
         CODELOG.info(
             f"Freezing bundle data for model_version_id {model_version_id} on '{database}'"
         )
-        bundle_data = _get_tier_2_bundle_data(execution_context)
-        covariate_data = _get_tier_2_study_covariates(execution_context)
+        bundle_id = _get_bundle_id(execution_context)
+        bundle_data = _get_tier_2_bundle_data(execution_context, bundle_id)
+        covariate_data = _get_tier_2_study_covariates(execution_context, bundle_id)
         with cursor(execution_context) as c:
             _upload_bundle_data_to_tier_3(c, model_version_id, bundle_data)
             _upload_study_covariates_to_tier_3(c, model_version_id, covariate_data)
