@@ -1,6 +1,8 @@
 import logging
 
-from cascade.core.db import cursor
+import pandas as pd
+
+from cascade.core.db import cursor, connection
 
 CODELOG = logging.getLogger(__name__)
 
@@ -191,3 +193,58 @@ def freeze_bundle(execution_context) -> bool:
         bundle_data = _get_tier_2_bundle_data(execution_context)
         _upload_bundle_data_to_tier_3(execution_context, bundle_data)
         return True
+
+
+def raw_bundle(execution_context):
+    model_version_id = execution_context.parameters.model_version_id
+
+    query = f"""
+    SELECT
+        model_version_dismod_id as data_id,
+        nid,
+        location_id,
+        sm.measure as integrand,
+        mean,
+        year_start,
+        year_end,
+        age_start,
+        age_end,
+        lower,
+        upper,
+        sample_size,
+        standard_error,
+        sex_id
+    FROM
+        epi.model_version mv
+    INNER JOIN
+        epi.t3_model_version_dismod t3_dm
+            USING(model_version_id)
+    LEFT JOIN
+        shared.measure sm ON (t3_dm.measure_id = sm.measure_id)
+    WHERE mv.model_version_id = %(model_version_id)s
+    AND t3_dm.outlier_type_id = 0
+    """
+
+    with connection(execution_context) as c:
+        df = pd.read_sql(query, c, params={"model_version_id": model_version_id})
+
+    df = df.set_index("data_id")
+    return df
+
+
+def study_covariates(execution_context):
+    model_version_id = execution_context.parameters.model_version_id
+
+    query = """
+    select model_version_dismod_id, study_covariate_id
+    from epi.t3_model_version_study_covariate
+    left join epi.t3_model_version_dismod
+      on epi.t3_model_version_dismod.model_version_id = epi.t3_model_version_study_covariate.model_version_id
+      and epi.t3_model_version_dismod.seq = epi.t3_model_version_study_covariate.seq
+    where epi.t3_model_version_study_covariate.model_version_id = %(model_version_id)s
+    limit 100
+    """
+    with connection(execution_context) as c:
+        df = pd.read_sql(query, c, params={"model_version_id": model_version_id})
+
+    return df
