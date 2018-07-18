@@ -12,13 +12,13 @@ except ImportError:
 
 
 @contextmanager
-def cursor(execution_context):
+def cursor(execution_context=None, database=None):
     """A context manager which exposes a database cursor connected to the database specified by
     the execution_context. The cursor will be closed when the manager exits and if it exits without
     raising an exception the connection will also be commited.
     """
 
-    with connection(execution_context) as c:
+    with connection(execution_context, database) as c:
         cursor = c.cursor()
 
         try:
@@ -31,8 +31,14 @@ def cursor(execution_context):
 
 
 @contextmanager
-def connection(execution_context):
-    database = execution_context.parameters.database
+def connection(execution_context=None, database=None):
+    if execution_context is None:
+        if database is None:
+            raise ValueError("Must supply either execution_context or database")
+    else:
+        if database is not None:
+            raise ValueError("Must not supply both execution_context and database")
+        database = execution_context.parameters.database
 
     connection = ezfuncs.get_connection(database)
     try:

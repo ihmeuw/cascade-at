@@ -12,3 +12,11 @@ def mock_execution_context(mocker):
 @pytest.fixture
 def mock_ezfuncs(mocker):
     return mocker.patch("cascade.core.db.ezfuncs")
+
+
+@pytest.fixture
+def mock_database_access(mock_ezfuncs):
+    return {
+        "cursor": mock_ezfuncs.get_connection().cursor(),
+        "connection": mock_ezfuncs.get_connetion(),
+    }
