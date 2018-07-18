@@ -1,4 +1,4 @@
-from cascade.core.db import cursor, model_version_exists
+from cascade.core.db import cursor
 
 import pytest
 
