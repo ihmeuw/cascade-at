@@ -18,9 +18,7 @@ def parameter_dicts(draw, attribute_names):
             attribute_names,
             st.recursive(
                 st.none() | st.booleans() | st.integers() | st.text(string.printable),
-                lambda children: st.dictionaries(
-                    attribute_names, children, max_size=max_size
-                ),
+                lambda children: st.dictionaries(attribute_names, children, max_size=max_size),
                 max_leaves=10,
             ),
             max_size=max_size,

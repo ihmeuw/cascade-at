@@ -16,7 +16,4 @@ def mock_ezfuncs(mocker):
 
 @pytest.fixture
 def mock_database_access(mock_ezfuncs):
-    return {
-        "cursor": mock_ezfuncs.get_connection().cursor(),
-        "connection": mock_ezfuncs.get_connetion(),
-    }
+    return {"cursor": mock_ezfuncs.get_connection().cursor(), "connection": mock_ezfuncs.get_connetion()}
