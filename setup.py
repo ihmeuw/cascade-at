@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages, PEP420PackageFinder
+from setuptools import setup, PEP420PackageFinder
 
 setup(
     name="cascade",
@@ -7,8 +7,5 @@ setup(
     package_dir={"": "src"},
     include_package_data=True,
     install_requires=["pandas"],
-    extras_require={
-        "testing": ["pytest", "pytest-mock", "hypothesis"],
-        "ihme_databases": ["db_tools"],
-    },
+    extras_require={"testing": ["pytest", "pytest-mock", "hypothesis"], "ihme_databases": ["db_tools"]},
 )
