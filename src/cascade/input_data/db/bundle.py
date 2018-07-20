@@ -1,3 +1,9 @@
+"""This module provides tools for working directly with bundle data in the external databases. Code which wants to
+manipulate the bundles directly in the database should live here but bundle code which does not need to access the
+databases directly should live outside the db package and use the functions here to retrieve the data in normalized
+form.
+"""
+
 import logging
 
 from cascade.core.db import cursor
@@ -40,14 +46,10 @@ def _get_bundle_id(execution_context):
         bundle_ids = list(c)
 
         if not bundle_ids:
-            raise ValueError(
-                f"No bundle_id associated with model_version_id {model_version_id}"
-            )
+            raise ValueError(f"No bundle_id associated with model_version_id {model_version_id}")
 
         if len(bundle_ids) > 1:
-            raise ValueError(
-                f"Multiple bundle_ids associated with model_version_id {model_version_id}"
-            )
+            raise ValueError(f"Multiple bundle_ids associated with model_version_id {model_version_id}")
 
         return bundle_ids[0][0]
 
@@ -103,9 +105,7 @@ def _get_tier_2_bundle_data(execution_context):
     with cursor(database=database) as c:
         c.execute(query, args={"bundle_id": bundle_id})
         bundle_rows = list(c)
-        CODELOG.debug(
-            f"Downloaded {len(bundle_rows)} lines of bundle_id {bundle_id} from '{database}'"
-        )
+        CODELOG.debug(f"Downloaded {len(bundle_rows)} lines of bundle_id {bundle_id} from '{database}'")
 
     return bundle_rows
 
@@ -138,7 +138,7 @@ def _get_tier_2_study_covariates(execution_context):
 
 
 def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
-    """Updloads bundle data to tier 3 attached to the current model_version_id.
+    """Uploads bundle data to tier 3 attached to the current model_version_id.
     """
 
     insert_query = f"""
@@ -187,7 +187,7 @@ def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
 
 
 def _upload_study_covariates_to_tier_3(cursor, model_version_id, covariate_data):
-    """Updloads study covariate mappings to tier 3 attached to the current model_version_id.
+    """Uploads study covariate mappings to tier 3 attached to the current model_version_id.
     """
 
     insert_query = f"""
@@ -227,9 +227,7 @@ def freeze_bundle(execution_context) -> bool:
         )
         return False
     else:
-        CODELOG.info(
-            f"Freezing bundle data for model_version_id {model_version_id} on '{database}'"
-        )
+        CODELOG.info(f"Freezing bundle data for model_version_id {model_version_id} on '{database}'")
         bundle_data = _get_tier_2_bundle_data(execution_context)
         covariate_data = _get_tier_2_study_covariates(execution_context)
         with cursor(execution_context) as c:
