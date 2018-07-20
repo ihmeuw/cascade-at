@@ -4,7 +4,7 @@ setup(
     name="cascade",
     version="0.0.1",
     packages=PEP420PackageFinder.find("src"),
-    package_data={"cascade": [
+    package_data={"cascade.executor": [
         "data/*.toml",
     ]},
     package_dir={"": "src"},

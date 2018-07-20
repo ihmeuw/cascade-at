@@ -64,7 +64,7 @@ class BaseArgumentParser(ArgumentParser):
                           help="Log level for specified modules")
 
         arguments = toml.loads(pkg_resources.resource_string(
-            "cascade", "data/parameters.toml").decode())
+            "cascade.executor", "data/parameters.toml").decode())
         arg_types = dict(
             bool=bool, str=str, float=float, int=int
         )
