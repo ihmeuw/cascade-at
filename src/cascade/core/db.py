@@ -24,6 +24,20 @@ def cursor(execution_context=None, database=None):
     the manager exits and if it exits without raising an exception the connection will also be committed.
     """
 
+    with connection(execution_context, database) as c:
+        cursor = c.cursor()
+
+        try:
+            yield cursor
+        except Exception:
+            cursor.close()
+            raise
+        else:
+            cursor.close()
+
+
+@contextmanager
+def connection(execution_context=None, database=None):
     if execution_context is None:
         if database is None:
             raise ValueError("Must supply either execution_context or database")
@@ -33,29 +47,26 @@ def cursor(execution_context=None, database=None):
         database = execution_context.parameters.database
 
     connection = ezfuncs.get_connection(database)
-    cursor = connection.cursor()
-
     try:
-        yield cursor
+        yield connection
     except Exception:
-        cursor.close()
         raise
     else:
-        cursor.close()
         connection.commit()
 
 
 def model_version_exists(execution_context):
     model_version_id = execution_context.parameters.model_version_id
 
+    query = """
+    select exists(
+             select * from epi.model_version
+             where model_version_id = %(model_version_id)s
+    )
+    """
+
     with cursor(execution_context) as c:
-        query = f"""
-        select exists(
-                 select * from epi.model_version
-                 where model_version_id = {model_version_id}
-        )
-        """
-        c.execute(query)
+        c.execute(query, args={"model_version_id": model_version_id})
         exists = c.fetchone()[0]
 
         return exists == 1
