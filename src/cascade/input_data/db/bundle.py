@@ -1,3 +1,9 @@
+"""This module provides tools for working directly with bundle data in the external databases. Code which wants to
+manipulate the bundles directly in the database should live here but bundle code which does not need to access the
+databases directly should live outside the db package and use the functions here to retrieve the data in normalized
+form.
+"""
+
 import logging
 
 import pandas as pd
@@ -15,14 +21,14 @@ def _bundle_is_frozen(execution_context):
     """
 
     model_version_id = execution_context.parameters.model_version_id
-    query = f"""
+    query = """
     select exists(
              select * from epi.t3_model_version_dismod
-             where model_version_id = {model_version_id}
+             where model_version_id = %(model_version_id)s
     )
     """
     with cursor(execution_context) as c:
-        c.execute(query)
+        c.execute(query, args={"model_version_id": model_version_id})
         exists = c.fetchone()[0]
 
     return exists == 1
@@ -54,7 +60,7 @@ def _get_bundle_id(execution_context):
 
 
 def _get_bundle_data(execution_context, bundle_id, tier=3):
-    """Downloads the tier 2 data for the bundle associated with the current model_version_id.
+    """Downloads the tier 2 or 3 data for the bundle associated with the current model_version_id.
     """
 
     if tier == 2:
@@ -115,7 +121,7 @@ def _get_bundle_data(execution_context, bundle_id, tier=3):
 
 
 def _get_study_covariates(execution_context, bundle_id, tier=3):
-    """Downloads the tier 2 study covariate mappings for the bundle associated with the current model_version_id.
+    """Downloads the tier 2 or 3 study covariate mappings for the bundle associated with the current model_version_id.
     """
 
     if tier == 2:
@@ -147,7 +153,7 @@ def _get_study_covariates(execution_context, bundle_id, tier=3):
 
 
 def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
-    """Updloads bundle data to tier 3 attached to the current model_version_id.
+    """Uploads bundle data to tier 3 attached to the current model_version_id.
     """
 
     insert_query = f"""
@@ -196,7 +202,7 @@ def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
 
 
 def _upload_study_covariates_to_tier_3(cursor, model_version_id, covariate_data):
-    """Updloads study covariate mappings to tier 3 attached to the current model_version_id.
+    """Uploads study covariate mappings to tier 3 attached to the current model_version_id.
     """
 
     insert_query = f"""
