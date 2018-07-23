@@ -14,4 +14,10 @@ setup(
         "testing": ["pytest", "pytest-mock", "hypothesis"],
         "ihme_databases": ["db_tools"],
     },
+    entry_points={
+        "console_scripts": [
+            ["dmchat=cascade.executor.chatter:chatter"],
+            ["dmdummy=cascade.executor.chatter:dismod_dummy"],
+        ]
+    },
 )
