@@ -8,7 +8,6 @@ setup(
         "data/*.toml",
     ]},
     package_dir={"": "src"},
-    include_package_data=True,
     install_requires=["pandas", "toml"],
     extras_require={
         "testing": ["pytest", "pytest-mock", "hypothesis"],
