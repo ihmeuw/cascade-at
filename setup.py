@@ -6,6 +6,6 @@ setup(
     packages=PEP420PackageFinder.find("src"),
     package_dir={"": "src"},
     include_package_data=True,
-    install_requires=["pandas"],
+    install_requires=["pandas", "sqlalchemy"],
     extras_require={"testing": ["pytest", "pytest-mock", "hypothesis"], "ihme_databases": ["db_tools"]},
 )

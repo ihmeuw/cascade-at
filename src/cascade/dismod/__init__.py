@@ -1,0 +1,2 @@
+class DismodFileError(Exception):
+    pass
