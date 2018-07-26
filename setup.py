@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages, PEP420PackageFinder
+from setuptools import setup, PEP420PackageFinder
 
 setup(
     name="cascade",
