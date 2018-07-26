@@ -1,4 +1,4 @@
-"""Upload cmsr data to t3 table so EpiViz can access it for plotting."""
+"""Upload csmr data to t3 table so EpiViz can access it for plotting."""
 
 import logging
 
@@ -86,7 +86,7 @@ def _upload_csmr_data_to_tier_3(cursor, model_version_id, csmr_data):
     CODELOG.debug(f"uploaded {len(csmr_data)} lines of csmr data")
 
 
-def load_csmr_to_t3(execution_context):
+def load_csmr_to_t3(execution_context) -> bool:
     """
     Upload to t3_model_version_csmr if the user requested that and if
     it's not already there.
@@ -113,8 +113,8 @@ def load_csmr_to_t3(execution_context):
 
             csmr_data = _get_csmr_data(execution_context)
 
-            # and insert data into the t3_model_version_csmr table
-            _upload_csmr_data_to_tier_3(cursor, model_version_id, csmr_data)
+            with cursor(execution_context) as c:
+                _upload_csmr_data_to_tier_3(c, model_version_id, csmr_data)
 
             return True
 
