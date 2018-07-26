@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.sql import select
 from sqlalchemy.exc import OperationalError
 
-from .db_metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
+from .metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
 from . import DismodFileError
 
 

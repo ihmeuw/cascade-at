@@ -5,7 +5,7 @@ import pytest
 
 from sqlalchemy.exc import StatementError
 
-from cascade.dismod.db_wrapper import DismodFile, _get_engine
+from cascade.dismod.db.wrapper import DismodFile, _get_engine
 
 
 @pytest.fixture
