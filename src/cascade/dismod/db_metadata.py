@@ -14,14 +14,14 @@ Base = declarative_base()
 
 
 class Age(Base):
-    __tablename__ = "age_name"
+    __tablename__ = "age"
 
     age_id = Column(Integer(), primary_key=True)
     age = Column(Float(), unique=True, nullable=False)
 
 
 class Time(Base):
-    __tablename__ = "time_name"
+    __tablename__ = "time"
 
     time_id = Column(Integer(), primary_key=True)
     time = Column(Float(), unique=True, nullable=False)
@@ -46,7 +46,7 @@ class IntegrandEnum(enum.Enum):
 class Integrand(Base):
     """These are the names of the integrands, taken from IntegrandEnum"""
 
-    __tablename__ = "integrand_name"
+    __tablename__ = "integrand"
 
     integrand_id = Column(Integer(), primary_key=True)
     integrand_name = Column(Enum(IntegrandEnum), unique=True, nullable=False)
@@ -66,7 +66,7 @@ class DensityEnum(enum.Enum):
 
 
 class Density(Base):
-    __tablename__ = "density_name"
+    __tablename__ = "density"
 
     density_id = Column(Integer(), primary_key=True)
     density_name = Column(Enum(DensityEnum), unique=True, nullable=False)
@@ -75,7 +75,7 @@ class Density(Base):
 class Covariate(Base):
     """The names of covariates and some reference values"""
 
-    __tablename__ = "covariate_name"
+    __tablename__ = "covariate"
 
     covariate_id = Column(Integer(), primary_key=True)
     covariate_name = Column(String(), nullable=False, unique=True)
@@ -94,7 +94,7 @@ class Node(Base):
     These are locations, and they form a hierarchy, specified through parent.
     """
 
-    __tablename__ = "node_name"
+    __tablename__ = "node"
 
     node_id = Column(Integer(), primary_key=True)
     node_name = Column(String(), nullable=False, unique=True)
@@ -102,7 +102,7 @@ class Node(Base):
 
 
 class Prior(Base):
-    __tablename__ = "prior_name"
+    __tablename__ = "prior"
 
     prior_id = Column(Integer(), primary_key=True)
     prior_name = Column(String(), unique=True)
@@ -110,13 +110,13 @@ class Prior(Base):
     upper = Column(Float())  # can be null
     mean = Column(Float())
     std = Column(Float())
-    density_id = Column(None, ForeignKey("density_name.density_id"))
+    density_id = Column(None, ForeignKey("density.density_id"))
     eta = Column(Float())
     nu = Column(Float())
 
 
 class Weight(Base):
-    __tablename__ = "weight_name"
+    __tablename__ = "weight"
 
     weight_id = Column(Integer(), primary_key=True)
     weight_name = Column(String(), unique=True)
@@ -127,18 +127,18 @@ class Weight(Base):
 
 
 class WeightGrid(Base):
-    __tablename__ = "weight_grid_name"
+    __tablename__ = "weight_grid"
 
     weight_grid_id = Column(Integer(), primary_key=True)
-    weight_id = Column(None, ForeignKey("weight_name.weight_id"))
-    age_id = Column(None, ForeignKey("age_name.age_id"))
-    time_id = Column(None, ForeignKey("time_name.time_id"))
+    weight_id = Column(None, ForeignKey("weight.weight_id"))
+    age_id = Column(None, ForeignKey("age.age_id"))
+    time_id = Column(None, ForeignKey("time.time_id"))
     weight = Column(Float())
     """This is the weight for this age, time, and weight id."""
 
 
 class Smooth(Base):
-    __tablename__ = "smooth_name"
+    __tablename__ = "smooth"
 
     smooth_id = Column(Integer(), primary_key=True)
     smooth_name = Column(String(), unique=True)
@@ -148,26 +148,26 @@ class Smooth(Base):
     n_time = Column(Integer())
     """The number of time values in the smoothing grid. Greater than zero"""
 
-    mulstd_value_prior_id = Column(None, ForeignKey("prior_name.prior_id"), nullable=True)
+    mulstd_value_prior_id = Column(None, ForeignKey("prior.prior_id"), nullable=True)
     """The prior_id for the variable that multiplies the value_prior_id
     standard deviations for this smooth_id"""
 
-    mulstd_dage_prior_id = Column(None, ForeignKey("prior_name.prior_id"), nullable=True)
+    mulstd_dage_prior_id = Column(None, ForeignKey("prior.prior_id"), nullable=True)
     """The prior_id for the variable that multiplies the age_prior_id
     standard deviations for this smooth_id"""
 
-    mulstd_dtime_prior_id = Column(None, ForeignKey("prior_name.prior_id"), nullable=True)
+    mulstd_dtime_prior_id = Column(None, ForeignKey("prior.prior_id"), nullable=True)
     """The prior_id for the variable that multiplies the dtime_prior_id
     standard deviations for this smooth_id"""
 
 
 class SmoothGrid(Base):
-    __tablename__ = "smooth_grid_name"
+    __tablename__ = "smooth_grid"
 
     smooth_grid_id = Column(Integer(), primary_key=True)
     smooth_id = Column(Integer(), unique=True)
-    age_id = Column(None, ForeignKey("age_name.age_id"))
-    time_id = Column(None, ForeignKey("time_name.time_id"))
+    age_id = Column(None, ForeignKey("age.age_id"))
+    time_id = Column(None, ForeignKey("time.time_id"))
     value_prior_id = Column(Integer(), nullable=True)
     """A prior_id. If null, const_value must not be null."""
 
@@ -184,7 +184,7 @@ class SmoothGrid(Base):
 
 
 class NSList(Base):
-    __tablename__ = "nslist_name"
+    __tablename__ = "nslist"
 
     nslist_id = Column(Integer(), primary_key=True)
     nslist_name = Column(String(), unique=True)
@@ -193,12 +193,12 @@ class NSList(Base):
 class NSListPair(Base):
     """Associates a node with a smoothing"""
 
-    __tablename__ = "nslist_pair_name"
+    __tablename__ = "nslist_pair"
 
     nslist_pair_id = Column(Integer(), primary_key=True)
-    nslist_id = Column(None, ForeignKey("nslist_name.nslist_id"))
-    node_id = Column(None, ForeignKey("node_name.node_id"))
-    smooth_id = Column(None, ForeignKey("smooth_name.smooth_id"))
+    nslist_id = Column(None, ForeignKey("nslist.nslist_id"))
+    node_id = Column(None, ForeignKey("node.node_id"))
+    smooth_id = Column(None, ForeignKey("smooth.smooth_id"))
 
 
 class RateName(enum.Enum):
@@ -210,16 +210,16 @@ class RateName(enum.Enum):
 
 
 class Rate(Base):
-    __tablename__ = "rate_name"
+    __tablename__ = "rate"
 
     rate_id = Column(Integer(), primary_key=True)
     rate_name = Column(Enum(RateName))
-    parent_smooth_id = Column(None, ForeignKey("smooth_name.smooth_id"), nullable=True)
+    parent_smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
     """If null, then parent rate is always zero and no model variables are
     allocated for it"""
 
-    child_smooth_id = Column(None, ForeignKey("smooth_name.smooth_id"), nullable=True)
-    child_nslist_id = Column(None, ForeignKey("nslist_name.nslist_id"), nullable=True)
+    child_smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
+    child_nslist_id = Column(None, ForeignKey("nslist.nslist_id"), nullable=True)
     """If not null, identifies a list of node and smoothing pairs. The
     node_id for each of the children must appear in the list. The corresponding
     smoothing is used for that child and the rate corresponding to this
@@ -238,27 +238,27 @@ class MulCov(Base):
     If this is empty, there are no covariate multipliers in the model.
     """
 
-    __tablename__ = "mulcov_name"
+    __tablename__ = "mulcov"
 
     mulcov_id = Column(Integer(), primary_key=True)
     mulcov_type = Column(Enum(MulCovEnum), nullable=False)
-    rate_id = Column(None, ForeignKey("rate_name.rate_id"), nullable=True)
+    rate_id = Column(None, ForeignKey("rate.rate_id"), nullable=True)
     """Determines the rate that this covariate and multiplier affects.
     If mulcov_type is of type meas_value or meas_std, this must be null."""
-    integrand_id = Column(None, ForeignKey("integrand_name.integrand_id"), nullable=True)
-    covariate_id = Column(None, ForeignKey("covariate_name.covariate_id"), nullable=False)
-    smooth_id = Column(None, ForeignKey("smooth_name.smooth_id"), nullable=True)
+    integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=True)
+    covariate_id = Column(None, ForeignKey("covariate.covariate_id"), nullable=False)
+    smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
     """If this is null, the covariabe multiplier is always zero and no
     model_variables are allocated for it."""
 
 
 class AvgInt(Base):
-    __tablename__ = "avgint_name"
+    __tablename__ = "avgint"
 
     avgint_id = Column(Integer(), primary_key=True)
-    integrand_id = Column(None, ForeignKey("integrand_name.integrand_id"))
-    node_id = Column(None, ForeignKey("node_name.node_id"))
-    weight_id = Column(None, ForeignKey("weight_name.weight_id"))
+    integrand_id = Column(None, ForeignKey("integrand.integrand_id"))
+    node_id = Column(None, ForeignKey("node.node_id"))
+    weight_id = Column(None, ForeignKey("weight.weight_id"))
     age_lower = Column(Float())
     age_upper = Column(Float())
     time_lower = Column(Float())
@@ -267,15 +267,15 @@ class AvgInt(Base):
 
 
 class Data(Base):
-    __tablename__ = "data_name"
+    __tablename__ = "data"
 
     data_id = Column(Integer(), primary_key=True)
     data_name = Column(String(), unique=True)
     """This is in the docs but not in the code."""
 
-    integrand_id = Column(None, ForeignKey("integrand_name.integrand_id"))
-    node_id = Column(None, ForeignKey("node_name.node_id"))
-    weight_id = Column(None, ForeignKey("weight_name.weight_id"))
+    integrand_id = Column(None, ForeignKey("integrand.integrand_id"))
+    node_id = Column(None, ForeignKey("node.node_id"))
+    weight_id = Column(None, ForeignKey("weight.weight_id"))
     age_lower = Column(Float())
     age_upper = Column(Float())
     time_lower = Column(Float())
@@ -291,7 +291,7 @@ class Data(Base):
 
 
 class Option(Base):
-    __tablename__ = "option_name"
+    __tablename__ = "option"
 
     option_id = Column(Integer(), primary_key=True)
     option_name = Column(String(), unique=True)
@@ -339,7 +339,7 @@ class DataSubset(Base):
     __readonly__ = True
 
     data_subset_id = Column(Integer(), primary_key=True)
-    data_id = Column(None, ForeignKey("data_name.data_id"))
+    data_id = Column(None, ForeignKey("data.data_id"))
 
 
 class DependVar(Base):
@@ -414,7 +414,7 @@ class Predict(Base):
     Output, model predictions for the average integrand.
     """
 
-    __tablename__ = "predict_name"
+    __tablename__ = "predict"
     __readonly__ = True
 
     predict_id = Column(Integer(), primary_key=True)

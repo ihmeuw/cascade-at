@@ -56,7 +56,8 @@ class DismodFile:
         """
         self.engine = engine
         self._table_definitions = Base.metadata.tables
-        self._table_cache = {}
+        self._table_data = {}
+        self._table_hash = {}
         add_columns_to_avgint_table(avgint_columns)
         add_columns_to_data_table(data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
@@ -73,66 +74,69 @@ class DismodFile:
         Dismod documentation says all densities should be in the file,
         so this puts them all in.
         """
-        self.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+        self.density = pd.DataFrame({"density": [x.name for x in DensityEnum]})
 
-    def __getattr__(self, table_short_name):
-        table_name = table_short_name + "_name"
-        if table_name in self._table_cache:
-            return self._table_cache[table_name]
+    def __getattr__(self, table_name):
+        if table_name in self._table_data:
+            return self._table_data[table_name]
         elif table_name in self._table_definitions:
             table = self._table_definitions[table_name]
             with self.engine.connect() as conn:
                 data = pd.read_sql_query(select([table]), conn)
-            self._table_cache[table_name] = data
+            data = data.set_index(f"{table_name}_id")
+            self._table_hash[table_name] = pd.util.hash_pandas_object(data)
+            self._table_data[table_name] = data
             return data
         else:
-            raise AttributeError(f"No such table {table_short_name}")
+            raise AttributeError(f"No such table {table_name}")
 
-    def __setattr__(self, table_short_name, df):
-        table_name = table_short_name + "_name"
+    def __setattr__(self, table_name, df):
         if table_name in self.__dict__.get("_table_definitions", {}):
-            self._table_cache[table_name] = df
+            self._table_data[table_name] = df
         else:
-            super().__setattr__(table_short_name, df)
+            super().__setattr__(table_name, df)
+
+    def _is_dirty(self, table_name):
+        """Tests to see if the table's data has changed in memory since it was last loaded from the database.
+        """
+
+        if table_name not in self._table_data:
+            return False
+
+        table = self._table_data[table_name]
+        table_hash = pd.util.hash_pandas_object(table)
+
+        is_new = table_name not in self._table_hash
+        if not is_new:
+            is_changed = not self._table_hash[table_name].equals(table_hash)
+        else:
+            is_changed = False
+
+        return is_new or is_changed
 
     def flush(self):
-        with self.engine.connect() as conn:
-            for table_name, table in self._table_cache.items():
-                table_definition = self._table_definitions[table_name]
-                table_short_name = table_name.replace("_name", "")
-                table.to_sql(
-                    table_name,
-                    conn,
-                    # if_exists=if_exists,
-                    index_label=table_short_name + "_id",
-                    dtype={k: v.type for k, v in table_definition.c.items()},
-                )
-
-    def add(self, table_short_name, df, if_exists="fail"):
+        """Writes any data in memory to the underlying database. Data which has not been changed since
+        it was last written is not re-written.
         """
-        Add data to a table in the file.
-
-        Args:
-            table_short_name (str): There is a short name, like "age" which
-                makes a table with a long name, like "age_table".
-            df (pd.Dataframe): Index will become the ID column of the table.
-            if_exists (str): Can be fail, replace, or append.
-        """
-
-        table_name = table_short_name + "_name"
-        table = self._t[table_name]
-
-        if hasattr(table, "__readonly__") and table.__readonly__:
-            raise DismodFileError(f"Table '{table_short_name}' is not writable")
-
         with self.engine.connect() as conn:
-            df.to_sql(
-                table_name,
-                conn,
-                if_exists=if_exists,
-                index_label=table_short_name + "_id",
-                dtype={k: v.type for k, v in table.c.items()},
-            )
+            for table_name, table in self._table_data.items():
+                if self._is_dirty(table_name):
+                    if hasattr(table, "__readonly__") and table.__readonly__:
+                        raise DismodFileError(f"Table '{table_name}' is not writable")
+
+                    table_definition = self._table_definitions[table_name]
+                    table.to_sql(
+                        table_name,
+                        conn,
+                        index_label=table_name + "_id",
+                        if_exists="replace",
+                        dtype={k: v.type for k, v in table_definition.c.items()},
+                    )
+
+                    # TODO: I'm re-calculating this hash for the sake of having a nice _is_dirty function.
+                    # That may be too expensive.
+                    table_hash = pd.util.hash_pandas_object(table)
+                    self._table_hash[table_name] = table_hash
 
     def diagnostic_print(self):
         """
