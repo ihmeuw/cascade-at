@@ -8,7 +8,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Enum, ForeignKey
 
 
-LOGGER = logging.getLogger("cascade_at.dm_file_format.dmtables")
+LOGGER = logging.getLogger(__name__)
 
 Base = declarative_base()
 
@@ -53,6 +53,7 @@ class Integrand(Base):
     """
     Each integrand may appear only once. Unused integrands need not be added.
     """
+    minimum_meas_cv = Column(Float())
 
 
 class DensityEnum(enum.Enum):
@@ -98,7 +99,7 @@ class Node(Base):
 
     node_id = Column(Integer(), primary_key=True)
     node_name = Column(String(), nullable=False, unique=True)
-    parent = Column(Integer, nullable=True)  # Parent is an id in _this_ table.
+    parent = Column(None, ForeignKey("node.node_id"), nullable=True)  # Parent is an id in _this_ table.
 
 
 class Prior(Base):
@@ -106,13 +107,13 @@ class Prior(Base):
 
     prior_id = Column(Integer(), primary_key=True)
     prior_name = Column(String(), unique=True)
-    lower = Column(Float())  # can be null
-    upper = Column(Float())  # can be null
+    density_id = Column(None, ForeignKey("density.density_id"))
+    lower = Column(Float(), nullable=True)
+    upper = Column(Float(), nullable=True)
     mean = Column(Float())
     std = Column(Float())
-    density_id = Column(None, ForeignKey("density.density_id"))
-    eta = Column(Float())
-    nu = Column(Float())
+    eta = Column(Float(), nullable=True)
+    nu = Column(Float(), nullable=True)
 
 
 class Weight(Base):
@@ -165,16 +166,16 @@ class SmoothGrid(Base):
     __tablename__ = "smooth_grid"
 
     smooth_grid_id = Column(Integer(), primary_key=True)
-    smooth_id = Column(Integer(), unique=True)
+    smooth_id = Column(Integer(), unique=True, nullable=True)
     age_id = Column(None, ForeignKey("age.age_id"))
     time_id = Column(None, ForeignKey("time.time_id"))
     value_prior_id = Column(Integer(), nullable=True)
     """A prior_id. If null, const_value must not be null."""
 
-    dage_prior_id = Column(Integer(), nullable=True)
+    dage_prior_id = Column(None, ForeignKey("prior.prior_id"), nullable=True)
     """A prior_id. If null, const_value must not be null."""
 
-    dtime_prior_id = Column(Integer(), nullable=True)
+    dtime_prior_id = Column(None, ForeignKey("prior.prior_id"), nullable=True)
     """A prior_id. If null, const_value must not be null."""
 
     const_value = Column(Float(), nullable=True)
@@ -248,7 +249,7 @@ class MulCov(Base):
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=True)
     covariate_id = Column(None, ForeignKey("covariate.covariate_id"), nullable=False)
     smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
-    """If this is null, the covariabe multiplier is always zero and no
+    """If this is null, the covariate multiplier is always zero and no
     model_variables are allocated for it."""
 
 
@@ -263,7 +264,6 @@ class AvgInt(Base):
     age_upper = Column(Float())
     time_lower = Column(Float())
     time_upper = Column(Float())
-    # Greg label = Column(String())
 
 
 class Data(Base):
@@ -274,20 +274,19 @@ class Data(Base):
     """This is in the docs but not in the code."""
 
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"))
+    density_id = Column(None, ForeignKey("density.density_id"))
     node_id = Column(None, ForeignKey("node.node_id"))
     weight_id = Column(None, ForeignKey("weight.weight_id"))
-    age_lower = Column(Float())
-    age_upper = Column(Float())
-    time_lower = Column(Float())
-    time_upper = Column(Float())
     hold_out = Column(Integer())
     """Zero or one for hold outs during fit command"""
-    density_id = Column(Integer())
     meas_value = Column(Float())
     meas_std = Column(Float())
     eta = Column(Float(), nullable=True)
     nu = Column(Float(), nullable=True)
-    # Greg sample_size = Column(Float())
+    age_lower = Column(Float())
+    age_upper = Column(Float())
+    time_lower = Column(Float())
+    time_upper = Column(Float())
 
 
 class Option(Base):
@@ -370,7 +369,7 @@ class FitVar(Base):
     fit_var_value = Column(Float())
     residual_value = Column(Float())
     residual_dage = Column(Float())
-    redisual_dtime = Column(Float())
+    residual_dtime = Column(Float())
     lagrange_value = Column(Float())
     lagrange_dage = Column(Float())
     lagrange_dtime = Column(Float())
