@@ -1,11 +1,15 @@
+import enum
+
 import numpy as np
 import pandas as pd
 
 import pytest
 
-from sqlalchemy.exc import StatementError
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Float, Enum
 
-from cascade.dismod.db.wrapper import DismodFile, _get_engine
+from cascade.dismod.db.wrapper import DismodFile, _get_engine, _validate_data
+from cascade.dismod.db import DismodFileError
 
 
 @pytest.fixture
@@ -28,7 +32,7 @@ def base_file(engine):
 def test_wrong_type(base_file):
     ages = pd.DataFrame({"age": np.array(["strings", "for", "ages"])})
     base_file.age = ages
-    with pytest.raises(StatementError):
+    with pytest.raises(DismodFileError):
         base_file.flush()
 
 
@@ -79,3 +83,73 @@ def test_reading_modified_columns(base_file, engine):
 
     dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
     assert ages.equals(dm_file2.age)
+
+
+DummyBase = declarative_base()
+
+
+class DummyTable(DummyBase):
+    __tablename__ = "test_table"
+    primary_key_column = Column(Integer(), primary_key=True)
+    integer_column = Column(Integer())
+    float_column = Column(Float())
+    nonnullable_column = Column(Integer(), nullable=False)
+    string_column = Column(String())
+    enum_column = Column(Enum(enum.Enum("Bee", "bumble honey carpenter wool_carder")))
+
+
+def test_validate_data__happy_path():
+    data = pd.DataFrame(
+        {
+            "integer_column": [1, 2, 3],
+            "float_column": [1.0, 2.0, 3.0],
+            "string_column": ["a", "b", "c"],
+            "enum_column": ["bumble", "honey", "carpenter"],
+            "nonnullable_column": [1, 2, 3],
+        }
+    )
+    _validate_data(DummyTable.__table__, data)
+
+
+def test_validate_data__bad_integer():
+    data = pd.DataFrame({"integer_column": [1.0, 2.0, 3.0], "nonnullable_column": [1, 2, 3]})
+    with pytest.raises(DismodFileError) as excinfo:
+        _validate_data(DummyTable.__table__, data)
+
+    assert "integer_column" in str(excinfo.value)
+
+
+def test_validate_data__bad_float():
+    data = pd.DataFrame({"float_column": ["1.0", "2.0", "3.0"], "nonnullable_column": [1, 2, 3]})
+    with pytest.raises(DismodFileError) as excinfo:
+        _validate_data(DummyTable.__table__, data)
+
+    assert "float_column" in str(excinfo.value)
+
+
+def test_validate_data__bad_string():
+    data = pd.DataFrame({"string_column": [1, 2, 3], "nonnullable_column": [1, 2, 3]})
+    with pytest.raises(DismodFileError) as excinfo:
+        _validate_data(DummyTable.__table__, data)
+    assert "string_column" in str(excinfo.value)
+
+
+def test_validate_data__bad_enum():
+    data = pd.DataFrame({"enum_column": [1, 2, 3], "nonnullable_column": [1, 2, 3]})
+    with pytest.raises(DismodFileError) as excinfo:
+        _validate_data(DummyTable.__table__, data)
+    assert "enum_column" in str(excinfo.value)
+
+
+def test_validate_data__extra_column():
+    data = pd.DataFrame({"nonnullable_column": [1, 2, 3], "other_column": [1, 2, 3]})
+    with pytest.raises(DismodFileError) as excinfo:
+        _validate_data(DummyTable.__table__, data)
+    assert "other_column" in str(excinfo.value)
+
+
+def test_validate_data__missing_column():
+    data = pd.DataFrame({"integer_column": [1, 2, 3]})
+    with pytest.raises(DismodFileError) as excinfo:
+        _validate_data(DummyTable.__table__, data)
+    assert "nonnullable_column" in str(excinfo.value)

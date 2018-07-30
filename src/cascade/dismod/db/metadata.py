@@ -110,8 +110,8 @@ class Prior(Base):
     density_id = Column(None, ForeignKey("density.density_id"))
     lower = Column(Float(), nullable=True)
     upper = Column(Float(), nullable=True)
-    mean = Column(Float())
-    std = Column(Float())
+    mean = Column(Float(), nullable=False)
+    std = Column(Float(), nullable=False)
     eta = Column(Float(), nullable=True)
     nu = Column(Float(), nullable=True)
 
@@ -131,22 +131,22 @@ class WeightGrid(Base):
     __tablename__ = "weight_grid"
 
     weight_grid_id = Column(Integer(), primary_key=True)
-    weight_id = Column(None, ForeignKey("weight.weight_id"))
-    age_id = Column(None, ForeignKey("age.age_id"))
-    time_id = Column(None, ForeignKey("time.time_id"))
-    weight = Column(Float())
+    weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=False)
+    age_id = Column(None, ForeignKey("age.age_id"), nullable=False)
+    time_id = Column(None, ForeignKey("time.time_id"), nullable=False)
+    weight = Column(Float(), nullable=False)
     """This is the weight for this age, time, and weight id."""
 
 
 class Smooth(Base):
     __tablename__ = "smooth"
 
-    smooth_id = Column(Integer(), primary_key=True)
-    smooth_name = Column(String(), unique=True)
+    smooth_id = Column(Integer(), primary_key=True, nullable=False)
+    smooth_name = Column(String(), unique=True, nullable=False)
     n_age = Column(Integer())
     """The number of age values in the smoothing grid. Greater than zero"""
 
-    n_time = Column(Integer())
+    n_time = Column(Integer(), nullable=False)
     """The number of time values in the smoothing grid. Greater than zero"""
 
     mulstd_value_prior_id = Column(None, ForeignKey("prior.prior_id"), nullable=True)
@@ -167,8 +167,8 @@ class SmoothGrid(Base):
 
     smooth_grid_id = Column(Integer(), primary_key=True)
     smooth_id = Column(Integer(), unique=True, nullable=True)
-    age_id = Column(None, ForeignKey("age.age_id"))
-    time_id = Column(None, ForeignKey("time.time_id"))
+    age_id = Column(None, ForeignKey("age.age_id"), nullable=False)
+    time_id = Column(None, ForeignKey("time.time_id"), nullable=False)
     value_prior_id = Column(Integer(), nullable=True)
     """A prior_id. If null, const_value must not be null."""
 
@@ -188,7 +188,7 @@ class NSList(Base):
     __tablename__ = "nslist"
 
     nslist_id = Column(Integer(), primary_key=True)
-    nslist_name = Column(String(), unique=True)
+    nslist_name = Column(String(), unique=True, nullable=False)
 
 
 class NSListPair(Base):
@@ -197,9 +197,9 @@ class NSListPair(Base):
     __tablename__ = "nslist_pair"
 
     nslist_pair_id = Column(Integer(), primary_key=True)
-    nslist_id = Column(None, ForeignKey("nslist.nslist_id"))
-    node_id = Column(None, ForeignKey("node.node_id"))
-    smooth_id = Column(None, ForeignKey("smooth.smooth_id"))
+    nslist_id = Column(None, ForeignKey("nslist.nslist_id"), nullable=False)
+    node_id = Column(None, ForeignKey("node.node_id"), nullable=False)
+    smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=False)
 
 
 class RateName(enum.Enum):
@@ -214,7 +214,7 @@ class Rate(Base):
     __tablename__ = "rate"
 
     rate_id = Column(Integer(), primary_key=True)
-    rate_name = Column(Enum(RateName))
+    rate_name = Column(Enum(RateName), nullable=False)
     parent_smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
     """If null, then parent rate is always zero and no model variables are
     allocated for it"""
@@ -257,36 +257,36 @@ class AvgInt(Base):
     __tablename__ = "avgint"
 
     avgint_id = Column(Integer(), primary_key=True)
-    integrand_id = Column(None, ForeignKey("integrand.integrand_id"))
-    node_id = Column(None, ForeignKey("node.node_id"))
-    weight_id = Column(None, ForeignKey("weight.weight_id"))
-    age_lower = Column(Float())
-    age_upper = Column(Float())
-    time_lower = Column(Float())
-    time_upper = Column(Float())
+    integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=False)
+    node_id = Column(None, ForeignKey("node.node_id"), nullable=False)
+    weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=False)
+    age_lower = Column(Float(), nullable=False)
+    age_upper = Column(Float(), nullable=False)
+    time_lower = Column(Float(), nullable=False)
+    time_upper = Column(Float(), nullable=False)
 
 
 class Data(Base):
     __tablename__ = "data"
 
     data_id = Column(Integer(), primary_key=True)
-    data_name = Column(String(), unique=True)
+    data_name = Column(String(), unique=True, nullable=False)
     """This is in the docs but not in the code."""
 
-    integrand_id = Column(None, ForeignKey("integrand.integrand_id"))
-    density_id = Column(None, ForeignKey("density.density_id"))
-    node_id = Column(None, ForeignKey("node.node_id"))
-    weight_id = Column(None, ForeignKey("weight.weight_id"))
-    hold_out = Column(Integer())
+    integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=False)
+    density_id = Column(None, ForeignKey("density.density_id"), nullable=False)
+    node_id = Column(None, ForeignKey("node.node_id"), nullable=False)
+    weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=False)
+    hold_out = Column(Integer(), nullable=False)
     """Zero or one for hold outs during fit command"""
-    meas_value = Column(Float())
-    meas_std = Column(Float())
+    meas_value = Column(Float(), nullable=False)
+    meas_std = Column(Float(), nullable=False)
     eta = Column(Float(), nullable=True)
     nu = Column(Float(), nullable=True)
-    age_lower = Column(Float())
-    age_upper = Column(Float())
-    time_lower = Column(Float())
-    time_upper = Column(Float())
+    age_lower = Column(Float(), nullable=False)
+    age_upper = Column(Float(), nullable=False)
+    time_lower = Column(Float(), nullable=False)
+    time_upper = Column(Float(), nullable=False)
 
 
 class Option(Base):
@@ -294,7 +294,7 @@ class Option(Base):
 
     option_id = Column(Integer(), primary_key=True)
     option_name = Column(String(), unique=True)
-    option_value = Column(String())
+    option_value = Column(String(), nullable=False)
 
 
 class Constraint(Base):
@@ -303,17 +303,17 @@ class Constraint(Base):
     __tablename__ = "constraint_table"
 
     constraint_id = Column(Integer(), primary_key=True)
-    integrand_id = Column(Integer())
-    density_id = Column(Integer())
-    node_id = Column(Integer())
-    weight_id = Column(Integer())
-    hold_out = Column(Integer())
-    meas_value = Column(Float())
-    meas_std = Column(Float())
-    age_lower = Column(Float())
-    age_upper = Column(Float())
-    time_lower = Column(Float())
-    time_upper = Column(Float())
+    integrand_id = Column(Integer(), nullable=False)
+    density_id = Column(Integer(), nullable=False)
+    node_id = Column(Integer(), nullable=False)
+    weight_id = Column(Integer(), nullable=False)
+    hold_out = Column(Integer(), nullable=False)
+    meas_value = Column(Float(), nullable=False)
+    meas_std = Column(Float(), nullable=False)
+    age_lower = Column(Float(), nullable=False)
+    age_upper = Column(Float(), nullable=False)
+    time_lower = Column(Float(), nullable=False)
+    time_upper = Column(Float(), nullable=False)
 
 
 class CascadeOption(Base):
@@ -324,8 +324,8 @@ class CascadeOption(Base):
     __tablename__ = "cascade_option_table"
 
     cascade_option_id = Column(Integer(), primary_key=True)
-    cascade_option_name = Column(String(), unique=True)
-    cascade_option_value = Column(String())
+    cascade_option_name = Column(String(), unique=True, nullable=False)
+    cascade_option_value = Column(String(), nullable=False)
 
 
 class DataSubset(Base):
@@ -338,7 +338,7 @@ class DataSubset(Base):
     __readonly__ = True
 
     data_subset_id = Column(Integer(), primary_key=True)
-    data_id = Column(None, ForeignKey("data.data_id"))
+    data_id = Column(None, ForeignKey("data.data_id"), nullable=False)
 
 
 class DependVar(Base):
@@ -351,8 +351,8 @@ class DependVar(Base):
     __readonly__ = True
 
     depend_var_id = Column(Integer(), primary_key=True)
-    data_depend = Column(Integer())
-    prior_depend = Column(Integer())
+    data_depend = Column(Integer(), nullable=False)
+    prior_depend = Column(Integer(), nullable=False)
 
 
 class FitVar(Base):
@@ -366,13 +366,13 @@ class FitVar(Base):
     __readonly__ = True
 
     fit_var_id = Column(Integer(), primary_key=True)
-    fit_var_value = Column(Float())
-    residual_value = Column(Float())
-    residual_dage = Column(Float())
-    residual_dtime = Column(Float())
-    lagrange_value = Column(Float())
-    lagrange_dage = Column(Float())
-    lagrange_dtime = Column(Float())
+    fit_var_value = Column(Float(), nullable=False)
+    residual_value = Column(Float(), nullable=False)
+    residual_dage = Column(Float(), nullable=False)
+    residual_dtime = Column(Float(), nullable=False)
+    lagrange_value = Column(Float(), nullable=False)
+    lagrange_dage = Column(Float(), nullable=False)
+    lagrange_dtime = Column(Float(), nullable=False)
 
 
 class FitDataSubset(Base):
@@ -386,10 +386,8 @@ class FitDataSubset(Base):
     __readonly__ = True
 
     fit_data_subset_id = Column(Integer(), primary_key=True)
-    # Greg data_subset_id = \
-    # Column(None, ForeignKey("data_subset.data_subset_id")
-    avg_integrand = Column(Float())
-    weighted_residual = Column(Float())
+    avg_integrand = Column(Float(), nullable=False)
+    weighted_residual = Column(Float(), nullable=False)
 
 
 class SampleIndex(Base):
@@ -403,9 +401,9 @@ class SampleIndex(Base):
     __tablename__ = "sample_index_table"
 
     sample_id = Column(Integer(), primary_key=True)
-    sample_index = Column(Integer())
-    var_id = Column(Integer())
-    var_value = Column(Float())
+    sample_index = Column(Integer(), nullable=False)
+    var_id = Column(Integer(), nullable=False)
+    var_value = Column(Float(), nullable=False)
 
 
 class Predict(Base):
@@ -417,9 +415,9 @@ class Predict(Base):
     __readonly__ = True
 
     predict_id = Column(Integer(), primary_key=True)
-    sample_index = Column(Integer())
-    avgint_id = Column(Integer())
-    avg_integrand = Column(Float())
+    sample_index = Column(Integer(), nullable=False)
+    avgint_id = Column(Integer(), nullable=False)
+    avg_integrand = Column(Float(), nullable=False)
 
 
 class ScaleVar(Base):
@@ -436,7 +434,7 @@ class ScaleVar(Base):
     __tablename__ = "scale_var_table"
 
     scale_var_id = Column(Integer(), primary_key=True)
-    scale_var_value = Column(Float())
+    scale_var_value = Column(Float(), nullable=False)
 
 
 class StartVar(Base):
@@ -451,7 +449,7 @@ class StartVar(Base):
     __tablename__ = "start_var_table"
 
     start_var_id = Column(Integer(), primary_key=True)
-    start_var_value = Column(Float())
+    start_var_value = Column(Float(), nullable=False)
 
 
 class TruthVar(Base):
@@ -462,7 +460,7 @@ class TruthVar(Base):
     __tablename__ = "truth_var_table"
 
     truth_var_id = Column(Integer(), primary_key=True)
-    truth_var_value = Column(Float())
+    truth_var_value = Column(Float(), nullable=False)
 
 
 class Simulate(Base):
@@ -471,10 +469,10 @@ class Simulate(Base):
     __tablename__ = "simulate_table"
 
     simulate_id = Column(Integer(), primary_key=True)
-    simulate_index = Column(Integer())
-    data_subset_id = Column(None, ForeignKey("data_subset_table.data_subset_id"))
-    simulate_value = Column(Float())  # Greg's has meas_value
-    simulate_delta = Column(Float())  # Greg's has meas_std
+    simulate_index = Column(Integer(), nullable=False)
+    data_subset_id = Column(None, ForeignKey("data_subset_table.data_subset_id"), nullable=False)
+    simulate_value = Column(Float(), nullable=False)  # Greg's has meas_value
+    simulate_delta = Column(Float(), nullable=False)  # Greg's has meas_std
 
 
 class Var(Base):
@@ -483,14 +481,14 @@ class Var(Base):
     __tablename__ = "var_table"
 
     var_id = Column(Integer(), primary_key=True)
-    var_type = Column(String())
-    smooth_id = Column(Integer())
-    age_id = Column(Integer())
-    time_id = Column(Integer())
-    node_id = Column(Integer())
-    rate_id = Column(Integer())
-    integrand_id = Column(Integer())
-    covariate_id = Column(Integer())
+    var_type = Column(String(), nullable=False)
+    smooth_id = Column(Integer(), nullable=False)
+    age_id = Column(Integer(), nullable=False)
+    time_id = Column(Integer(), nullable=False)
+    node_id = Column(Integer(), nullable=False)
+    rate_id = Column(Integer(), nullable=False)
+    integrand_id = Column(Integer(), nullable=False)
+    covariate_id = Column(Integer(), nullable=False)
 
 
 _TYPE_MAP = {str: String, int: Integer, float: Float}

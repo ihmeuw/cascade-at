@@ -5,11 +5,14 @@ The file format is sqlite3. This uses a local mapping of database tables
 to create it and add tables.
 """
 import logging
+from enum import Enum
 
 import pandas as pd
+import numpy as np
+
 from sqlalchemy import create_engine
 from sqlalchemy.sql import select
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, StatementError
 
 from .metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
 from . import DismodFileError
@@ -25,6 +28,50 @@ def _get_engine(file_path):
     else:
         engine = create_engine("sqlite:///:memory:", echo=False)
     return engine
+
+
+def _validate_data(table_definition, data):
+    """Validates that the dtypes in data match the expected types in the table_definition
+    """
+    columns_checked = set()
+
+    for column_name, column_definition in table_definition.c.items():
+        if column_name in data:
+            actual_type = data[column_name].dtype
+            expected_type = column_definition.type.python_type
+
+            if issubclass(expected_type, Enum):
+                # This is an Enum type column, I'm making the simplifying assumption
+                # that those will always be string type
+                expected_type = str
+
+            if expected_type is int:
+                if not np.issubdtype(actual_type, np.integer):
+                    raise DismodFileError(
+                        f"column '{column_name}' in data for table '{table_definition.name}' must be integer"
+                    )
+            elif expected_type is float:
+                if not np.issubdtype(actual_type, np.number):
+                    raise DismodFileError(
+                        f"column '{column_name}' in data for table '{table_definition.name}' must be numeric"
+                    )
+            elif expected_type is str:
+                correct = actual_type != np.dtype("O")
+                if len(data) > 0:
+                    actual_type = type(data[column_name][0])
+                    correct = np.issubdtype(actual_type, np.str_)
+
+                if not correct:
+                    raise DismodFileError(
+                        f"column '{column_name}' in data for table '{table_definition.name}' must be string"
+                    )
+        elif not (column_definition.primary_key or column_definition.nullable):
+            raise DismodFileError(f"Missing column in data for table '{table_definition.name}': '{column_name}'")
+        columns_checked.add(column_name)
+
+    extra_columns = set(data.columns).difference(table_definition.c.keys())
+    if extra_columns:
+        raise DismodFileError(f"extra columns in data for table '{table_definition.name}': {extra_columns}")
 
 
 class DismodFile:
@@ -74,7 +121,7 @@ class DismodFile:
         Dismod documentation says all densities should be in the file,
         so this puts them all in.
         """
-        self.density = pd.DataFrame({"density": [x.name for x in DensityEnum]})
+        self.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
 
     def __getattr__(self, table_name):
         if table_name in self._table_data:
@@ -125,13 +172,17 @@ class DismodFile:
                         raise DismodFileError(f"Table '{table_name}' is not writable")
 
                     table_definition = self._table_definitions[table_name]
-                    table.to_sql(
-                        table_name,
-                        connection,
-                        index_label=table_name + "_id",
-                        if_exists="replace",
-                        dtype={k: v.type for k, v in table_definition.c.items()},
-                    )
+                    _validate_data(table_definition, table)
+                    try:
+                        table.to_sql(
+                            table_name,
+                            connection,
+                            index_label=table_name + "_id",
+                            if_exists="replace",
+                            dtype={k: v.type for k, v in table_definition.c.items()},
+                        )
+                    except StatementError as e:
+                        raise
 
                     # TODO: I'm re-calculating this hash for the sake of having a nice _is_dirty function.
                     # That may be too expensive.
