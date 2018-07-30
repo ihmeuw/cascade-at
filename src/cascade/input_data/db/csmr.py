@@ -2,7 +2,16 @@
 
 import logging
 
-from db_queries import get_outputs
+try:
+    from db_queries import get_outputs
+except ImportError:
+
+    class DummyGetOutputs:
+        def __getattr__(self, name):
+            raise ImportError(f"Required package db_queries not found")
+
+    get_outputs = DummyGetOutputs()
+
 
 from cascade.core.db import cursor
 
@@ -33,29 +42,31 @@ def _get_csmr_data(execution_context):
 
     model_version_id = execution_context.parameters.model_version_id
     add_csmr_cause = execution_context.parameters.add_csmr_cause
-    parent_loc = add_csmr_cause = execution_context.parameters.drill
+    parent_loc = execution_context.parameters.drill
 
-    csmr_age_group_ids = list(range(2, 22))
-    csmr_measure_id = 1
-    csmr_metric_id_rate = 3
+    csmr_measure_id_deaths = 1  # measure type = deaths (1)
+    csmr_metric_id_rate = 3  # metric type = per capita rate
     csmr_gbd_round_id = 5
-    csmr_sex_id = [1, 2]
-    csmr_year_ids = [1985, 1990, 1995, 2000, 2005, 2010, 2016]
+
+    csmr_keep_cols = ["year_id", "location_id", "sex_id", "age_group_id",
+                      "val", "lower", "upper"]
 
     csmr = get_outputs(
         topic="cause",
         cause_id=add_csmr_cause,
         location_id=parent_loc,
         metric_id=csmr_metric_id_rate,
-        year_id=csmr_year_ids,
-        age_group_id=csmr_age_group_ids,
-        measure_id=csmr_measure_id,
-        sex_id=csmr_sex_id,
+        year_id="all",
+        age_group_id="most_detailed",
+        measure_id=csmr_measure_id_deaths,
+        sex_id="all",
         gbd_round_id=csmr_gbd_round_id
-        )[["year_id", "location_id", "sex_id", "age_group_id",
-           "val", "lower", "upper"]]
+        )[csmr_keep_cols]
 
     csmr["model_version_id"] = model_version_id
+
+    csmr_columns = ["model_version_id"] + csmr_keep_cols
+    csmr = csmr[csmr_columns]
 
     csmr.rename(columns={"val": "mean"}, inplace=True)
 
