@@ -1,5 +1,5 @@
 import numpy as np
-from cascade.model.demography import DemographicInterval
+from cascade.model import DemographicInterval
 
 
 

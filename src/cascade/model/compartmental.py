@@ -1,6 +1,69 @@
 """
+.. _compartmental-modeling-tools:
+
+Compartmental Modeling Tools
+----------------------------
+
+These functions build theoretical distributions with which to understand
+how Dismod-AT works, and how disease processes work.
+
+1.  Specify a disease process by making simple Python functions that
+    return disease rates as a function of time. You can specify a set
+    of :math:`(\iota, \rho, \chi, \mu)`, or you can specify a set
+    of :math:`(\iota, \rho, \chi, \omega)`. We'll call the former the
+    total-mortality specification and the latter the other-mortality
+    specification.
+
+    There is a basic version of total mortality supplied for
+    you in ``siler_default``.
+
+2.  Given a set of pure functions, solve the differential equations
+    in order to determine prevalence over time. For the total
+    mortality specification, this means running::
+
+        S, C, P = prevalence_solution(iota, rho, emr, total)
+
+    The returned values are functions for susceptibles, with-condition,
+    and prevalence of with-condition, :math:`P=C/(S+C)`.
+    They are functions built by
+    interpolating solutions to the core differential equation.
+    For the other-mortality specification, this means running::
+
+        S, C = dismod_solution(iota, rho, emr, omega)
+
+    It can be helpful to define the total alive as a function::
+
+        def lx(t):
+            return S(t) + C(t)
+
+    This is what we should use as a weighting function for computing
+    integrands.
+
+3.  Create a set of demographic intervals (regions of ages)
+    over which to compute averaged values from the continuous rates::
+
+        nx = (1/52) * np.array([1, 3, 52-3, 4*52, 5*52, 5*52], dtype=np.float)
+        intervals = DemographicInterval(nx)
+        observations, normalization = integrands_from_function(
+            [incidence, emr, C],
+            lx,
+            intervals
+            )
+
+    The resulting list of observations is a set of arrays that then
+    can go to Dismod-AT.
+
+
+
+.. _differential-equations:
+
+Differential Equations
+----------------------
+
+.. _dismod-at-equation:
+
 DismodAT Differential Equation
-------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These functions manipulate data for the compartmental model
 that the differential equation describes. Using
@@ -23,7 +86,7 @@ creating test data and analyzing interpolated data.
 .. _prevalence-only:
 
 Prevalence-Only Equation
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 The prevalence-only form of the ODE.
 The full differential equation can be transformed into a space

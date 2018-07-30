@@ -1,14 +1,14 @@
 import numpy as np
 from scipy.stats import gamma, weibull_min
 
-from cascade.model.compartmental import (
+from cascade.model import (
     build_derivative_prevalence, build_derivative_full,
     solve_differential_equation, siler_default,
     total_mortality_solution, prevalence_solution, dismod_solution,
     omega_from_mu, mu_from_omega, average_over_interval,
     integrand_normalization, integrands_from_function,
 )
-from cascade.model.demography import (
+from cascade.model import (
     DemographicInterval
 )
 
