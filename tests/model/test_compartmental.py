@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import gamma, weibull_min
 
 from cascade.model.compartmental import (
     build_derivative_prevalence, build_derivative_full,
@@ -225,3 +226,32 @@ def test_integrand_continuous_exact():
     tolerance_due_to_interpolated_functions = 0.015
     assert np.allclose(
         result, expected, atol=tolerance_due_to_interpolated_functions)
+
+
+def test_make_test_integrands():
+    """
+    Make up some distributions and turn them into integrands for Dismod.
+    """
+    def diabetes_incidence(x):
+        return 0.8 * gamma(a=9, scale=7).pdf(x)
+
+    def diabetes_emr(x):
+        return 0.015 * (np.exp((x / 100) ** 2) - 1)
+
+    def diabetes_remission(x):
+        return np.zeros_like(x)
+
+    total_mortality = siler_default()
+
+    S, C, P = prevalence_solution(
+        diabetes_incidence, diabetes_remission, diabetes_emr, total_mortality)
+
+    def lx(t):
+        return S(t) + C(t)
+
+    rates, norm = integrands_from_function(
+        [diabetes_incidence, C, diabetes_emr],
+        lx,
+        DemographicInterval(np.full((10,), 10.0, dtype=np.float))
+    )
+    assert len(rates) == 3

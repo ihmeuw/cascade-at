@@ -232,7 +232,10 @@ def total_mortality_solution(mu):
 
     def total_pop(t):
         val = n_array(t)[0]
-        val[val < 0] = 0
+        if isinstance(val, np.ndarray):
+            val[val < 0] = 0
+        elif val < 0:
+            return 0.0
         return val
 
     return total_pop
