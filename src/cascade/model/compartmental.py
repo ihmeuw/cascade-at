@@ -55,7 +55,9 @@ which indicates that :math:`\mu = \omega + \chi P`.
 
 """
 import numpy as np
-from scipy.integrate import solve_ivp
+from scipy.integrate import quad, solve_ivp
+
+from cascade.model.demography import DemographicInterval
 
 
 def build_derivative_prevalence(iota, rho, chi):
@@ -206,9 +208,10 @@ def siler_time_dependent_hazard(constants):
     vol. 13, pp. 63–82, 2005.
 
     Args:
-        contants (np.array): List of constants. The first is time because
+        constants (np.array): List of constants. The first is time because
             this function can model change in a total mortality distribution
-            over time.
+            over time. These are named according to the paper and are, in
+            order, "t, a1, a2, a3, b1, b2, c1, c2".
 
     Returns:
         A function that returns mortality rate as a function of age.
@@ -224,8 +227,8 @@ def siler_time_dependent_hazard(constants):
 
 def total_mortality_solution(mu):
     """Given a total mortality rate, as a function, return :math:`N=l(x)`."""
-    n_array = solve_differential_equation(build_derivative_total(mu),
-                          initial=np.array([1.0], dtype=float))
+    n_array = solve_differential_equation(
+        build_derivative_total(mu), initial=np.array([1.0], dtype=float))
 
     def total_pop(t):
         val = n_array(t)[0]
@@ -255,3 +258,77 @@ def dismod_solution(iota, rho, chi, omega):
     S = lambda t: bunch(t)[0]
     C = lambda t: bunch(t)[1]
     return S, C
+
+
+def average_over_interval(raw_rate, weight_function, intervals):
+    """
+    Construct demographic observations from a raw rate function.
+    This is a one-dimensional function, presumably along the cohort time.
+    It doesn't integrate over ages and years.
+
+    Args:
+        raw_rate (function): A function that returns a rate.
+        weight_function (function): A function that returns a weight.
+            This will usually be :math:`N`, the total population.
+        intervals (DemographicInterval): Set of contiguous intervals
+            over which to average the values.
+
+    Returns:
+        np.ndarray: List of integrand values.
+    """
+    def averaging_function(t):
+        return raw_rate(t) * weight_function(t)
+
+    results = np.zeros(len(intervals), dtype=np.float)
+
+    for interval_idx in range(len(intervals)):
+        start = intervals.start[interval_idx]
+        finish = intervals.finish[interval_idx]
+        results[interval_idx] = quad(averaging_function, start, finish)[0]
+
+    return results
+
+
+def integrand_normalization(weight_function, intervals):
+    """
+    Make the denominator for integrands.
+    This is a one-dimensional function, presumably along the cohort time.
+    It doesn't integrate over ages and years.
+
+    Args:
+        weight_function (function): Weights, usually population.
+        intervals (DemographicInterval): Contiguous time periods.
+
+    Returns:
+        np.array: Integrated values of the weight function.
+    """
+    def constant_rate(t):
+        return 1.0
+
+    return average_over_interval(constant_rate, weight_function, intervals)
+
+
+def integrands_from_function(rates, weight_function, intervals):
+    """
+    Given a list of rate functions and a weight function, return
+    their integrands on intervals.
+
+    Args:
+        rates (list[function]): A list of rate functions to integrate.
+        weight_function (function): The weight function, usually population.
+        intervals (DemographicInterval): A set of time intervals,
+            here along the cohort time.
+
+    Returns:
+        (list[np.array], np.array): A list of integrands, followed by
+            the integrand that is the weighting function.
+    """
+    normalization = integrand_normalization(weight_function, intervals)
+
+    rate_integrands = list()
+    for rate in rates:
+        rate_integrands.append(
+            average_over_interval(rate, weight_function, intervals)
+            / normalization)
+
+    return rate_integrands, normalization
