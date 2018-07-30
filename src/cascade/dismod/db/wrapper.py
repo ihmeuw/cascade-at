@@ -118,7 +118,7 @@ class DismodFile:
         """Writes any data in memory to the underlying database. Data which has not been changed since
         it was last written is not re-written.
         """
-        with self.engine.connect() as conn:
+        with self.engine.connect() as connection:
             for table_name, table in self._table_data.items():
                 if self._is_dirty(table_name):
                     if hasattr(table, "__readonly__") and table.__readonly__:
@@ -127,7 +127,7 @@ class DismodFile:
                     table_definition = self._table_definitions[table_name]
                     table.to_sql(
                         table_name,
-                        conn,
+                        connection,
                         index_label=table_name + "_id",
                         if_exists="replace",
                         dtype={k: v.type for k, v in table_definition.c.items()},
