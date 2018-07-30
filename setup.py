@@ -11,6 +11,8 @@ setup(
     install_requires=["pandas", "toml"],
     extras_require={
         "testing": ["pytest", "pytest-mock", "hypothesis"],
+        "documentation": ["sphinx", "sphinx_rtd_theme", "sphinx-autobuild",
+                          "sphinxcontrib-napoleon"],
         "ihme_databases": ["db_tools"],
     },
     entry_points={
