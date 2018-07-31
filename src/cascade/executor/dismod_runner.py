@@ -36,7 +36,7 @@ defining the :class:`cascade_at.sequential_batch.Batch`.
 import functools
 import logging
 import os
-import subprocess
+import asyncio
 
 
 CODELOG = logging.getLogger(__name__)
@@ -99,28 +99,21 @@ def dismod_recipe(command_list, context):
     if len(dismod_executable) < 1:
         raise ValueError("There is no dismod executable in context")
     if not dismod_executable[0].exists():
-        raise FileNotFoundError(
-            f"Could not find file {dismod_executable}"
-            )
-    using_singularity = (len(dismod_executable) > 3 and
-                         dismod_executable[0].name == "singularity")
-    if (using_singularity and not dismod_executable[2].exists()):
-        raise FileNotFoundError(
-            f"Could not find singularity image {dismod_executable[2]}"
-            )
+        raise FileNotFoundError(f"Could not find file {dismod_executable}")
+    using_singularity = len(dismod_executable) > 3 and dismod_executable[0].name == "singularity"
+    if using_singularity and not dismod_executable[2].exists():
+        raise FileNotFoundError(f"Could not find singularity image {dismod_executable[2]}")
 
     db_file = context.dismod_file()
     if not db_file.exists():
-        raise FileNotFoundError(
-            f"Could not find file {db_file}"
-        )
+        raise FileNotFoundError(f"Could not find file {db_file}")
 
     for command in command_list:
         MATHLOG.info("Running dismod_at {} {}".format(db_file, command))
         run_and_watch(
             dismod_executable + [db_file] + command,
             context.params("single_use_machine"),
-            context.params("subprocess_poll_time")
+            context.params("subprocess_poll_time"),
         )
 
 
@@ -132,6 +125,22 @@ def reduce_process_priority():
     slower.
     """
     os.nice(19)
+
+
+@asyncio.coroutine
+def _read_pipe(pipe, result, callback=lambda text: None):
+    """Read from a pipe until it closes.
+
+    Args:
+        pipe: The pipe to read from
+        result: a list to accumulate the output into
+        callback: a callable which will be invoked each time data is read from the pipe
+    """
+    while not pipe.at_eof():
+        text = yield from pipe.read(2 ** 16)
+        text = text.decode("utf-8")
+        result.append(text)
+        callback(text)
 
 
 def run_and_watch(command, single_use_machine, poll_time):
@@ -153,6 +162,13 @@ def run_and_watch(command, single_use_machine, poll_time):
         str: The output stream.
         str: The error stream.
     """
+    command = [str(a) for a in command]
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(_async_run_and_watch(command, single_use_machine, poll_time))
+
+
+@asyncio.coroutine
+def _async_run_and_watch(command, single_use_machine, poll_time):
     if single_use_machine:
         pre_execution_function = reduce_process_priority
     else:
@@ -160,44 +176,32 @@ def run_and_watch(command, single_use_machine, poll_time):
 
     try:
         CODELOG.info(f"Forking to {command}")
-        sub_process = subprocess.Popen(
-            args=command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-            preexec_fn=pre_execution_function
-         )
+        sub_process = yield from asyncio.subprocess.create_subprocess_exec(
+            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, preexec_fn=pre_execution_function
+        )
     except ValueError as ve:
-        raise Exception(
-            f"Dismod called with invalid arguments {ve}"
-        )
+        raise Exception(f"Dismod called with invalid arguments {ve}")
     except OSError as ose:
-        raise Exception(
-            f"Dismod couldn't run due to OS error {ose}"
-        )
+        raise Exception(f"Dismod couldn't run due to OS error {ose}")
 
-    out_list = list()
-    err_list = list()
+    out_list = []
+    err_list = []
 
-    while sub_process.poll() is not None:
-        outs, errs = sub_process.communicate(timeout=poll_time)
-        MATHLOG.debug(outs)
-        out_list.append(outs)
-        err_list.append(errs)
-
-    outs, errs = sub_process.communicate()
-    MATHLOG.debug(outs)
-    out_list.append(outs)
-    err_list.append(errs)
+    loop = asyncio.get_event_loop()
+    std_out_task = loop.create_task(_read_pipe(sub_process.stdout, out_list, lambda text: MATHLOG.debug(text)))
+    std_err_task = loop.create_task(_read_pipe(sub_process.stderr, err_list, lambda text: MATHLOG.error(text)))
+    yield from sub_process.wait()
+    yield from std_out_task
+    yield from std_err_task
 
     if sub_process.returncode != 0:
         msg = (
             f"return code {sub_process.returncode}\n"
             f"stdout {os.linesep.join(out_list)}\n"
             f"stderr {os.linesep.join(err_list)}\n"
-            )
+        )
         raise Exception("dismod_at failed.\n{}".format(msg))
     else:
         pass  # Return code is 0. Success.
 
-    return out_list, err_list
+    return "".join(out_list), "".join(err_list)
