@@ -6,9 +6,14 @@ form.
 
 import logging
 
-from cascade.core.db import cursor
+import pandas as pd
+
+from cascade.core.db import cursor, connection
 
 CODELOG = logging.getLogger(__name__)
+
+# FIXME: There is a shared function that get's the official mapping, I think. Or an sql query at least.
+MEASURES = {6: "incidence", 9: "mtexcess"}
 
 
 def _bundle_is_frozen(execution_context):
@@ -16,14 +21,14 @@ def _bundle_is_frozen(execution_context):
     """
 
     model_version_id = execution_context.parameters.model_version_id
-    query = f"""
+    query = """
     select exists(
              select * from epi.t3_model_version_dismod
-             where model_version_id = {model_version_id}
+             where model_version_id = %(model_version_id)s
     )
     """
     with cursor(execution_context) as c:
-        c.execute(query)
+        c.execute(query, args={"model_version_id": model_version_id})
         exists = c.fetchone()[0]
 
     return exists == 1
@@ -54,12 +59,18 @@ def _get_bundle_id(execution_context):
         return bundle_ids[0][0]
 
 
-def _get_tier_2_bundle_data(execution_context):
-    """Downloads the tier 2 data for the bundle associated with the current model_version_id.
+def _get_bundle_data(execution_context, bundle_id, tier=3):
+    """Downloads the tier 2 or 3 data for the bundle associated with the current model_version_id.
     """
-    database = execution_context.parameters.bundle_database
 
-    bundle_id = _get_bundle_id(execution_context)
+    if tier == 2:
+        database = execution_context.parameters.bundle_database
+        table = "epi.bundle_dismod"
+    elif tier == 3:
+        database = execution_context.parameters.database
+        table = "epi.t3_model_version_dismod"
+    else:
+        raise ValueError(f"Only tiers 2 and 3 are supported")
 
     query = f"""
     SELECT
@@ -96,26 +107,31 @@ def _get_tier_2_bundle_data(execution_context):
          design_effect,
          outlier_type_id
         FROM
-         epi.bundle_dismod
+         {table}
         WHERE
          bundle_id = %(bundle_id)s and
          input_type_id NOT IN(5,6) and
          outlier_type_id IN (0,1)
          """
-    with cursor(database=database) as c:
-        c.execute(query, args={"bundle_id": bundle_id})
-        bundle_rows = list(c)
-        CODELOG.debug(f"Downloaded {len(bundle_rows)} lines of bundle_id {bundle_id} from '{database}'")
+    with connection(database=database) as c:
+        bundle_data = pd.read_sql(query, c, params={"bundle_id": bundle_id})
+        CODELOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id} from '{database}'")
 
-    return bundle_rows
+    return bundle_data
 
 
-def _get_tier_2_study_covariates(execution_context):
-    """Downloads the tier 2 study covariate mappings for the bundle associated with the current model_version_id.
+def _get_study_covariates(execution_context, bundle_id, tier=3):
+    """Downloads the tier 2 or 3 study covariate mappings for the bundle associated with the current model_version_id.
     """
-    database = execution_context.parameters.bundle_database
 
-    bundle_id = _get_bundle_id(execution_context)
+    if tier == 2:
+        database = execution_context.parameters.bundle_database
+        table = "epi.bundle_dismod_study_covariate"
+    elif tier == 3:
+        database = execution_context.parameters.database
+        table = "epi.t3_model_version_study_covariate"
+    else:
+        raise ValueError(f"Only tiers 2 and 3 are supported")
 
     query = f"""
     SELECT
@@ -123,18 +139,17 @@ def _get_tier_2_study_covariates(execution_context):
         seq,
         study_covariate_id
     FROM
-        epi.bundle_dismod_study_covariate
+        {table}
     WHERE
         bundle_id = %(bundle_id)s
          """
-    with cursor(database=database) as c:
-        c.execute(query, args={"bundle_id": bundle_id})
-        covariate_rows = list(c)
+    with connection(database=database) as c:
+        covariates = pd.read_sql(query, c, params={"bundle_id": bundle_id})
         CODELOG.debug(
-            f"Downloaded {len(covariate_rows)} lines of study covariates for bundle_id {bundle_id} from '{database}'"
+            f"Downloaded {len(covariates)} lines of study covariates for bundle_id {bundle_id} from '{database}'"
         )
 
-    return covariate_rows
+    return covariates
 
 
 def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
@@ -181,7 +196,7 @@ def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
     )
     """
 
-    cursor.executemany(insert_query, bundle_data)
+    cursor.executemany(insert_query, bundle_data.values())
 
     CODELOG.debug(f"uploaded {len(bundle_data)} lines of bundle data")
 
@@ -201,7 +216,7 @@ def _upload_study_covariates_to_tier_3(cursor, model_version_id, covariate_data)
     )
     """
 
-    cursor.executemany(insert_query, covariate_data)
+    cursor.executemany(insert_query, covariate_data.values())
 
     CODELOG.debug(f"uploaded {len(covariate_data)} lines of covariate")
 
@@ -228,9 +243,91 @@ def freeze_bundle(execution_context) -> bool:
         return False
     else:
         CODELOG.info(f"Freezing bundle data for model_version_id {model_version_id} on '{database}'")
-        bundle_data = _get_tier_2_bundle_data(execution_context)
-        covariate_data = _get_tier_2_study_covariates(execution_context)
+        bundle_id = _get_bundle_id(execution_context)
+        bundle_data = _get_bundle_data(execution_context, bundle_id, tier=2)
+        covariate_data = _get_study_covariates(execution_context, bundle_id, tier=2)
         with cursor(execution_context) as c:
             _upload_bundle_data_to_tier_3(c, model_version_id, bundle_data)
             _upload_study_covariates_to_tier_3(c, model_version_id, covariate_data)
         return True
+
+
+def _normalize_measures(data):
+    """Transform measure_ids into canonical measure names
+    """
+    data = data.copy()
+    data["measure"] = data.measure_id.apply(MEASURES.get)
+    return data
+
+
+def _normalize_sex(data):
+    """Transform sex_ids into strings
+    """
+    data = data.copy()
+    data["sex"] = data.sex_id.apply({1: "Male", 2: "Female", 3: "Both"}.get)
+    return data
+
+
+def _normalize_bundle_data(data):
+    """Normalize bundle columns, strip extra columns and index on `seq`
+    """
+    data = _normalize_measures(data)
+    data = _normalize_sex(data)
+
+    data = data.set_index("seq")
+
+    cols = ["measure", "mean", "sex", "standard_error", "age_start", "age_end", "year_start", "year_end"]
+
+    return data[cols]
+
+
+def _covariate_ids_to_names(execution_context, study_covariates):
+    """Convert study_covariate_ids to canonical study covariate names
+    """
+    query = """
+    select study_covariate_id, study_covariate
+    from epi.study_covariate
+    where study_covariate_id in %(covariate_ids)s
+    """
+    with cursor(execution_context) as c:
+        c.execute(query, args={"covariate_ids": tuple(study_covariates.study_covariate_id.unique())})
+        covariate_mapping = dict(list(c))
+
+    study_covariates = study_covariates.copy()
+    study_covariates["name"] = study_covariates.study_covariate_id.apply(covariate_mapping.get)
+
+    del study_covariates["study_covariate_id"]
+
+    return study_covariates
+
+
+def _normalize_covariate_data(execution_context, study_covariates):
+    study_covariates = _covariate_ids_to_names(execution_context, study_covariates)
+
+    study_covariates = study_covariates.set_index("seq")
+
+    return study_covariates.name
+
+
+def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
+    """Get bundle data with associated study covariate labels.
+
+    Args:
+        execution_context (ExecutionContext): The context within which to make the query
+        bundle_id (int): Bundle to load. Defaults to the bundle associated with the context
+        tier (int): Tier to load data from. Defaults to 3 (frozen data) but will also accept 2 (scratch space)
+
+    Returns:
+        A tuple of (bundle data, study covariate labels) where the bundle data is a pd.DataFrame and the labels are a
+        pd.Series with an index aligned with the bundle data
+    """
+    if bundle_id is None:
+        bundle_id = _get_bundle_id(execution_context)
+
+    bundle = _get_bundle_data(execution_context, bundle_id, tier=tier)
+    bundle = _normalize_bundle_data(bundle)
+
+    covariate_data = _get_study_covariates(execution_context, bundle_id, tier=tier)
+    covariate_data = _normalize_covariate_data(execution_context, covariate_data)
+
+    return (bundle, covariate_data)

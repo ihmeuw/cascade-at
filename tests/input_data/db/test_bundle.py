@@ -2,7 +2,13 @@ from unittest.mock import ANY
 
 import pytest
 
-from cascade.input_data.db.bundle import freeze_bundle, _get_bundle_id
+import pandas as pd
+
+from cascade.input_data.db.bundle import (
+    freeze_bundle,
+    _get_bundle_id,
+    _covariate_ids_to_names,
+)
 
 
 def test_get_bundle_id__success(mock_execution_context, mock_database_access):
@@ -41,9 +47,9 @@ def test_freeze_bundle__did_freeze(mock_execution_context, mock_database_access,
     mock_bundle_id = mocker.patch("cascade.input_data.db.bundle._get_bundle_id")
     mock_bundle_id.return_value = 123
 
-    mock_get_bundle_data = mocker.patch("cascade.input_data.db.bundle._get_tier_2_bundle_data")
+    mock_get_bundle_data = mocker.patch("cascade.input_data.db.bundle._get_bundle_data")
     mock_put_bundle_data = mocker.patch("cascade.input_data.db.bundle._upload_bundle_data_to_tier_3")
-    mock_get_covariate_data = mocker.patch("cascade.input_data.db.bundle._get_tier_2_study_covariates")
+    mock_get_covariate_data = mocker.patch("cascade.input_data.db.bundle._get_study_covariates")
     mock_put_covariate_data = mocker.patch("cascade.input_data.db.bundle._upload_study_covariates_to_tier_3")
 
     assert freeze_bundle(mock_execution_context)
@@ -66,3 +72,16 @@ def test_freeze_bundle__did_not_freeze(mock_execution_context, mock_database_acc
 
     assert not mock_put_bundle_data.called
     assert not mock_put_covariate_data.called
+
+
+def test_covariate_ids_to_names(mock_execution_context, mock_database_access):
+    cursor = mock_database_access["cursor"]
+    cursor.__iter__.side_effect = lambda: iter(enumerate("abcdefghijklmnopqrstuvwxyz"))
+
+    raw_covariate_data = pd.DataFrame({"seq": [1, 2, 3, 4], "study_covariate_id": [1, 2, 3, 4]})
+
+    study_covariates = _covariate_ids_to_names(mock_execution_context, raw_covariate_data)
+
+    assert study_covariates.sort_index("columns").equals(
+        pd.DataFrame({"name": list("bcde"), "seq": [1, 2, 3, 4]}).sort_index("columns")
+    )
