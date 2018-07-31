@@ -117,7 +117,7 @@ html_sidebars = {
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'DismodATdoc'
+htmlhelp_basename = 'Cascadedoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -144,8 +144,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'DismodAT.tex', 'Dismod AT Documentation',
-     'Alex Cabuz', 'manual'),
+    (master_doc, 'Cascade.tex', 'Cascade Documentation',
+     'Andrew Dolgert', 'manual'),
 ]
 
 
@@ -154,7 +154,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'dismodat', 'Dismod AT Documentation',
+    (master_doc, 'cascade', 'Cascade Documentation',
      [author], 1)
 ]
 
@@ -165,9 +165,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'DismodAT', 'Dismod AT Documentation',
-     author, 'DismodAT', 'One line description of project.',
-     'Miscellaneous'),
+    (master_doc, 'Cascade', 'Cascade Documentation',
+     author, 'Cascade', 'Hierarchical estimation of disease rates',
+     'Statistics'),
 ]
 
 
