@@ -36,7 +36,7 @@ class DemographicInterval:
             begin (float): Starting age, defaults to 0.
         """
         nx = np.array(nx, dtype=np.double)
-        LOGGER.debug("di nx {} begin {} {}".format(nx, begin, nx.cumsum()))
+        LOGGER.debug(f"di nx {nx} begin {begin} {nx.cumsum()}")
         self.bound = np.hstack([[begin], begin + nx.cumsum()])
         self.nx = nx
 
@@ -59,7 +59,7 @@ class DemographicInterval:
             b = key.stop or len(self.nx)
         else:
             a, b = key, key + 1
-        LOGGER.debug("di getitem keystart {} {}".format(a, b))
+        LOGGER.debug(f"di getitem keystart {a} {b}")
         return DemographicInterval(self.nx[a:b], begin=self.bound[a])
 
     def overlaps_with(self, other):
@@ -74,10 +74,9 @@ class DemographicInterval:
 
     def __str__(self):
         if len(self.nx) > 2:
-            return "({}, {}, {},.. {})".format(self.start[0], self.start[1],
-                                               self.start[2], self.finish[-1])
+            return f"({self.start[0]} {self.start[1]} {self.start[2]} {self.finish[-1]})"
         else:
-            return "DemographicInterval({})".format(self.nx.shape)
+            return f"DemographicInterval({self.nx.shape})"
 
     def __repr__(self):
-        return "DemographicInterval({})".format(self.nx)
+        return f"DemographicInterval({self.nx})"

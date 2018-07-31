@@ -224,7 +224,7 @@ def mu_from_omega(omega, chi, P):
 
 def solve_differential_equation(f_derivatives, initial, oldest=120):
     """
-    Solve differential equations between ages 0 and 100.
+    Solve differential equations between ages 0 and oldest.
     Uses ``numpy.integrate.solve_ivp`` underneath.
 
     Args:

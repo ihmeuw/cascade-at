@@ -14,8 +14,7 @@ def test_demog_interval_basic():
 
     di35 = di[3:5]
     assert np.allclose(di35.nx, [4, 5])
-    print("di nx {} di start {} di finish {}".format(
-        di35.nx, di35.start, di35.finish))
+    print(f"di nx {di35.nx} di start {di35.start} di finish {di35.finish}")
     assert np.allclose(di35.start, [1, 5])
 
 
