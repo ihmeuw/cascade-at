@@ -17,8 +17,10 @@ def test_load_asdr_to_t3_did_upload(mock_execution_context,
         "cascade.input_data.db.asdr.exists_model_version_asdr_t3")
     mock_check.return_value = False
 
-    mock_get_asdr_data = mocker.patch("cascade.input_data.db.asdr._get_asdr_t2_data")
-    mock_upload_asdr_data = mocker.patch("cascade.input_data.db.asdr._upload_asdr_data_to_tier_3")
+    mock_get_asdr_data = mocker.patch(
+        "cascade.input_data.db.asdr._get_asdr_t2_data")
+    mock_upload_asdr_data = mocker.patch(
+        "cascade.input_data.db.asdr._upload_asdr_data_to_tier_3")
 
     assert promote_asdr_t2_to_tier_3(mock_execution_context)
 

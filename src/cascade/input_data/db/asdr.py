@@ -21,7 +21,8 @@ except ImportError:
 
     class DummyGetEnvelope:
         def __getattr__(self, name):
-            raise ImportError(f"Required package db_queries.get_envelope not found")
+            raise ImportError(
+                f"Required package db_queries.get_envelope not found")
 
     get_envelope = DummyGetEnvelope()
 
@@ -31,7 +32,8 @@ except ImportError:
 
     class DummyGetPopulation:
         def __getattr__(self, name):
-            raise ImportError(f"Required package db_queries.get_population not found")
+            raise ImportError(
+                f"Required package db_queries.get_population not found")
 
     get_population = DummyGetPopulation()
 
@@ -121,8 +123,8 @@ def _get_asdr_t2_data(execution_context):
         execution_context (ExecutionContext): context manager object
 
     Returns:
-        (DataFrame): of Tier 2 ASDR data of a model_version_id.  The data is ready to be
-    promoted to the Tier 3 table.
+        (DataFrame): of Tier 2 ASDR data of a model_version_id.
+        The data is ready to be promoted to the Tier 3 table.
     """
 
     try:
@@ -229,14 +231,15 @@ def promote_asdr_t2_to_tier_3(execution_context) -> bool:
     the data have not already been uploaded to t3, upload it to
     t3_model_version_asdr table.
 
-    If there is any data in the tier 3 table for the model_version_id then no data will not be
-    promoted, and the function returns False.
+    If there is any data in the tier 3 table for the model_version_id
+    then no data will not be promoted, and the function returns False.
 
     Args:
         execution_context (ExecutionContext): context manager object
 
     Returns:
-        (Bool): True if the data for the model version id is promoted to the Tier 3 table.
+        (Bool): True if the data for the model version id is promoted
+        to the Tier 3 table.
     """
 
     model_version_id = execution_context.parameters.model_version_id
@@ -271,9 +274,3 @@ def promote_asdr_t2_to_tier_3(execution_context) -> bool:
             CODELOG.info("promote_asdr_t2_to_tier_3 finished normally")
 
             return True
-
-
-# if __name__ == "__main__":
-
-#     execution_context = "epi"
-#     promote_asdr_t2_to_tier3(execution_context)
