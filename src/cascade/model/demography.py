@@ -28,6 +28,7 @@ class DemographicInterval:
 
         omega (np.double): Oldest possible age in these intervals.
     """
+
     def __init__(self, nx, begin=0):
         """
 

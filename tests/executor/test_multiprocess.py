@@ -4,9 +4,7 @@ import subprocess
 
 import pytest
 
-from cascade.executor.multiprocess import (
-    graph_do, NotEnoughResources, ChildProcessProblem
-)
+from cascade.executor.multiprocess import graph_do, NotEnoughResources, ChildProcessProblem
 
 
 DONE = list()
@@ -42,8 +40,7 @@ def test_graph_do(monkeypatch):
         to_do[i] = Namespace(memory=1, args=[str(i)])
 
     def run_next(completed):
-        return {x: y for (x, y) in to_do.items()
-                if x not in completed}
+        return {x: y for (x, y) in to_do.items() if x not in completed}
 
     global DONE
     DONE = list()
@@ -68,8 +65,7 @@ def test_graph_live():
         to_do[i] = Namespace(memory=1, args=["dmchat", "2", "0", "0"])
 
     def run_next(completed):
-        return {x: y for (x, y) in to_do.items()
-                if x not in completed}
+        return {x: y for (x, y) in to_do.items() if x not in completed}
 
     graph_do(run_next, 2, sleep_duration=1)
 
@@ -80,8 +76,7 @@ def test_graph_die():
         to_do[i] = Namespace(memory=1, args=["dmchat", "1", "7", "0"])
 
     def run_next(completed):
-        return {x: y for (x, y) in to_do.items()
-                if x not in completed}
+        return {x: y for (x, y) in to_do.items() if x not in completed}
 
     with pytest.raises(ChildProcessProblem):
         graph_do(run_next, 2, sleep_duration=0)

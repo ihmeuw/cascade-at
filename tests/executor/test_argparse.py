@@ -37,11 +37,7 @@ def test_argparse_fail():
 
 def close_all_handlers():
     """Close handlers in order to ensure they have written files."""
-    loggers = [
-        logging.root,
-        logging.getLogger("cascade_at"),
-        logging.getLogger("cascade_at.math")
-        ]
+    loggers = [logging.root, logging.getLogger("cascade_at"), logging.getLogger("cascade_at.math")]
     for logger in loggers:
         for close_root in logger.handlers:
             close_root.flush()
@@ -114,11 +110,10 @@ def test_reduced_code_log(tmpdir):
 
 def test_parameter_file_proper_toml():
     """Tells you what line of the TOML has an error"""
-    ll = pkg_resources.resource_string(
-        "cascade.executor", "data/parameters.toml").decode().split("\n")
+    ll = pkg_resources.resource_string("cascade.executor", "data/parameters.toml").decode().split("\n")
     for i in range(1, len(ll)):
         try:
-            s = toml.loads("".join(ll[:i]))
+            toml.loads("".join(ll[:i]))
         except toml.TomlDecodeError:
             assert False, f"failed on line {i}: {ll[i-1]}"
 
@@ -128,8 +123,7 @@ def test_read_parameters():
     Did you modify the parameters.toml file? This checks that your edits
     didn't sabotage that file.
     """
-    arguments = toml.loads(pkg_resources.resource_string(
-        "cascade.executor", "data/parameters.toml").decode())
+    arguments = toml.loads(pkg_resources.resource_string("cascade.executor", "data/parameters.toml").decode())
     assert isinstance(arguments, dict)
     assert len(arguments) > 10
     for name, arg in arguments.items():
@@ -137,5 +131,4 @@ def test_read_parameters():
         assert "help" in arg, f"{name} has no help"
         assert "_" not in name  # dashes, not underscores
         if "default" in arg:
-            assert type(arg["default"]).__name__ == arg["type"], \
-                f"{name} is wrong type"
+            assert type(arg["default"]).__name__ == arg["type"], f"{name} is wrong type"

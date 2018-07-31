@@ -50,37 +50,27 @@ class BaseArgumentParser(ArgumentParser):
          * ``/ihme/epi/at_cascade/logs/<date-time>.log`` for the code log.
 
     """
+
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
 
-        self.add_argument("-v", "--verbose", action="count", default=0,
-                          help="Increase verbosity of logging")
-        self.add_argument("-q", "--quiet", action="count", default=0,
-                          help="Decrease verbosity of logging")
-        self.add_argument("--logmod", action="append", default=[],
-                          help="Set logging to debug for submodule")
-        self.add_argument("--modlevel", type=str, default="debug",
-                          help="Log level for specified modules")
+        self.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity of logging")
+        self.add_argument("-q", "--quiet", action="count", default=0, help="Decrease verbosity of logging")
+        self.add_argument("--logmod", action="append", default=[], help="Set logging to debug for submodule")
+        self.add_argument("--modlevel", type=str, default="debug", help="Log level for specified modules")
 
-        arguments = toml.loads(pkg_resources.resource_string(
-            "cascade.executor", "data/parameters.toml").decode())
-        arg_types = dict(
-            bool=bool, str=str, float=float, int=int
-        )
+        arguments = toml.loads(pkg_resources.resource_string("cascade.executor", "data/parameters.toml").decode())
+        arg_types = dict(bool=bool, str=str, float=float, int=int)
         for arg_name, spec in arguments.items():
             if spec["type"] == "bool":
                 action = "store_{}".format(str(not spec["default"]).lower())
-                self.add_argument(
-                    f"--{arg_name}", action=action,
-                    help=spec["help"]
-                )
+                self.add_argument(f"--{arg_name}", action=action, help=spec["help"])
             else:
                 base = dict(default=None, help=None)
                 base.update(spec)
                 self.add_argument(
-                    f"--{arg_name}", type=arg_types[base["type"]],
-                    default=base["default"], help=base["help"]
+                    f"--{arg_name}", type=arg_types[base["type"]], default=base["default"], help=base["help"]
                 )
 
     def parse_known_args(self, args=None, namespace=None):
@@ -109,9 +99,7 @@ class BaseArgumentParser(ArgumentParser):
         raise ArgumentException(message, status)
 
     @staticmethod
-    def _logging_config(
-            args, epiviz_log_dir=EPIVIZ_LOG_DIR, code_log_dir=CODE_LOG_DIR
-    ):
+    def _logging_config(args, epiviz_log_dir=EPIVIZ_LOG_DIR, code_log_dir=CODE_LOG_DIR):
         """Configures logging. Command-line arguments ``-v`` and ``-q``
         set both the code log file and what streams to stdout. The ``-v``
         flag turns on debug level, and ``-q`` sets it to info level.
@@ -127,8 +115,7 @@ class BaseArgumentParser(ArgumentParser):
             logging.root.removeHandler(handler)
 
         level = logging.INFO - 10 * args.verbose + 10 * args.quiet
-        fmt = ("%(levelname)s %(asctime)s %(name)s %(funcName)s: "
-               "%(message)s")
+        fmt = "%(levelname)s %(asctime)s %(name)s %(funcName)s: " "%(message)s"
         datefmt = "%y-%m-%d %H:%M:%S"
 
         # The command-line logging level specifies what goes to stderr.
@@ -161,20 +148,17 @@ class BaseArgumentParser(ArgumentParser):
             code_handler.setFormatter(logging.Formatter(fmt, datefmt))
             # The memory handler reduces the number of writes to disk.
             # It will flush writes when it encounters an ERROR.
-            outer_handler = logging.handlers.MemoryHandler(
-                capacity=128000, target=code_handler)
+            outer_handler = logging.handlers.MemoryHandler(capacity=128000, target=code_handler)
             logging.root.addHandler(outer_handler)
             logging.getLogger("cascade_at").setLevel(level)
 
         if args.logmod:
-            module_log_level = getattr(logging, args.modlevel.upper(),
-                                       args.modlevel)
+            module_log_level = getattr(logging, args.modlevel.upper(), args.modlevel)
             if not isinstance(module_log_level, int):
                 try:
                     module_log_level = int(module_log_level)
                 except ValueError:
-                    logging.warning("Could not parse modlevel {}".format(
-                        args.modlevel))
+                    logging.warning("Could not parse modlevel {}".format(args.modlevel))
                     module_log_level = logging.DEBUG
 
             for submodule in args.logmod:
@@ -184,5 +168,4 @@ class BaseArgumentParser(ArgumentParser):
 class DMArgumentParser(BaseArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.add_argument("stage", type=str, nargs="?",
-                          help="A single stage to run.")
+        self.add_argument("stage", type=str, nargs="?", help="A single stage to run.")

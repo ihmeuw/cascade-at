@@ -1,16 +1,21 @@
 import numpy as np
-from scipy.stats import gamma, weibull_min
+from scipy.stats import gamma
 
 from cascade.model import (
-    build_derivative_prevalence, build_derivative_full,
-    solve_differential_equation, siler_default,
-    total_mortality_solution, prevalence_solution, dismod_solution,
-    omega_from_mu, mu_from_omega, average_over_interval,
-    integrand_normalization, integrands_from_function,
+    build_derivative_prevalence,
+    build_derivative_full,
+    solve_differential_equation,
+    siler_default,
+    total_mortality_solution,
+    prevalence_solution,
+    dismod_solution,
+    omega_from_mu,
+    mu_from_omega,
+    average_over_interval,
+    integrand_normalization,
+    integrands_from_function,
 )
-from cascade.model import (
-    DemographicInterval
-)
+from cascade.model import DemographicInterval
 
 
 def iota_a(t):
@@ -67,6 +72,7 @@ def test_solve_differential_equation():
     f_b = build_derivative_prevalence(iota_b, rho_b, chi_b)
     # This little initial value is a stopgap to keep the difeq positive.
     solutions = solve_differential_equation(f_b, np.array([1e-6]))
+
     def prevalence(t):
         return solutions(t)[0]
 
@@ -120,8 +126,10 @@ def from_dismod_to_prevalence(iota, rho, chi, omega):
 def test_average_over_interval_constant():
     # ten-year intervals to age 100.
     nt = DemographicInterval(np.full((10,), 10.0, dtype=np.float))
+
     def raw_rate(t):
         return 2.0
+
     def weight_function(t):
         return 3.0
 
@@ -134,8 +142,10 @@ def test_average_over_interval_constant():
 def test_normalized_over_interval():
     # ten-year intervals to age 100.
     nt = DemographicInterval(np.full((10,), 10.0, dtype=np.float))
+
     def raw_rate(t):
         return 2.0
+
     def weight_function(t):
         return 3.0
 
@@ -156,6 +166,7 @@ def test_integrand_downslope_exact():
     """
     # ten-year intervals to age 100.
     nt = DemographicInterval(np.full((10,), 10.0, dtype=np.float))
+
     def raw_rate(t):
         if t < 50:
             return 2.0
@@ -204,34 +215,28 @@ def test_integrand_continuous_exact():
         return t / t0
 
     def weight_function(t):
-        return np.exp(-(t / t0)**2)
+        return np.exp(-(t / t0) ** 2)
 
-    integrands, normalization = integrands_from_function(
-        [raw_rate], weight_function, nt)
+    integrands, normalization = integrands_from_function([raw_rate], weight_function, nt)
     result = integrands[0]
 
     expected = np.zeros_like(result)
     for interval_idx in range(len(nt)):
         start = nt.start[interval_idx]
         finish = nt.finish[interval_idx]
-        numerator = (
-            (start + t0) * np.exp(-(start / t0))
-             - (finish + t0) * np.exp(-(finish / t0))
-        )
-        denominator = t0 * (
-            np.exp(-start / t0) - np.exp(-finish / t0)
-        )
+        numerator = (start + t0) * np.exp(-(start / t0)) - (finish + t0) * np.exp(-(finish / t0))
+        denominator = t0 * (np.exp(-start / t0) - np.exp(-finish / t0))
         expected[interval_idx] = numerator / denominator
 
     tolerance_due_to_interpolated_functions = 0.015
-    assert np.allclose(
-        result, expected, atol=tolerance_due_to_interpolated_functions)
+    assert np.allclose(result, expected, atol=tolerance_due_to_interpolated_functions)
 
 
 def test_make_test_integrands():
     """
     Make up some distributions and turn them into integrands for Dismod.
     """
+
     def diabetes_incidence(x):
         return 0.8 * gamma(a=9, scale=7).pdf(x)
 
@@ -243,15 +248,12 @@ def test_make_test_integrands():
 
     total_mortality = siler_default()
 
-    S, C, P = prevalence_solution(
-        diabetes_incidence, diabetes_remission, diabetes_emr, total_mortality)
+    S, C, P = prevalence_solution(diabetes_incidence, diabetes_remission, diabetes_emr, total_mortality)
 
     def lx(t):
         return S(t) + C(t)
 
     rates, norm = integrands_from_function(
-        [diabetes_incidence, C, diabetes_emr],
-        lx,
-        DemographicInterval(np.full((10,), 10.0, dtype=np.float))
+        [diabetes_incidence, C, diabetes_emr], lx, DemographicInterval(np.full((10,), 10.0, dtype=np.float))
     )
     assert len(rates) == 3

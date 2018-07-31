@@ -120,8 +120,6 @@ which indicates that :math:`\mu = \omega + \chi P`.
 import numpy as np
 from scipy.integrate import quad, solve_ivp
 
-from cascade.model.demography import DemographicInterval
-
 
 def build_derivative_prevalence(iota, rho, chi):
     """
@@ -199,8 +197,10 @@ def omega_from_mu(mu, chi, P):
     Returns:
         function: Other-cause mortality.
     """
+
     def omega(t):
         return mu(t) - chi(t) * P(t)
+
     return omega
 
 
@@ -217,8 +217,10 @@ def mu_from_omega(omega, chi, P):
     Returns:
         function: Total mortality rate.
     """
+
     def total_mortality(t):
         return omega(t) + chi(t) * P(t)
+
     return total_mortality
 
 
@@ -238,13 +240,7 @@ def solve_differential_equation(f_derivatives, initial, oldest=120):
         Array of interpolation functions, of same length as input function's
         return values.
     """
-    bunch = solve_ivp(
-        f_derivatives,
-        t_span=(0, oldest),
-        y0=initial,
-        vectorized=True,
-        dense_output=True,
-        )
+    bunch = solve_ivp(f_derivatives, t_span=(0, oldest), y0=initial, vectorized=True, dense_output=True)
     return bunch.sol
 
 
@@ -282,16 +278,14 @@ def siler_time_dependent_hazard(constants):
     t, a1, a2, a3, b1, b2, c1, c2 = constants
 
     def siler(x):
-        return (a1 * np.exp(-b1 * x - c1 * t) +
-                a2 * np.exp(b2 * x - c2 * t) +
-                a3 * np.exp(-c2 * t))
+        return a1 * np.exp(-b1 * x - c1 * t) + a2 * np.exp(b2 * x - c2 * t) + a3 * np.exp(-c2 * t)
+
     return siler
 
 
 def total_mortality_solution(mu):
     """Given a total mortality rate, as a function, return :math:`N=l(x)`."""
-    n_array = solve_differential_equation(
-        build_derivative_total(mu), initial=np.array([1.0], dtype=float))
+    n_array = solve_differential_equation(build_derivative_total(mu), initial=np.array([1.0], dtype=float))
 
     def total_pop(t):
         val = n_array(t)[0]
@@ -319,8 +313,7 @@ def prevalence_solution(iota, rho, chi, mu):
 def dismod_solution(iota, rho, chi, omega):
     """This solves the Dismod-AT equations."""
     f_b = build_derivative_full(iota, rho, chi, omega)
-    bunch = solve_differential_equation(
-        f_b, initial=np.array([1.0-1e-6, 1e-6], dtype=np.float))
+    bunch = solve_differential_equation(f_b, initial=np.array([1.0 - 1e-6, 1e-6], dtype=np.float))
     S = lambda t: bunch(t)[0]
     C = lambda t: bunch(t)[1]
     return S, C
@@ -342,6 +335,7 @@ def average_over_interval(raw_rate, weight_function, intervals):
     Returns:
         np.ndarray: List of integrand values.
     """
+
     def averaging_function(t):
         return raw_rate(t) * weight_function(t)
 
@@ -368,6 +362,7 @@ def integrand_normalization(weight_function, intervals):
     Returns:
         np.array: Integrated values of the weight function.
     """
+
     def constant_rate(t):
         return 1.0
 
@@ -393,8 +388,6 @@ def integrands_from_function(rates, weight_function, intervals):
 
     rate_integrands = list()
     for rate in rates:
-        rate_integrands.append(
-            average_over_interval(rate, weight_function, intervals)
-            / normalization)
+        rate_integrands.append(average_over_interval(rate, weight_function, intervals) / normalization)
 
     return rate_integrands, normalization
