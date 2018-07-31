@@ -25,12 +25,12 @@ def test_run_ls():
 
 def test_run_dmchat(dmchat):
     o, e = dr.run_and_watch([dmchat, "5", "0", "0"], False, 2)
-    assert "".join(o) == "".join(["out" + os.linesep] * 5)
+    assert o == "".join(["out" + os.linesep] * 5)
 
 
 def test_dmchat_low_priority(dmchat):
     o, e = dr.run_and_watch([dmchat, "2", "0", "0"], True, 2)
-    assert "".join(e) == "".join(["err" + os.linesep] * 2)
+    assert e == "".join(["err" + os.linesep] * 2)
 
 
 def test_dmchat_nonzero(dmchat):
@@ -38,16 +38,10 @@ def test_dmchat_nonzero(dmchat):
         dr.run_and_watch([dmchat, "1", "0", "7"], True, 2)
 
 
-@pytest.mark.parametrize("sig_enum", [
-    (signal.SIGINT,),
-    (signal.SIGKILL,),
-    (signal.SIGSEGV,),
-    (signal.SIGSTOP,)
-])
+@pytest.mark.parametrize("sig_enum", [(signal.SIGINT,), (signal.SIGKILL,), (signal.SIGSEGV,), (signal.SIGSTOP,)])
 def test_dmchat_sigint(dmchat, sig_enum):
     with pytest.raises(Exception):
-        dr.run_and_watch(
-            [dmchat, "2", str(sig_enum.value), "0"], False, 2)
+        dr.run_and_watch([dmchat, "2", str(sig_enum.value), "0"], False, 2)
 
 
 def test_runner_bad_command():
@@ -67,10 +61,7 @@ class RecipeContext:
         return self._db_file
 
     def params(self, name):
-        return {
-            "single_use_machine": False,
-            "subprocess_poll_time": 2
-        }[name]
+        return {"single_use_machine": False, "subprocess_poll_time": 2}[name]
 
 
 def test_recipe_sunny(tmpdir, dmdummy):
