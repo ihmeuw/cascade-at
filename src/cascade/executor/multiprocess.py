@@ -52,8 +52,7 @@ def graph_do(run_next, memory_limit, sleep_duration=1):
     popen_objects = dict()  # Tracks processes associated with running.
 
     def _resources_to_run(nr):
-        return (nr not in running | completed and
-                unblocked[nr].memory <= memory_remaining)
+        return nr not in running | completed and unblocked[nr].memory <= memory_remaining
 
     def _process_complete(job_id):
         return popen_objects[job_id].poll() is not None
@@ -89,10 +88,7 @@ def graph_do(run_next, memory_limit, sleep_duration=1):
                 assert set(unblocked.keys()) not in completed
                 result = popen_objects[newly_completed]
                 if result.returncode != 0:
-                    raise ChildProcessProblem(
-                        f"Child {result.args} had return code "
-                        f"{result.returncode}"
-                    )
+                    raise ChildProcessProblem(f"Child {result.args} had return code " f"{result.returncode}")
                 del popen_objects[newly_completed]
             else:
                 time.sleep(sleep_duration)
@@ -104,13 +100,9 @@ def _nice_process():
 
 def _run_or_throw(args):
     try:
-        child = subprocess.Popen(
-            args=args,
-            preexec_fn=_nice_process
-        )
+        child = subprocess.Popen(args=args, preexec_fn=_nice_process)
     except ValueError as ve:
         raise Exception(f"Invalid arguments to process: {ve}")
     except OSError as ose:
-        raise Exception(
-            f"Operating system error running process {ose}")
+        raise Exception(f"Operating system error running process {ose}")
     return child

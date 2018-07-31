@@ -2,9 +2,8 @@ import numpy as np
 from cascade.model import DemographicInterval
 
 
-
 def test_demog_interval_basic():
-    nx_list = [7/365, 21/365, (365-28)/365, 4, 5, 5, 5]
+    nx_list = [7 / 365, 21 / 365, (365 - 28) / 365, 4, 5, 5, 5]
     di = DemographicInterval(nx_list)
     assert len(di) == len(nx_list)
     assert di.bound.shape[0] == len(nx_list) + 1
@@ -19,7 +18,7 @@ def test_demog_interval_basic():
 
 
 def test_demog_interval_overlap():
-    nx1_list = [7/365, 21/365, (365-28)/365, 4, 5, 5, 5]
+    nx1_list = [7 / 365, 21 / 365, (365 - 28) / 365, 4, 5, 5, 5]
     di1 = DemographicInterval(nx1_list)
     nx2_list = [1] * 20
     di2 = DemographicInterval(nx2_list)
