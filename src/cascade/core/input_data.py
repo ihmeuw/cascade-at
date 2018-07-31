@@ -2,6 +2,7 @@ class Rates:
     def __init__(self):
         self.incidence = None
         self.excess_mortality = None
+        self.asdr = None
 
 
 class InputData:
