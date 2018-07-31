@@ -8,15 +8,10 @@ setup(
         "data/*.toml",
     ]},
     package_dir={"": "src"},
-<<<<<<< HEAD
-    include_package_data=True,
-    install_requires=["pandas"],
-    extras_require={"testing": ["pytest", "pytest-mock", "hypothesis"], "ihme_databases": ["db_tools", "db_queries"]},
-=======
     install_requires=["pandas", "toml"],
     extras_require={
         "testing": ["pytest", "pytest-mock", "hypothesis"],
-        "ihme_databases": ["db_tools"],
+        "ihme_databases": ["db_tools", "db_queries"],
     },
     entry_points={
         "console_scripts": [
@@ -24,5 +19,5 @@ setup(
             ["dmdummy=cascade.executor.chatter:dismod_dummy"],
         ]
     },
->>>>>>> develop
 )
+
