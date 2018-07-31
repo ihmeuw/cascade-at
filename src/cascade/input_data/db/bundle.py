@@ -196,7 +196,7 @@ def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
     )
     """
 
-    cursor.executemany(insert_query, bundle_data.values())
+    cursor.executemany(insert_query, bundle_data.values)
 
     CODELOG.debug(f"uploaded {len(bundle_data)} lines of bundle data")
 
