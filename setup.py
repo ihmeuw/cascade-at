@@ -12,10 +12,18 @@ setup(
         "documentation": ["sphinx", "sphinx_rtd_theme", "sphinx-autobuild", "sphinxcontrib-napoleon"],
         "ihme_databases": ["db_tools"],
     },
+    python_requires="3.6",
     entry_points={
         "console_scripts": [
             ["dmchat=cascade.executor.chatter:chatter"],
             ["dmdummy=cascade.executor.chatter:dismod_dummy"],
         ]
     },
+    zip_safe=True,
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3.6",
+        "Topic :: Scientific :: Statistics",
+    ],
 )
