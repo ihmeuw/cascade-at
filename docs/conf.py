@@ -20,7 +20,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.expanduser("..")))
+sys.path.insert(0, os.path.abspath(os.path.expanduser("..\src")))
 
 
 # -- General configuration ------------------------------------------------
