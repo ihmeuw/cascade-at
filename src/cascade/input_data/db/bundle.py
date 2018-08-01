@@ -284,6 +284,10 @@ def _normalize_bundle_data(data):
 def _covariate_ids_to_names(execution_context, study_covariates):
     """Convert study_covariate_ids to canonical study covariate names
     """
+    CODELOG.debug(f"desired covariates {study_covariates}")
+    if study_covariates.empty:
+        return study_covariates
+
     query = """
     select study_covariate_id, study_covariate
     from epi.study_covariate

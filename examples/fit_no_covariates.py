@@ -14,15 +14,29 @@ diabetes, and sends that data to DismodAT.
 
 This example works in cohort time, so that rates don't change over
 years.
+
+.. autofunction: pretend_diabetes
+
+
+.. autofunction: observe_demographic_rates
+
 """
+import logging
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 from scipy.stats import gamma
 
 from cascade.model import (
     siler_default, prevalence_solution, integrands_from_function, omega_from_mu,
     DemographicInterval
 )
+from cascade.input_data.db.bundle import bundle_with_study_covariates
+from cascade.dismod.db.wrapper import DismodFile
 from cascade.testing_utilities import make_execution_context
+
+LOGGER = logging.getLogger(__name__)
 
 
 def pretend_diabetes():
@@ -80,7 +94,7 @@ def observe_demographic_rates(rates, ages):
     the interval.
 
     Args:
-        rates (list[str,function]): A list of functions of cohort-time, defined
+        rates (dict[str,function]): A list of functions of cohort-time, defined
             for all times in the age intervals.
         ages (DemographicInterval): Age intervals for which to predict
             results.
@@ -96,11 +110,36 @@ def observe_demographic_rates(rates, ages):
     return rates + [norm]
 
 
-def construct_database():
+def theory():
     rates = pretend_diabetes()
     intervals = DemographicInterval(np.full((10,), 10.0, dtype=np.float))
     observations = observe_demographic_rates(rates, intervals)
 
-    context = make_execution_context()
 
-    theory_fit = DismodFile(context)
+def construct_database():
+    context = make_execution_context()
+    bundle_id = 163454
+    tier_idx = 2
+    bundle, covariate = bundle_with_study_covariates(
+        context, bundle_id, tier_idx)
+    LOGGER.debug(f"bundle is {bundle}")
+
+    avgint_columns = dict()
+    data_columns = dict()
+    theory_dismod_db = Path("theory.db")
+    theory_fit = DismodFile(theory_dismod_db, avgint_columns, data_columns)
+
+    avgint_df = pd.Dataframe(
+
+    )
+
+    theory_fit.avgint = avgint_df
+    theory_fit.exact_variables = pd.Dataframe(
+
+    )
+    theory_fit.flush()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+    construct_database()
