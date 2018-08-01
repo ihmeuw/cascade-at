@@ -12,7 +12,6 @@ setup(
         "documentation": ["sphinx", "sphinx_rtd_theme", "sphinx-autobuild", "sphinxcontrib-napoleon"],
         "ihme_databases": ["db_tools"],
     },
-    python_requires="3.6",
     entry_points={
         "console_scripts": [
             ["dmchat=cascade.executor.chatter:chatter"],
