@@ -18,7 +18,7 @@ setup(
             ["dmdummy=cascade.executor.chatter:dismod_dummy"],
         ]
     },
-    zip_safe=True,
+    zip_safe=False,
     classifiers=[
         "Intendend Audience :: Science/Research",
         "Development Status :: 3 - Alpha",
