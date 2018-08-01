@@ -20,9 +20,10 @@ setup(
     },
     zip_safe=True,
     classifiers=[
+        "Intendend Audience :: Science/Research",
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.6",
-        "Topic :: Scientific :: Statistics",
+        "Topic :: Scientific/Engineering :: Statistics",
     ],
 )
