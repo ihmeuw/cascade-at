@@ -35,8 +35,9 @@ from cascade.model import (
     DemographicInterval
 )
 from cascade.input_data.db.bundle import bundle_with_study_covariates
-from cascade.dismod.db.wrapper import DismodFile
+from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.testing_utilities import make_execution_context
+from cascade.dismod.db.metadata import IntegrandEnum
 
 LOGGER = logging.getLogger("fit_no_covariates")
 
@@ -137,32 +138,42 @@ def cached_bundle_load(context, bundle_id, tier_idx):
     return bundle, covariate
 
 
+def bundle_to_integrand(bundle_df, node_id):
+    measure_to_integrand = dict(
+        incidence=IntegrandEnum.Sincidence.value,
+        mtexcess=IntegrandEnum.mtexcess.value,
+    )
+    return pd.DataFrame({
+        "integrand_id": bundle_df["measure"].apply(measure_to_integrand.get),
+        "node_id": np.full(len(bundle_df), node_id, dtype=np.int),
+        "age_lower": bundle_df["age_start"],
+        "age_upper": bundle_df["age_end"],
+        "time_lower": bundle_df["year_start"].astype(np.float),
+        "time_upper": bundle_df["year_end"].astype(np.float),
+        "meas_value": bundle_df["mean"],
+        "meas_std": bundle_df["standard_error"],
+        "hold_out": [0] * len(bundle_df),
+    })
+
+
+def fill_dismod_file(bundle):
+    pass
+
 def construct_database():
     context = make_execution_context()
     bundle_id = 3209
     tier_idx = 2
-    cached_bundle_load(context, bundle_id, tier_idx)
+    bundle, covariate = cached_bundle_load(context, bundle_id, tier_idx)
+    integrands = bundle_to_integrand(bundle, 0)
 
     avgint_columns = dict()
     data_columns = dict()
     bundle_dismod_db = Path("theory.db")
-    bundle_fit = DismodFile(bundle_dismod_db, avgint_columns, data_columns)
+    bundle_file_engine = _get_engine(bundle_dismod_db)
+    bundle_fit = DismodFile(bundle_file_engine, avgint_columns, data_columns)
 
-    avgint_df = pd.Dataframe({
-        "integrand": [],
-        "age_lower": [],
-        "age_uppder": [],
-        "time_lower": [],
-        "time_uppder": [],
-        "meas_value": [],
-        "meas_std": [],
-        "hold_out": [],
-    })
+    bundle_fit.avgint = integrands
 
-    bundle_fit.avgint = avgint_df
-    bundle_fit.exact_variables = pd.Dataframe(
-
-    )
     flush_begin = timer()
     bundle_fit.flush()
     LOGGER.debug(f"Write db {timer() - flush_begin}")
