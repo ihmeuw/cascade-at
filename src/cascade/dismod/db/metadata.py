@@ -99,7 +99,7 @@ class Node(Base):
 
     node_id = Column(Integer(), primary_key=True)
     node_name = Column(String(), nullable=False, unique=True)
-    parent = Column(None, ForeignKey("node.node_id"), nullable=True)  # Parent is an id in _this_ table.
+    parent = Column(Integer(), nullable=True)  # Parent is an id in _this_ table.
 
 
 class Prior(Base):
