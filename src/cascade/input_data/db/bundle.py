@@ -285,7 +285,7 @@ def _normalize_bundle_data(data):
 def _covariate_ids_to_names(execution_context, study_covariates):
     """Convert study_covariate_ids to canonical study covariate names
     """
-    study_covariate_ids = study_covariates.study_covariate_id.unique()
+    study_covariate_ids = list(study_covariates.study_covariate_id.unique())
     study_covariates = study_covariates.rename(columns={"study_covariate_id": "name"})
 
     if study_covariate_ids:
