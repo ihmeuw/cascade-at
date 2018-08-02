@@ -90,7 +90,7 @@ def _ordered_by_foreign_key_dependency(schema, tables_to_write):
     """
     dependency_graph = DiGraph()
 
-    if len(set(tables_to_write) - set(schema.tables.keys())) > 0:
+    if set(tables_to_write) - set(schema.tables.keys()):
         raise ValueError("Asking to write tables not in schema")
 
     for scan_name, scan_table in schema.tables.items():
@@ -99,6 +99,7 @@ def _ordered_by_foreign_key_dependency(schema, tables_to_write):
             target_name = foreign_key.target_fullname.split(".")[0]
             dependency_graph.add_edge(target_name, scan_name)
 
+    # The pure topological sort might be faster.
     # Use the full lexicographical sort because it makes testing deterministic.
     for next_table in lexicographical_topological_sort(dependency_graph):
         if next_table in tables_to_write:
