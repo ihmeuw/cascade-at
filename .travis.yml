@@ -6,4 +6,4 @@ install:
     - pip install -r docs/requirements.txt
 script: 
     - tox
-    - "sphinx-build -WT -b dummy . _build/html"
+    - "sphinx-build -WT -b dummy -d docs docs docs/_build/html"
