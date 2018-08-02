@@ -3,7 +3,7 @@ python:
     - "3.6"
 install: 
     - pip install tox
-    - pip install ihmeuw/cascade/docs/requirements.txt
+    - pip install docs/requirements.txt
 script: 
     - tox
     - "sphinx-build -WT -b dummy . _build/html"
