@@ -18,4 +18,12 @@ setup(
             ["dmdummy=cascade.executor.chatter:dismod_dummy"],
         ]
     },
+    zip_safe=False,
+    classifiers=[
+        "Intendend Audience :: Science/Research",
+        "Development Status :: 3 - Alpha",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3.6",
+        "Topic :: Scientific/Engineering :: Statistics",
+    ],
 )

@@ -20,8 +20,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.expanduser("..")))
-
+sys.path.insert(0, os.path.abspath(os.path.expanduser("../src")))
 
 # -- General configuration ------------------------------------------------
 
@@ -163,3 +162,12 @@ texinfo_documents = [
         "Statistics",
     )
 ]
+# -- Autodoc configuration ------------------------------------------------
+
+# Sort order of members listed by autodoc
+# options are: 'alphabetical', 'groupwise', or 'bysource'
+autodoc_member_order = 'bysource'
+
+# Defaults for automodule and autoclass
+# To negate add `:no-undoc-members:` flag to a particular instance
+autodoc_default_flags = ['members', 'undoc-members' ]
