@@ -7,6 +7,8 @@ to create it and add tables.
 import logging
 from enum import Enum
 
+from networkx import DiGraph
+from networkx.algorithms.dag import lexicographical_topological_sort
 import pandas as pd
 import numpy as np
 
@@ -72,6 +74,35 @@ def _validate_data(table_definition, data):
     extra_columns = set(data.columns).difference(table_definition.c.keys())
     if extra_columns:
         raise DismodFileError(f"extra columns in data for table '{table_definition.name}': {extra_columns}")
+
+
+def _ordered_by_foreign_key_dependency(schema, tables_to_write):
+    """
+    Iterator that walks through tables in the correct order for foreign
+    keys to be written before those that depend upon them.
+
+    Args:
+        schema (sqlalchemy.metadata): Metadata about the tables.
+        tables_to_write (iterable[str]): An iterable of table names as string.
+
+    Returns:
+        Iterates through the tables in an order that is safe for writing.
+    """
+    dependency_graph = DiGraph()
+
+    if len(set(tables_to_write) - set(schema.tables.keys())) > 0:
+        raise ValueError("Asking to write tables not in schema")
+
+    for scan_name, scan_table in schema.tables.items():
+        dependency_graph.add_node(scan_name)
+        for foreign_key in scan_table.foreign_keys:
+            target_name = foreign_key.target_fullname.split(".")[0]
+            dependency_graph.add_edge(target_name, scan_name)
+
+    # Use the full lexicographical sort because it makes testing deterministic.
+    for next_table in lexicographical_topological_sort(dependency_graph):
+        if next_table in tables_to_write:
+            yield next_table
 
 
 class DismodFile:
@@ -166,8 +197,9 @@ class DismodFile:
         it was last written is not re-written.
         """
         with self.engine.begin() as connection:
-            for table_name, table in self._table_data.items():
+            for table_name in _ordered_by_foreign_key_dependency(Base.metadata, self._table_data.keys()):
                 if self._is_dirty(table_name):
+                    table = self._table_data[table_name]
                     if hasattr(table, "__readonly__") and table.__readonly__:
                         raise DismodFileError(f"Table '{table_name}' is not writable")
 
