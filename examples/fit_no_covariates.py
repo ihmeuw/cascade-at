@@ -23,6 +23,8 @@ years.
 """
 import logging
 from pathlib import Path
+import pickle
+from timeit import default_timer as timer
 
 import numpy as np
 import pandas as pd
@@ -36,7 +38,7 @@ from cascade.input_data.db.bundle import bundle_with_study_covariates
 from cascade.dismod.db.wrapper import DismodFile
 from cascade.testing_utilities import make_execution_context
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("fit_no_covariates")
 
 
 def pretend_diabetes():
@@ -116,28 +118,54 @@ def theory():
     observations = observe_demographic_rates(rates, intervals)
 
 
-def construct_database():
-    context = make_execution_context()
-    bundle_id = 163454
-    tier_idx = 2
+def cached_bundle_load(context, bundle_id, tier_idx):
+    cache_bundle = Path(f"{bundle_id}.pkl")
+    if cache_bundle.exists():
+        LOGGER.info(f"Reading bundle from {cache_bundle}. "
+                    f"If you want to get a fresh copy, delete this file.")
+        return pickle.load(cache_bundle.open("rb"))
+
+    LOGGER.debug(f"Begin getting study covariates {bundle_id}")
+    bundle_begin = timer()
     bundle, covariate = bundle_with_study_covariates(
         context, bundle_id, tier_idx)
-    LOGGER.debug(f"bundle is {bundle}")
+    LOGGER.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
+
+    pickle.dump((bundle, covariate),
+                cache_bundle.open("wb"),
+                pickle.HIGHEST_PROTOCOL)
+    return bundle, covariate
+
+
+def construct_database():
+    context = make_execution_context()
+    bundle_id = 3209
+    tier_idx = 2
+    cached_bundle_load(context, bundle_id, tier_idx)
 
     avgint_columns = dict()
     data_columns = dict()
-    theory_dismod_db = Path("theory.db")
-    theory_fit = DismodFile(theory_dismod_db, avgint_columns, data_columns)
+    bundle_dismod_db = Path("theory.db")
+    bundle_fit = DismodFile(bundle_dismod_db, avgint_columns, data_columns)
 
-    avgint_df = pd.Dataframe(
+    avgint_df = pd.Dataframe({
+        "integrand": [],
+        "age_lower": [],
+        "age_uppder": [],
+        "time_lower": [],
+        "time_uppder": [],
+        "meas_value": [],
+        "meas_std": [],
+        "hold_out": [],
+    })
+
+    bundle_fit.avgint = avgint_df
+    bundle_fit.exact_variables = pd.Dataframe(
 
     )
-
-    theory_fit.avgint = avgint_df
-    theory_fit.exact_variables = pd.Dataframe(
-
-    )
-    theory_fit.flush()
+    flush_begin = timer()
+    bundle_fit.flush()
+    LOGGER.debug(f"Write db {timer() - flush_begin}")
 
 
 if __name__ == "__main__":
