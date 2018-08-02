@@ -332,6 +332,9 @@ def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
     bundle = _normalize_bundle_data(bundle)
 
     covariate_data = _get_study_covariates(execution_context, bundle_id, tier=tier)
-    covariate_data = _normalize_covariate_data(execution_context, covariate_data)
+    if not covariate_data.empty:
+        normalized_covariate = _normalize_covariate_data(execution_context, covariate_data)
+    else:
+        normalized_covariate = covariate_data
 
-    return (bundle, covariate_data)
+    return (bundle, normalized_covariate)
