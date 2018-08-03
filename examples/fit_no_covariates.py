@@ -138,26 +138,64 @@ def cached_bundle_load(context, bundle_id, tier_idx):
     return bundle, covariate
 
 
-def bundle_to_integrand(bundle_df, node_id):
+def bundle_to_observations(bundle_df):
+    for check_measure in bundle_df["measure"].unique():
+        if check_measure not in IntegrandEnum.__members__:
+            raise KeyError(f"{check_measure} isn't a name known to Cascade.")
+
+    if "location_id" in bundle_df.columns:
+        location_id = bundle_df["location_id"]
+    else:
+        location_id = np.full(len(bundle_df), -1, dtype=np.int)
+    return pd.DataFrame({
+        "measure": bundle_df["measure"],
+        "location_id": location_id,
+        "age_start": bundle_df["age_start"],
+        "age_end": bundle_df["age_end"],
+        "year_start": bundle_df["year_start"].astype(np.float),
+        "year_end": bundle_df["year_end"].astype(np.float),
+        "mean": bundle_df["mean"],
+        "standard_error": bundle_df["standard_error"],
+    })
+
+
+def observations_to_integrand(bundle_df, node_id):
     measure_to_integrand = dict(
         incidence=IntegrandEnum.Sincidence.value,
         mtexcess=IntegrandEnum.mtexcess.value,
     )
     return pd.DataFrame({
-        "integrand_id": bundle_df["measure"].apply(measure_to_integrand.get),
-        "node_id": np.full(len(bundle_df), node_id, dtype=np.int),
+        "measure": bundle_df["measure"].apply(measure_to_integrand.get),
+        "node_id": bundle_df["location_id"],
         "age_lower": bundle_df["age_start"],
         "age_upper": bundle_df["age_end"],
         "time_lower": bundle_df["year_start"].astype(np.float),
-        "time_upper": bundle_df["year_end"].astype(np.float),
+        "time_upper": bundle_df["year_end"],
         "meas_value": bundle_df["mean"],
         "meas_std": bundle_df["standard_error"],
         "hold_out": [0] * len(bundle_df),
     })
 
 
+class DismodModel:
+    def __init__(self):
+        pass
+
+    def add_observations(self, observations):
+        """An observation is a data value that has observational error."""
+        self.observations.append(observations)
+
+    def add_constraint(self, constraint):
+        """A constraint is a data value the fit should assume is true."""
+        self.constraints.append(constraint)
+
+    def write(self, dismod_file):
+        
+        dismod_file.avgint = integrands
+
 def fill_dismod_file(bundle):
     pass
+
 
 def construct_database():
     context = make_execution_context()
