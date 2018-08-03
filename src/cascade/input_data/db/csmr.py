@@ -2,6 +2,8 @@
 
 import logging
 
+import pandas as pd
+
 try:
     from db_queries import get_outputs
 except ImportError:
@@ -14,6 +16,7 @@ except ImportError:
 
 
 from cascade.core.db import cursor
+from cascade.input_data.db import GBD_ROUND_ID, METRIC_IDS, MEASURE_IDS
 
 
 CODELOG = logging.getLogger(__name__)
@@ -40,35 +43,28 @@ def _csmr_in_t3(execution_context):
 
 def _get_csmr_data(execution_context):
 
-    model_version_id = execution_context.parameters.model_version_id
-    add_csmr_cause = execution_context.parameters.add_csmr_cause
-    parent_loc = execution_context.parameters.drill
+    cause_id = execution_context.parameters.add_csmr_cause
+    parent_loc = execution_context.parameters.location_id
 
-    csmr_measure_id_deaths = 1  # measure type = deaths (1)
-    csmr_metric_id_rate = 3  # metric type = per capita rate
-    csmr_gbd_round_id = 5
-
-    csmr_keep_cols = ["year_id", "location_id", "sex_id", "age_group_id",
-                      "val", "lower", "upper"]
+    keep_cols = ["year_id", "location_id", "sex_id", "age_group_id",
+                 "val", "lower", "upper"]
 
     csmr = get_outputs(
         topic="cause",
-        cause_id=add_csmr_cause,
+        cause_id=cause_id,
         location_id=parent_loc,
-        metric_id=csmr_metric_id_rate,
+        metric_id=METRIC_IDS['per_capita_rate'],
         year_id="all",
         age_group_id="most_detailed",
-        measure_id=csmr_measure_id_deaths,
+        measure_id=MEASURE_IDS['deaths'],
         sex_id="all",
-        gbd_round_id=csmr_gbd_round_id
-        )[csmr_keep_cols]
+        gbd_round_id=GBD_ROUND_ID,
+        version="latest"
+        )[keep_cols]
 
-    csmr["model_version_id"] = model_version_id
+    csmr = csmr[csmr["val"].notnull()]
 
-    csmr_columns = ["model_version_id"] + csmr_keep_cols
-    csmr = csmr[csmr_columns]
-
-    csmr.rename(columns={"val": "mean"}, inplace=True)
+    csmr.rename(columns={"val": "mean"})
 
     return csmr
 
@@ -88,49 +84,38 @@ def _upload_csmr_data_to_tier_3(cursor, model_version_id, csmr_data):
             lower,
             upper
         ) VALUES (
-            {model_version_id}, {", ".join(["%s"]*32)}
+            {model_version_id}, {", ".join(["%s"]*7)}
         )
     """
 
-    cursor.executemany(insert_query, csmr_data.values())
+    csmr_data = csmr_data.where(pd.notnull(csmr_data), None)
+    cursor.executemany(insert_query, csmr_data.values.tolist())
 
     CODELOG.debug(f"uploaded {len(csmr_data)} lines of csmr data")
 
 
 def load_csmr_to_t3(execution_context) -> bool:
     """
-    Upload to t3_model_version_csmr if the user requested that and if
-    it's not already there.
+    Upload to t3_model_version_csmr if it's not already there.
     """
 
     model_version_id = execution_context.parameters.model_version_id
-    add_csmr_cause = execution_context.parameters.add_csmr_cause
 
-    if add_csmr_cause:
-        CODELOG.info(f"""User requested csmr cause data {add_csmr_cause}
-                     be added for model_version_id {model_version_id}""")
+    database = execution_context.parameters.database
 
-        database = execution_context.parameters.database
-
-        if _csmr_in_t3(execution_context):
-            CODELOG.info(
-                f"""csmr data for model_version_id {model_version_id}
-                on '{database}' already exists, doing nothing."""
-            )
-            return False
-        else:
-            CODELOG.info(f"""Uploading csmr data for model_version_id
-                         {model_version_id} on '{database}'""")
-
-            csmr_data = _get_csmr_data(execution_context)
-
-            with cursor(execution_context) as c:
-                _upload_csmr_data_to_tier_3(c, model_version_id, csmr_data)
-
-            return True
-
-    else:
-        CODELOG.info(f"""User did not request csmr data to be added for
-                     model_version_id {model_version_id}""")
-
+    if _csmr_in_t3(execution_context):
+        CODELOG.info(
+            f"""csmr data for model_version_id {model_version_id}
+            on '{database}' already exists, doing nothing."""
+        )
         return False
+    else:
+        CODELOG.info(f"""Uploading csmr data for model_version_id
+            {model_version_id} on '{database}'""")
+
+        csmr_data = _get_csmr_data(execution_context)
+
+        with cursor(execution_context) as c:
+            _upload_csmr_data_to_tier_3(c, model_version_id, csmr_data)
+
+        return True
