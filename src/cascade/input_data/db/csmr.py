@@ -46,21 +46,20 @@ def _get_csmr_data(execution_context):
     cause_id = execution_context.parameters.add_csmr_cause
     parent_loc = execution_context.parameters.location_id
 
-    keep_cols = ["year_id", "location_id", "sex_id", "age_group_id",
-                 "val", "lower", "upper"]
+    keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
     csmr = get_outputs(
         topic="cause",
         cause_id=cause_id,
         location_id=parent_loc,
-        metric_id=METRIC_IDS['per_capita_rate'],
+        metric_id=METRIC_IDS["per_capita_rate"],
         year_id="all",
         age_group_id="most_detailed",
-        measure_id=MEASURE_IDS['deaths'],
+        measure_id=MEASURE_IDS["deaths"],
         sex_id="all",
         gbd_round_id=GBD_ROUND_ID,
-        version="latest"
-        )[keep_cols]
+        version="latest",
+    )[keep_cols]
 
     csmr = csmr[csmr["val"].notnull()]
 
@@ -110,8 +109,10 @@ def load_csmr_to_t3(execution_context) -> bool:
         )
         return False
     else:
-        CODELOG.info(f"""Uploading csmr data for model_version_id
-            {model_version_id} on '{database}'""")
+        CODELOG.info(
+            f"""Uploading csmr data for model_version_id
+            {model_version_id} on '{database}'"""
+        )
 
         csmr_data = _get_csmr_data(execution_context)
 

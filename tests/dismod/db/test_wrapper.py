@@ -8,10 +8,7 @@ import pytest
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Enum
 
-from cascade.dismod.db.wrapper import (
-    DismodFile, _get_engine, _validate_data,
-    _ordered_by_foreign_key_dependency,
-)
+from cascade.dismod.db.wrapper import DismodFile, _get_engine, _validate_data, _ordered_by_foreign_key_dependency
 from cascade.dismod.db import DismodFileError
 from cascade.dismod.db.metadata import Base as DismodFileBase
 
@@ -33,14 +30,16 @@ def base_file(engine):
     return dm_file
 
 
-
-@pytest.mark.parametrize("input,expected", [
-    ("age time integrand density", "age density integrand time"),
-    ("density prior age", "age density prior"),
-    ("node", "node"),
-    ("weight_grid age time weight", "age time weight weight_grid"),
-    ("avgint node weight", "node weight avgint"),
-])
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        ("age time integrand density", "age density integrand time"),
+        ("density prior age", "age density prior"),
+        ("node", "node"),
+        ("weight_grid age time weight", "age time weight weight_grid"),
+        ("avgint node weight", "node weight avgint"),
+    ],
+)
 def test_ordering_of_tables(input, expected):
     out = list(_ordered_by_foreign_key_dependency(DismodFileBase.metadata, input.split()))
     assert out == expected.split()
