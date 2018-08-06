@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 import time
+from types import FunctionType as function
 
 
 CODELOG = logging.getLogger(__name__)
@@ -20,12 +21,11 @@ class ChildProcessProblem(Exception):
     """A subprocess had a nonzero exit code."""
 
 
-def graph_do(run_next, memory_limit, sleep_duration=1):
+def graph_do(run_next: function, memory_limit: float, sleep_duration: float = 1):
     """
     This runs processes and blocks until completion.
     The ``run_next`` function must have the signature
-
-    .. py:function:: run_next(completed)
+    ``run_next(completed) -> args.``
 
     where ``completed`` is a set of the IDs of tasks,
     which are likely location IDs, and it returns a
@@ -33,18 +33,18 @@ def graph_do(run_next, memory_limit, sleep_duration=1):
     ``memory`` and ``args``.
 
     Args:
-        run_next (function): Returns tasks that can run. This function has
-            to have semantics of a task graph, meaning it has to return
+        run_next: Returns tasks that can run. This function
+            has to have semantics of a task graph, meaning it has to return
             results consistent with a fixed set of total tasks and
             one task depends on completion of others, not on any external
             behaviors. The task object this function returns has two
             attributes, ``args``, which is a list of arguments for ``fork``,
             and ``memory`` which is the maximum number of Gb this process
             could require.
-        memory_limit (float): How much memory to use. This function doesn't
+        memory_limit: How much memory to use. This function doesn't
             check memory in the operating system. It checks against claims
             by the processes.
-        sleep_duration (float): How long to wait if there's nothing to do.
+        sleep_duration: How long to wait if there's nothing to do.
     """
     completed = set()
     unblocked = run_next(completed)
