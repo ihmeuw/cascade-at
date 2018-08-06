@@ -4,11 +4,7 @@ import pytest
 
 import pandas as pd
 
-from cascade.input_data.db.bundle import (
-    freeze_bundle,
-    _get_bundle_id,
-    _covariate_ids_to_names,
-)
+from cascade.input_data.db.bundle import freeze_bundle, _get_bundle_id, _covariate_ids_to_names
 
 
 def test_get_bundle_id__success(mock_execution_context, mock_database_access):
