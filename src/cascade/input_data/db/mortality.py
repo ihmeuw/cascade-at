@@ -43,7 +43,7 @@ def get_cause_specific_mortality_data(execution_context):
                 lower as meas_lower,
                 upper as meas_upper
             FROM
-                epi.t3_model_version_csmr t3_csmr
+                epi.t3_model_version_csmr
             WHERE model_version_id = %(model_version_id)s
     """
 
@@ -66,7 +66,7 @@ def get_age_standardized_death_rate_data(execution_context):
                 lower as meas_lower,
                 upper as meas_upper
             FROM
-                epi.t3_model_version_asdr t3_asdr
+                epi.t3_model_version_asdr
             WHERE model_version_id = %(model_version_id)s
     """
 
