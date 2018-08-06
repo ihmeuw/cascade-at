@@ -196,7 +196,8 @@ def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
     )
     """
 
-    cursor.executemany(insert_query, bundle_data.values())
+    bundle_data = bundle_data.where(pd.notnull(bundle_data), None)
+    cursor.executemany(insert_query, bundle_data.values.tolist())
 
     CODELOG.debug(f"uploaded {len(bundle_data)} lines of bundle data")
 
@@ -216,7 +217,7 @@ def _upload_study_covariates_to_tier_3(cursor, model_version_id, covariate_data)
     )
     """
 
-    cursor.executemany(insert_query, covariate_data.values())
+    cursor.executemany(insert_query, covariate_data.values.tolist())
 
     CODELOG.debug(f"uploaded {len(covariate_data)} lines of covariate")
 
@@ -284,19 +285,20 @@ def _normalize_bundle_data(data):
 def _covariate_ids_to_names(execution_context, study_covariates):
     """Convert study_covariate_ids to canonical study covariate names
     """
-    query = """
-    select study_covariate_id, study_covariate
-    from epi.study_covariate
-    where study_covariate_id in %(covariate_ids)s
-    """
-    with cursor(execution_context) as c:
-        c.execute(query, args={"covariate_ids": tuple(study_covariates.study_covariate_id.unique())})
-        covariate_mapping = dict(list(c))
+    study_covariate_ids = list(study_covariates.study_covariate_id.unique())
+    study_covariates = study_covariates.rename(columns={"study_covariate_id": "name"})
 
-    study_covariates = study_covariates.copy()
-    study_covariates["name"] = study_covariates.study_covariate_id.apply(covariate_mapping.get)
+    if study_covariate_ids:
+        query = """
+        select study_covariate_id, study_covariate
+        from epi.study_covariate
+        where study_covariate_id in %(covariate_ids)s
+        """
+        with cursor(execution_context) as c:
+            c.execute(query, args={"covariate_ids": study_covariate_ids})
+            covariate_mapping = dict(list(c))
 
-    del study_covariates["study_covariate_id"]
+        study_covariates["name"] = study_covariates.name.apply(covariate_mapping.get)
 
     return study_covariates
 
