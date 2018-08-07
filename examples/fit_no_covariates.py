@@ -34,7 +34,7 @@ import pandas as pd
 import cascade.input_data.db.bundle
 from cascade.testing_utilities import make_execution_context
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum, RateName
-from examples.dmfile_create import write_to_file
+from dmfile_create import write_to_file
 
 LOGGER = logging.getLogger("fit_no_covariates")
 
@@ -59,16 +59,36 @@ def cached_bundle_load(context, bundle_id, tier_idx):
 
 
 def choose_constraints(bundle, measure):
+    LOGGER.debug(f"measures in bundle {bundle['measure'].unique()}")
     observations = pd.DataFrame(bundle[bundle["measure"] != measure])
     constraints = pd.DataFrame(bundle[bundle["measure"] == measure])
     return observations, constraints
 
 
+def fake_mtother():
+    ages = list(range(0, 105, 5))
+    years = list(range(1965, 2020, 5))
+    age_time = np.array(list(it.product(ages, years)), dtype=np.float)
+    return pd.DataFrame(dict(
+        measure="mtother",
+        mean=0.001,
+        sex="Male",
+        standard_error=0.0007,
+        age_start=age_time[:, 0],
+        age_end=age_time[:, 0],
+        year_start=age_time[:, 1],
+        year_end=age_time[:, 1],
+    ))
+
+
 def retrieve_external_data(config):
     context = make_execution_context()
     bundle, covariate = cached_bundle_load(context, config.bundle_id, config.tier_idx)
+    with_mtother = pd.concat([bundle, fake_mtother()], ignore_index=True)
+    LOGGER.debug(f"Data now {with_mtother}")
+
     # Split the input data into observations and constraints.
-    bundle_observations, bundle_constraints = choose_constraints(bundle, "mtother")
+    bundle_observations, bundle_constraints = choose_constraints(with_mtother, "mtother")
     return Namespace(observations=bundle_observations, constraints=bundle_constraints)
 
 
@@ -130,7 +150,7 @@ def integrand_outputs(rates, location_id, age, time):
     """
     The internal model declares what outputs it wants.
     """
-    age_time = np.array(list(it.product(age, time)), dtype=np.float)
+    age_time = np.array(list(it.product(age["age"].values, time["year"].values)), dtype=np.float)
     entries = list()
     for rate in (RATE_TO_INTEGRAND.get(r) for r in rates):
         entries.append(pd.DataFrame({
@@ -148,27 +168,29 @@ def integrand_outputs(rates, location_id, age, time):
 
 def build_smoothing_grid(age, time):
     """Builds a default smoothing grid with uniform priors."""
-    age_time = np.array(list(it.product(age, time)), dtype=np.float)
+    age_time = np.array(list(it.product(age["age"].values, time["year"].values)), dtype=np.float)
     return pd.DataFrame({
         "age": age_time[:, 0],
         "year": age_time[:, 1],
         "value_prior": "uniform01",
         "age_difference_prior": "uniform",
         "time_difference_prior": "uniform",
+        "const_value": np.NaN,
     })
 
 
 def build_constraint(constraint):
     """
     This makes a smoothing grid where the mean value is set to a given
-    set of values
+    set of values.
     """
     return pd.DataFrame({
         "age": constraint["age_start"],
         "year": constraint["year_start"],
-        "value_prior": constraint["value"],
+        "value_prior": None,
         "age_difference_prior": "uniform",
-        "time_difference_prior": "uniform"
+        "time_difference_prior": "uniform",
+        "const_value": constraint["mean"],
     })
 
 
@@ -176,6 +198,7 @@ def internal_model(config, inputs):
     model = Namespace()
     # convert the observations to a normalized format.
     model.observations = bundle_to_observations(config, inputs.observations)
+    model.constraints = bundle_to_observations(config, inputs.constraints)
 
     rates_to_calculate_str = config.options["non_zero_rates"].split()
     age_df, time_df = age_year_from_data(inputs.constraints)
@@ -190,15 +213,15 @@ def internal_model(config, inputs):
         "lower": [1e-10, None],
         "upper": [1.0, None],
         "mean": [0.01, 0.0],
-        "std": [None, None],
-        "eta": [None, None],
-        "nu": [None, None],
+        "std": np.array([np.NaN, np.NaN], dtype=np.float),
+        "eta": np.array([np.NaN, np.NaN], dtype=np.float),
+        "nu": np.array([np.NaN, np.NaN], dtype=np.float),
     })
 
     smoothing_default = build_smoothing_grid(age_df, time_df)
     pini = build_smoothing_grid(age_df, time_df)
     # For initial prevalence, cut off all grid points outside birth.
-    smoothing_initial_prevalence = pd.DataFrame(pini[pini["age_start"] < 1e-6])
+    smoothing_initial_prevalence = pd.DataFrame(pini[pini["age"] < 1e-6])
     model.smoothers = {
         RateName.iota: smoothing_default,
         RateName.rho: smoothing_default,

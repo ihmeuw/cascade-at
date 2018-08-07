@@ -42,6 +42,10 @@ def _validate_data(table_definition, data):
             actual_type = data[column_name].dtype
             expected_type = column_definition.type.python_type
 
+            if len(data) == 0:
+                # Length zero columns get converted on write.
+                continue
+
             if issubclass(expected_type, Enum):
                 # This is an Enum type column, I'm making the simplifying assumption
                 # that those will always be string type
@@ -49,8 +53,10 @@ def _validate_data(table_definition, data):
 
             if expected_type is int:
                 # Permit np.float because an int column with a None is cast to float.
+                # Same for object. This is cast on write.
                 # Because we use metadata, this will be converted for us to int when it is written.
-                if not (np.issubdtype(actual_type, np.integer) or np.issubdtype(actual_type, np.float)):
+                allowed = [np.integer, np.float, np.object]
+                if not any(np.issubdtype(actual_type, given_type) for given_type in allowed):
                     raise DismodFileError(
                         f"column '{column_name}' in data for table '{table_definition.name}' must be integer"
                     )
@@ -60,16 +66,17 @@ def _validate_data(table_definition, data):
                         f"column '{column_name}' in data for table '{table_definition.name}' must be numeric"
                     )
             elif expected_type is str:
-                correct = actual_type != np.dtype("O")
                 if len(data) > 0:
                     # Use iloc to get the first entry, even if the index doesn't have 0.
                     actual_type = type(data[column_name].iloc[0])
                     correct = np.issubdtype(actual_type, np.str_)
 
-                if not correct:
-                    raise DismodFileError(
-                        f"column '{column_name}' in data for table '{table_definition.name}' must be string"
-                    )
+                    if not correct:
+                        raise DismodFileError(
+                            f"column '{column_name}' in data for table '{table_definition.name}' must be string"
+                        )
+                else:
+                    pass  # Will convert to string on write of empty rows.
         elif not (column_definition.primary_key or column_definition.nullable):
             raise DismodFileError(f"Missing column in data for table '{table_definition.name}': '{column_name}'")
         columns_checked.add(column_name)
