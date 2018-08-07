@@ -1,23 +1,54 @@
+"""Support for dismod concepts that are expressed over grids: age-time, smoothings and value priors.
+"""
 from math import isclose, isinf
 
 GRID_SNAP_DISTANCE = 1 / 365
 
 
 class AgeTimeGrid:
+    """Structure for storing age and times over which the model will estimate.
+    Also constructors for making standard age-time grids.
+    """
+
     @classmethod
     def uniform(cls, age_start, age_end, age_step, time_start, time_end, time_step):
+        """Construct an age-time grid with uniform spacing on each axis.
+        All values are in units of years.
+
+        Args:
+            age_start: the lowest age in the grid
+            age_end: the highest age in the grid
+            age_step: the spacing of age points
+            time_start: the earliest time in the grid
+            time_end: the latest time in the grid
+            time_step: the spacing of time points
+        """
         ages = list(range(age_start, age_end, age_step))
         times = list(range(time_start, time_end, time_step))
 
         return cls(ages, times)
 
     def __init__(self, ages, times, snap_distance=GRID_SNAP_DISTANCE):
-        self.ages = ages
-        self.times = times
-        self.snap_distance = snap_distance
+        self._ages = tuple(sorted(set(ages)))
+        self._times = tuple(sorted(set(times)))
+        self._snap_distance = snap_distance
+
+    @property
+    def ages(self):
+        return self._ages
+
+    @property
+    def times(self):
+        return self._times
+
+    @property
+    def snap_distance(self):
+        return self._snap_distance
 
 
 def _any_close(value, targets, tolerance):
+    """True if any element of targets is within tolerance of value
+    """
     for target in targets:
         if isclose(value, target, abs_tol=tolerance):
             return True
@@ -25,6 +56,12 @@ def _any_close(value, targets, tolerance):
 
 
 def _validate_region(grid, lower_age, upper_age, lower_time, upper_time):
+    """Validates that the described rectangle aligns with the grid.
+    Positive or negative infinite bounds will be treated as stretching to the edge of the grid.
+
+    Raises:
+        ValueError: If the rectangle does not align
+    """
     if not _any_close(lower_age, grid.ages, grid.snap_distance) and not isinf(lower_age):
         raise ValueError("Lower age not in underlying grid")
 
@@ -73,20 +110,44 @@ class _RegionView:
         if lower_age != upper_age or lower_time != upper_time:
             raise NotImplementedError("Currently only point queries are supported")
 
-        return self._parent.prior_at_point(lower_age, lower_time)
+        return self._parent._prior_at_point(lower_age, lower_time)
 
     @prior.setter
     def prior(self, p):
-        self._parent.push_prior(*self._rectangle(), p)
+        self._parent._push_prior(*self._rectangle(), p)
 
 
-class Priors:
-    def __init__(self, grid):
+class PriorGrid:
+    """Represents priors for rectangular regions of an underlying age-time grid.
+
+    Args:
+        grid: The underlying age-time grid
+        hyper_prior: The prior for the priors in this grid
+
+    Examples:
+        >>> grid = AgeTimeGrid.uniform(age_start=0,age_end=120,age_step=5,time_start=1990,time_end=2018,time_step=1)
+        >>> d_time = PriorGrid(grid)
+
+        Set a prior for the whole grid:
+        >>> d_time[:, :].prior = GaussianPrior(0, 0.1)
+
+        Set a prior for a band of ages
+        >>> d_age[0:15, :].prior = GaussianPrior(1, 0.01)
+
+        Or a single year
+        >>> d_time[:, 1995].prior = GaussianPrior(0, 3)
+    """
+
+    def __init__(self, grid, hyper_prior=None):
         self._grid = grid
         self._priors = list()
+        self.hyper_prior = hyper_prior
 
     def __getitem__(self, slices):
-        if len(slices) != 2:
+        try:
+            if len(slices) != 2:
+                raise ValueError("Region must be specified in both age and time")
+        except TypeError:
             raise ValueError("Region must be specified in both age and time")
 
         age_slice, time_slice = slices
@@ -99,11 +160,16 @@ class Priors:
 
         return _RegionView(self, age_slice, time_slice)
 
-    def push_prior(self, lower_age, upper_age, lower_time, upper_time, prior):
+    def _push_prior(self, lower_age, upper_age, lower_time, upper_time, prior):
+        """Push a new region and prior combination onto the stack. When
+        querying, more recent priors take precedence.
+        """
         _validate_region(self._grid, lower_age, upper_age, lower_time, upper_time)
         self._priors.append(((lower_age, upper_age, lower_time, upper_time), prior))
 
-    def prior_at_point(self, age, time):
+    def _prior_at_point(self, age, time):
+        """Find the prior for a particular point on the age-time grid.
+        """
         final_prior = None
         for ((lower_age, upper_age, lower_time, upper_time), prior) in self._priors:
             if lower_age <= age <= upper_age and lower_time <= time <= upper_time:
