@@ -92,6 +92,18 @@ def retrieve_external_data(config):
     return Namespace(observations=bundle_observations, constraints=bundle_constraints)
 
 
+def data_from_csv(data_path):
+    data = pd.read_csv(data_path)
+    data = data.rename(
+        index=str,
+        columns={"integrand": "measure", "age_lower": "age_start", "age_upper": "age_end",
+                 "time_lower": "year_start", "time_upper": "year_end",
+                 "meas_value": "mean", "meas_std": "standard_error"})
+    # Split the input data into observations and constraints.
+    bundle_observations, bundle_constraints = choose_constraints(data, "mtother")
+    return Namespace(observations=bundle_observations, constraints=bundle_constraints)
+
+
 def bundle_to_observations(config, bundle_df):
     """Convert bundle into an internal format."""
     if "incidence" in bundle_df["measure"].values:
@@ -243,7 +255,8 @@ def construct_database():
     )
 
     # Get the bundle and process it.
-    inputs = retrieve_external_data(config)
+    #inputs = retrieve_external_data(config)
+    inputs = data_from_csv(Path("measure.csv"))
     LOGGER.debug(f"inputs has {[x for x in dir(inputs) if not x.startswith('_')]}")
     model = internal_model(config, inputs)
     LOGGER.debug(f"model has {[x for x in dir(model) if not x.startswith('_')]}")
