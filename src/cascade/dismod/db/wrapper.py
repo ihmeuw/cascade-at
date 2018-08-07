@@ -48,7 +48,9 @@ def _validate_data(table_definition, data):
                 expected_type = str
 
             if expected_type is int:
-                if not np.issubdtype(actual_type, np.integer):
+                # Permit np.float because an int column with a None is cast to float.
+                # Because we use metadata, this will be converted for us to int when it is written.
+                if not (np.issubdtype(actual_type, np.integer) or np.issubdtype(actual_type, np.float)):
                     raise DismodFileError(
                         f"column '{column_name}' in data for table '{table_definition.name}' must be integer"
                     )
@@ -60,7 +62,8 @@ def _validate_data(table_definition, data):
             elif expected_type is str:
                 correct = actual_type != np.dtype("O")
                 if len(data) > 0:
-                    actual_type = type(data[column_name][0])
+                    # Use iloc to get the first entry, even if the index doesn't have 0.
+                    actual_type = type(data[column_name].iloc[0])
                     correct = np.issubdtype(actual_type, np.str_)
 
                 if not correct:
@@ -141,12 +144,12 @@ class DismodFile:
         add_columns_to_data_table(data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
 
-    def create_tables(self):
+    def create_tables(self, tables=None):
         """
         Make all of the tables in the metadata.
         """
-        # TODO: we only actually need to make a subset of the tables
-        Base.metadata.create_all(self.engine)
+        LOGGER.debug(f"Creating table subset {tables}")
+        Base.metadata.create_all(self.engine, tables, checkfirst=False)
 
     def make_densities(self):
         """
@@ -207,12 +210,14 @@ class DismodFile:
                     table_definition = self._table_definitions[table_name]
                     _validate_data(table_definition, table)
                     try:
+                        dtypes = {k: v.type for k, v in table_definition.c.items()}
+                        LOGGER.debug(f"table {table_name} types {dtypes}")
                         table.to_sql(
                             table_name,
                             connection,
                             index_label=table_name + "_id",
                             if_exists="replace",
-                            dtype={k: v.type for k, v in table_definition.c.items()},
+                            dtype=dtypes,
                         )
                     except StatementError as e:
                         raise

@@ -1,10 +1,13 @@
 from argparse import Namespace
+import logging
 import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import sqlite3
 
 import cascade.input_data.db.bundle
+from cascade.dismod.db.wrapper import DismodFile, _get_engine
 import fit_no_covariates as example
 
 
@@ -73,3 +76,32 @@ def test_retrieve_external_data():
 
     # Get the bundle and process it.
     inputs = example.retrieve_external_data(config)
+
+
+logging.basicConfig(level=logging.DEBUG)
+
+
+def test_write_own_id(tmpdir):
+    fname = Path(f"{tmpdir}/z.db")
+    bundle_file_engine = _get_engine(fname)
+    bundle_fit = DismodFile(bundle_file_engine, {}, {})
+    node = pd.DataFrame({
+        "node_name": ["samoa", "china", "us"],
+        "parent": np.array([102, None, None], dtype=np.float),
+        },
+        index=[26, 6, 102],
+    )
+    print(f"indexed node is {node}")
+    bundle_fit.node = node
+    print(f"parent type in {bundle_fit.node['parent'].dtype}")
+    bundle_fit.flush()
+
+    # Need to use raw sqlite3 to see what's really in the database.
+    conn = sqlite3.connect(str(fname))
+    results = conn.execute("SELECT * from node").fetchall()
+
+    print(results)
+    for index, name, value in results:
+        assert isinstance(index, int)
+        assert isinstance(name, str)
+        assert isinstance(value, int) or value is None
