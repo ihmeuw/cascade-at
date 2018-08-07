@@ -127,14 +127,11 @@ class PriorGrid:
     Examples:
         >>> grid = AgeTimeGrid.uniform(age_start=0,age_end=120,age_step=5,time_start=1990,time_end=2018,time_step=1)
         >>> d_time = PriorGrid(grid)
-
-        Set a prior for the whole grid:
+        >>> #Set a prior for the whole grid:
         >>> d_time[:, :].prior = GaussianPrior(0, 0.1)
-
-        Set a prior for a band of ages
+        >>> #Set a prior for a band of ages
         >>> d_age[0:15, :].prior = GaussianPrior(1, 0.01)
-
-        Or a single year
+        >>> #Or a single year
         >>> d_time[:, 1995].prior = GaussianPrior(0, 3)
     """
 

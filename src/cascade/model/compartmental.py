@@ -9,8 +9,8 @@ how Dismod-AT works, and how disease processes work.
 
 1.  Specify a disease process by making simple Python functions that
     return disease rates as a function of time. You can specify a set
-    of :math:`(\iota, \rho, \chi, \mu)`, or you can specify a set
-    of :math:`(\iota, \rho, \chi, \omega)`. We'll call the former the
+    of :math:`(\iota, \\rho, \chi, \mu)`, or you can specify a set
+    of :math:`(\iota, \\rho, \chi, \omega)`. We'll call the former the
     total-mortality specification and the latter the other-mortality
     specification.
 
@@ -93,7 +93,7 @@ The full differential equation can be transformed into a space
 
 .. math::
 
-    P = \frac{C}{S+C}
+    P = \\frac{C}{S+C}
 
     N = S + C.
 
@@ -102,7 +102,7 @@ one for the total mortality
 
 .. math::
 
-    P' = \iota (1-P) - \rho P - \chi (1-P) P
+    P' = \iota (1-P) - \\rho P - \chi (1-P) P
 
     N' = -\omega N - \chi C.
 

@@ -6,4 +6,5 @@ Cascade-AT Reference Manual
    :maxdepth: 2
 
    core
+   model
    executor
