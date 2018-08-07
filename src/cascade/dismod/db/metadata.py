@@ -254,6 +254,10 @@ class MulCov(Base):
 
 
 class AvgInt(Base):
+    """
+    Each entry in avgint asks Dismod to calculate a value for this measure,
+    age, and time.
+    """
     __tablename__ = "avgint"
 
     avgint_id = Column(Integer(), primary_key=True)
@@ -267,6 +271,12 @@ class AvgInt(Base):
 
 
 class Data(Base):
+    """
+    These are input observations of demographic rates, prevalence, initial
+    prevalence. They can also be constraints, entered with hold_out=1
+    and as point values in age and time, instead of having different upper
+    and lower limits.
+    """
     __tablename__ = "data"
 
     data_id = Column(Integer(), primary_key=True)

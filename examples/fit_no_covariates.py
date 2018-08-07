@@ -32,9 +32,9 @@ import numpy as np
 import pandas as pd
 
 import cascade.input_data.db.bundle
-from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.testing_utilities import make_execution_context
-from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
+from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum, RateName
+from examples.dmfile_create import write_to_file
 
 LOGGER = logging.getLogger("fit_no_covariates")
 
@@ -87,8 +87,12 @@ def bundle_to_observations(config, bundle_df):
     else:
         location_id = np.full(len(bundle_df), config.location_id, dtype=np.int)
 
+    # assume using demographic notation because this bundle uses it.
     demographic_interval_specification = 1
 
+    # Stick with year_start instead of time_start because that's what's in the
+    # bundle, so it's probably what modelers use. Would be nice to pair
+    # start with finish or begin with end.
     return pd.DataFrame({
         "measure": bundle_df["measure"],
         "location_id": location_id,
@@ -96,6 +100,7 @@ def bundle_to_observations(config, bundle_df):
         "weight": "constant",
         "age_start": bundle_df["age_start"],
         "age_end": bundle_df["age_end"] + demographic_interval_specification,
+        # The years should be floats in the bundle.
         "year_start": bundle_df["year_start"].astype(np.float),
         "year_end": bundle_df["year_end"].astype(np.float) + demographic_interval_specification,
         "mean": bundle_df["mean"],
@@ -113,151 +118,95 @@ def age_year_from_data(df):
 
 
 RATE_TO_INTEGRAND = dict(
-    iota="Sincidence",
-    rho="remission",
-    chi="mtexcess",
-    omega="mtother",
-    prevalence="prevalence",
+    iota=IntegrandEnum.Sincidence,
+    rho=IntegrandEnum.remission,
+    chi=IntegrandEnum.mtexcess,
+    omega=IntegrandEnum.mtother,
+    prevalence=IntegrandEnum.prevalence,
 )
 
 
-def integrand_outputs(rates, age, time):
-    age_time = np.array(list(it.product(age, time)))
+def integrand_outputs(rates, location_id, age, time):
+    """
+    The internal model declares what outputs it wants.
+    """
+    age_time = np.array(list(it.product(age, time)), dtype=np.float)
     entries = list()
     for rate in (RATE_TO_INTEGRAND.get(r) for r in rates):
         entries.append(pd.DataFrame({
             "integrand": rate,
-            "location_id": 26,
-            "weight": "constant",
-            "age_lower": age_time[:, 0],
-            "age_upper": age_time[:, 0],
-            "time_lower": age_time[:, 1],
-            "time_upper": age_time[:, 1]
+            "location_id": location_id,  # Uses location_id, not node id
+            "weight": "constant",  # Assumes a constant rate exists.
+            # Uses modeler versions of age and year, not age and time.
+            "age_start": age_time[:, 0],
+            "age_end": age_time[:, 0],
+            "year_start": age_time[:, 1],
+            "year_end": age_time[:, 1]
         }))
     return pd.concat(entries, ignore_index=True)
 
 
-def internal_model(config, inputs):
-    # convert the observations to a normalized format.
-    observations = bundle_to_observations(config, inputs.observations)
-
-    age_df, time_df = age_year_from_data(inputs.constraints)
-    desired_outputs = integrand_outputs(config.options["non_zero_rates"].split(), age_df, time_df)
-    return Namespace(observations=observations, outputs=desired_outputs)
-
-
-def enum_to_dataframe(enum_name):
-    """Given an enum, return a dataframe with two columns, name and value."""
-    return pd.DataFrame.from_records(
-        np.array(
-            [(measure, enum_value.value) for (measure, enum_value) in enum_name.__members__.items()],
-            dtype=np.dtype([('name', object), ('value', np.int)])
-        )
-    )
-
-
-def default_integrand_names():
-    # Converting an Enum to a DataFrame with specific parameters
-    integrands = enum_to_dataframe(IntegrandEnum)
-    df = pd.DataFrame({"integrand_name": integrands["name"]})
-    df["minimum_meas_cv"] = 0.0
-    return df
-
-
-def simplest_weight():
-    """Defines one weight for everything by defining it on one age-time point."""
-    weight = pd.DataFrame({
-        "weight_name": ["constant"],
-        "n_age": [1],
-        "n_time": [1],
-    })
-    weight_grid = pd.DataFrame({
-        "weight_id": [0],
-        "age_id": [0],
-        "time_id": [0],
-        "weight": [1.0],
-    })
-    return weight, weight_grid
-
-
-def observations_to_data(dismodel, observations_df):
-    """Turn an internal format into a Dismod format."""
-    measure_to_integrand = dict(
-        incidence=IntegrandEnum.Sincidence.value,
-        mtexcess=IntegrandEnum.mtexcess.value,
-    )
+def build_smoothing_grid(age, time):
+    """Builds a default smoothing grid with uniform priors."""
+    age_time = np.array(list(it.product(age, time)), dtype=np.float)
     return pd.DataFrame({
-        "measure": observations_df["measure"].apply(measure_to_integrand.get),
-        # Translate node id from location_id
-        "node_id": observations_df["location_id"],
-        # Translate density from string
-        "density_id": observations_df["density"],
-        # Translate weight from string
-        "weight_id": observations_df["weight"],
-        "age_lower": observations_df["age_start"],
-        "age_upper": observations_df["age_end"],
-        "time_lower": observations_df["year_start"].astype(np.float),
-        "time_upper": observations_df["year_end"],
-        "meas_value": observations_df["mean"],
-        "meas_std": observations_df["standard_error"],
-        "hold_out": 0,
+        "age": age_time[:, 0],
+        "year": age_time[:, 1],
+        "value_prior": "uniform01",
+        "age_difference_prior": "uniform",
+        "time_difference_prior": "uniform",
     })
 
 
-def write_to_file(config, model):
-    avgint_columns = dict()
-    data_columns = dict()
-    bundle_dismod_db = Path("fit_no.db")
-    bundle_file_engine = _get_engine(bundle_dismod_db)
-    bundle_fit = DismodFile(bundle_file_engine, avgint_columns, data_columns)
-
-    # Standard Density table.
-    density_enum = enum_to_dataframe(DensityEnum)
-    densities = pd.DataFrame({"density_name": density_enum["name"]})
-    bundle_fit.density = densities
-
-    # Standard integrand naming scheme.
-    all_integrands = default_integrand_names()
-    bundle_fit.integrands = all_integrands
-
-    # Assume we have one location, so no parents.
-    unique_locations = model.observations["location_id"].unique()
-    assert len(unique_locations) == 1
-    node_table = pd.DataFrame({
-        "node_name": unique_locations.astype(int).astype(str),
-        "parent": None,
+def build_constraint(constraint):
+    """
+    This makes a smoothing grid where the mean value is set to a given
+    set of values
+    """
+    return pd.DataFrame({
+        "age": constraint["age_start"],
+        "year": constraint["year_start"],
+        "value_prior": constraint["value"],
+        "age_difference_prior": "uniform",
+        "time_difference_prior": "uniform"
     })
 
-    bundle_fit.age = model.age
-    bundle_fit.time = model.time
 
-    # These are helpers to convert from ages and times to age and time indexes.
-    # pd.merge_asof will do an approximate merge.
-    age_idx = pd.DataFrame(model.age)
-    age_idx["index0"] = age_idx.index
+def internal_model(config, inputs):
+    model = Namespace()
+    # convert the observations to a normalized format.
+    model.observations = bundle_to_observations(config, inputs.observations)
 
-    time_idx = pd.DataFrame(model.time)
-    time_idx["index0"] = time_idx.index
+    rates_to_calculate_str = config.options["non_zero_rates"].split()
+    age_df, time_df = age_year_from_data(inputs.constraints)
+    desired_outputs = integrand_outputs(
+        rates_to_calculate_str + ["prevalence"],
+        config.location_id, age_df, time_df)
+    model.outputs = desired_outputs
 
-    bundle_fit.node = node_table
-    bundle_fit.weight, bundle_fit.weight_grid = simplest_weight()
-
-    # The avgint needs to be translated.
-    bundle_fit.avgint = model.outputs
-
-    observations = observations_to_data(bundle_fit, model.observations)
-    constraints = model.constraints
-    bundle_fit.data = pd.concat([observations, constraints], ignore_index=True)
-
-    bundle_fit.covariate = pd.DataFrame({
-        "covariate_name": np.array(0, object),
-        "reference": np.array(0, np.float),
-        "max_difference": np.array(0, np.float),
+    model.priors = pd.DataFrame({
+        "prior_name": ["uniform", "uniform01"],
+        "density_id": 0,  # uniform
+        "lower": [1e-10, None],
+        "upper": [1.0, None],
+        "mean": [0.01, 0.0],
+        "std": [None, None],
+        "eta": [None, None],
+        "nu": [None, None],
     })
 
-    flush_begin = timer()
-    bundle_fit.flush()
-    LOGGER.debug(f"Flush db {timer() - flush_begin}")
+    smoothing_default = build_smoothing_grid(age_df, time_df)
+    pini = build_smoothing_grid(age_df, time_df)
+    # For initial prevalence, cut off all grid points outside birth.
+    smoothing_initial_prevalence = pd.DataFrame(pini[pini["age_start"] < 1e-6])
+    model.smoothers = {
+        RateName.iota: smoothing_default,
+        RateName.rho: smoothing_default,
+        RateName.chi: smoothing_default,
+        RateName.pini: smoothing_initial_prevalence,
+        RateName.omega: build_constraint(inputs.constraints),
+    }
+    return model
 
 
 def construct_database():
