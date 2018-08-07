@@ -249,13 +249,13 @@ def construct_database():
     config = Namespace()
     config.bundle_id = 3209
     config.tier_idx = 2
-    config.location_id=26
+    config.location_id = 26
     config.options = dict(
-        non_zero_rates = "iota rho chi omega"
+        non_zero_rates="iota rho chi omega"
     )
 
     # Get the bundle and process it.
-    #inputs = retrieve_external_data(config)
+    # inputs = retrieve_external_data(config)
     inputs = data_from_csv(Path("measure.csv"))
     LOGGER.debug(f"inputs has {[x for x in dir(inputs) if not x.startswith('_')]}")
     model = internal_model(config, inputs)
