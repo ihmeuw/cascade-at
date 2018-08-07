@@ -58,6 +58,20 @@ def cached_bundle_load(context, bundle_id, tier_idx):
     return bundle, covariate
 
 
+def choose_constraints(bundle, measure):
+    observations = pd.DataFrame(bundle[bundle["measure"] != measure])
+    constraints = pd.DataFrame(bundle[bundle["measure"] == measure])
+    return observations, constraints
+
+
+def retrieve_external_data(config):
+    context = make_execution_context()
+    bundle, covariate = cached_bundle_load(context, config.bundle_id, config.tier_idx)
+    # Split the input data into observations and constraints.
+    bundle_observations, bundle_constraints = choose_constraints(bundle, "mtother")
+    return Namespace(observations=bundle_observations, constraints=bundle_constraints)
+
+
 def bundle_to_observations(config, bundle_df):
     """Convert bundle into an internal format."""
     if "incidence" in bundle_df["measure"].values:
@@ -89,76 +103,13 @@ def bundle_to_observations(config, bundle_df):
     })
 
 
-def observations_to_data(dismodel, observations_df):
-    """Turn an internal format into a Dismod format."""
-    measure_to_integrand = dict(
-        incidence=IntegrandEnum.Sincidence.value,
-        mtexcess=IntegrandEnum.mtexcess.value,
-    )
-    return pd.DataFrame({
-        "measure": observations_df["measure"].apply(measure_to_integrand.get),
-        # Translate node id from location_id
-        "node_id": observations_df["location_id"],
-        # Translate density from string
-        "density_id": observations_df["density"],
-        # Translate weight from string
-        "weight_id": observations_df["weight"],
-        "age_lower": observations_df["age_start"],
-        "age_upper": observations_df["age_end"],
-        "time_lower": observations_df["year_start"].astype(np.float),
-        "time_upper": observations_df["year_end"],
-        "meas_value": observations_df["mean"],
-        "meas_std": observations_df["standard_error"],
-        "hold_out": 0,
-    })
-
-
-def choose_constraints(bundle, measure):
-    observations = pd.DataFrame(bundle[bundle["measure"] != measure])
-    constraints = pd.DataFrame(bundle[bundle["measure"] == measure])
-    return observations, constraints
-
-
-def age_time_from_data(df):
+def age_year_from_data(df):
     results = dict()
     for topic in ["age", "year"]:
         values = np.unique(np.hstack([df[f"{topic}_start"], df[f"{topic}_end"]]))
         values.sort()
         results[topic] = pd.DataFrame({topic: values})
     return results["age"], results["year"]
-
-
-def default_integrand_names():
-    # Converting an Enum to a DataFrame with specific parameters
-    integrands = enum_to_dataframe(IntegrandEnum)
-    df = pd.DataFrame({"integrand_name": integrands["name"]})
-    df["minimum_meas_cv"] = 0.0
-    return df
-
-
-def enum_to_dataframe(enum_name):
-    """Given an enum, return a dataframe with two columns, name and value."""
-    return pd.DataFrame.from_records(
-        np.array(
-            [(measure, enum_value.value) for (measure, enum_value) in enum_name.__members__.items()],
-            dtype=np.dtype([('name', object), ('value', np.int)])
-        )
-    )
-
-
-def simplest_weight():
-    weight = pd.DataFrame({
-        "weight_name": ["constant"],
-        "n_age": [1],
-        "n_time": [1],
-    })
-    weight_grid = pd.DataFrame({
-        "weight_id": [0],
-        "age_id": [0],
-        "time_id": [0],
-        "weight": [1.0],
-    })
-    return weight, weight_grid
 
 
 RATE_TO_INTEGRAND = dict(
@@ -186,21 +137,71 @@ def integrand_outputs(rates, age, time):
     return pd.concat(entries, ignore_index=True)
 
 
-def retrieve_external_data(config):
-    context = make_execution_context()
-    bundle, covariate = cached_bundle_load(context, config.bundle_id, config.tier_idx)
-    # Split the input data into observations and constraints.
-    bundle_observations, bundle_constraints = choose_constraints(bundle, "mtother")
-    return Namespace(observations=bundle_observations, constraints=bundle_constraints)
-
-
 def internal_model(config, inputs):
     # convert the observations to a normalized format.
     observations = bundle_to_observations(config, inputs.observations)
 
-    age_df, time_df = age_time_from_data(inputs.constraints)
+    age_df, time_df = age_year_from_data(inputs.constraints)
     desired_outputs = integrand_outputs(config.options["non_zero_rates"].split(), age_df, time_df)
     return Namespace(observations=observations, outputs=desired_outputs)
+
+
+def enum_to_dataframe(enum_name):
+    """Given an enum, return a dataframe with two columns, name and value."""
+    return pd.DataFrame.from_records(
+        np.array(
+            [(measure, enum_value.value) for (measure, enum_value) in enum_name.__members__.items()],
+            dtype=np.dtype([('name', object), ('value', np.int)])
+        )
+    )
+
+
+def default_integrand_names():
+    # Converting an Enum to a DataFrame with specific parameters
+    integrands = enum_to_dataframe(IntegrandEnum)
+    df = pd.DataFrame({"integrand_name": integrands["name"]})
+    df["minimum_meas_cv"] = 0.0
+    return df
+
+
+def simplest_weight():
+    """Defines one weight for everything by defining it on one age-time point."""
+    weight = pd.DataFrame({
+        "weight_name": ["constant"],
+        "n_age": [1],
+        "n_time": [1],
+    })
+    weight_grid = pd.DataFrame({
+        "weight_id": [0],
+        "age_id": [0],
+        "time_id": [0],
+        "weight": [1.0],
+    })
+    return weight, weight_grid
+
+
+def observations_to_data(dismodel, observations_df):
+    """Turn an internal format into a Dismod format."""
+    measure_to_integrand = dict(
+        incidence=IntegrandEnum.Sincidence.value,
+        mtexcess=IntegrandEnum.mtexcess.value,
+    )
+    return pd.DataFrame({
+        "measure": observations_df["measure"].apply(measure_to_integrand.get),
+        # Translate node id from location_id
+        "node_id": observations_df["location_id"],
+        # Translate density from string
+        "density_id": observations_df["density"],
+        # Translate weight from string
+        "weight_id": observations_df["weight"],
+        "age_lower": observations_df["age_start"],
+        "age_upper": observations_df["age_end"],
+        "time_lower": observations_df["year_start"].astype(np.float),
+        "time_upper": observations_df["year_end"],
+        "meas_value": observations_df["mean"],
+        "meas_std": observations_df["standard_error"],
+        "hold_out": 0,
+    })
 
 
 def write_to_file(config, model):
@@ -221,6 +222,7 @@ def write_to_file(config, model):
 
     # Assume we have one location, so no parents.
     unique_locations = model.observations["location_id"].unique()
+    assert len(unique_locations) == 1
     node_table = pd.DataFrame({
         "node_name": unique_locations.astype(int).astype(str),
         "parent": None,
@@ -270,7 +272,9 @@ def construct_database():
 
     # Get the bundle and process it.
     inputs = retrieve_external_data(config)
+    LOGGER.debug(f"inputs has {[x for x in dir(inputs) if not x.startswith('_')]}")
     model = internal_model(config, inputs)
+    LOGGER.debug(f"model has {[x for x in dir(model) if not x.startswith('_')]}")
     write_to_file(config, model)
 
 
