@@ -31,7 +31,7 @@ from timeit import default_timer as timer
 import numpy as np
 import pandas as pd
 
-from cascade.input_data.db.bundle import bundle_with_study_covariates
+import cascade.input_data.db.bundle
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.testing_utilities import make_execution_context
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
@@ -48,7 +48,7 @@ def cached_bundle_load(context, bundle_id, tier_idx):
 
     LOGGER.debug(f"Begin getting study covariates {bundle_id}")
     bundle_begin = timer()
-    bundle, covariate = bundle_with_study_covariates(
+    bundle, covariate = cascade.input_data.db.bundle.bundle_with_study_covariates(
         context, bundle_id, tier_idx)
     LOGGER.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
 
@@ -60,6 +60,10 @@ def cached_bundle_load(context, bundle_id, tier_idx):
 
 def bundle_to_observations(config, bundle_df):
     """Convert bundle into an internal format."""
+    if "incidence" in bundle_df["measure"].values:
+        LOGGER.info("Bundle has incidence. Replacing with Sincidence. Is this correct?")
+        bundle_df["measure"] = bundle_df["measure"].replace("incidence", "Sincidence")
+
     for check_measure in bundle_df["measure"].unique():
         if check_measure not in IntegrandEnum.__members__:
             raise KeyError(f"{check_measure} isn't a name known to Cascade.")
@@ -74,8 +78,8 @@ def bundle_to_observations(config, bundle_df):
     return pd.DataFrame({
         "measure": bundle_df["measure"],
         "location_id": location_id,
-        "density_id": DensityEnum.gaussian,
-        "weight_id": "constant",
+        "density": DensityEnum.gaussian,
+        "weight": "constant",
         "age_start": bundle_df["age_start"],
         "age_end": bundle_df["age_end"] + demographic_interval_specification,
         "year_start": bundle_df["year_start"].astype(np.float),
@@ -96,9 +100,9 @@ def observations_to_data(dismodel, observations_df):
         # Translate node id from location_id
         "node_id": observations_df["location_id"],
         # Translate density from string
-        "density_id": observations_df["density_id"],
+        "density_id": observations_df["density"],
         # Translate weight from string
-        "weight_id": observations_df["weight_id"],
+        "weight_id": observations_df["weight"],
         "age_lower": observations_df["age_start"],
         "age_upper": observations_df["age_end"],
         "time_lower": observations_df["year_start"].astype(np.float),
@@ -117,11 +121,11 @@ def choose_constraints(bundle, measure):
 
 def age_time_from_data(df):
     results = dict()
-    for topic in ["age", "time"]:
+    for topic in ["age", "year"]:
         values = np.unique(np.hstack([df[f"{topic}_start"], df[f"{topic}_end"]]))
         values.sort()
         results[topic] = pd.DataFrame({topic: values})
-    return results["age"], results["time"]
+    return results["age"], results["year"]
 
 
 def default_integrand_names():
@@ -192,7 +196,7 @@ def retrieve_external_data(config):
 
 def internal_model(config, inputs):
     # convert the observations to a normalized format.
-    observations = bundle_to_observations(inputs.observations)
+    observations = bundle_to_observations(config, inputs.observations)
 
     age_df, time_df = age_time_from_data(inputs.constraints)
     desired_outputs = integrand_outputs(config.options["non_zero_rates"].split(), age_df, time_df)

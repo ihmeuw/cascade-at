@@ -1,3 +1,4 @@
+from argparse import Namespace
 import numpy as np
 import os
 import pandas as pd
@@ -9,7 +10,7 @@ import fit_no_covariates as example
 
 def test_bundle_to_integrand():
     df = pd.DataFrame(dict(
-        measure=["incidence", "mtexcess"],
+        measure=["Sincidence", "mtexcess"],
         mean=[0.001, 0.000],
         sex=["Male", "Female"],
         standard_error=["0.000", "0.000"],
@@ -18,11 +19,13 @@ def test_bundle_to_integrand():
         year_start=[1965, 1970],
         year_end=[1965, 1970],
     ))
-    integrand = example.bundle_to_integrand(df, 26)
-    final_columns = set("integrand age_lower age_upper time_lower time_upper meas_value meas_std hold_out".split())
+    config = Namespace(location_id=26)
+    integrand = example.bundle_to_observations(config, df)
+    final_columns = set(("measure density location_id weight age_start "
+                         "age_end year_start year_end mean standard_error").split())
     assert set(integrand.columns) == final_columns
-    assert integrand["time_lower"].dtype == np.float
-    assert integrand["time_upper"].dtype == np.float
+    assert integrand["year_start"].dtype == np.float
+    assert integrand["year_end"].dtype == np.float
     return integrand
 
 
@@ -57,3 +60,16 @@ def test_bundle_cache(monkeypatch, tmpdir):
     assert "age_start" in bundle.columns
 
     os.chdir(current_working)
+
+
+def test_retrieve_external_data():
+    config = Namespace()
+    config.bundle_id = 3209
+    config.tier_idx = 2
+    config.location_id=26
+    config.options = dict(
+        non_zero_rates = "iota rho chi omega"
+    )
+
+    # Get the bundle and process it.
+    inputs = example.retrieve_external_data(config)
