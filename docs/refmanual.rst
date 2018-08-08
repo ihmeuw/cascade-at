@@ -6,6 +6,6 @@ Cascade-AT Reference Manual
    :maxdepth: 2
 
    core
+   dismod
    executor
    input_data
-   dismod
