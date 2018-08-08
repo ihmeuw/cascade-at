@@ -29,10 +29,7 @@ def cursor(execution_context=None, database=None):
 
         try:
             yield cursor
-        except Exception:
-            cursor.close()
-            raise
-        else:
+        finally:
             cursor.close()
 
 
@@ -47,12 +44,8 @@ def connection(execution_context=None, database=None):
         database = execution_context.parameters.database
 
     connection = ezfuncs.get_connection(database)
-    try:
-        yield connection
-    except Exception:
-        raise
-    else:
-        connection.commit()
+    yield connection
+    connection.commit()
 
 
 def model_version_exists(execution_context):
