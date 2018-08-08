@@ -5,6 +5,16 @@ import logging
 import pandas as pd
 
 try:
+    from db_queries import get_age_metadata
+except ImportError:
+
+    class DummyGetAgeMetadata:
+        def __getattr__(self, name):
+            raise ImportError(f"Required package db_queries not found")
+
+    get_age_metadata = DummyGetAgeMetadata()
+
+try:
     from db_queries import get_demographics
 except ImportError:
 
@@ -26,27 +36,10 @@ except ImportError:
 
 
 from cascade.core.db import cursor
-from cascade.input_data.db import GBD_ROUND_ID
+from cascade.input_data.db import AGE_GROUP_SET_ID, GBD_ROUND_ID
 
 
 CODELOG = logging.getLogger(__name__)
-
-
-def _get_age_group_data(execution_context):
-    """t3_model_version_asdr table needs age_lower and age_upper columns"""
-
-    query = """
-    SELECT age_group_id, age_group_years_start, age_group_years_end
-    FROM shared.age_group
-
-    """
-
-    with cursor(execution_context) as c:
-        c.execute(query)
-        age_group_data = pd.DataFrame(list(c.fetchall()))
-        age_group_data.columns = ["age_group_id", "age_lower", "age_upper"]
-
-    return age_group_data
 
 
 def _asdr_in_t3(execution_context):
@@ -81,13 +74,17 @@ def _get_asdr_data(execution_context):
         gbd_round_id=GBD_ROUND_ID,
         age_group_id=age_group_ids,
         sex_id=sex_ids,
-        with_hiv=1,
-        rates=1
+        with_hiv=True,
+        rates=True
     ).drop(columns=["run_id"])
 
     asdr = asdr[asdr["mean"].notnull()]
 
-    age_group_data = _get_age_group_data(execution_context)
+    age_group_data = get_age_metadata(
+        age_group_set_id=AGE_GROUP_SET_ID, gbd_round_id=GBD_ROUND_ID)[
+        ["age_group_id", "age_group_years_start", "age_group_years_end"]]
+
+    age_group_data.columns = ["age_group_id", "age_lower", "age_upper"]
 
     asdr = asdr.merge(age_group_data, how="left", on="age_group_id")
 
