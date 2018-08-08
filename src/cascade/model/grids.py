@@ -76,6 +76,15 @@ def _validate_region(grid, lower_age, upper_age, lower_time, upper_time):
 
 
 class _RegionView:
+    """Represents a slice into a PriorGrid and exposes a way to query or set
+    the prior over that slice.
+
+    Args:
+        parent: The PriorGrid this _RegionView references
+        age_slice: The region in age space
+        time_slice: The region in time space
+    """
+
     def __init__(self, parent, age_slice, time_slice):
         self._parent = parent
         self._age_slice = age_slice
@@ -130,7 +139,7 @@ class PriorGrid:
         >>> #Set a prior for the whole grid:
         >>> d_time[:, :].prior = GaussianPrior(0, 0.1)
         >>> #Set a prior for a band of ages
-        >>> d_age[0:15, :].prior = GaussianPrior(1, 0.01)
+        >>> d_time[0:15, :].prior = GaussianPrior(1, 0.01)
         >>> #Or a single year
         >>> d_time[:, 1995].prior = GaussianPrior(0, 3)
     """
@@ -167,8 +176,7 @@ class PriorGrid:
     def _prior_at_point(self, age, time):
         """Find the prior for a particular point on the age-time grid.
         """
-        final_prior = None
-        for ((lower_age, upper_age, lower_time, upper_time), prior) in self._priors:
+        for ((lower_age, upper_age, lower_time, upper_time), prior) in reversed(self._priors):
             if lower_age <= age <= upper_age and lower_time <= time <= upper_time:
-                final_prior = prior
-        return final_prior
+                return prior
+        return None
