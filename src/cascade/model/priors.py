@@ -4,7 +4,7 @@ class _Prior:
 
     density = None
 
-    def __init__(self, name=None, **parameter_values):
+    def __init__(self, name=None):
         self.name = name
 
     def _parameters(self):
@@ -14,7 +14,7 @@ class _Prior:
         return dict(density=self.density, **self._parameters())
 
     def __hash__(self):
-        return hash(frozenset(self.parameters().items()))
+        return hash((frozenset(self.parameters().items()), self.name))
 
     def __eq__(self, other):
         return isinstance(other, _Prior) and self.name == other.name and self.parameters() == other.parameters()
@@ -48,6 +48,17 @@ class UniformPrior(_Prior):
 
     def parameters(self):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean}
+
+
+class ConstantPrior:
+    density = "uniform"
+
+    def __init__(self, value, name=None):
+        super().__init__(name)
+        self.value = value
+
+    def parameters(self):
+        return {"lower": self.value, "upper": self.value, "mean": self.value}
 
 
 class GaussianPrior(_Prior):

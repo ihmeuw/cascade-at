@@ -1,5 +1,6 @@
 from .parameters import ParameterProperty
 from .input_data import InputData
+from cascade.model.rates import Rate
 
 
 class ExecutionContext:
@@ -24,3 +25,4 @@ class ModelContext:
     def __init__(self):
         self.parameters = _ModelParameters()
         self.input_data = InputData()
+        self.rates = {name: Rate(name) for name in ["pini", "iota", "rho", "chi", "omega"]}
