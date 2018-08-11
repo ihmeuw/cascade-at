@@ -9,9 +9,9 @@ def collect_priors(context):
 
     for rate in context.rates.values():
         if rate.parent_smooth:
-            priors.update(rate.parent_smooth.priors)
+            priors.update([p for g in rate.parent_smooth.prior_grids for p in g.priors])
         if rate.child_smooth:
-            priors.update(rate.child_smooth.priors)
+            priors.update([p for g in rate.child_smooth.prior_grids for p in g.priors])
 
     return priors
 
@@ -37,13 +37,13 @@ def collect_ages_or_times(context, to_collect="ages"):
             values.extend(value)
 
     values = np.array(values)
-    uniqued_values = np.unique(values.round(decimals=14), return_index=True)
+    uniqued_values = np.unique(values.round(decimals=14), return_index=True)[1]
 
     return values[uniqued_values]
 
 
 def dismodfile_from_model_context(context):
-    dm = DismodFile(None, [], [])
+    dm = DismodFile(None, {}, {})
     dm.make_densities()
 
     dm.age = make_age_table(context)
@@ -89,47 +89,45 @@ def prior_to_row(prior):
 
 
 def make_prior_table(context, density_table):
-    priors = collect_priors(context)
+    priors = list(collect_priors(context))
 
     prior_table = pd.DataFrame([prior_to_row(p) for p in priors])
     prior_table["prior_id"] = prior_table.index
-    prior_table.loc[prior_table.name.isnull(), "prior_name"] = prior_table.loc[
-        prior_table.name.isnull(), "prior_id"
+    prior_table.loc[prior_table.prior_name.isnull(), "prior_name"] = prior_table.loc[
+        prior_table.prior_name.isnull(), "prior_id"
     ].apply(lambda pid: f"prior_{pid}")
 
-    prior_table = pd.merge_asof(prior_table, density_table, on="density_name")
+    prior_table = pd.merge(prior_table, density_table, on="density_name")
+    prior_table["prior_id"] = prior_table.index
 
     return prior_table.drop("density_name", "columns"), priors
 
 
 def make_smooth_grid_table(smooth, prior_objects):
-    grids = [ps.grid for ps in [smooth.value_priors, smooth.d_age_priors, smooth.d_time_priors] if ps]
-    if not grids:
-        return pd.DataFrame()
+    grid = smooth.grid
 
-    if not all([grids[0] == g for g in grids]):
-        raise ValueError("Smooth contains priors on hetrogenious grids")
+    rows = []
+    if grid is not None:
+        for age in grid.ages:
+            for time in grid.times:
+                row = {"age": age, "time": time, "const_value": None}
+                if smooth.value_priors:
+                    row["value_prior_id"] = prior_objects.index(smooth.value_priors[age, time].prior)
+                else:
+                    row["value_prior_id"] = None
+                if smooth.d_age_priors:
+                    row["dage_prior_id"] = prior_objects.index(smooth.d_age_priors[age, time].prior)
+                else:
+                    row["dage_prior_id"] = None
+                if smooth.d_time_priors:
+                    row["dtime_prior_id"] = prior_objects.index(smooth.d_time_priors[age, time].prior)
+                else:
+                    row["dtime_prior_id"] = None
+                rows.append(row)
 
-    grid = grids[0]
-
-    rows = {}
-    for age in grid.ages:
-        for time in grid.times:
-            row = {"age": age, "time": time, "const_value": None}
-            if smooth.value_priors:
-                row["value_prior_id"] = prior_objects.index(smooth.value_priors[age, time].prior)
-            else:
-                row["value_prior_id"] = None
-            if smooth.d_age_priors:
-                row["dage_prior_id"] = prior_objects.index(smooth.d_age_priors[age, time].prior)
-            else:
-                row["dage_prior_id"] = None
-            if smooth.d_time_priors:
-                row["dtime_prior_id"] = prior_objects.index(smooth.d_time_priors[age, time].prior)
-            else:
-                row["dtime_prior_id"] = None
-
-    return pd.DataFrame(rows)
+    return pd.DataFrame(
+        rows, columns=["age", "time", "const_value", "value_prior_id", "dage_prior_id", "dtime_prior_id"]
+    )
 
 
 def smooth_row(name, smooth, grid, prior_objects):
@@ -161,15 +159,23 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_obj
     smooths = []
     for rate in context.rates.values():
         if rate.parent_smooth:
-            grid_table = make_smooth_grid_table(rate.parent_smooth)
+            grid_table = make_smooth_grid_table(rate.parent_smooth, prior_objects)
             smooths.append(smooth_row(f"{rate.name}_parent_smooth", rate.parent_smooth, grid_table, prior_objects))
             grid_table["smooth_id"] = len(smooths)
+            grid_tables.append(grid_table)
         if rate.child_smooth:
-            grid_table = make_smooth_grid_table(rate.child_smooth)
+            grid_table = make_smooth_grid_table(rate.child_smooth, prior_objects)
             smooths.append(smooth_row(f"{rate.name}_child_smooth", rate.child_smooth, grid_table, prior_objects))
             grid_table["smooth_id"] = len(smooths)
+            grid_tables.append(grid_table)
 
-    grid_table = pd.concat(grid_tables)
+    if grid_tables:
+        grid_table = pd.concat(grid_tables)
+        grid_table["smooth_grid_id"] = grid_table.index
+        grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
+        grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
+    else:
+        grid_table = pd.DataFrame()
     smooth_table = pd.DataFrame(smooths)
     smooth_table["smooth_id"] = smooth_table.index
 

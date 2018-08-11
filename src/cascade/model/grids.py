@@ -217,10 +217,13 @@ class PriorGrid:
 
     @property
     def priors(self):
-        return {prior for _, prior in self._priors} | {self.hyper_prior}
+        ps = {prior for _, prior in self._priors}
+        if self.hyper_prior:
+            ps.add(self.hyper_prior)
+        return ps
 
     def __hash__(self):
-        return hash((self.grid, self._priors, self.hyper_prior))
+        return hash((self.grid, tuple(self._priors), self.hyper_prior))
 
     def __eq__(self, other):
         return (

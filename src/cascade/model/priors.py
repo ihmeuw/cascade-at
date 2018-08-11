@@ -74,7 +74,7 @@ class GaussianPrior(_Prior):
         self.mean = mean
         self.standard_deviation = standard_deviation
 
-    def parameters(self):
+    def _parameters(self):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean, "std": self.standard_deviation}
 
 
@@ -97,7 +97,7 @@ class StudentsTPrior(_Prior):
         self.standard_deviation = standard_deviation
         self.nu = nu
 
-    def parameters(self):
+    def _parameters(self):
         return {
             "lower": self.lower,
             "upper": self.upper,
@@ -121,7 +121,7 @@ class LogGaussianPrior(_Prior):
         self.standard_deviation = standard_deviation
         self.eta = eta
 
-    def parameters(self):
+    def _parameters(self):
         return {
             "lower": self.lower,
             "upper": self.upper,
@@ -151,7 +151,7 @@ class LogStudentsTPrior(_Prior):
         self.nu = nu
         self.eta = eta
 
-    def parameters(self):
+    def _parameters(self):
         return {
             "lower": self.lower,
             "upper": self.upper,

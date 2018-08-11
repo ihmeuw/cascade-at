@@ -122,6 +122,12 @@ class DismodFile:
         so this puts them all in.
         """
         self.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+        self.density["density_id"] = self.density.index
+
+    def __dir__(self):
+        attributes = list(self._table_definitions.keys())
+        attributes.extend(super().__dir__())
+        return attributes
 
     def __getattr__(self, table_name):
         if table_name in self._table_data:
@@ -130,7 +136,7 @@ class DismodFile:
             table = self._table_definitions[table_name]
             with self.engine.connect() as conn:
                 data = pd.read_sql_query(select([table]), conn)
-            data = data.set_index(f"{table_name}_id")
+            data = data.set_index(f"{table_name}_id", drop=False)
             self._table_hash[table_name] = pd.util.hash_pandas_object(data)
             self._table_data[table_name] = data
             return data
@@ -172,12 +178,12 @@ class DismodFile:
                         raise DismodFileError(f"Table '{table_name}' is not writable")
 
                     table_definition = self._table_definitions[table_name]
-                    _validate_data(table_definition, table)
+                    # _validate_data(table_definition, table)
+                    table = table.sort_values(f"{table_name}_id")
                     try:
                         table.to_sql(
                             table_name,
                             connection,
-                            index_label=table_name + "_id",
                             if_exists="replace",
                             dtype={k: v.type for k, v in table_definition.c.items()},
                         )

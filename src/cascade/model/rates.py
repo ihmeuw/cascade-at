@@ -1,11 +1,63 @@
 class Smooth:
+    __slots__ = ["_value_priors", "_d_age_priors", "_d_time_priors"]
+
     def __init__(self, value_priors=None, d_age_priors=None, d_time_priors=None):
+        self._value_priors = None
+        self._d_age_priors = None
+        self._d_time_priors = None
+
         self.value_priors = value_priors
         self.d_age_priors = d_age_priors
         self.d_time_priors = d_time_priors
 
+    def _validate_grids(self, priors):
+        grids = [ps.grid for ps in [self.value_priors, self.d_age_priors, self.d_time_priors, priors] if ps]
+        if grids:
+            if not all([grids[0] == g for g in grids]):
+                raise ValueError("Smooth cannot contain priors on hetrogenious grids")
+
+    @property
+    def value_priors(self):
+        return self._value_priors
+
+    @value_priors.setter
+    def value_priors(self, priors):
+        self._validate_grids(priors)
+        self._value_priors = priors
+
+    @property
+    def d_age_priors(self):
+        return self._d_age_priors
+
+    @d_age_priors.setter
+    def d_age_priors(self, priors):
+        self._validate_grids(priors)
+        self._d_age_priors = priors
+
+    @property
+    def d_time_priors(self):
+        return self._d_time_priors
+
+    @d_time_priors.setter
+    def d_time_priors(self, priors):
+        self._validate_grids(priors)
+        self._d_time_priors = priors
+
+    @property
+    def grid(self):
+        for ps in [self.value_priors, self.d_age_priors, self.d_time_priors]:
+            if ps:
+                return ps.grid
+        return None
+
+    @property
+    def prior_grids(self):
+        return [ps for ps in [self.value_priors, self.d_age_priors, self.d_time_priors] if ps]
+
 
 class Rate:
+    __slots__ = ["name", "parent_smooth", "child_smooth"]
+
     def __init__(self, name, parent_smooth=None, child_smooth=None):
         self.name = name
         self.parent_smooth = parent_smooth
