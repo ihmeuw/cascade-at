@@ -34,9 +34,6 @@ def test_PriorGrid__development_target():
 
     assert value[10, 1995].prior == GaussianPrior(200, 10)
     assert value[10, 1996].prior == GaussianPrior(20, 1)
-    import pdb
-
-    pdb.set_trace()
 
 
 def test_PriorGrid__point_query(age_time_grid):
