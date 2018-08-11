@@ -2,7 +2,14 @@
 """
 from math import isclose, isinf
 
+import numpy as np
+
 GRID_SNAP_DISTANCE = 1 / 365
+
+
+def _nearest(values, query):
+    values = np.array(values)
+    return values[np.abs(values - query).argmin()]
 
 
 class AgeTimeGrid:
@@ -23,8 +30,8 @@ class AgeTimeGrid:
             time_end: the latest time in the grid
             time_step: the spacing of time points
         """
-        ages = list(range(age_start, age_end, age_step))
-        times = list(range(time_start, time_end, time_step))
+        ages = np.arange(age_start, age_end, age_step)
+        times = np.arange(time_start, time_end, time_step)
 
         return cls(ages, times)
 
@@ -44,6 +51,27 @@ class AgeTimeGrid:
     @property
     def snap_distance(self):
         return self._snap_distance
+
+    def to_age(self, query):
+        if np.isinf(query):
+            return query
+        return _nearest(self._ages, query)
+
+    def to_time(self, query):
+        if np.isinf(query):
+            return query
+        return _nearest(self._times, query)
+
+    def __hash__(self):
+        return hash((self._ages, self._times, self._snap_distance))
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, type(self))
+            and self._ages == other._ages
+            and self._times == other._times
+            and self._snap_distance == other._snap_distance
+        )
 
 
 def _any_close(value, targets, tolerance):
@@ -145,7 +173,7 @@ class PriorGrid:
     """
 
     def __init__(self, grid, hyper_prior=None):
-        self._grid = grid
+        self.grid = grid
         self._priors = list()
         self.hyper_prior = hyper_prior
 
@@ -170,13 +198,37 @@ class PriorGrid:
         """Push a new region and prior combination onto the stack. When
         querying, more recent priors take precedence.
         """
-        _validate_region(self._grid, lower_age, upper_age, lower_time, upper_time)
+        _validate_region(self.grid, lower_age, upper_age, lower_time, upper_time)
+        lower_age = self.grid.to_age(lower_age)
+        upper_age = self.grid.to_age(upper_age)
+        lower_time = self.grid.to_time(lower_time)
+        upper_time = self.grid.to_time(upper_time)
         self._priors.append(((lower_age, upper_age, lower_time, upper_time), prior))
 
     def _prior_at_point(self, age, time):
         """Find the prior for a particular point on the age-time grid.
         """
+        age = self.grid.to_age(age)
+        time = self.grid.to_time(time)
         for ((lower_age, upper_age, lower_time, upper_time), prior) in reversed(self._priors):
             if lower_age <= age <= upper_age and lower_time <= time <= upper_time:
                 return prior
         return None
+
+    @property
+    def priors(self):
+        ps = {prior for _, prior in self._priors}
+        if self.hyper_prior:
+            ps.add(self.hyper_prior)
+        return ps
+
+    def __hash__(self):
+        return hash((self.grid, tuple(self._priors), self.hyper_prior))
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, type(self))
+            and self.grid == other.grid
+            and self._priors == other._priors
+            and self.hyper_prior == other.hyper_prior
+        )
