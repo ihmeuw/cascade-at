@@ -3,12 +3,13 @@ Converts the internal representation to a Dismod File.
 """
 import logging
 from pathlib import Path
+import time
 from timeit import default_timer as timer
 
 import numpy as np
 import pandas as pd
 
-from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
+from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum, RateName
 from cascade.dismod.db.wrapper import _get_engine, DismodFile
 
 
@@ -170,6 +171,14 @@ def write_to_file(config, model):
     bundle_fit.nslist = pd.DataFrame(columns=["nslist_name"])
     bundle_fit.mulcov = pd.DataFrame(columns=["mulcov_type", "integrand_id", "covariate_id", "smooth_id"])
 
+    bundle_fit.log = pd.DataFrame({
+        "message_type": ["command"],
+        "table_name": [None],
+        "row_id": np.NaN,
+        "unix_time": int(round(time.time())),
+        "message": ["fit_no_covariates.py"],
+    })
+
     # Assume we have one location, so no parents.
     # If we had a hierarchy, that would be used to determine parents.
     unique_locations = model.observations["location_id"].unique()
@@ -181,6 +190,26 @@ def write_to_file(config, model):
     index=unique_locations.astype(int)
     )
     bundle_fit.node = node_table
+    # nslist_pair has to be created, even if there is only one node.
+    bundle_fit.nslist_pair = pd.DataFrame(
+        columns=["nslist_id", "node_id", "smooth_id"]
+    )
+
+    non_zero_rates = list(model.smoothers.keys())
+    if 'iota' in non_zero_rates:
+        if 'rho' in non_zero_rates:
+            value = 'iota_pos_rho_pos'
+        else:
+            value = 'iota_pos_rho_zero'
+    else:
+        if 'rho' in non_zero_rates:
+            value = 'iota_zero_rho_pos'
+        else:
+            value = 'iota_zero_rho_zero'
+    bundle_fit.option = pd.DataFrame({
+        "option_name": ["parent_node_name", "rate_case"],
+        "option_value": [node_table.iloc[0]["node_name"], value],
+    })
 
     # Ages and times are used by Weight grids and smooth grids,
     # so pull all ages and times from those two objects in the
@@ -222,6 +251,17 @@ def write_to_file(config, model):
 
     bundle_fit.smooth, bundle_fit.smooth_grid = convert_smoothers(
         model.smoothers, age_df, time_df, prior_df)
+    smooth_df = bundle_fit.smooth.copy()
+    smooth_df["smooth_id"] = smooth_df.index
+
+    rate_enum = enum_to_dataframe(RateName)
+    with_smooth = rate_enum.merge(smooth_df, left_on="name", right_on="smooth_name", how="outer")
+    bundle_fit.rate = pd.DataFrame({
+        "rate_name": with_smooth["name"],
+        "parent_smooth_id": with_smooth["smooth_id"],
+        "child_smooth_id": np.NaN,
+        "child_nslist_id": np.NaN,
+    })
 
     flush_begin = timer()
     bundle_fit.flush()

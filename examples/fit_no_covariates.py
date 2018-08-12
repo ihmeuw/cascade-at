@@ -120,7 +120,7 @@ def bundle_to_observations(config, bundle_df):
         location_id = np.full(len(bundle_df), config.location_id, dtype=np.int)
 
     # assume using demographic notation because this bundle uses it.
-    demographic_interval_specification = 1
+    demographic_interval_specification = 0
 
     # Stick with year_start instead of time_start because that's what's in the
     # bundle, so it's probably what modelers use. Would be nice to pair

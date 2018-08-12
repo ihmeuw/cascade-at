@@ -13,6 +13,17 @@ LOGGER = logging.getLogger(__name__)
 Base = declarative_base()
 
 
+class Log(Base):
+    __tablename__ = "log"
+
+    log_id = Column(Integer(), primary_key=True)
+    message_type = Column(String(), nullable=True)
+    table_name = Column(String(), nullable=True)
+    row_id = Column(Integer(), nullable=True)
+    unix_time = Column(Integer(), nullable=False)
+    message = Column(String(), nullable=True)
+
+
 class Age(Base):
     __tablename__ = "age"
 

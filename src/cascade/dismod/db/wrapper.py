@@ -69,7 +69,7 @@ def _validate_data(table_definition, data):
                 if len(data) > 0:
                     # Use iloc to get the first entry, even if the index doesn't have 0.
                     actual_type = type(data[column_name].iloc[0])
-                    correct = np.issubdtype(actual_type, np.str_)
+                    correct = np.issubdtype(actual_type, np.str_) or np.issubdtype(actual_type, np.object)
 
                     if not correct:
                         raise DismodFileError(
