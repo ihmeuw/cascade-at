@@ -57,6 +57,11 @@ def test_wrong_type(base_file):
         base_file.flush()
 
 
+def test_non_existent_table(base_file):
+    with pytest.raises(KeyError):
+        base_file.integrands_with_an_s = pd.DataFrame()
+
+
 def test_is_dirty__initially(base_file):
     assert base_file._is_dirty("age")
 

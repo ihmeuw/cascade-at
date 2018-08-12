@@ -141,11 +141,15 @@ def bundle_to_observations(config, bundle_df):
 
 
 def age_year_from_data(df):
+    LOGGER.debug(f"df coming in {df}")
     results = dict()
     for topic in ["age", "year"]:
-        values = np.unique(np.hstack([df[f"{topic}_start"], df[f"{topic}_end"]]))
+        values = df[f"{topic}_start"].unique().tolist()
+        values.extend(df[f"{topic}_end"].unique().tolist())
+        values = list(set(values))
         values.sort()
         results[topic] = pd.DataFrame({topic: values})
+        LOGGER.debug(f"{topic}: {values}")
     return results["age"], results["year"]
 
 
@@ -231,16 +235,14 @@ def internal_model(config, inputs):
     })
 
     smoothing_default = build_smoothing_grid(age_df, time_df)
-    pini = build_smoothing_grid(age_df, time_df)
-    # For initial prevalence, cut off all grid points outside birth.
-    smoothing_initial_prevalence = pd.DataFrame(pini[pini["age"] < 1e-6])
+    # No smoothing for initial prevalence in Brad's example.
     model.smoothers = {
-        RateName.iota: smoothing_default,
-        RateName.rho: smoothing_default,
-        RateName.chi: smoothing_default,
-        RateName.pini: smoothing_initial_prevalence,
-        RateName.omega: build_constraint(inputs.constraints),
+        "iota": smoothing_default,
+        "rho": smoothing_default,
+        "chi": smoothing_default,
+        "omega": build_constraint(model.constraints),
     }
+    LOGGER.debug(f"Omega constraint {model.smoothers['omega']}")
     return model
 
 

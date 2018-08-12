@@ -181,7 +181,11 @@ class DismodFile:
 
     def __setattr__(self, table_name, df):
         if table_name in self.__dict__.get("_table_definitions", {}):
+            if not isinstance(df, pd.DataFrame):
+                raise ValueError(f"Tried to set table using type {type(df)} instead of a DataFrame")
             self._table_data[table_name] = df
+        elif isinstance(df, pd.DataFrame):
+            raise KeyError(f"Tried to set table {table_name} but it isn't in the db specification")
         else:
             super().__setattr__(table_name, df)
 

@@ -76,11 +76,12 @@ def age_time_from_grids(smoothers):
     results = list()
     for column, name in [("age", "age"), ("year", "time")]:
         ages = set()
-        for grid_df in smoothers.values():
-            ages.update(set(grid_df["age"].unique()))
+        for grid_df in smoothers:
+            ages.update(set(grid_df[column].unique()))
         age_list = list(ages)
         age_list.sort()
-        results.append(pd.DataFrame({name: age_list}))
+        as_floats = np.array(age_list, dtype=np.float)
+        results.append(pd.DataFrame({name: as_floats}))
 
     age_df, time_df = results
     return age_df, time_df
@@ -100,7 +101,7 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
     for name, smoothing in smoothers.items():
         # The name is a RateName enum value. Hence name.name to get the string.
         LOGGER.debug(f"{name} f{smoothing.dtypes}")
-        sm_name.append(name.name)
+        sm_name.append(name)
         sm_age.append(len(smoothing["age"].unique()))
         sm_time.append(len(smoothing["year"].unique()))
 
@@ -109,11 +110,15 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
         # Time comes in as year from the model.
         with_age = with_age.sort_values(by="year")
         with_age_time = pd.merge_asof(with_age, time_df, left_on="year", right_on="time")
-        with_val = with_age_time.merge(prior_df, left_on="value_prior", right_on="prior_name")
+        # Use left outer join because priors can be none and should be kept.
+        with_val = with_age_time.merge(
+            prior_df, how="left", left_on="value_prior", right_on="prior_name")
         with_val = with_val.rename(index=str, columns={"prior_id": "value_prior_id"})
-        with_dage = with_val.merge(prior_df, left_on="age_difference_prior", right_on="prior_name")
+        with_dage = with_val.merge(
+            prior_df, left_on="age_difference_prior", right_on="prior_name", how="left")
         with_dage = with_dage.rename(index=str, columns={"prior_id": "dage_prior_id"})
-        with_dtime = with_dage.merge(prior_df, left_on="time_difference_prior", right_on="prior_name")
+        with_dtime = with_dage.merge(
+            prior_df, left_on="time_difference_prior", right_on="prior_name", how="left")
         with_ids = with_dtime.rename(index=str, columns={"prior_id": "dtime_prior_id"})
 
         smooth_grid.append(pd.DataFrame({
@@ -127,6 +132,7 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
         }))
 
         smooth_idx += 1
+    LOGGER.debug(f"Added {len(smooth_grid)} smoothers for {list(smoothers.keys())}.")
 
     smooth_df = pd.DataFrame({
         "smooth_name": sm_name,
@@ -137,7 +143,6 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
         "mulstd_dtime_prior_id": np.NaN,
     })
     grids_together = pd.concat(smooth_grid, ignore_index=True)
-    LOGGER.debug(f"after prior merge {grids_together.dtypes}")
     return smooth_df, grids_together
 
 
@@ -155,7 +160,7 @@ def write_to_file(config, model):
 
     # Standard integrand naming scheme.
     all_integrands = default_integrand_names()
-    bundle_fit.integrands = all_integrands
+    bundle_fit.integrand = all_integrands
 
     # No covariates.
     bundle_fit.covariate = pd.DataFrame(
@@ -180,7 +185,7 @@ def write_to_file(config, model):
     # Ages and times are used by Weight grids and smooth grids,
     # so pull all ages and times from those two objects in the
     # internal model. Skip weight grid here b/c assuming use constant.
-    bundle_fit.age, bundle_fit.time = age_time_from_grids(model.smoothers)
+    bundle_fit.age, bundle_fit.time = age_time_from_grids(model.smoothers.values())
 
     # These are used to get the age_id into another dataframe.
     # Use pd.merge_asof to do this.
