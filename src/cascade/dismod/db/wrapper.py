@@ -55,7 +55,7 @@ def _validate_data(table_definition, data):
                 # Permit np.float because an int column with a None is cast to float.
                 # Same for object. This is cast on write.
                 # Because we use metadata, this will be converted for us to int when it is written.
-                allowed = [np.integer, np.float, np.object]
+                allowed = [np.integer, np.float]
                 if not any(np.issubdtype(actual_type, given_type) for given_type in allowed):
                     raise DismodFileError(
                         f"column '{column_name}' in data for table '{table_definition.name}' must be integer"

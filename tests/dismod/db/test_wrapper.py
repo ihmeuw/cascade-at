@@ -133,7 +133,8 @@ def test_validate_data__happy_path():
 
 
 def test_validate_data__bad_integer():
-    data = pd.DataFrame({"integer_column": [1.0, 2.0, 3.0], "nonnullable_column": [1, 2, 3]})
+    data = pd.DataFrame({"integer_column": np.array(["1", "2", "3"], dtype=np.str),
+                         "nonnullable_column": [1, 2, 3]})
     with pytest.raises(DismodFileError) as excinfo:
         _validate_data(DummyTable.__table__, data)
 
