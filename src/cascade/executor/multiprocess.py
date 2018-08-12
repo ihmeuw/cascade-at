@@ -21,7 +21,7 @@ class ChildProcessProblem(Exception):
     """A subprocess had a nonzero exit code."""
 
 
-def graph_do(run_next: function, memory_limit: float, sleep_duration: float=1):
+def graph_do(run_next: function, memory_limit: float, sleep_duration: float = 1):
     """
     This runs processes and blocks until completion.
     The ``run_next`` function must have the signature

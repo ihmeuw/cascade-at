@@ -166,8 +166,8 @@ texinfo_documents = [
 
 # Sort order of members listed by autodoc
 # options are: 'alphabetical', 'groupwise', or 'bysource'
-autodoc_member_order = 'bysource'
+autodoc_member_order = "bysource"
 
 # Defaults for automodule and autoclass
 # To negate add `:no-undoc-members:` flag to a particular instance
-autodoc_default_flags = ['members', 'undoc-members' ]
+autodoc_default_flags = ["members", "undoc-members"]
