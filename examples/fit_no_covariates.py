@@ -222,8 +222,8 @@ def internal_model(config, inputs):
     model.priors = pd.DataFrame({
         "prior_name": ["uniform", "uniform01"],
         "density_id": 0,  # uniform
-        "lower": [1e-10, None],
-        "upper": [1.0, None],
+        "lower": [1e-10, np.NaN],
+        "upper": [1.0, np.NaN],
         "mean": [0.01, 0.0],
         "std": np.array([np.NaN, np.NaN], dtype=np.float),
         "eta": np.array([np.NaN, np.NaN], dtype=np.float),

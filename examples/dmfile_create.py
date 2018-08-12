@@ -87,6 +87,9 @@ def age_time_from_grids(smoothers):
 
 
 def convert_smoothers(smoothers, age_df, time_df, prior_df):
+    LOGGER.debug(f"age_df {age_df.dtypes}")
+    LOGGER.debug(f"time_df {time_df.dtypes}")
+    LOGGER.debug(f"prior_df {prior_df.dtypes}")
     sm_name = list()
     sm_age = list()
     sm_time = list()
@@ -96,6 +99,7 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
     smooth_idx = 0
     for name, smoothing in smoothers.items():
         # The name is a RateName enum value. Hence name.name to get the string.
+        LOGGER.debug(f"{name} f{smoothing.dtypes}")
         sm_name.append(name.name)
         sm_age.append(len(smoothing["age"].unique()))
         sm_time.append(len(smoothing["year"].unique()))
@@ -116,7 +120,7 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
             "smooth_id": smooth_idx,
             "age_id": with_ids["age_id"],
             "time_id": with_ids["time_id"],
-            "value_prior_id": with_ids["value_prior"],
+            "value_prior_id": with_ids["value_prior_id"],
             "dage_prior_id": with_ids["dage_prior_id"],
             "dtime_prior_id": with_ids["dtime_prior_id"],
             "const_value": with_ids["const_value"],
@@ -132,7 +136,9 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
         "mulstd_dage_prior_id": np.NaN,
         "mulstd_dtime_prior_id": np.NaN,
     })
-    return smooth_df, pd.concat(smooth_grid, ignore_index=True)
+    grids_together = pd.concat(smooth_grid, ignore_index=True)
+    LOGGER.debug(f"after prior merge {grids_together.dtypes}")
+    return smooth_df, grids_together
 
 
 def write_to_file(config, model):
