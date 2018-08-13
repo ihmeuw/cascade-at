@@ -13,8 +13,8 @@ import pandas as pd
 import numpy as np
 
 from sqlalchemy import create_engine
-from sqlalchemy.sql import select
-from sqlalchemy.exc import OperationalError, StatementError
+from sqlalchemy.sql import select, text
+from sqlalchemy.exc import OperationalError, StatementError, SQLAlchemyError
 from sqlalchemy import Integer, String, Float, Enum
 
 from .metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
@@ -244,6 +244,35 @@ class DismodFile:
                     table_hash = pd.util.hash_pandas_object(table)
                     self._table_hash[table_name] = table_hash
 
+        self._check_column_types_actually_written()
+
+    def _check_column_types_actually_written(self):
+        """
+        They can be written differently than what you declare in metadata
+        because primary keys and joint keys can invoke hidden transformations.
+        """
+        expect = {"integer": Integer(), "text": String(), "real": Float()}
+
+        with self.engine.begin() as connection:
+            for table_name, table_definition in self._table_definitions.items():
+                introspect = text(f"PRAGMA table_info([{table_name}]);")
+                results = connection.execute(introspect)
+                if results.returns_rows:
+                    table_info = results.fetchall()
+                else:
+                    continue  # Not all tables are in all databases.
+                in_db = {row[1]: row[2] for row in table_info}
+                for column_name, column_object in table_definition.c.items():
+                    if column_name not in in_db:
+                        raise RuntimeError(f"A column wasn't written to Dismod file: {table_name}.{column_name}")
+                    if in_db[column_name] not in expect:
+                        raise RuntimeError(f"A sqlite column type is unexpected: "
+                            f"{table_name}.{column_name} {in_db[column_name]}")
+                    if type(column_object.type) != type(expect[in_db[column_name]]):
+                        raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")
+
+                LOGGER.debug(f"Table integrand {table_info}")
+
     def diagnostic_print(self):
         """
         Print all values to the screen. This isn't as heavily-formatted
@@ -259,6 +288,18 @@ class DismodFile:
                     pass  # That table doesn't exist.
 
     def empty_table(self, table_name):
+        """
+        Creates a data table that is empty but has the correct types
+        for all columns. We make this because, if you create an empty
+        data table that has just the correct column names, then the
+        primary key will be written as a string.
+
+        Args:
+            table_name (str): Must be one of the tables defined by metadata.
+
+        Returns:
+            An empty dataframe, but columns have correcct types.
+        """
         table_definition = self._table_definitions[table_name]
         # Skip the first one. It's always the column_id.
         dtypes = [(k, v.type) for k, v in table_definition.c.items()][1:]

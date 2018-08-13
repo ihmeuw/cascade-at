@@ -100,7 +100,7 @@ class Integrand(Base):
     __tablename__ = "integrand"
 
     integrand_id = Column(Integer(), primary_key=True, autoincrement=False)
-    integrand_name = Column(Enum(IntegrandEnum), unique=True, nullable=False)
+    integrand_name = Column(String(), unique=True, nullable=False)
     """
     Each integrand may appear only once. Unused integrands need not be added.
     """
@@ -122,7 +122,7 @@ class Density(Base):
     __tablename__ = "density"
 
     density_id = Column(Integer(), primary_key=True, autoincrement=False)
-    density_name = Column(Enum(DensityEnum), unique=True, nullable=False)
+    density_name = Column(String(), unique=True, nullable=False)
 
 
 class Covariate(Base):
@@ -266,7 +266,7 @@ class Rate(Base):
     __tablename__ = "rate"
 
     rate_id = Column(Integer(), primary_key=True, autoincrement=False)
-    rate_name = Column(Enum(RateName), nullable=False)
+    rate_name = Column(String(), nullable=False)
     parent_smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
     """If null, then parent rate is always zero and no model variables are
     allocated for it"""
@@ -294,7 +294,7 @@ class MulCov(Base):
     __tablename__ = "mulcov"
 
     mulcov_id = Column(Integer(), primary_key=True, autoincrement=False)
-    mulcov_type = Column(Enum(MulCovEnum), nullable=False)
+    mulcov_type = Column(String(), nullable=False)
     rate_id = Column(None, ForeignKey("rate.rate_id"), nullable=True)
     """Determines the rate that this covariate and multiplier affects.
     If mulcov_type is of type meas_value or meas_std, this must be null."""
@@ -357,37 +357,6 @@ class Option(Base):
     option_id = Column(Integer(), primary_key=True, autoincrement=False)
     option_name = Column(String(), unique=True)
     option_value = Column(String(), nullable=False)
-
-
-class Constraint(Base):
-    """Greg shows this table, but it's not in Brad's docs."""
-
-    __tablename__ = "constraint_table"
-
-    constraint_id = Column(Integer(), primary_key=True, autoincrement=False)
-    integrand_id = Column(Integer(), nullable=False)
-    density_id = Column(Integer(), nullable=False)
-    node_id = Column(Integer(), nullable=False)
-    weight_id = Column(Integer(), nullable=False)
-    hold_out = Column(Integer(), nullable=False)
-    meas_value = Column(Float(), nullable=False)
-    meas_std = Column(Float(), nullable=False)
-    age_lower = Column(Float(), nullable=False)
-    age_upper = Column(Float(), nullable=False)
-    time_lower = Column(Float(), nullable=False)
-    time_upper = Column(Float(), nullable=False)
-
-
-class CascadeOption(Base):
-    """
-    Greg shows this table, but it's not in Brad's docs.
-    """
-
-    __tablename__ = "cascade_option_table"
-
-    cascade_option_id = Column(Integer(), primary_key=True, autoincrement=False)
-    cascade_option_name = Column(String(), unique=True, nullable=False)
-    cascade_option_value = Column(String(), nullable=False)
 
 
 class DataSubset(Base):

@@ -290,3 +290,29 @@ def write_to_file(config, model):
     flush_begin = timer()
     bundle_fit.flush()
     LOGGER.debug(f"Flush db {timer() - flush_begin}")
+
+
+def read_predict(db_path):
+    avgint_columns = dict()
+    data_columns = dict()
+    bundle_dismod_db = Path(db_path)
+    bundle_file_engine = _get_engine(bundle_dismod_db)
+    bundle_fit = DismodFile(bundle_file_engine, avgint_columns,
+                            data_columns)
+
+    desired_outputs = bundle_fit.avgint
+
+    # Use the integrand table to convert the integrand_id into an integrand_name.
+    integrand_names = bundle_fit.integrand
+    desired_outputs = desired_outputs.merge(integrand_names, left_on="integrand_id",
+                                            right_on=integrand_names.index)
+
+    # Associate the result with the desired integrand.
+    prediction = bundle_fit.predict.merge(desired_outputs, left_on="avgint_id", right_on=desired_outputs.index)
+    return prediction
+
+
+def read_prevalence(prediction):
+    return prediction[prediction["integrand_name"] == "prevalence"][
+        ["avg_integrand", "time_lower", "age_lower"]]
+

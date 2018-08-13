@@ -18,15 +18,8 @@ diabetes, and sends that data to DismodAT.
         fit fixed
         predict fit_var
 
-
 This example works in cohort time, so that rates don't change over
 years.
-
-.. autofunction: pretend_diabetes
-
-
-.. autofunction: observe_demographic_rates
-
 """
 from argparse import Namespace
 import itertools as it
@@ -40,7 +33,8 @@ import pandas as pd
 
 import cascade.input_data.db.bundle
 from cascade.testing_utilities import make_execution_context
-from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum, RateName
+from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
+from cascade.core.context import ModelContext
 from dmfile_create import write_to_file
 
 LOGGER = logging.getLogger("fit_no_covariates")
@@ -217,13 +211,14 @@ def build_constraint(constraint):
     })
 
 
-def internal_model(config, inputs):
+def internal_model(model_context, inputs):
+    config = model_context.parameters
     model = Namespace()
     # convert the observations to a normalized format.
     model.observations = bundle_to_observations(config, inputs.observations)
     model.constraints = bundle_to_observations(config, inputs.constraints)
 
-    rates_to_calculate_str = config.options["non_zero_rates"].split()
+    rates_to_calculate_str = config.non_zero_rates.split()
     age_df, time_df = age_year_from_data(inputs.constraints)
     desired_outputs = integrand_outputs(
         rates_to_calculate_str + ["prevalence"],
@@ -255,21 +250,17 @@ def internal_model(config, inputs):
 
 def construct_database():
     # Configuration
-    config = Namespace()
-    config.bundle_id = 3209
-    config.tier_idx = 2
-    config.location_id = 26
-    config.options = dict(
-        non_zero_rates="iota rho chi omega"
-    )
+    model_context = ModelContext()
+    model_context.parameters.bundle_id = 3209
+    model_context.parameters.tier_idx = 2
+    model_context.parameters.location_id = 26
+    model_context.parameters.non_zero_rates = "iota rho chi omega"
 
     # Get the bundle and process it.
     # inputs = retrieve_external_data(config)
-    inputs = data_from_csv(Path("measure.csv"))
-    LOGGER.debug(f"inputs has {[x for x in dir(inputs) if not x.startswith('_')]}")
-    model = internal_model(config, inputs)
-    LOGGER.debug(f"model has {[x for x in dir(model) if not x.startswith('_')]}")
-    write_to_file(config, model)
+    raw_inputs = data_from_csv(Path("measure.csv"))
+    model = internal_model(model_context, raw_inputs)
+    write_to_file(model_context.parameters, model)
 
 
 if __name__ == "__main__":
