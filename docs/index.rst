@@ -13,6 +13,7 @@ from the sum of all available disease and death observations in all countries.
 .. toctree::
    :maxdepth: 1
 
+   user
    refmanual
 
 
