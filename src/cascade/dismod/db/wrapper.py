@@ -261,6 +261,8 @@ class DismodFile:
             for table_name, table_definition in self._table_definitions.items():
                 introspect = text(f"PRAGMA table_info([{table_name}]);")
                 results = connection.execute(introspect)
+                if not results.returns_rows:
+                    continue
                 table_info = results.fetchall()
                 if not table_info:
                     continue  # Not all tables are in all databases.
