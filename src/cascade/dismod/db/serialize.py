@@ -75,12 +75,12 @@ def _prior_to_row(prior):
     row = {
         "prior_name": None,
         "density": None,
-        "lower": None,
-        "upper": None,
-        "mean": None,
-        "std": None,
-        "eta": None,
-        "nu": None,
+        "lower": np.nan,
+        "upper": np.nan,
+        "mean": np.nan,
+        "std": np.nan,
+        "eta": np.nan,
+        "nu": np.nan,
     }
     row.update(prior.parameters())
     row["density_name"] = row["density"]
@@ -110,7 +110,7 @@ def make_smooth_grid_table(smooth, prior_objects):
     if grid is not None:
         for age in grid.ages:
             for time in grid.times:
-                row = {"age": age, "time": time, "const_value": None}
+                row = {"age": age, "time": time, "const_value": np.nan}
                 if smooth.value_priors:
                     row["value_prior_id"] = prior_objects.index(smooth.value_priors[age, time].prior)
                 else:
@@ -134,15 +134,15 @@ def _smooth_row(name, smooth, grid, prior_objects):
     if smooth.value_priors and smooth.value_priors.hyper_prior:
         mulstd_value_prior_id = prior_objects.index(smooth.value_priors.hyper_prior)
     else:
-        mulstd_value_prior_id = None
+        mulstd_value_prior_id = np.nan
     if smooth.d_age_priors and smooth.d_age_priors.hyper_prior:
         mulstd_dage_prior_id = prior_objects.index(smooth.d_age_priors.hyper_prior)
     else:
-        mulstd_dage_prior_id = None
+        mulstd_dage_prior_id = np.nan
     if smooth.d_time_priors and smooth.d_time_priors.hyper_prior:
         mulstd_dtime_prior_id = prior_objects.index(smooth.d_time_priors.hyper_prior)
     else:
-        mulstd_dtime_prior_id = None
+        mulstd_dtime_prior_id = np.nan
 
     return {
         "smooth_name": name,

@@ -1,6 +1,7 @@
 import pytest
 
 import pandas as pd
+import numpy as np
 
 from cascade.core.context import ModelContext
 from cascade.model.grids import PriorGrid, AgeTimeGrid
@@ -89,7 +90,9 @@ def test_make_prior_table(base_context):
     prior_table = prior_table.rename(columns={"density_name": "density"}).drop(["density_id", "prior_id"], 1)
 
     def p_to_r(p):
-        d = dict(prior_name=None, density=None, upper=None, lower=None, mean=None, std=None, eta=None, nu=None)
+        d = dict(
+            prior_name=None, density=None, upper=np.nan, lower=np.nan, mean=np.nan, std=np.nan, eta=np.nan, nu=np.nan
+        )
         d.update(p.parameters())
         return d
 
@@ -101,7 +104,9 @@ def test_make_prior_table(base_context):
             # In this case the code made up a name for the prior and we don't care what it is
             r_dict["prior_name"] = None
 
-        assert r_dict == o_dict
+        assert set(r_dict.keys()) == set(o_dict.keys())
+        for k, v in r_dict.items():
+            assert r_dict[k] == o_dict[k] or (np.isnan(r_dict[k]) and np.isnan(o_dict[k]))
 
 
 def test_make_smooth_and_smooth_grid_tables(base_context):
