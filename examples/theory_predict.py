@@ -35,8 +35,6 @@ from cascade.model import (
     DemographicInterval
 )
 from cascade.input_data.db.bundle import bundle_with_study_covariates
-from cascade.dismod.db.wrapper import DismodFile, _get_engine
-from cascade.testing_utilities import make_execution_context
 from cascade.dismod.db.metadata import IntegrandEnum
 
 LOGGER = logging.getLogger("fit_no_covariates")
@@ -117,6 +115,7 @@ def theory():
     rates = pretend_diabetes()
     intervals = DemographicInterval(np.full((10,), 10.0, dtype=np.float))
     observations = observe_demographic_rates(rates, intervals)
+    return observations
 
 
 def cached_bundle_load(context, bundle_id, tier_idx):

@@ -5,7 +5,6 @@ The file format is sqlite3. This uses a local mapping of database tables
 to create it and add tables.
 """
 import logging
-from enum import Enum
 
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
@@ -14,7 +13,7 @@ import numpy as np
 
 from sqlalchemy import create_engine
 from sqlalchemy.sql import select, text
-from sqlalchemy.exc import OperationalError, StatementError, SQLAlchemyError
+from sqlalchemy.exc import OperationalError, StatementError
 from sqlalchemy import Integer, String, Float, Enum
 
 from .metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
@@ -267,7 +266,8 @@ class DismodFile:
                     if column_name not in in_db:
                         raise RuntimeError(f"A column wasn't written to Dismod file: {table_name}.{column_name}")
                     if in_db[column_name] not in expect:
-                        raise RuntimeError(f"A sqlite column type is unexpected: "
+                        raise RuntimeError(
+                            f"A sqlite column type is unexpected: "
                             f"{table_name}.{column_name} {in_db[column_name]}")
                     if type(column_object.type) != type(expect[in_db[column_name]]):
                         raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")

@@ -325,4 +325,3 @@ def read_predict(db_path):
 def read_prevalence(prediction):
     return prediction[prediction["integrand_name"] == "prevalence"][
         ["avg_integrand", "time_lower", "age_lower"]]
-
