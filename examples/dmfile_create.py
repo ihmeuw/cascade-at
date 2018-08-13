@@ -50,13 +50,13 @@ def simplest_weight():
     return weight, weight_grid
 
 
-def observations_to_data(dismodel, observations_df, hold_out=0):
+def observations_to_data(observations_df, hold_out=0):
     """Turn an internal format into a Dismod format."""
     # Don't make the data_name here because could convert multiple observations.
     return pd.DataFrame({
         "integrand_id": observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
-        # The node_id is the location_id.
-        "node_id": observations_df["location_id"],
+        # Assumes one location_id.
+        "node_id": 0,
         # Density is an Enum at this point.
         "density_id": observations_df["density"].apply(lambda x: x.value),
         # Translate weight from string
@@ -73,13 +73,37 @@ def observations_to_data(dismodel, observations_df, hold_out=0):
     })
 
 
-def age_time_from_grids(smoothers):
+def age_time_from_grids(smoothers, total_data):
+    """
+    The ages and times must correspond exactly to smoother ages and times
+    but they must also include the minimum and maximum of all ages and times
+    used.
+
+    Args:
+        smoothers: List of smoothers.
+        total_data (pd.DataFrame): In the Dismod format, so uses time not year.
+
+    Returns:
+        (pd.DataFrame, pd.DataFrame): The age and time dataframes, ready to write.
+    """
+    from_data = dict(
+        age=np.hstack([total_data["age_lower"].values, total_data["age_upper"].values]),
+        time=np.hstack([total_data["time_lower"].values, total_data["time_upper"].values])
+    )
+
     results = list()
     for column, name in [("age", "age"), ("year", "time")]:
         ages = set()
         for grid_df in smoothers:
             ages.update(set(grid_df[column].unique()))
         age_list = list(ages)
+
+        # The min and max of integrands should be included in age list.
+        # This is a separate purpose of the age list, to define min and max
+        # integration values.
+        age_list.append(from_data[name].min())
+        age_list.append(from_data[name].max())
+
         age_list.sort()
         as_floats = np.array(age_list, dtype=np.float)
         results.append(pd.DataFrame({name: as_floats}))
@@ -167,8 +191,9 @@ def write_to_file(config, model):
     LOGGER.debug(f"Covariate types {bundle_fit.covariate.dtypes}")
 
     # Defaults, empty, b/c Brad makes them empty.
-    bundle_fit.nslist = pd.DataFrame(columns=["nslist_name"])
-    bundle_fit.mulcov = pd.DataFrame(columns=["mulcov_type", "integrand_id", "covariate_id", "smooth_id"])
+    bundle_fit.nslist = bundle_fit.empty_table("nslist")
+    bundle_fit.nslist_pair = bundle_fit.empty_table("nslist_pair")
+    bundle_fit.mulcov = bundle_fit.empty_table("mulcov")
 
     bundle_fit.log = pd.DataFrame({
         "message_type": ["command"],
@@ -185,14 +210,8 @@ def write_to_file(config, model):
     node_table = pd.DataFrame({
         "node_name": unique_locations.astype(int).astype(str),
         "parent": np.array([np.NaN]),
-    },
-    index=unique_locations.astype(int)
-    )
+    })
     bundle_fit.node = node_table
-    # nslist_pair has to be created, even if there is only one node.
-    bundle_fit.nslist_pair = pd.DataFrame(
-        columns=["nslist_id", "node_id", "smooth_id"]
-    )
 
     non_zero_rates = list(model.smoothers.keys())
     if 'iota' in non_zero_rates:
@@ -210,10 +229,23 @@ def write_to_file(config, model):
         "option_value": [node_table.iloc[0]["node_name"], value],
     })
 
+    observations = observations_to_data(model.observations)
+    constraints = observations_to_data(model.constraints, hold_out=1)
+    total_data = pd.concat([observations, constraints], ignore_index=True)
+    # Why a unique string name?
+    total_data["data_name"] = total_data.index.astype(str)
+    bundle_fit.data = total_data
+
+    # Include all data in the data_subset.
+    bundle_fit.data_subset = pd.DataFrame({
+        "data_id": np.arange(len(total_data)),
+    })
+
     # Ages and times are used by Weight grids and smooth grids,
     # so pull all ages and times from those two objects in the
     # internal model. Skip weight grid here b/c assuming use constant.
-    bundle_fit.age, bundle_fit.time = age_time_from_grids(model.smoothers.values())
+    bundle_fit.age, bundle_fit.time = age_time_from_grids(
+        model.smoothers.values(), total_data)
 
     # These are used to get the age_id into another dataframe.
     # Use pd.merge_asof to do this.
@@ -231,8 +263,8 @@ def write_to_file(config, model):
     # The avgint needs to be translated.
     bundle_fit.avgint = pd.DataFrame({
         "integrand_id": model.outputs.integrand.apply(lambda x: x.value),
-        # We made the location_id the index of the node_id.
-        "node_id": model.outputs.location_id,
+        # Assumes one location_id.
+        "node_id": 0,
         # Assuming using the first set of weights, which is constant.
         "weight_id": 0,
         "age_lower": model.outputs.age_start,
@@ -240,13 +272,6 @@ def write_to_file(config, model):
         "time_lower": model.outputs.year_start,
         "time_upper": model.outputs.year_end,
     })
-
-    observations = observations_to_data(bundle_fit, model.observations)
-    constraints = observations_to_data(bundle_fit, model.constraints, hold_out=1)
-    total_data = pd.concat([observations, constraints], ignore_index=True)
-    # Why a unique string name?
-    total_data["data_name"] = total_data.index.astype(str)
-    bundle_fit.data = total_data
 
     bundle_fit.smooth, bundle_fit.smooth_grid = convert_smoothers(
         model.smoothers, age_df, time_df, prior_df)

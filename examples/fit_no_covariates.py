@@ -231,7 +231,7 @@ def internal_model(config, inputs):
     model.outputs = desired_outputs
 
     model.priors = pd.DataFrame({
-        "prior_name": ["uniform", "uniform01"],
+        "prior_name": ["uniform01", "uniform"],
         "density_id": 0,  # uniform
         "lower": [1e-10, np.NaN],
         "upper": [1.0, np.NaN],

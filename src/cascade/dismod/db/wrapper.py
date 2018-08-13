@@ -263,7 +263,7 @@ class DismodFile:
         # Skip the first one. It's always the column_id.
         dtypes = [(k, v.type) for k, v in table_definition.c.items()][1:]
         type_map = {
-            Integer: np.int, Float: np.float, String: np.str
+            Integer: np.int, Float: np.float, String: np.str, Enum: np.str,
         }
         return pd.DataFrame({
             column: np.zeros(0, dtype=type_map[type(kind)]) for column, kind in dtypes

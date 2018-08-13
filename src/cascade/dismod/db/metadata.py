@@ -448,6 +448,7 @@ class FitDataSubset(Base):
     __readonly__ = True
 
     fit_data_subset_id = Column(Integer(), primary_key=True, autoincrement=False)
+    data_subset_id = Column(None, ForeignKey("data_subset.data_subset_id"), nullable=False)
     avg_integrand = Column(Float(), nullable=False)
     weighted_residual = Column(Float(), nullable=False)
 
