@@ -5,7 +5,6 @@ The file format is sqlite3. This uses a local mapping of database tables
 to create it and add tables.
 """
 import logging
-from enum import Enum
 
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
@@ -13,8 +12,9 @@ import pandas as pd
 import numpy as np
 
 from sqlalchemy import create_engine
-from sqlalchemy.sql import select
+from sqlalchemy.sql import select, text
 from sqlalchemy.exc import OperationalError, StatementError
+from sqlalchemy import Integer, String, Float, Enum
 
 from .metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
 from . import DismodFileError
@@ -40,7 +40,16 @@ def _validate_data(table_definition, data):
     for column_name, column_definition in table_definition.c.items():
         if column_name in data:
             actual_type = data[column_name].dtype
-            expected_type = column_definition.type.python_type
+            try:
+                expected_type = column_definition.type.python_type
+            except NotImplementedError:
+                # Custom column definitions can lack a type.
+                # We use custom column definitions for primary keys of type int.
+                expected_type = int
+
+            if len(data) == 0:
+                # Length zero columns get converted on write.
+                continue
 
             if issubclass(expected_type, Enum):
                 # This is an Enum type column, I'm making the simplifying assumption
@@ -48,7 +57,11 @@ def _validate_data(table_definition, data):
                 expected_type = str
 
             if expected_type is int:
-                if not np.issubdtype(actual_type, np.integer):
+                # Permit np.float because an int column with a None is cast to float.
+                # Same for object. This is cast on write.
+                # Because we use metadata, this will be converted for us to int when it is written.
+                allowed = [np.integer, np.float]
+                if not any(np.issubdtype(actual_type, given_type) for given_type in allowed):
                     raise DismodFileError(
                         f"column '{column_name}' in data for table '{table_definition.name}' must be integer"
                     )
@@ -58,15 +71,18 @@ def _validate_data(table_definition, data):
                         f"column '{column_name}' in data for table '{table_definition.name}' must be numeric"
                     )
             elif expected_type is str:
-                correct = actual_type != np.dtype("O")
                 if len(data) > 0:
-                    actual_type = type(data[column_name][0])
-                    correct = np.issubdtype(actual_type, np.str_)
+                    # Use iloc to get the first entry, even if the index doesn't have 0.
+                    actual_type = type(data[column_name].iloc[0])
+                    correct = np.issubdtype(actual_type, np.str_) or actual_type == type(None)
 
-                if not correct:
-                    raise DismodFileError(
-                        f"column '{column_name}' in data for table '{table_definition.name}' must be string"
-                    )
+                    if not correct:
+                        raise DismodFileError(
+                            f"column '{column_name}' in data for table '{table_definition.name}' must be string "
+                            f"but type is {actual_type}."
+                        )
+                else:
+                    pass  # Will convert to string on write of empty rows.
         elif not (column_definition.primary_key or column_definition.nullable):
             raise DismodFileError(f"Missing column in data for table '{table_definition.name}': '{column_name}'")
         columns_checked.add(column_name)
@@ -141,12 +157,12 @@ class DismodFile:
         add_columns_to_data_table(data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
 
-    def create_tables(self):
+    def create_tables(self, tables=None):
         """
         Make all of the tables in the metadata.
         """
-        # TODO: we only actually need to make a subset of the tables
-        Base.metadata.create_all(self.engine)
+        LOGGER.debug(f"Creating table subset {tables}")
+        Base.metadata.create_all(self.engine, tables, checkfirst=False)
 
     def make_densities(self):
         """
@@ -171,7 +187,11 @@ class DismodFile:
 
     def __setattr__(self, table_name, df):
         if table_name in self.__dict__.get("_table_definitions", {}):
+            if not isinstance(df, pd.DataFrame):
+                raise ValueError(f"Tried to set table using type {type(df)} instead of a DataFrame")
             self._table_data[table_name] = df
+        elif isinstance(df, pd.DataFrame):
+            raise KeyError(f"Tried to set table {table_name} but it isn't in the db specification")
         else:
             super().__setattr__(table_name, df)
 
@@ -207,12 +227,14 @@ class DismodFile:
                     table_definition = self._table_definitions[table_name]
                     _validate_data(table_definition, table)
                     try:
+                        dtypes = {k: v.type for k, v in table_definition.c.items()}
+                        LOGGER.debug(f"table {table_name} types {dtypes}")
                         table.to_sql(
                             table_name,
                             connection,
                             index_label=table_name + "_id",
                             if_exists="replace",
-                            dtype={k: v.type for k, v in table_definition.c.items()},
+                            dtype=dtypes,
                         )
                     except StatementError as e:
                         raise
@@ -221,6 +243,36 @@ class DismodFile:
                     # That may be too expensive.
                     table_hash = pd.util.hash_pandas_object(table)
                     self._table_hash[table_name] = table_hash
+
+        self._check_column_types_actually_written()
+
+    def _check_column_types_actually_written(self):
+        """
+        They can be written differently than what you declare in metadata
+        because primary keys and joint keys can invoke hidden transformations.
+        """
+        expect = {"integer": Integer(), "text": String(), "real": Float()}
+
+        with self.engine.begin() as connection:
+            for table_name, table_definition in self._table_definitions.items():
+                introspect = text(f"PRAGMA table_info([{table_name}]);")
+                results = connection.execute(introspect)
+                if results.returns_rows:
+                    table_info = results.fetchall()
+                else:
+                    continue  # Not all tables are in all databases.
+                in_db = {row[1]: row[2] for row in table_info}
+                for column_name, column_object in table_definition.c.items():
+                    if column_name not in in_db:
+                        raise RuntimeError(f"A column wasn't written to Dismod file: {table_name}.{column_name}")
+                    if in_db[column_name] not in expect:
+                        raise RuntimeError(
+                            f"A sqlite column type is unexpected: "
+                            f"{table_name}.{column_name} {in_db[column_name]}")
+                    if type(column_object.type) != type(expect[in_db[column_name]]):
+                        raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")
+
+                LOGGER.debug(f"Table integrand {table_info}")
 
     def diagnostic_print(self):
         """
@@ -235,3 +287,26 @@ class DismodFile:
                         print(row)
                 except OperationalError:
                     pass  # That table doesn't exist.
+
+    def empty_table(self, table_name):
+        """
+        Creates a data table that is empty but has the correct types
+        for all columns. We make this because, if you create an empty
+        data table that has just the correct column names, then the
+        primary key will be written as a string.
+
+        Args:
+            table_name (str): Must be one of the tables defined by metadata.
+
+        Returns:
+            An empty dataframe, but columns have correcct types.
+        """
+        table_definition = self._table_definitions[table_name]
+        # Skip the first one. It's always the column_id.
+        dtypes = [(k, v.type) for k, v in table_definition.c.items()][1:]
+        type_map = {
+            Integer: np.int, Float: np.float, String: np.str, Enum: np.str,
+        }
+        return pd.DataFrame({
+            column: np.zeros(0, dtype=type_map[type(kind)]) for column, kind in dtypes
+        })
