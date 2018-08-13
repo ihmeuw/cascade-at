@@ -71,7 +71,7 @@ def make_time_table(context):
     return time_df
 
 
-def prior_to_row(prior):
+def _prior_to_row(prior):
     row = {
         "prior_name": None,
         "density": None,
@@ -91,7 +91,7 @@ def prior_to_row(prior):
 def make_prior_table(context, density_table):
     priors = list(collect_priors(context))
 
-    prior_table = pd.DataFrame([prior_to_row(p) for p in priors])
+    prior_table = pd.DataFrame([_prior_to_row(p) for p in priors])
     prior_table["prior_id"] = prior_table.index
     prior_table.loc[prior_table.prior_name.isnull(), "prior_name"] = prior_table.loc[
         prior_table.prior_name.isnull(), "prior_id"
@@ -130,7 +130,7 @@ def make_smooth_grid_table(smooth, prior_objects):
     )
 
 
-def smooth_row(name, smooth, grid, prior_objects):
+def _smooth_row(name, smooth, grid, prior_objects):
     if smooth.value_priors and smooth.value_priors.hyper_prior:
         mulstd_value_prior_id = prior_objects.index(smooth.value_priors.hyper_prior)
     else:
@@ -160,12 +160,12 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_obj
     for rate in context.rates.values():
         if rate.parent_smooth:
             grid_table = make_smooth_grid_table(rate.parent_smooth, prior_objects)
-            smooths.append(smooth_row(f"{rate.name}_parent_smooth", rate.parent_smooth, grid_table, prior_objects))
+            smooths.append(_smooth_row(f"{rate.name}_parent_smooth", rate.parent_smooth, grid_table, prior_objects))
             grid_table["smooth_id"] = len(smooths)
             grid_tables.append(grid_table)
         if rate.child_smooth:
             grid_table = make_smooth_grid_table(rate.child_smooth, prior_objects)
-            smooths.append(smooth_row(f"{rate.name}_child_smooth", rate.child_smooth, grid_table, prior_objects))
+            smooths.append(_smooth_row(f"{rate.name}_child_smooth", rate.child_smooth, grid_table, prior_objects))
             grid_table["smooth_id"] = len(smooths)
             grid_tables.append(grid_table)
 

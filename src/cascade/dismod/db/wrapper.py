@@ -178,6 +178,7 @@ class DismodFile:
                         raise DismodFileError(f"Table '{table_name}' is not writable")
 
                     table_definition = self._table_definitions[table_name]
+                    # skip this until Drew's version of the db serialization process is merged in
                     # _validate_data(table_definition, table)
                     table = table.sort_values(f"{table_name}_id")
                     try:
