@@ -1,5 +1,5 @@
 """
-This example constructs makes a test disease model, similar to
+This example constructs a test disease model, similar to
 diabetes, and sends that data to DismodAT.
 
 1.  The test model is constructed by specifying functions for
