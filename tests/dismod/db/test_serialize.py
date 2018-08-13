@@ -2,7 +2,7 @@ from cascade.core.context import ModelContext
 from cascade.model.grids import PriorGrid, AgeTimeGrid
 from cascade.model.rates import Smooth
 from cascade.model.priors import GaussianPrior
-from cascade.dismod.db.builder import dismodfile_from_model_context
+from cascade.dismod.db.serialize import dismodfile_from_model_context
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 
 
