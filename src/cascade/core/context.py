@@ -1,5 +1,5 @@
-from .parameters import ParameterProperty
-from .input_data import InputData
+from cascade.core.parameters import ParameterProperty
+from cascade.core.input_data import InputData
 
 
 class ExecutionContext:
