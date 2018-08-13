@@ -22,15 +22,19 @@ def base_file(engine):
     dm_file = DismodFile(engine, {"howdy": float}, {"there": int})
     dm_file.make_densities()
     ages = pd.DataFrame({"age": np.array([6.0, 22.0, 48.0])})
+    ages["age_id"] = ages.index
     dm_file.age = ages
     dm_file.time = pd.DataFrame({"time": [1997.0, 2005.0, 2017.0]})
+    dm_file.time["time_id"] = dm_file.time.index
     dm_file.integrand = pd.DataFrame({"integrand_name": ["prevalence"]})
+    dm_file.integrand["integrand_id"] = dm_file.integrand.index
 
     return dm_file
 
 
 def test_wrong_type(base_file):
     ages = pd.DataFrame({"age": np.array(["strings", "for", "ages"])})
+    ages["age_id"] = ages.index
     base_file.age = ages
     with pytest.raises(DismodFileError):
         base_file.flush()
@@ -71,8 +75,8 @@ def test_dmfile_read(base_file, engine):
     base_file.flush()
 
     dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
-    assert ages.equals(dm_file2.age)
-    assert times.equals(dm_file2.time)
+    assert ages.sort_index(axis=1).equals(dm_file2.age.sort_index(axis=1))
+    assert times.sort_index(axis=1).equals(dm_file2.time.sort_index(axis=1))
 
 
 def test_reading_modified_columns(base_file, engine):
@@ -82,7 +86,7 @@ def test_reading_modified_columns(base_file, engine):
     base_file.flush()
 
     dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
-    assert ages.equals(dm_file2.age)
+    assert ages.sort_index(axis=1).equals(dm_file2.age.sort_index(axis=1))
 
 
 DummyBase = declarative_base()
