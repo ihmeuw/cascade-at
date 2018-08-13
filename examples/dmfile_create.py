@@ -163,9 +163,8 @@ def write_to_file(config, model):
     all_integrands = default_integrand_names()
     bundle_fit.integrand = all_integrands
 
-    # No covariates.
-    bundle_fit.covariate = pd.DataFrame(
-        columns=["covariate_name", "reference", "max_difference"])
+    bundle_fit.covariate = bundle_fit.empty_table("covariate")
+    LOGGER.debug(f"Covariate types {bundle_fit.covariate.dtypes}")
 
     # Defaults, empty, b/c Brad makes them empty.
     bundle_fit.nslist = pd.DataFrame(columns=["nslist_name"])

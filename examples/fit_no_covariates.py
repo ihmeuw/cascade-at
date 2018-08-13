@@ -10,7 +10,14 @@ diabetes, and sends that data to DismodAT.
     averaging over the rates for given ages and times.
 
 3.  Load a subset of these observations into a DismodAT file and run
-    DismodAT on it.
+    DismodAT on it. The commands to run are::
+
+        set option quasi_fixed false
+        set option ode_step_size 1
+        init
+        fit fixed
+        predict fit_var
+
 
 This example works in cohort time, so that rates don't change over
 years.

@@ -15,6 +15,7 @@ import numpy as np
 from sqlalchemy import create_engine
 from sqlalchemy.sql import select
 from sqlalchemy.exc import OperationalError, StatementError
+from sqlalchemy import Integer, String, Float, Enum
 
 from .metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
 from . import DismodFileError
@@ -28,7 +29,7 @@ def _get_engine(file_path):
         full_path = file_path.expanduser().absolute()
         engine = create_engine("sqlite:///{}".format(str(full_path)))
     else:
-        engine = create_engine("sqlite:///:memory:", echo=False)
+        engine = create_engine("sqlite:///:memory:", echo=True)
     return engine
 
 
@@ -40,7 +41,12 @@ def _validate_data(table_definition, data):
     for column_name, column_definition in table_definition.c.items():
         if column_name in data:
             actual_type = data[column_name].dtype
-            expected_type = column_definition.type.python_type
+            try:
+                expected_type = column_definition.type.python_type
+            except NotImplementedError:
+                # Custom column definitions can lack a type.
+                # We use custom column definitions for primary keys of type int.
+                expected_type = int
 
             if len(data) == 0:
                 # Length zero columns get converted on write.
@@ -251,3 +257,14 @@ class DismodFile:
                         print(row)
                 except OperationalError:
                     pass  # That table doesn't exist.
+
+    def empty_table(self, table_name):
+        table_definition = self._table_definitions[table_name]
+        # Skip the first one. It's always the column_id.
+        dtypes = [(k, v.type) for k, v in table_definition.c.items()][1:]
+        type_map = {
+            Integer: np.int, Float: np.float, String: np.str
+        }
+        return pd.DataFrame({
+            column: np.zeros(0, dtype=type_map[type(kind)]) for column, kind in dtypes
+        })
