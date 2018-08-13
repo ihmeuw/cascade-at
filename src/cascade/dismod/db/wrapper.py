@@ -28,7 +28,7 @@ def _get_engine(file_path):
         full_path = file_path.expanduser().absolute()
         engine = create_engine("sqlite:///{}".format(str(full_path)))
     else:
-        engine = create_engine("sqlite:///:memory:", echo=True)
+        engine = create_engine("sqlite:///:memory:", echo=False)
     return engine
 
 

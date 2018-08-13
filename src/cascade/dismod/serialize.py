@@ -171,7 +171,7 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
     return smooth_df, grids_together
 
 
-def write_to_file(model_context, filename):
+def model_to_dismod_file(model_context, filename):
     """
     This is a one-way translation from a model context to a new Dismod file.
     It assumes a lot. One location, no covariates, and more.
@@ -296,9 +296,7 @@ def write_to_file(model_context, filename):
         "child_nslist_id": np.NaN,
     })
 
-    flush_begin = timer()
-    bundle_fit.flush()
-    LOGGER.debug(f"Flush db {timer() - flush_begin}")
+    return bundle_fit
 
 
 def read_predict(db_path):

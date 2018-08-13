@@ -22,13 +22,13 @@ LOGGER = logging.getLogger(__name__)
 
 @compiles(Integer, "sqlite")
 def _integer_callback(element, compiler, **kw):
-    """Chagnes INTEGER to integer."""
+    """Changes INTEGER to integer."""
     return "integer"
 
 
 @compiles(BigInteger, "sqlite")
 def _big_integer_callback(element, compiler, **kw):
-    """Chagnes INTEGER to integer."""
+    """Changes INTEGER to integer."""
     return "integer"
 
 
@@ -40,13 +40,13 @@ def _float_callback(element, compiler, **kw):
 
 @compiles(String, "sqlite")
 def _string_callback(element, compiler, **kw):
-    """Chagnes VARCHAR to text."""
+    """Changes VARCHAR to text."""
     return "text"
 
 
 @compiles(Enum, "sqlite")
 def _enum_callback(element, compiler, **kw):
-    """Chagnes VARCHAR to text."""
+    """Changes VARCHAR to text."""
     return "text"
 
 

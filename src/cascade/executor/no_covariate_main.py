@@ -21,7 +21,7 @@ diabetes, and sends that data to DismodAT.
 This example works in cohort time, so that rates don't change over
 years.
 """
-from argparse import Namespace
+from argparse import Namespace, ArgumentParser
 import itertools as it
 import logging
 from pathlib import Path
@@ -35,10 +35,17 @@ import cascade.input_data.db.bundle
 from cascade.testing_utilities import make_execution_context
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
 from cascade.core.context import ModelContext
-from cascade.dismod.serialize import write_to_file
+from cascade.dismod.serialize import model_to_dismod_file
 
 
 LOGGER = logging.getLogger("fit_no_covariates")
+RATE_TO_INTEGRAND = dict(
+    iota=IntegrandEnum.Sincidence,
+    rho=IntegrandEnum.remission,
+    chi=IntegrandEnum.mtexcess,
+    omega=IntegrandEnum.mtother,
+    prevalence=IntegrandEnum.prevalence,
+)
 
 
 def cached_bundle_load(context, bundle_id, tier_idx):
@@ -48,7 +55,7 @@ def cached_bundle_load(context, bundle_id, tier_idx):
                     f"If you want to get a fresh copy, delete this file.")
         return pickle.load(cache_bundle.open("rb"))
 
-    LOGGER.debug(f"Begin getting study covariates {bundle_id}")
+    LOGGER.debug(f"Begin getting bundle and study covariates {bundle_id}")
     bundle_begin = timer()
     bundle, covariate = cascade.input_data.db.bundle.bundle_with_study_covariates(
         context, bundle_id, tier_idx)
@@ -143,7 +150,6 @@ def bundle_to_observations(config, bundle_df):
 
 
 def age_year_from_data(df):
-    LOGGER.debug(f"df coming in {df}")
     results = dict()
     for topic in ["age", "year"]:
         values = df[f"{topic}_start"].unique().tolist()
@@ -154,14 +160,6 @@ def age_year_from_data(df):
         LOGGER.debug(f"{topic}: {values}")
     return results["age"], results["year"]
 
-
-RATE_TO_INTEGRAND = dict(
-    iota=IntegrandEnum.Sincidence,
-    rho=IntegrandEnum.remission,
-    chi=IntegrandEnum.mtexcess,
-    omega=IntegrandEnum.mtother,
-    prevalence=IntegrandEnum.prevalence,
-)
 
 
 def integrand_outputs(rates, location_id, age, time):
@@ -259,10 +257,28 @@ def construct_database():
 
     # Get the bundle and process it.
     raw_inputs = data_from_csv(Path("measure.csv"))
-    model = internal_model(model_context, raw_inputs)
-    write_to_file(model, "fit.db")
+    internal_model(model_context, raw_inputs)
+
+    output_file = "fit.db"
+    LOGGER.info("Creating file {output_file}")
+    dismod_file = model_to_dismod_file(model_context, output_file)
+    flush_begin = timer()
+    dismod_file.flush()
+    LOGGER.debug(f"Flush db {timer() - flush_begin}")
+
+
+def entry():
+    """This is the entry that setuptools turns into an installed program."""
+    parser = ArgumentParser("Reads csv for a run without covariates.")
+    parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
+    args, _ = parser.parse_known_args()
+    if args.v:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
+    logging.basicConfig(level=log_level)
+    construct_database()
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    construct_database()
+    entry()
