@@ -25,7 +25,10 @@ def base_file(engine):
     ages = pd.DataFrame({"age": np.array([6.0, 22.0, 48.0])})
     dm_file.age = ages
     dm_file.time = pd.DataFrame({"time": [1997.0, 2005.0, 2017.0]})
-    dm_file.integrand = pd.DataFrame({"integrand_name": ["prevalence"]})
+    dm_file.integrand = pd.DataFrame({
+        "integrand_name": ["prevalence"],
+        "minimum_meas_cv": [0.0],
+    })
 
     return dm_file
 
@@ -130,7 +133,6 @@ def test_validate_data__happy_path():
             "integer_column": [1, 2, 3],
             "float_column": [1.0, 2.0, 3.0],
             "string_column": ["a", "b", "c"],
-            "enum_column": ["bumble", "honey", "carpenter"],
             "nonnullable_column": [1, 2, 3],
         }
     )
@@ -159,13 +161,6 @@ def test_validate_data__bad_string():
     with pytest.raises(DismodFileError) as excinfo:
         _validate_data(DummyTable.__table__, data)
     assert "string_column" in str(excinfo.value)
-
-
-def test_validate_data__bad_enum():
-    data = pd.DataFrame({"enum_column": [1, 2, 3], "nonnullable_column": [1, 2, 3]})
-    with pytest.raises(DismodFileError) as excinfo:
-        _validate_data(DummyTable.__table__, data)
-    assert "enum_column" in str(excinfo.value)
 
 
 def test_validate_data__extra_column():

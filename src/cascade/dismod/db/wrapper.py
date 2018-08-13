@@ -75,11 +75,12 @@ def _validate_data(table_definition, data):
                 if len(data) > 0:
                     # Use iloc to get the first entry, even if the index doesn't have 0.
                     actual_type = type(data[column_name].iloc[0])
-                    correct = np.issubdtype(actual_type, np.str_) or np.issubdtype(actual_type, np.object)
+                    correct = np.issubdtype(actual_type, np.str_) or actual_type == type(None)
 
                     if not correct:
                         raise DismodFileError(
-                            f"column '{column_name}' in data for table '{table_definition.name}' must be string"
+                            f"column '{column_name}' in data for table '{table_definition.name}' must be string "
+                            f"but type is {actual_type}."
                         )
                 else:
                     pass  # Will convert to string on write of empty rows.

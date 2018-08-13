@@ -171,11 +171,19 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
     return smooth_df, grids_together
 
 
-def write_to_file(model_context):
+def write_to_file(model_context, filename):
+    """
+    This is a one-way translation from a model context to a new Dismod file.
+    It assumes a lot. One location, no covariates, and more.
+
+    Args:
+        model_context (ModelContext): The one big object.
+
+    """
     model = model_context.input_data
     avgint_columns = dict()
     data_columns = dict()
-    bundle_dismod_db = Path("fit_no.db")
+    bundle_dismod_db = Path(filename)
     bundle_file_engine = _get_engine(bundle_dismod_db)
     bundle_fit = DismodFile(bundle_file_engine, avgint_columns, data_columns)
 
@@ -198,7 +206,7 @@ def write_to_file(model_context):
 
     bundle_fit.log = pd.DataFrame({
         "message_type": ["command"],
-        "table_name": [None],
+        "table_name": np.array([None], dtype=np.object),
         "row_id": np.NaN,
         "unix_time": int(round(time.time())),
         "message": ["fit_no_covariates.py"],

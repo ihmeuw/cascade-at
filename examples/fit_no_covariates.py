@@ -35,7 +35,8 @@ import cascade.input_data.db.bundle
 from cascade.testing_utilities import make_execution_context
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
 from cascade.core.context import ModelContext
-from dmfile_create import write_to_file
+from cascade.dismod.serialize import write_to_file
+
 
 LOGGER = logging.getLogger("fit_no_covariates")
 
@@ -259,7 +260,7 @@ def construct_database():
     # Get the bundle and process it.
     raw_inputs = data_from_csv(Path("measure.csv"))
     model = internal_model(model_context, raw_inputs)
-    write_to_file(model)
+    write_to_file(model, "fit.db")
 
 
 if __name__ == "__main__":
