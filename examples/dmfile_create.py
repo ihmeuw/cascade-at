@@ -171,7 +171,8 @@ def convert_smoothers(smoothers, age_df, time_df, prior_df):
     return smooth_df, grids_together
 
 
-def write_to_file(config, model):
+def write_to_file(model_context):
+    model = model_context.input_data
     avgint_columns = dict()
     data_columns = dict()
     bundle_dismod_db = Path("fit_no.db")
@@ -308,7 +309,8 @@ def read_predict(db_path):
                                             right_on=integrand_names.index)
 
     # Associate the result with the desired integrand.
-    prediction = bundle_fit.predict.merge(desired_outputs, left_on="avgint_id", right_on=desired_outputs.index)
+    prediction = bundle_fit.predict.merge(
+        desired_outputs, left_on="avgint_id", right_on=desired_outputs.index)
     return prediction
 
 

@@ -213,7 +213,7 @@ def build_constraint(constraint):
 
 def internal_model(model_context, inputs):
     config = model_context.parameters
-    model = Namespace()
+    model = model_context.input_data
     # convert the observations to a normalized format.
     model.observations = bundle_to_observations(config, inputs.observations)
     model.constraints = bundle_to_observations(config, inputs.constraints)
@@ -245,7 +245,7 @@ def internal_model(model_context, inputs):
         "omega": build_constraint(model.constraints),
     }
     LOGGER.debug(f"Omega constraint {model.smoothers['omega']}")
-    return model
+    return model_context
 
 
 def construct_database():
@@ -257,10 +257,9 @@ def construct_database():
     model_context.parameters.non_zero_rates = "iota rho chi omega"
 
     # Get the bundle and process it.
-    # inputs = retrieve_external_data(config)
     raw_inputs = data_from_csv(Path("measure.csv"))
     model = internal_model(model_context, raw_inputs)
-    write_to_file(model_context.parameters, model)
+    write_to_file(model)
 
 
 if __name__ == "__main__":
