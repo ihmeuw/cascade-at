@@ -1,5 +1,21 @@
+from contextlib import contextmanager
+from pathlib import Path
+import shutil
+import tempfile
+
 from .parameters import ParameterProperty
 from .input_data import InputData
+
+
+@contextmanager
+def scratch_maker():
+    """ Create a scratch directory."""
+    try:
+        # scratch_dir will be in cwd and named tmp<something>
+        scratch_dir = Path(tempfile.mkdtemp(dir="."))
+        yield scratch_dir
+    finally:
+        shutil.rmtree(scratch_dir)
 
 
 class ExecutionContext:
@@ -8,6 +24,9 @@ class ExecutionContext:
     """
 
     parameters = ParameterProperty()
+
+    def scratch_dir(self):
+        return scratch_maker()
 
 
 class _ModelParameters:
