@@ -52,9 +52,9 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "Dismod AT"
+project = "Cascade for Dismod"
 copyright = "2018, IHME, University of Washington"
-author = "Dismod AT Team"
+author = "Cascade Team"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
