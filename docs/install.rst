@@ -7,7 +7,13 @@ Cascade interacts with Dismod-AT underneath. Cascade runs Dismod-AT within
 the IHME infrastructure. Clone it from
 `Cascade on Github <https://github.com/ihmeuw/cascade>`_.
 We recommend you create a virtual environment into which to install
-the code. Then::
+the code. If you have Python3, virtualenv is part of it::
+
+    virtualenv ./env_path
+    source ./env_path/bin/activate
+    
+You can name the environment something happier than env_path.
+Then::
 
     git clone https://github.com/ihmeuw/cascade.git
     # Or use the one below if you have a Github account.
@@ -51,7 +57,8 @@ because of Docker mounts, so take a look below to understand the
 ``dmdismod`` commands.
 
 This describes how to run Dismod-AT on your local computer, not on the
-cluster. It uses Docker, which you have to install separately.
+cluster. It uses Docker, which you have to install separately
+from `Docker Download <https://www.docker.com/get-started>`_.
 
 Download and run from the IHME Docker registry. This requires
 VPN access.::
