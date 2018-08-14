@@ -6,13 +6,14 @@ Installation of Cascade
 Cascade interacts with Dismod-AT underneath. Cascade runs Dismod-AT within
 the IHME infrastructure. Clone it from
 `Cascade on Github <https://github.com/ihmeuw/cascade>`_.
-Then::
+We recommend you create a virtual environment into which to install
+the code. Then::
 
     git clone https://github.com/ihmeuw/cascade.git
     # Or use the one below if you have a Github account.
     # git clone git@github.com:ihmeuw/cascade.git
     cd cascade
-    pip install -r ihme_requirements.txt
+    pip install .[ihme_requirements,testing]
     python setup.py develop
     cd tests && pytest
 
