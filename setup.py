@@ -19,6 +19,7 @@ setup(
             ["dmcsv2db=cascade.executor.no_covariate_main:entry"],
         ]
     },
+    scripts=["scripts/dmdismod"],
     zip_safe=False,
     classifiers=[
         "Intendend Audience :: Science/Research",
