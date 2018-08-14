@@ -5,5 +5,5 @@ then
     exec singularity exec "${SINGULARITY}" /home/root/prefix/dismod_at/bin/dismodat.py $*
 else
     CURDIR=$(pwd)
-    exec docker run reg.ihme.washington.edu/dismod/dismod_at -it  --mount type=bind,source=${CURDIR},target=/app  /home/root/prefix/dismod_at/bin/dismodat.py $*
+    exec docker run -it --mount type=bind,source=${CURDIR},target=/app reg.ihme.washington.edu/dismod/dismod_at /home/root/prefix/dismod_at/bin/dismodat.py $*
 fi
