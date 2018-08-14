@@ -16,8 +16,10 @@ setup(
         "console_scripts": [
             ["dmchat=cascade.executor.chatter:chatter"],
             ["dmdummy=cascade.executor.chatter:dismod_dummy"],
+            ["dmcsv2db=cascade.executor.no_covariate_main:entry"],
         ]
     },
+    scripts=["scripts/dmdismod", "scripts/dmdismodpy"],
     zip_safe=False,
     classifiers=[
         "Intendend Audience :: Science/Research",
