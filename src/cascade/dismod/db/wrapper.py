@@ -16,8 +16,8 @@ from sqlalchemy.sql import select, text
 from sqlalchemy.exc import OperationalError, StatementError
 from sqlalchemy import Integer, String, Float, Enum
 
-from .metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
-from . import DismodFileError
+from cascade.dismod.db.metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
+from cascade.dismod.db import DismodFileError
 
 
 LOGGER = logging.getLogger(__name__)

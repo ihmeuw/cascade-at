@@ -1,4 +1,4 @@
-from .compartmental import (
+from cascade.model.compartmental import (
     build_derivative_prevalence,
     build_derivative_total,
     build_derivative_full,
@@ -14,7 +14,7 @@ from .compartmental import (
     integrand_normalization,
     integrands_from_function,
 )
-from .demography import DemographicInterval
+from cascade.model.demography import DemographicInterval
 
 __all__ = [
     "build_derivative_prevalence",

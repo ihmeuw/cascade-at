@@ -4,7 +4,6 @@ Converts the internal representation to a Dismod File.
 import logging
 from pathlib import Path
 import time
-from timeit import default_timer as timer
 
 import numpy as np
 import pandas as pd
