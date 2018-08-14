@@ -37,7 +37,7 @@ def base_context():
     smooth.d_age_priors = d_age
     smooth.value_priors = value
 
-    context.rates["iota"].parent_smooth = smooth
+    context.rates.iota.parent_smooth = smooth
 
     return context
 

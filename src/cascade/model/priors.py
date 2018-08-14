@@ -38,8 +38,10 @@ def _validate_nu(nu):
 class UniformPrior(_Prior):
     density = "uniform"
 
-    def __init__(self, mean, lower=float("-inf"), upper=float("inf"), name=None):
+    def __init__(self, lower, upper, mean=None, name=None):
         super().__init__(name=name)
+        if mean is None:
+            mean = (upper - lower) / 2 + lower
         _validate_bounds(lower, mean, upper)
 
         self.lower = lower

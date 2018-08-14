@@ -56,9 +56,18 @@ class Smooth:
 
 
 class Rate:
-    __slots__ = ["name", "parent_smooth", "child_smooth"]
+    __slots__ = ["name", "parent_smooth", "child_smoothings"]
 
-    def __init__(self, name, parent_smooth=None, child_smooth=None):
+    def __init__(self, name, parent_smooth=None, child_smoothings=None):
         self.name = name
         self.parent_smooth = parent_smooth
-        self.child_smooth = child_smooth
+        if child_smoothings is None:
+            child_smoothings = []
+        self.child_smoothings = child_smoothings
+
+    @property
+    def smoothings(self):
+        smoothings = list(self.child_smoothings)
+        if self.parent_smooth:
+            smoothings.append(self.parent_smooth)
+        return smoothings

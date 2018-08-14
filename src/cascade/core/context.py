@@ -18,6 +18,20 @@ class _ModelParameters:
     node = ParameterProperty()
 
 
+class _Rates:
+    __slots__ = ["pini", "iota", "rho", "chi", "omega"]
+
+    def __init__(self):
+        self.pini = Rate("pini")
+        self.iota = Rate("iota")
+        self.rho = Rate("rho")
+        self.chi = Rate("chi")
+        self.omega = Rate("omega")
+
+    def __iter__(self):
+        return iter([self.pini, self.iota, self.rho, self.chi, self.omega])
+
+
 class ModelContext:
     """
     This is a container for all inputs, parametrization and data, necessary
@@ -29,4 +43,4 @@ class ModelContext:
     def __init__(self):
         self.parameters = _ModelParameters()
         self.input_data = InputData()
-        self.rates = {name: Rate(name) for name in ["pini", "iota", "rho", "chi", "omega"]}
+        self.rates = _Rates()

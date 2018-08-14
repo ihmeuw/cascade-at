@@ -7,11 +7,9 @@ from cascade.dismod.db.wrapper import DismodFile
 def collect_priors(context):
     priors = set()
 
-    for rate in context.rates.values():
-        if rate.parent_smooth:
-            priors.update([p for g in rate.parent_smooth.prior_grids for p in g.priors])
-        if rate.child_smooth:
-            priors.update([p for g in rate.child_smooth.prior_grids for p in g.priors])
+    for rate in context.rates:
+        for smooth in rate.smoothings:
+            priors.update([p for g in smooth.prior_grids for p in g.priors])
 
     return priors
 
@@ -22,18 +20,12 @@ def collect_ages_or_times(context, to_collect="ages"):
 
     values = []
 
-    for rate in context.rates.values():
-        if rate.parent_smooth:
+    for rate in context.rates:
+        for smooth in rate.smoothings:
             if to_collect == "ages":
-                value = rate.parent_smooth.grid.ages
+                value = smooth.grid.ages
             else:
-                value = rate.parent_smooth.grid.times
-            values.extend(value)
-        if rate.child_smooth:
-            if to_collect == "ages":
-                value = rate.child_smooth.grid.ages
-            else:
-                value = rate.child_smooth.grid.times
+                value = smooth.grid.times
             values.extend(value)
 
     values = np.array(values)
@@ -157,17 +149,16 @@ def _smooth_row(name, smooth, grid, prior_objects):
 def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_objects):
     grid_tables = []
     smooths = []
-    for rate in context.rates.values():
+    for rate in context.rates:
+        def process_smooth(smooth, smooth_type):
+            grid_table = make_smooth_grid_table(smooth, prior_objects)
+            smooths.append(_smooth_row(f"{rate.name}_{smooth_type}_smooth", smooth, grid_table, prior_objects))
+            grid_table["smooth_id"] = len(smooths)
+            grid_tables.append(grid_table)
         if rate.parent_smooth:
-            grid_table = make_smooth_grid_table(rate.parent_smooth, prior_objects)
-            smooths.append(_smooth_row(f"{rate.name}_parent_smooth", rate.parent_smooth, grid_table, prior_objects))
-            grid_table["smooth_id"] = len(smooths)
-            grid_tables.append(grid_table)
-        if rate.child_smooth:
-            grid_table = make_smooth_grid_table(rate.child_smooth, prior_objects)
-            smooths.append(_smooth_row(f"{rate.name}_child_smooth", rate.child_smooth, grid_table, prior_objects))
-            grid_table["smooth_id"] = len(smooths)
-            grid_tables.append(grid_table)
+            process_smooth(rate.parent_smooth, "parent")
+        for smooth in rate.child_smoothings:
+            process_smooth(smooth, "child")
 
     if grid_tables:
         grid_table = pd.concat(grid_tables)
