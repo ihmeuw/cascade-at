@@ -16,8 +16,8 @@ from sqlalchemy.sql import select, text
 from sqlalchemy.exc import OperationalError, StatementError
 from sqlalchemy import Integer, String, Float, Enum
 
-from .metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
-from . import DismodFileError
+from cascade.dismod.db.metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
+from cascade.dismod.db import DismodFileError
 
 
 LOGGER = logging.getLogger(__name__)
@@ -264,22 +264,23 @@ class DismodFile:
                 if not results.returns_rows:
                     continue
                 table_info = results.fetchall()
-                if not table_info:
-                    continue  # Not all tables are in all databases.
-                in_db = {row[1]: row[2] for row in table_info}
-                for column_name, column_object in table_definition.c.items():
-                    if column_name not in in_db:
-                        raise RuntimeError(f"A column wasn't written to Dismod file: {table_name}.{column_name}")
-                    if in_db[column_name] not in expect:
-                        raise RuntimeError(
-                            f"A sqlite column type is unexpected: " f"{table_name}.{column_name} {in_db[column_name]}"
-                        )
-                    if type(column_object.type) != type(
-                        expect[in_db[column_name]]
-                    ):  # noqa: E721 I agree with flake8 that this is weird but I don't really know how to do it better
-                        raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")
+                if table_info:
+                    in_db = {row[1]: row[2] for row in table_info}
+                    for column_name, column_object in table_definition.c.items():
+                        if column_name not in in_db:
+                            raise RuntimeError(
+                                f"A column wasn't written to Dismod file: {table_name}.{column_name}. "
+                                f"Columns present {table_info}."
+                            )
+                        if in_db[column_name] not in expect:
+                            raise RuntimeError(
+                                f"A sqlite column type is unexpected: "
+                                f"{table_name}.{column_name} {in_db[column_name]}"
+                            )
+                        if type(column_object.type) != type(expect[in_db[column_name]]):  # noqa: E721
+                            raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")
 
-                LOGGER.debug(f"Table integrand {table_info}")
+                    LOGGER.debug(f"Table integrand {table_info}")
 
     def diagnostic_print(self):
         """
