@@ -32,8 +32,18 @@ Python helper. You can run, for instance::
     dmdismod data.db predict
     dmdismodby data.db db2csv
 
+Without the helper, the same commands would be::
+
+    SINGULARITY=/ihme/singularity-images/dismod/current.img
+    DMPATH=/home/root/prefix/dismod_at/bin/dismod_at
+    singularity exec "${SINGULARITY}" "${DMPATH}" data.db init
+    singularity exec "${SINGULARITY}" "${DMPATH}" data.db fit
+    singularity exec "${SINGULARITY}" "${DMPATH}" data.db predict
+    singularity exec "${SINGULARITY}" /home/root/prefix/dismod_at/bin/dismodat.py data.db db2csv
+
 If you are on your local machine, and have installed Docker,
-then you can try the same scripts. They will automatically
+then you can try the same helper scripts, ``dmdismod`` and ``dmdismodpy``.
+They will automatically
 get the latest Dismod-AT image from the IHME Docker repository
 and run that. There is something funny with directories though,
 because of Docker mounts, so take a look below to understand the
@@ -61,7 +71,6 @@ It's a long command, but it will run Dismod-AT.
 
 If you use the dmdismod commands and have ``data.db`` in the
 current directory, you would run::
-
 
     dmdismod /app/data.db init
     dmdismod /app/data.db fit
