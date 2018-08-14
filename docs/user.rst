@@ -6,4 +6,4 @@ User Manual
    :maxdepth: 2
 
    install
-   
+   dmcsv2db
