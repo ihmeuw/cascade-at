@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[[source]]
+url = "http://dev-tomflem.ihme.washington.edu/simple"
+verify_ssl = false
+name = "ihme"
+
+[packages]
+db_queries = {version="*", index="ihme"}
+db_tools = {version="*", index="ihme"}
+networkx = "*"
+numpy = "*"
+pandas = "*"
+scipy = "*"
+toml = "*"
+sqlalchemy = "*"
+
+[dev-packages]
+pytest = "*"
+sphinx = "*"
+sphinx_rtd_theme = "*"
+sphinxcontrib-napoleon = "*"
+
+[requires]
+python_version = "3.6"
