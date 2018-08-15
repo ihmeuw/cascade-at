@@ -103,8 +103,8 @@ def age_time_from_grids(smoothers, total_data):
         age_list.append(from_data[name].min())
         age_list.append(from_data[name].max())
 
-        age_list.sort()
-        as_floats = np.array(age_list, dtype=np.float)
+        unique = list(sorted(set(age_list)))
+        as_floats = np.array(unique, dtype=np.float)
         results.append(pd.DataFrame({name: as_floats}))
 
     age_df, time_df = results
