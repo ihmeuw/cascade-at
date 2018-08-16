@@ -30,7 +30,12 @@ def _integer_callback(element, compiler, **kw):
 @compiles(BigInteger, "sqlite")
 def _big_integer_callback(element, compiler, **kw):
     """Changes INTEGER to integer."""
-    return "integer"
+    # The keywords include one called type_expression, which is the column
+    # specification. This should tell us whether the type is a primary key,
+    # but that's False, even when the type is a primary key. However,
+    # sqlalchemy automatically promotes every primary key to be a big integer,
+    # so we mark them here as primary keys.
+    return "integer primary key"
 
 
 @compiles(Float, "sqlite")

@@ -73,9 +73,8 @@ def _validate_data(table_definition, data):
             elif expected_type is str:
                 if len(data) > 0:
                     # Use iloc to get the first entry, even if the index doesn't have 0.
-                    actual_value = data[column_name].iloc[0]
-                    actual_type = type(actual_value)
-                    correct = np.issubdtype(actual_type, np.str_) or actual_value is None
+                    entry = data[column_name].iloc[0]
+                    correct = np.issubdtype(type(entry), np.str_) or entry is None
 
                     if not correct:
                         raise DismodFileError(
@@ -235,17 +234,22 @@ class DismodFile:
 
                     table_definition = self._table_definitions[table_name]
                     _validate_data(table_definition, table)
-                    table = table.sort_values(f"{table_name}_id")
-                    try:
-                        dtypes = {k: v.type for k, v in table_definition.c.items()}
-                        LOGGER.debug(f"table {table_name} types {dtypes}")
-                        table.to_sql(table_name, connection, if_exists="replace", dtype=dtypes)
-                    except StatementError as e:
-                        raise
 
                     # TODO: I'm re-calculating this hash for the sake of having a nice _is_dirty function.
                     # That may be too expensive.
                     table_hash = pd.util.hash_pandas_object(table)
+
+                    if f"{table_name}_id" in table:
+                        table = table.set_index(f"{table_name}_id")
+                    try:
+                        dtypes = {k: v.type for k, v in table_definition.c.items()}
+                        LOGGER.debug(f"table {table_name} types {dtypes}")
+                        table.to_sql(
+                            table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
+                        )
+                    except StatementError as e:
+                        raise
+
                     self._table_hash[table_name] = table_hash
 
         self._check_column_types_actually_written()

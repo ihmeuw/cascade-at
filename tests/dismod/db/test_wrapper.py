@@ -98,8 +98,8 @@ def test_dmfile_read(base_file, engine):
     base_file.flush()
 
     dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
-    assert ages.sort_index(axis=1).equals(dm_file2.age.sort_index(axis=1))
-    assert times.sort_index(axis=1).equals(dm_file2.time.sort_index(axis=1))
+    assert ages.sort_index("columns").equals(dm_file2.age.sort_index("columns"))
+    assert times.sort_index("columns").equals(dm_file2.time.sort_index("columns"))
 
 
 def test_reading_modified_columns(base_file, engine):
@@ -109,7 +109,7 @@ def test_reading_modified_columns(base_file, engine):
     base_file.flush()
 
     dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
-    assert ages.sort_index(axis=1).equals(dm_file2.age.sort_index(axis=1))
+    assert ages.sort_index("columns").equals(dm_file2.age.sort_index("columns"))
 
 
 DummyBase = declarative_base()
