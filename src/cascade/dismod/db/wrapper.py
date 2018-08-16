@@ -60,7 +60,7 @@ def _validate_data(table_definition, data):
                 # Permit np.float because an int column with a None is cast to float.
                 # Same for object. This is cast on write.
                 # Because we use metadata, this will be converted for us to int when it is written.
-                allowed = [np.integer, np.float]
+                allowed = [np.integer, np.floating]
                 if not any(np.issubdtype(actual_type, given_type) for given_type in allowed):
                     raise DismodFileError(
                         f"column '{column_name}' in data for table '{table_definition.name}' must be integer"
@@ -73,8 +73,8 @@ def _validate_data(table_definition, data):
             elif expected_type is str:
                 if len(data) > 0:
                     # Use iloc to get the first entry, even if the index doesn't have 0.
-                    actual_type = type(data[column_name].iloc[0])
-                    correct = np.issubdtype(actual_type, np.str_) or actual_type == type(None)
+                    entry = data[column_name].iloc[0]
+                    correct = np.issubdtype(type(entry), np.str_) or entry is None
 
                     if not correct:
                         raise DismodFileError(
@@ -178,7 +178,7 @@ class DismodFile:
             table = self._table_definitions[table_name]
             with self.engine.connect() as conn:
                 data = pd.read_sql_query(select([table]), conn)
-            data = data.set_index(f"{table_name}_id")
+            data = data.set_index(f"{table_name}_id", drop=False)
             self._table_hash[table_name] = pd.util.hash_pandas_object(data)
             self._table_data[table_name] = data
             return data
@@ -189,6 +189,8 @@ class DismodFile:
         if table_name in self.__dict__.get("_table_definitions", {}):
             if not isinstance(df, pd.DataFrame):
                 raise ValueError(f"Tried to set table using type {type(df)} instead of a DataFrame")
+            if f"{table_name}_id" not in df:
+                df = df.assign(**{f"{table_name}_id": df.index})
             self._table_data[table_name] = df
         elif isinstance(df, pd.DataFrame):
             raise KeyError(f"Tried to set table {table_name} but it isn't in the db specification")
@@ -226,22 +228,22 @@ class DismodFile:
 
                     table_definition = self._table_definitions[table_name]
                     _validate_data(table_definition, table)
-                    try:
-                        dtypes = {k: v.type for k, v in table_definition.c.items()}
-                        LOGGER.debug(f"table {table_name} types {dtypes}")
-                        table.to_sql(
-                            table_name,
-                            connection,
-                            index_label=table_name + "_id",
-                            if_exists="replace",
-                            dtype=dtypes,
-                        )
-                    except StatementError as e:
-                        raise
 
                     # TODO: I'm re-calculating this hash for the sake of having a nice _is_dirty function.
                     # That may be too expensive.
                     table_hash = pd.util.hash_pandas_object(table)
+
+                    if f"{table_name}_id" in table:
+                        table = table.set_index(f"{table_name}_id")
+                    try:
+                        dtypes = {k: v.type for k, v in table_definition.c.items()}
+                        LOGGER.debug(f"table {table_name} types {dtypes}")
+                        table.to_sql(
+                            table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
+                        )
+                    except StatementError as e:
+                        raise
+
                     self._table_hash[table_name] = table_hash
 
         self._check_column_types_actually_written()
@@ -267,12 +269,14 @@ class DismodFile:
                         if column_name not in in_db:
                             raise RuntimeError(
                                 f"A column wasn't written to Dismod file: {table_name}.{column_name}. "
-                                f"Columns present {table_info}.")
+                                f"Columns present {table_info}."
+                            )
                         if in_db[column_name] not in expect:
                             raise RuntimeError(
                                 f"A sqlite column type is unexpected: "
-                                f"{table_name}.{column_name} {in_db[column_name]}")
-                        if type(column_object.type) != type(expect[in_db[column_name]]):
+                                f"{table_name}.{column_name} {in_db[column_name]}"
+                            )
+                        if type(column_object.type) != type(expect[in_db[column_name]]):  # noqa: E721
                             raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")
 
                     LOGGER.debug(f"Table integrand {table_info}")
@@ -307,9 +311,5 @@ class DismodFile:
         table_definition = self._table_definitions[table_name]
         # Skip the first one. It's always the column_id.
         dtypes = [(k, v.type) for k, v in table_definition.c.items()][1:]
-        type_map = {
-            Integer: np.int, Float: np.float, String: np.str, Enum: np.str,
-        }
-        return pd.DataFrame({
-            column: np.zeros(0, dtype=type_map[type(kind)]) for column, kind in dtypes
-        })
+        type_map = {Integer: np.int, Float: np.float, String: np.str, Enum: np.str}
+        return pd.DataFrame({column: np.zeros(0, dtype=type_map[type(kind)]) for column, kind in dtypes})
