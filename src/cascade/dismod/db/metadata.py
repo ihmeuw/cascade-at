@@ -383,7 +383,7 @@ class DependVar(Base):
     has more variables than necessary.
     """
 
-    __tablename__ = "depend_var_table"
+    __tablename__ = "depend_var"
     __readonly__ = True
 
     depend_var_id = Column(Integer(), primary_key=True, autoincrement=False)
@@ -398,7 +398,7 @@ class FitVar(Base):
     is created each time the fit command runs.
     """
 
-    __tablename__ = "fit_var_table"
+    __tablename__ = "fit_var"
     __readonly__ = True
 
     fit_var_id = Column(Integer(), primary_key=True, autoincrement=False)
@@ -418,7 +418,7 @@ class FitDataSubset(Base):
     the fit command runs.
     """
 
-    __tablename__ = "fit_data_subset_table"
+    __tablename__ = "fit_data_subset"
     __readonly__ = True
 
     fit_data_subset_id = Column(Integer(), primary_key=True, autoincrement=False)
@@ -435,7 +435,7 @@ class SampleIndex(Base):
     variables corresponding to the measurement.
     """
 
-    __tablename__ = "sample_index_table"
+    __tablename__ = "sample_index"
 
     sample_id = Column(Integer(), primary_key=True, autoincrement=False)
     sample_index = Column(Integer(), nullable=False)
@@ -468,7 +468,7 @@ class ScaleVar(Base):
     (with the aid of the var_table ).
     """
 
-    __tablename__ = "scale_var_table"
+    __tablename__ = "scale_var"
 
     scale_var_id = Column(Integer(), primary_key=True, autoincrement=False)
     scale_var_value = Column(Float(), nullable=False)
@@ -483,7 +483,7 @@ class StartVar(Base):
     user (with the aid of the var_table ).
     """
 
-    __tablename__ = "start_var_table"
+    __tablename__ = "start_var"
 
     start_var_id = Column(Integer(), primary_key=True, autoincrement=False)
     start_var_value = Column(Float(), nullable=False)
@@ -494,7 +494,7 @@ class TruthVar(Base):
     Output, the set command can be used to create a truth variable.
     """
 
-    __tablename__ = "truth_var_table"
+    __tablename__ = "truth_var"
 
     truth_var_id = Column(Integer(), primary_key=True, autoincrement=False)
     truth_var_value = Column(Float(), nullable=False)
@@ -503,7 +503,7 @@ class TruthVar(Base):
 class Simulate(Base):
     """Output"""
 
-    __tablename__ = "simulate_table"
+    __tablename__ = "simulate"
 
     simulate_id = Column(Integer(), primary_key=True, autoincrement=False)
     simulate_index = Column(Integer(), nullable=False)
@@ -515,7 +515,7 @@ class Simulate(Base):
 class Var(Base):
     """Output"""
 
-    __tablename__ = "var_table"
+    __tablename__ = "var"
 
     var_id = Column(Integer(), primary_key=True, autoincrement=False)
     var_type = Column(String(), nullable=False)
