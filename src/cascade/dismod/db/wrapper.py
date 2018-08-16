@@ -132,8 +132,14 @@ class DismodFile:
 
         engine = _get_engine(None)
         dm = DismodFile(engine, {"col": float}, {})
-        dm_file.add("time", pd.DataFrame({"time": [1997, 2005, 2017]}))
+        dm_file.time = pd.DataFrame({"time": [1997, 2005, 2017]}))
         time_df = dm_file.time
+
+    Each Dismod table has a primary key named with ``<table>_id``.
+    When reading a Pandas dataframe from the file, it will have this
+    column as a separate column. When writing a Pandas dataframe to
+    the file, if the column isn't present, the index of the dataframe
+    will be converted to be the primary key column.
 
     The arguments for ``avgint_columns`` and ``data_columns`` add columns
     to the avgint and data tables. These arguments are dictionaries from
