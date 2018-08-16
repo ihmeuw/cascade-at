@@ -203,8 +203,8 @@ def collect_ages_or_times(context, to_collect="ages"):
             np.max([np.max(context.input_data.observations.age_end), np.max(context.input_data.constraints.age_end)])
         )
         values.append(
-            np.max(
-                [np.max(context.input_data.observations.age_start), np.max(context.input_data.constraints.age_start)]
+            np.min(
+                [np.min(context.input_data.observations.age_start), np.min(context.input_data.constraints.age_start)]
             )
         )
     else:
@@ -212,8 +212,8 @@ def collect_ages_or_times(context, to_collect="ages"):
             np.max([np.max(context.input_data.observations.year_end), np.max(context.input_data.constraints.year_end)])
         )
         values.append(
-            np.max(
-                [np.max(context.input_data.observations.year_start), np.max(context.input_data.constraints.year_start)]
+            np.min(
+                [np.min(context.input_data.observations.year_start), np.min(context.input_data.constraints.year_start)]
             )
         )
 
@@ -256,7 +256,9 @@ def make_avgint_table(context, integrand_id_func):
                     "node_id": 0,
                 }
             )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(
+        rows, columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id"]
+    )
 
 
 def _prior_row(prior):

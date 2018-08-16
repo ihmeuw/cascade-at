@@ -17,11 +17,42 @@ from cascade.dismod.serialize import (
     make_smooth_and_smooth_grid_tables,
 )
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
+from cascade.dismod.db.metadata import DensityEnum
+
+
+def make_data(integrands):
+    ages = np.arange(0, 101, 5, dtype=float)
+    times = np.arange(1980, 2016, 5, dtype=float)
+    df = pd.MultiIndex.from_product([ages, times, integrands], names=["age_start", "year_start", "measure"])
+    df = pd.DataFrame(index=df).reset_index()
+    df["age_end"] = df.age_start + 5
+    df["year_end"] = df.year_start + 5
+    df["location_id"] = 1
+    df["density"] = DensityEnum.gaussian
+    df["weight"] = "constant"
+
+    df["mean"] = 0
+    df["standard_error"] = 0.001
+
+    return df
 
 
 @pytest.fixture
-def base_context():
+def observations():
+    return make_data(["Sincidence", "mtexcess"])
+
+
+@pytest.fixture
+def constraints():
+    return make_data(["mtother"])
+
+
+@pytest.fixture
+def base_context(observations, constraints):
     context = ModelContext()
+
+    context.input_data.observations = observations
+    context.input_data.constraints = constraints
 
     grid = AgeTimeGrid.uniform(age_start=0, age_end=120, age_step=1, time_start=1990, time_end=2018, time_step=5)
 
@@ -62,27 +93,29 @@ def test_collect_ages_or_times__ages(base_context):
 
 
 def test_collect_ages_or_times__times(base_context):
-    ages = collect_ages_or_times(base_context, "times")
-    assert set(ages) == set(range(1990, 2018, 5))
+    times = collect_ages_or_times(base_context, "times")
+    true_times = set(range(1990, 2016, 5)) | {1980, 2020}
+    assert set(times) == true_times
 
 
 def test_make_age_table(base_context):
     df = make_age_table(base_context)
 
-    assert df.age.equals(pd.Series(range(0, 120, 1)))
+    assert df.age.equals(pd.Series(range(0, 120, 1), dtype=float))
 
 
 def test_make_time_table(base_context):
     df = make_time_table(base_context)
 
-    assert df.time.equals(pd.Series(range(1990, 2018, 5)))
+    assert df.time.equals(pd.Series([1980] + list(range(1990, 2016, 5)) + [2020], dtype=float))
 
 
 def test_make_prior_table(base_context):
     dm = DismodFile(None, {}, {})
     dm.make_densities()
 
-    prior_table, prior_objects = make_prior_table(base_context, dm.density)
+    prior_table, prior_id_func = make_prior_table(base_context, dm.density)
+    prior_objects = collect_priors(base_context)
 
     assert len(prior_table) == len(prior_objects)
 
@@ -118,10 +151,10 @@ def test_make_smooth_and_smooth_grid_tables(base_context):
 
     prior_table, prior_objects = make_prior_table(base_context, dm.density)
 
-    smooth_table, smooth_grid_table = make_smooth_and_smooth_grid_tables(
+    smooth_table, smooth_grid_table, smooth_id_func = make_smooth_and_smooth_grid_tables(
         base_context, age_table, time_table, prior_objects
     )
 
     assert len(smooth_table) == 1
 
-    assert len(smooth_grid_table) == len(age_table) * len(time_table)
+    assert set(smooth_table.index) == set(smooth_grid_table.smooth_id)
