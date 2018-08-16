@@ -32,6 +32,49 @@ class _Rates:
         return iter([self.pini, self.iota, self.rho, self.chi, self.omega])
 
 
+class _Outputs:
+    __slots__ = ["integrands"]
+
+    def __init__(self):
+        self.integrands = _Integrands()
+
+
+class _Integrand:
+    def __init__(self, name):
+        self.name = name
+        self.active = False
+        self.age_lower = None
+        self.age_upper = None
+        self.time_lower = None
+        self.time_upper = None
+
+
+class _Integrands:
+    __slots__ = [
+        "Sincidence",
+        "remission",
+        "mtexcess",
+        "mtother",
+        "mtwith",
+        "susceptible",
+        "withC",
+        "prevalence",
+        "Tincidence",
+        "mtspecific",
+        "mtall",
+        "mtstandard",
+        "relrisk",
+    ]
+
+    def __init__(self):
+        for name in self.__slots__:
+            setattr(self, name, _Integrand(name))
+
+    def __iter__(self):
+        for name in self.__slots__:
+            yield getattr(self, name)
+
+
 class ModelContext:
     """
     This is a container for all inputs, parametrization and data, necessary
@@ -44,3 +87,4 @@ class ModelContext:
         self.parameters = _ModelParameters()
         self.input_data = InputData()
         self.rates = _Rates()
+        self.outputs = _Outputs()

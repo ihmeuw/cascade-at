@@ -52,11 +52,11 @@ class UniformPrior(_Prior):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean}
 
 
-class ConstantPrior:
+class ConstantPrior(_Prior):
     density = "uniform"
 
     def __init__(self, value, name=None):
-        super().__init__(name)
+        super().__init__(name=name)
         self.value = value
 
     def parameters(self):
