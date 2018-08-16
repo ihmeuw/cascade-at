@@ -161,7 +161,6 @@ def age_year_from_data(df):
     return results["age"], results["year"]
 
 
-
 def integrand_outputs(rates, location_id, age, time):
     """
     The internal model declares what outputs it wants.
