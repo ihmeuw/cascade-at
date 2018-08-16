@@ -6,6 +6,7 @@ to create it and add tables.
 """
 import logging
 
+from copy import deepcopy
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
 import pandas as pd
@@ -150,11 +151,12 @@ class DismodFile:
             data_columns (dict): From columns to types.
         """
         self.engine = engine
-        self._table_definitions = Base.metadata.tables
+        self._metadata = deepcopy(Base.metadata)
+        self._table_definitions = self._metadata.tables
         self._table_data = {}
         self._table_hash = {}
-        add_columns_to_avgint_table(avgint_columns)
-        add_columns_to_data_table(data_columns)
+        add_columns_to_avgint_table(self._metadata, avgint_columns)
+        add_columns_to_data_table(self._metadata, data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
 
     def create_tables(self, tables=None):
