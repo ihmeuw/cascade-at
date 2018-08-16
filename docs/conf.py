@@ -20,8 +20,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.expanduser("..")))
-
+sys.path.insert(0, os.path.abspath(os.path.expanduser("../src")))
 
 # -- General configuration ------------------------------------------------
 
@@ -53,9 +52,9 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "Dismod AT"
+project = "Cascade for Dismod"
 copyright = "2018, IHME, University of Washington"
-author = "Dismod AT Team"
+author = "Cascade Team"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -163,3 +162,12 @@ texinfo_documents = [
         "Statistics",
     )
 ]
+# -- Autodoc configuration ------------------------------------------------
+
+# Sort order of members listed by autodoc
+# options are: 'alphabetical', 'groupwise', or 'bysource'
+autodoc_member_order = "bysource"
+
+# Defaults for automodule and autoclass
+# To negate add `:no-undoc-members:` flag to a particular instance
+autodoc_default_flags = ["members", "undoc-members"]

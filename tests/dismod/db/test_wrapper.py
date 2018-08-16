@@ -8,8 +8,9 @@ import pytest
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Enum
 
-from cascade.dismod.db.wrapper import DismodFile, _get_engine, _validate_data
+from cascade.dismod.db.wrapper import DismodFile, _get_engine, _validate_data, _ordered_by_foreign_key_dependency
 from cascade.dismod.db import DismodFileError
+from cascade.dismod.db.metadata import Base as DismodFileBase
 
 
 @pytest.fixture
@@ -24,9 +25,29 @@ def base_file(engine):
     ages = pd.DataFrame({"age": np.array([6.0, 22.0, 48.0])})
     dm_file.age = ages
     dm_file.time = pd.DataFrame({"time": [1997.0, 2005.0, 2017.0]})
-    dm_file.integrand = pd.DataFrame({"integrand_name": ["prevalence"]})
+    dm_file.integrand = pd.DataFrame({"integrand_name": ["prevalence"], "minimum_meas_cv": [0.0]})
 
     return dm_file
+
+
+@pytest.mark.parametrize(
+    "input,expected",
+    [
+        ("age time integrand density", "age density integrand time"),
+        ("density prior age", "age density prior"),
+        ("node", "node"),
+        ("weight_grid age time weight", "age time weight weight_grid"),
+        ("avgint node weight", "node weight avgint"),
+    ],
+)
+def test_ordering_of_tables(input, expected):
+    out = list(_ordered_by_foreign_key_dependency(DismodFileBase.metadata, input.split()))
+    assert out == expected.split()
+
+
+def test_ordering_unhappy():
+    with pytest.raises(ValueError):
+        next(_ordered_by_foreign_key_dependency(DismodFileBase.metadata, "nonexistent age".split()))
 
 
 def test_wrong_type(base_file):
@@ -34,6 +55,11 @@ def test_wrong_type(base_file):
     base_file.age = ages
     with pytest.raises(DismodFileError):
         base_file.flush()
+
+
+def test_non_existent_table(base_file):
+    with pytest.raises(KeyError):
+        base_file.integrands_with_an_s = pd.DataFrame()
 
 
 def test_is_dirty__initially(base_file):
@@ -71,8 +97,8 @@ def test_dmfile_read(base_file, engine):
     base_file.flush()
 
     dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
-    assert ages.equals(dm_file2.age)
-    assert times.equals(dm_file2.time)
+    assert ages.sort_index("columns").equals(dm_file2.age.sort_index("columns"))
+    assert times.sort_index("columns").equals(dm_file2.time.sort_index("columns"))
 
 
 def test_reading_modified_columns(base_file, engine):
@@ -82,7 +108,7 @@ def test_reading_modified_columns(base_file, engine):
     base_file.flush()
 
     dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
-    assert ages.equals(dm_file2.age)
+    assert ages.sort_index("columns").equals(dm_file2.age.sort_index("columns"))
 
 
 DummyBase = declarative_base()
@@ -104,7 +130,6 @@ def test_validate_data__happy_path():
             "integer_column": [1, 2, 3],
             "float_column": [1.0, 2.0, 3.0],
             "string_column": ["a", "b", "c"],
-            "enum_column": ["bumble", "honey", "carpenter"],
             "nonnullable_column": [1, 2, 3],
         }
     )
@@ -112,7 +137,7 @@ def test_validate_data__happy_path():
 
 
 def test_validate_data__bad_integer():
-    data = pd.DataFrame({"integer_column": [1.0, 2.0, 3.0], "nonnullable_column": [1, 2, 3]})
+    data = pd.DataFrame({"integer_column": np.array(["1", "2", "3"], dtype=np.str), "nonnullable_column": [1, 2, 3]})
     with pytest.raises(DismodFileError) as excinfo:
         _validate_data(DummyTable.__table__, data)
 
@@ -132,13 +157,6 @@ def test_validate_data__bad_string():
     with pytest.raises(DismodFileError) as excinfo:
         _validate_data(DummyTable.__table__, data)
     assert "string_column" in str(excinfo.value)
-
-
-def test_validate_data__bad_enum():
-    data = pd.DataFrame({"enum_column": [1, 2, 3], "nonnullable_column": [1, 2, 3]})
-    with pytest.raises(DismodFileError) as excinfo:
-        _validate_data(DummyTable.__table__, data)
-    assert "enum_column" in str(excinfo.value)
 
 
 def test_validate_data__extra_column():
