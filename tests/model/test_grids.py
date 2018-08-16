@@ -49,6 +49,19 @@ def test_PriorGrid__point_query(age_time_grid):
     assert priors[25, 2001].prior == GaussianPrior(20, 3)
 
 
+def test_PriorGrid__point_query_with_extreme_values(age_time_grid):
+    priors = PriorGrid(age_time_grid)
+
+    priors[:, :].prior = GaussianPrior(0, 3)
+
+    assert priors[min(age_time_grid.ages), 1990].prior == GaussianPrior(0, 3)
+    assert priors[max(age_time_grid.ages), 1990].prior == GaussianPrior(0, 3)
+    assert priors[15, min(age_time_grid.times)].prior == GaussianPrior(0, 3)
+    assert priors[15, max(age_time_grid.times)].prior == GaussianPrior(0, 3)
+    assert priors[min(age_time_grid.ages), min(age_time_grid.times)].prior == GaussianPrior(0, 3)
+    assert priors[max(age_time_grid.ages), max(age_time_grid.times)].prior == GaussianPrior(0, 3)
+
+
 def test_PriorGrid__bad_alignment(age_time_grid):
     priors = PriorGrid(age_time_grid)
 

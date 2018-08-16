@@ -171,11 +171,14 @@ def age_year_from_data(df):
     return AgeTimeGrid(results["age"].age, results["year"].year)
 
 
-def build_constraint(constraint, grid):
+def build_constraint(constraint):
     """
     This makes a smoothing grid where the mean value is set to a given
     set of values.
     """
+    ages = constraint["age_start"].unique().tolist()
+    times = constraint["year_start"].unique().tolist()
+    grid = AgeTimeGrid(ages, times)
     smoothing_prior = PriorGrid(grid)
     smoothing_prior[:, :].prior = UniformPrior(-np.inf, np.inf, 0)
 
@@ -210,7 +213,7 @@ def internal_model(model, inputs):
         integrand.time_lower = min(default_smoothing.grid.times)
         integrand.time_upper = max(default_smoothing.grid.times)
 
-    model.rates.omega.parent_smooth = build_constraint(model.input_data.constraints, grid)
+    model.rates.omega.parent_smooth = build_constraint(model.input_data.constraints)
 
     return model
 
@@ -224,8 +227,7 @@ def construct_database():
     model_context.parameters.non_zero_rates = "iota rho chi omega"
 
     # Get the bundle and process it.
-    # raw_inputs = data_from_csv(Path("measure.csv"))
-    raw_inputs = retrieve_external_data(model_context.parameters)
+    raw_inputs = data_from_csv(Path("measure.csv"))
     internal_model(model_context, raw_inputs)
 
     output_file = "fit.db"

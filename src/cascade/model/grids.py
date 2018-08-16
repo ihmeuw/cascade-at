@@ -147,7 +147,8 @@ class _RegionView:
         if lower_age != upper_age or lower_time != upper_time:
             raise NotImplementedError("Currently only point queries are supported")
 
-        return self._parent._prior_at_point(lower_age, lower_time)
+        point = self._parent._prior_at_point(lower_age, lower_time)
+        return point
 
     @prior.setter
     def prior(self, p):

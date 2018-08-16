@@ -48,7 +48,7 @@ class UniformPrior(_Prior):
         self.upper = upper
         self.mean = mean
 
-    def parameters(self):
+    def _parameters(self):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean}
 
 
@@ -59,7 +59,7 @@ class ConstantPrior(_Prior):
         super().__init__(name=name)
         self.value = value
 
-    def parameters(self):
+    def _parameters(self):
         return {"lower": self.value, "upper": self.value, "mean": self.value}
 
 

@@ -47,9 +47,9 @@ def model_to_dismod_file(model, filename):
     bundle_fit.nslist_pair = bundle_fit.empty_table("nslist_pair")
     bundle_fit.mulcov = bundle_fit.empty_table("mulcov")
 
-    bundle_fit.log = _make_log_table()
+    bundle_fit.log = make_log_table()
 
-    bundle_fit.node = _make_node_table(model)
+    bundle_fit.node = make_node_table(model)
 
     non_zero_rates = [rate.name for rate in model.rates if rate.parent_smooth or rate.child_smoothings]
     if "iota" in non_zero_rates:
@@ -69,7 +69,7 @@ def model_to_dismod_file(model, filename):
         }
     )
 
-    bundle_fit.data = _make_data_table(model)
+    bundle_fit.data = make_data_table(model)
 
     # Include all data in the data_subset.
     bundle_fit.data_subset = pd.DataFrame({"data_id": np.arange(len(bundle_fit.data))})
@@ -77,8 +77,8 @@ def model_to_dismod_file(model, filename):
     # Ages and times are used by Weight grids and smooth grids,
     # so pull all ages and times from those two objects in the
     # internal model. Skip weight grid here b/c assuming use constant.
-    bundle_fit.age = _make_age_table(model)
-    bundle_fit.time = _make_time_table(model)
+    bundle_fit.age = make_age_table(model)
+    bundle_fit.time = make_time_table(model)
 
     bundle_fit.weight, bundle_fit.weight_grid = simplest_weight()
 
@@ -91,9 +91,9 @@ def model_to_dismod_file(model, filename):
         return int(bundle_fit.integrand.query("integrand_name==@name").integrand_id)
 
     # The avgint needs to be translated.
-    bundle_fit.avgint = _make_avgint_table(model, integrand_id_func)
+    bundle_fit.avgint = make_avgint_table(model, integrand_id_func)
 
-    bundle_fit.rate = _make_rate_table(model, smooth_id_func)
+    bundle_fit.rate = make_rate_table(model, smooth_id_func)
 
     return bundle_fit
 
@@ -116,7 +116,7 @@ def default_integrand_names():
     return df
 
 
-def _make_log_table():
+def make_log_table():
     return pd.DataFrame(
         {
             "message_type": ["command"],
@@ -128,17 +128,16 @@ def _make_log_table():
     )
 
 
-def _make_node_table(context):
+def make_node_table(context):
     # Assume we have one location, so no parents.
     # If we had a hierarchy, that would be used to determine parents.
     unique_locations = context.input_data.observations["location_id"].unique()
     assert len(unique_locations) == 1
-    assert unique_locations[0] == context.parameters.location_id
 
     return pd.DataFrame({"node_name": unique_locations.astype(int).astype(str), "parent": np.array([np.NaN])})
 
 
-def _make_data_table(context):
+def make_data_table(context):
     observations = observations_to_data(context.input_data.observations)
     constraints = observations_to_data(context.input_data.constraints, hold_out=1)
     total_data = pd.concat([observations, constraints], ignore_index=True)
@@ -229,7 +228,7 @@ def collect_ages_or_times(context, to_collect="ages"):
     return values[uniqued_values]
 
 
-def _make_age_table(context):
+def make_age_table(context):
     ages = collect_ages_or_times(context, "ages")
     age_df = pd.DataFrame(ages, columns=["age"])
     age_df["age_id"] = age_df.index
@@ -237,7 +236,7 @@ def _make_age_table(context):
     return age_df
 
 
-def _make_time_table(context):
+def make_time_table(context):
     times = collect_ages_or_times(context, "times")
     time_df = pd.DataFrame(times, columns=["time"])
     time_df["time_id"] = time_df.index
@@ -245,7 +244,7 @@ def _make_time_table(context):
     return time_df
 
 
-def _make_avgint_table(context, integrand_id_func):
+def make_avgint_table(context, integrand_id_func):
     rows = []
     for integrand in context.outputs.integrands:
         if integrand.active:
@@ -265,7 +264,7 @@ def _make_avgint_table(context, integrand_id_func):
     return pd.DataFrame(rows)
 
 
-def _prior_to_row(prior):
+def _prior_row(prior):
     row = {
         "prior_name": None,
         "density": None,
@@ -285,7 +284,7 @@ def _prior_to_row(prior):
 def make_prior_table(context, density_table):
     priors = list(collect_priors(context))
 
-    prior_table = pd.DataFrame([_prior_to_row(p) for p in priors])
+    prior_table = pd.DataFrame([_prior_row(p) for p in priors])
     prior_table["prior_id"] = prior_table.index
     prior_table.loc[prior_table.prior_name.isnull(), "prior_name"] = prior_table.loc[
         prior_table.prior_name.isnull(), "prior_id"
@@ -307,7 +306,7 @@ def make_smooth_grid_table(smooth, prior_id_func):
     if grid is not None:
         for age in grid.ages:
             for year in grid.times:
-                row = {"age": age, "time": year, "const_value": np.nan}
+                row = {"age": float(age), "time": float(year), "const_value": np.nan}
                 if smooth.value_priors:
                     row["value_prior_id"] = prior_id_func(smooth.value_priors[age, year].prior)
                 else:
@@ -354,24 +353,24 @@ def _smooth_row(name, smooth, grid, prior_id_func):
 def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_func):
     grid_tables = []
     smooths = []
+    smooth_rows = []
     for rate in context.rates:
         for smooth in rate.child_smoothings + [rate.parent_smooth] if rate.parent_smooth else []:
             grid_table = make_smooth_grid_table(smooth, prior_id_func)
-            smooths.append(smooth)
             grid_table["smooth_id"] = len(smooths)
+            grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
+            grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
+            smooth_rows.append(_smooth_row(f"smooth_{len(smooths)}", smooth, grid_table, prior_id_func))
+            smooths.append(smooth)
             grid_tables.append(grid_table)
     smooths = list(smooths)
 
     if grid_tables:
-        grid_table = pd.concat(grid_tables)
-        grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
-        grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
+        grid_table = pd.concat(grid_tables).reset_index(drop=True)
     else:
         grid_table = pd.DataFrame()
 
-    smooth_table = pd.DataFrame(
-        [_smooth_row(f"smooth_{i}", smooth, grid_table, prior_id_func) for i, smooth in enumerate(smooths)]
-    )
+    smooth_table = pd.DataFrame(smooth_rows)
 
     def smooth_id_func(smooth):
         return smooths.index(smooth)
@@ -379,41 +378,18 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
     return smooth_table, grid_table, smooth_id_func
 
 
-def _make_rate_table(context, smooth_id_func):
+def make_rate_table(context, smooth_id_func):
     rows = []
     for rate in context.rates:
-        if rate.parent_smooth or rate.child_smoothings:
-            if len(rate.child_smoothings) > 1:
-                raise NotImplementedError("Multiple child smoothings not supported yet")
+        if len(rate.child_smoothings) > 1:
+            raise NotImplementedError("Multiple child smoothings not supported yet")
 
-            rows.append(
-                {
-                    "rate_name": rate.name,
-                    "parent_smooth_id": smooth_id_func(rate.parent_smooth) if rate.parent_smooth else np.NaN,
-                    "child_smooth_id": smooth_id_func(rate.child_smoothings[0]) if rate.child_smoothings else np.NaN,
-                    "child_nslist_id": np.NaN,
-                }
-            )
+        rows.append(
+            {
+                "rate_name": rate.name,
+                "parent_smooth_id": smooth_id_func(rate.parent_smooth) if rate.parent_smooth else np.NaN,
+                "child_smooth_id": smooth_id_func(rate.child_smoothings[0]) if rate.child_smoothings else np.NaN,
+                "child_nslist_id": np.NaN,
+            }
+        )
     return pd.DataFrame(rows)
-
-
-def read_predict(db_path):
-    avgint_columns = dict()
-    data_columns = dict()
-    bundle_dismod_db = Path(db_path)
-    bundle_file_engine = _get_engine(bundle_dismod_db)
-    bundle_fit = DismodFile(bundle_file_engine, avgint_columns, data_columns)
-
-    desired_outputs = bundle_fit.avgint
-
-    # Use the integrand table to convert the integrand_id into an integrand_name.
-    integrand_names = bundle_fit.integrand
-    desired_outputs = desired_outputs.merge(integrand_names, left_on="integrand_id", right_on=integrand_names.index)
-
-    # Associate the result with the desired integrand.
-    prediction = bundle_fit.predict.merge(desired_outputs, left_on="avgint_id", right_on=desired_outputs.index)
-    return prediction
-
-
-def read_prevalence(prediction):
-    return prediction[prediction["integrand_name"] == "prevalence"][["avg_integrand", "time_lower", "age_lower"]]

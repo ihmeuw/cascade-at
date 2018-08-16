@@ -71,3 +71,6 @@ class Rate:
         if self.parent_smooth:
             smoothings.append(self.parent_smooth)
         return smoothings
+
+    def __repr__(self):
+        return f"<Rate '{self.name}'>"
