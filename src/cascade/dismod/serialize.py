@@ -2,20 +2,19 @@
 Converts the internal representation to a Dismod File.
 """
 import logging
-from pathlib import Path
 import time
 
 import numpy as np
 import pandas as pd
 
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
-from cascade.dismod.db.wrapper import _get_engine, DismodFile
+from cascade.dismod.db.wrapper import DismodFile
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-def model_to_dismod_file(model, filename):
+def model_to_dismod_file(model):
     """
     This is a one-way translation from a model context to a new Dismod file.
     It assumes a lot. One location, no covariates, and more.
@@ -24,11 +23,7 @@ def model_to_dismod_file(model, filename):
         model_context (ModelContext): The one big object.
 
     """
-    avgint_columns = dict()
-    data_columns = dict()
-    bundle_dismod_db = Path(filename)
-    bundle_file_engine = _get_engine(bundle_dismod_db)
-    bundle_fit = DismodFile(bundle_file_engine, avgint_columns, data_columns)
+    bundle_fit = DismodFile()
 
     # Standard Density table.
     density_enum = enum_to_dataframe(DensityEnum)

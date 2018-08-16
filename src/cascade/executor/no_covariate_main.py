@@ -34,6 +34,7 @@ import pandas as pd
 import cascade.input_data.db.bundle
 from cascade.testing_utilities import make_execution_context
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
+from cascade.dismod.db.wrapper import _get_engine
 from cascade.core.context import ModelContext
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.grids import AgeTimeGrid, PriorGrid
@@ -232,8 +233,9 @@ def construct_database():
 
     output_file = "fit.db"
     LOGGER.info("Creating file {output_file}")
-    dismod_file = model_to_dismod_file(model_context, output_file)
+    dismod_file = model_to_dismod_file(model_context)
     flush_begin = timer()
+    dismod_file.engine = _get_engine(Path(output_file))
     dismod_file.flush()
     LOGGER.debug(f"Flush db {timer() - flush_begin}")
 

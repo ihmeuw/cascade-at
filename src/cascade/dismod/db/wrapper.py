@@ -139,7 +139,7 @@ class DismodFile:
     column name to column type.
     """
 
-    def __init__(self, engine, avgint_columns, data_columns):
+    def __init__(self, engine=None, avgint_columns=None, data_columns=None):
         """
         The columns arguments add columns to the avgint and data
         tables.
@@ -153,8 +153,10 @@ class DismodFile:
         self._table_definitions = Base.metadata.tables
         self._table_data = {}
         self._table_hash = {}
-        add_columns_to_avgint_table(avgint_columns)
-        add_columns_to_data_table(data_columns)
+        if avgint_columns:
+            add_columns_to_avgint_table(avgint_columns)
+        if data_columns:
+            add_columns_to_data_table(data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
 
     def create_tables(self, tables=None):
@@ -181,6 +183,8 @@ class DismodFile:
         if table_name in self._table_data:
             return self._table_data[table_name]
         elif table_name in self._table_definitions:
+            if self.engine is None:
+                raise ValueError("Cannot read from disk before an engine is set")
             table = self._table_definitions[table_name]
             with self.engine.connect() as conn:
                 data = pd.read_sql_query(select([table]), conn)
@@ -225,6 +229,8 @@ class DismodFile:
         """Writes any data in memory to the underlying database. Data which has not been changed since
         it was last written is not re-written.
         """
+        if self.engine is None:
+            raise ValueError("Cannot flush before an engine is set")
         with self.engine.begin() as connection:
             for table_name in _ordered_by_foreign_key_dependency(Base.metadata, self._table_data.keys()):
                 if self._is_dirty(table_name):
