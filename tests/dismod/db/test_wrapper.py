@@ -1,4 +1,5 @@
 import enum
+import time
 
 import numpy as np
 import pandas as pd
@@ -89,6 +90,18 @@ def test_is_dirty__on_read(base_file, engine):
 
 def test_is_dirty__not_yet_read(base_file):
     assert not base_file._is_dirty("foo_bar")
+
+
+def test_add_log_has_primary_key(base_file):
+    base_file.flush()
+    base_file.log = pd.DataFrame({
+        "message_type": ["command"],
+        "table_name": np.array([None], dtype=np.object),
+        "row_id": np.NaN,
+        "unix_time": int(round(time.time())),
+        "message": ["fit_no_covariates.py"],
+    })
+    base_file.flush()
 
 
 def test_dmfile_read(base_file, engine):
