@@ -219,7 +219,7 @@ def internal_model(model, inputs):
     return model
 
 
-def construct_database():
+def construct_database(input_path, output_path):
     # Configuration
     model_context = ModelContext()
     model_context.parameters.bundle_id = 3209
@@ -228,14 +228,13 @@ def construct_database():
     model_context.parameters.non_zero_rates = "iota rho chi omega"
 
     # Get the bundle and process it.
-    raw_inputs = data_from_csv(Path("measure.csv"))
+    raw_inputs = data_from_csv(Path(input_path))
     internal_model(model_context, raw_inputs)
 
-    output_file = "fit.db"
-    LOGGER.info("Creating file {output_file}")
+    LOGGER.info(f"Creating file {output_path}")
     dismod_file = model_to_dismod_file(model_context)
     flush_begin = timer()
-    dismod_file.engine = _get_engine(Path(output_file))
+    dismod_file.engine = _get_engine(Path(output_path))
     dismod_file.flush()
     LOGGER.debug(f"Flush db {timer() - flush_begin}")
 
@@ -243,6 +242,8 @@ def construct_database():
 def entry():
     """This is the entry that setuptools turns into an installed program."""
     parser = ArgumentParser("Reads csv for a run without covariates.")
+    parser.add_argument("input_path")
+    parser.add_argument("output_path")
     parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
     args, _ = parser.parse_known_args()
     if args.v:
@@ -250,7 +251,7 @@ def entry():
     else:
         log_level = logging.INFO
     logging.basicConfig(level=log_level)
-    construct_database()
+    construct_database(args.input_path, args.output_path)
 
 
 if __name__ == "__main__":
