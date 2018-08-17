@@ -6,6 +6,7 @@ to create it and add tables.
 """
 import logging
 
+from copy import deepcopy
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
 import pandas as pd
@@ -131,8 +132,14 @@ class DismodFile:
 
         engine = _get_engine(None)
         dm = DismodFile(engine, {"col": float}, {})
-        dm_file.add("time", pd.DataFrame({"time": [1997, 2005, 2017]}))
+        dm_file.time = pd.DataFrame({"time": [1997, 2005, 2017]}))
         time_df = dm_file.time
+
+    Each Dismod table has a primary key named with ``<table>_id``.
+    When reading a Pandas dataframe from the file, it will have this
+    column as a separate column. When writing a Pandas dataframe to
+    the file, if the column isn't present, the index of the dataframe
+    will be converted to be the primary key column.
 
     The arguments for ``avgint_columns`` and ``data_columns`` add columns
     to the avgint and data tables. These arguments are dictionaries from
@@ -150,13 +157,14 @@ class DismodFile:
             data_columns (dict): From columns to types.
         """
         self.engine = engine
-        self._table_definitions = Base.metadata.tables
+        self._metadata = deepcopy(Base.metadata)
+        self._table_definitions = self._metadata.tables
         self._table_data = {}
         self._table_hash = {}
         if avgint_columns:
-            add_columns_to_avgint_table(avgint_columns)
+            add_columns_to_avgint_table(self._metadata, avgint_columns)
         if data_columns:
-            add_columns_to_data_table(data_columns)
+            add_columns_to_data_table(self._metadata, data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
 
     def create_tables(self, tables=None):

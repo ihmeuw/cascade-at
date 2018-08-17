@@ -172,3 +172,58 @@ def test_validate_data__missing_column():
     with pytest.raises(DismodFileError) as excinfo:
         _validate_data(DummyTable.__table__, data)
     assert "nonnullable_column" in str(excinfo.value)
+
+
+def test_two_files_different_columns():
+    column_sets = [{"howdy": float}, {"there": int}]
+    dm_files = list()
+    for column_set in column_sets:
+        engine = _get_engine(None)
+        dm_file = DismodFile(engine, column_set, column_set)
+        dm_file.integrand = pd.DataFrame({
+            "integrand_id": [0],
+            "integrand_name": ["Sincidence"],
+            "minimum_meas_cv": [0.0],
+        })
+        dm_file.density = pd.DataFrame({
+            "density_id": [0],
+            "density_name": ["uniform"],
+        })
+        dm_file.node = pd.DataFrame({
+            "node_id": [0],
+            "node_name": ["Foreverland"],
+            "parent": [np.NaN],
+        })
+        dm_file.weight = pd.DataFrame({
+            "weight_id": [0],
+            "weight_name": ["uniform"],
+            "n_age": [1],
+            "n_time": [1],
+        })
+        common_input = {
+            "data_id": [0],
+            "data_name": ["only"],
+            "integrand_id": [0],
+            "density_id": [0],
+            "node_id": [0],
+            "weight_id": [0],
+            "hold_out": [0],
+            "meas_value": [1.0],
+            "meas_std": [0.1],
+            "eta": [0.0],
+            "nu": [0.0],
+            "age_lower": [0.0],
+            "age_upper": [10.0],
+            "time_lower": [1971],
+            "time_upper": [2020],
+        }
+        for col_title, col_type in column_set.items():
+            common_input[col_title] = col_type()
+
+        dm_file.data = pd.DataFrame(common_input)
+        dm_file.flush()
+        dm_files.append(dm_file)
+
+    for check_set, in_file in zip(column_sets, dm_files):
+        for check_col in check_set:
+            assert check_col in in_file.data.columns
