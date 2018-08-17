@@ -241,11 +241,17 @@ class DismodFile:
                     # That may be too expensive.
                     table_hash = pd.util.hash_pandas_object(table)
 
+                    # In order to write the <table>_id column as a primary key,
+                    # we need to make the index not have a name and be of type
+                    # int64. That makes it write as a BIGINT, which the
+                    # sqlalchemy compiler turns into a primary key statement.
                     if f"{table_name}_id" in table:
                         table = table.set_index(f"{table_name}_id")
+                        table.index = table.index.astype(np.int64)
                     try:
                         dtypes = {k: v.type for k, v in table_definition.c.items()}
                         LOGGER.debug(f"table {table_name} types {dtypes}")
+                        table.index.name = None
                         table.to_sql(
                             table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
                         )
@@ -279,12 +285,12 @@ class DismodFile:
                                 f"A column wasn't written to Dismod file: {table_name}.{column_name}. "
                                 f"Columns present {table_info}."
                             )
-                        if in_db[column_name] not in expect:
+                        if in_db[column_name].lower() not in expect:
                             raise RuntimeError(
                                 f"A sqlite column type is unexpected: "
                                 f"{table_name}.{column_name} {in_db[column_name]}"
                             )
-                        if type(column_object.type) != type(expect[in_db[column_name]]):  # noqa: E721
+                        if type(column_object.type) != type(expect[in_db[column_name].lower()]):  # noqa: E721
                             raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")
 
                     LOGGER.debug(f"Table integrand {table_info}")
