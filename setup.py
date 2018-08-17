@@ -10,7 +10,7 @@ setup(
     extras_require={
         "testing": ["hypothesis", "pytest", "pytest-mock"],
         "documentation": ["sphinx", "sphinx_rtd_theme", "sphinx-autobuild", "sphinxcontrib-napoleon"],
-        "ihme_databases": ["db_tools", "db_queries"],
+        "ihme_databases": ["db_tools", "db_queries", "save_results"],
     },
     entry_points={
         "console_scripts": [

@@ -24,8 +24,15 @@ class ExecutionContext:
     model executes. This includes paths to data sources, information about
     cluster resources etc.
     """
+    
+    def __init__(self):
+        self._dismodfile = None
 
     parameters = ParameterProperty()
+
+    @property
+    def dismodfile(self):
+        return self._dismodfile
 
     def scratch_dir(self):
         return scratch_maker()
