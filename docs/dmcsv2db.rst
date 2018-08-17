@@ -32,11 +32,13 @@ As an example, assuming you are running on the cluster, you could run::
 
     # Reads measure.csv and writes fit.db
     dmcsv2db
+    dmdismod fit.db set option quasi_fixed false
+    dmdismod fit.db set option ode_step_size 1
     dmdismod fit.db init
     # Given measured data, finds underlying rates.
-    dmdismod fit.db fit
+    dmdismod fit.db fit fixed
     # Now that rates are found, tell us what measurements would be.
-    dmdismod fit.db predict
+    dmdismod fit.db predict fit_var
     # Translates db contents into CSV files.
     dmdismodpy fit.db db2csv
 
