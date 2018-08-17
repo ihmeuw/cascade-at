@@ -279,7 +279,7 @@ def _prior_row(prior):
 
 
 def make_prior_table(context, density_table):
-    priors = list(collect_priors(context))
+    priors = sorted(collect_priors(context))
 
     prior_table = pd.DataFrame([_prior_row(p) for p in priors])
     prior_table["prior_id"] = prior_table.index
@@ -287,8 +287,10 @@ def make_prior_table(context, density_table):
         prior_table.prior_name.isnull(), "prior_id"
     ].apply(lambda pid: f"prior_{pid}")
 
-    prior_table = pd.merge(prior_table, density_table, on="density_name")
     prior_table["prior_id"] = prior_table.index
+    prior_table = pd.merge(prior_table, density_table, on="density_name")
+    # Make sure the index still matches the order in the priors list
+    prior_table = prior_table.sort_values(by="prior_id").reset_index(drop=True)
 
     def prior_id_func(prior):
         return priors.index(prior)
@@ -307,15 +309,15 @@ def make_smooth_grid_table(smooth, prior_id_func):
                 if smooth.value_priors:
                     row["value_prior_id"] = prior_id_func(smooth.value_priors[age, year].prior)
                 else:
-                    row["value_prior_id"] = None
+                    row["value_prior_id"] = np.nan
                 if smooth.d_age_priors:
                     row["dage_prior_id"] = prior_id_func(smooth.d_age_priors[age, year].prior)
                 else:
-                    row["dage_prior_id"] = None
+                    row["dage_prior_id"] = np.nan
                 if smooth.d_time_priors:
                     row["dtime_prior_id"] = prior_id_func(smooth.d_time_priors[age, year].prior)
                 else:
-                    row["dtime_prior_id"] = None
+                    row["dtime_prior_id"] = np.nan
                 rows.append(row)
 
     return pd.DataFrame(
@@ -360,12 +362,22 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
             smooth_rows.append(_smooth_row(f"smooth_{len(smooths)}", smooth, grid_table, prior_id_func))
             smooths.append(smooth)
             grid_tables.append(grid_table)
-    smooths = list(smooths)
 
     if grid_tables:
         grid_table = pd.concat(grid_tables).reset_index(drop=True)
+        grid_table["smooth_grid_id"] = grid_table.index
     else:
-        grid_table = pd.DataFrame()
+        grid_table = pd.DataFrame(
+            columns=[
+                "age",
+                "time",
+                "const_value",
+                "value_prior_id",
+                "dage_prior_id",
+                "dtime_prior_id",
+                "smooth_grid_id",
+            ]
+        )
 
     smooth_table = pd.DataFrame(smooth_rows)
 

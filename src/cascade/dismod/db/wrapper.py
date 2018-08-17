@@ -187,7 +187,7 @@ class DismodFile:
                 raise ValueError("Cannot read from disk before an engine is set")
             table = self._table_definitions[table_name]
             with self.engine.connect() as conn:
-                data = pd.read_sql_query(select([table]), conn)
+                data = pd.read_sql_table(table.name, conn)
             data = data.set_index(f"{table_name}_id", drop=False)
             self._table_hash[table_name] = pd.util.hash_pandas_object(data)
             self._table_data[table_name] = data

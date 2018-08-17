@@ -2,11 +2,12 @@ import pytest
 
 import pandas as pd
 import numpy as np
+from pandas.util.testing import assert_frame_equal
 
 from cascade.core.context import ModelContext
 from cascade.model.grids import PriorGrid, AgeTimeGrid
 from cascade.model.rates import Smooth
-from cascade.model.priors import GaussianPrior
+from cascade.model.priors import GaussianPrior, UniformPrior
 from cascade.dismod.serialize import (
     model_to_dismod_file,
     collect_ages_or_times,
@@ -15,6 +16,10 @@ from cascade.dismod.serialize import (
     make_time_table,
     make_prior_table,
     make_smooth_and_smooth_grid_tables,
+    make_node_table,
+    make_data_table,
+    make_avgint_table,
+    make_rate_table,
 )
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.dismod.db.metadata import DensityEnum
@@ -67,8 +72,20 @@ def base_context(observations, constraints):
     smooth.d_time_priors = d_time
     smooth.d_age_priors = d_age
     smooth.value_priors = value
-
     context.rates.iota.parent_smooth = smooth
+
+    smooth = Smooth()
+    d_time = PriorGrid(grid)
+    d_time[:, :].prior = GaussianPrior(1, 0.1)
+    d_time.hyper_prior = UniformPrior(0, 1, 0.5)
+    smooth.d_time_priors = d_time
+    context.rates.pini.parent_smooth = smooth
+
+    context.outputs.integrands.Sincidence.active = True
+    context.outputs.integrands.Sincidence.age_lower = 0
+    context.outputs.integrands.Sincidence.age_upper = 120
+    context.outputs.integrands.Sincidence.time_lower = 1990
+    context.outputs.integrands.Sincidence.time_upper = 2018
 
     return context
 
@@ -79,12 +96,28 @@ def test_development_target(base_context):
     dm.engine = e
     dm.flush()
     dm2 = DismodFile(e, {}, {})
-    print(dm2.smooth_grid)
+
+    age_table = make_age_table(base_context)
+    time_table = make_time_table(base_context)
+
+    prior_table, prior_objects = make_prior_table(base_context, dm.density)
+
+    smooth_table, smooth_grid_table, smooth_id_func = make_smooth_and_smooth_grid_tables(
+        base_context, age_table, time_table, prior_objects
+    )
+
+    def _compare_tables(a, b):
+        assert_frame_equal(a.sort_index("columns"), b.sort_index("columns"), check_names=False)
+
+    _compare_tables(dm2.smooth_grid, smooth_grid_table)
+    _compare_tables(dm2.age, age_table)
+    _compare_tables(dm2.time, time_table)
+    _compare_tables(dm2.prior, prior_table)
 
 
 def test_collect_priors(base_context):
     priors = collect_priors(base_context)
-    assert priors == {GaussianPrior(0, 0.1)}
+    assert priors == {GaussianPrior(0, 0.1), UniformPrior(0, 1, 0.5), GaussianPrior(1, 0.1)}
 
 
 def test_collect_ages_or_times__ages(base_context):
@@ -119,8 +152,8 @@ def test_make_prior_table(base_context):
 
     assert len(prior_table) == len(prior_objects)
 
-    prior_table = prior_table.merge(dm.density, on="density_id")
-    prior_table = prior_table.rename(columns={"density_name": "density"}).drop(["density_id", "prior_id"], 1)
+    raw_prior_table = prior_table.merge(dm.density, on="density_id")
+    prior_table = raw_prior_table.rename(columns={"density_name": "density"}).drop(["density_id", "prior_id"], 1)
 
     def p_to_r(p):
         d = dict(
@@ -129,8 +162,8 @@ def test_make_prior_table(base_context):
         d.update(p.parameters())
         return d
 
-    for row, obj in zip(prior_table.iterrows(), prior_objects):
-        r_dict = dict(row[1])
+    for obj in prior_objects:
+        r_dict = dict(prior_table.loc[prior_id_func(obj)])
         o_dict = p_to_r(obj)
 
         if o_dict["prior_name"] is None:
@@ -155,6 +188,54 @@ def test_make_smooth_and_smooth_grid_tables(base_context):
         base_context, age_table, time_table, prior_objects
     )
 
-    assert len(smooth_table) == 1
+    assert len(smooth_table) == 2
 
     assert set(smooth_table.index) == set(smooth_grid_table.smooth_id)
+
+
+def test_make_node_table(base_context):
+    node_table = make_node_table(base_context)
+
+    assert all(node_table.node_name == "1")
+    assert all(node_table.parent.isna())
+
+
+def test_make_data_table(base_context):
+    data_table = make_data_table(base_context)
+
+    assert len(data_table) == len(base_context.input_data.observations) + len(base_context.input_data.constraints)
+    assert len(data_table.query("hold_out==1")) == len(base_context.input_data.constraints)
+
+
+def test_make_avgint_table(base_context):
+    avgint_table = make_avgint_table(base_context, hash)
+
+    assert set(avgint_table.integrand_id) == {
+        hash(integrand.name) for integrand in base_context.outputs.integrands if integrand.active
+    }
+
+    for integrand in base_context.outputs.integrands:
+        if integrand.active:
+            integrand_id = hash(integrand.name)  # noqa: F841
+            row = avgint_table.query("integrand_id == @integrand_id")
+            assert len(row) == 1
+            row = row.iloc[0]
+            assert row.age_lower == integrand.age_lower
+            assert row.age_upper == integrand.age_upper
+            assert row.time_lower == integrand.time_lower
+            assert row.time_upper == integrand.time_upper
+
+
+def test_make_rate_table(base_context):
+    dm = DismodFile(None, {}, {})
+    dm.make_densities()
+    age_table = make_age_table(base_context)
+    time_table = make_time_table(base_context)
+    prior_table, prior_objects = make_prior_table(base_context, dm.density)
+    smooth_table, smooth_grid_table, smooth_id_func = make_smooth_and_smooth_grid_tables(
+        base_context, age_table, time_table, prior_objects
+    )
+
+    rate_table = make_rate_table(base_context, smooth_id_func)
+
+    assert rate_table.rate_name.tolist() == ["pini", "iota", "rho", "chi", "omega"]

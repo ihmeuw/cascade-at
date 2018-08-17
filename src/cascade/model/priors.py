@@ -1,3 +1,7 @@
+from functools import total_ordering
+
+
+@total_ordering
 class _Prior:
     """The base for all Priors
     """
@@ -18,6 +22,16 @@ class _Prior:
 
     def __eq__(self, other):
         return isinstance(other, _Prior) and self.name == other.name and self.parameters() == other.parameters()
+
+    def __lt__(self, other):
+        if not isinstance(other, _Prior):
+            return NotImplemented
+        return list(dict(name=self.name, **self.parameters()).items()) < list(
+            dict(name=other.name, **other.parameters()).items()
+        )
+
+    def __repr__(self):
+        return f"<{type(self).__name__} {self.parameters()}>"
 
 
 def _validate_bounds(lower, mean, upper):
