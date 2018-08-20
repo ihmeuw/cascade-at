@@ -249,20 +249,22 @@ def make_time_table(context):
 def make_avgint_table(context, integrand_id_func):
     rows = []
     for integrand in context.outputs.integrands:
-        if integrand.active:
-            rows.append(
-                {
-                    "integrand_id": integrand_id_func(integrand.name),
-                    "age_lower": integrand.age_lower,
-                    "age_upper": integrand.age_upper,
-                    "time_lower": integrand.time_lower,
-                    "time_upper": integrand.time_upper,
-                    # Assuming using the first set of weights, which is constant.
-                    "weight_id": 0,
-                    # Assumes one location_id.
-                    "node_id": 0,
-                }
-            )
+        if integrand.grid is not None:
+            for a in integrand.grid.ages:
+                for t in integrand.grid.times:
+                    rows.append(
+                        {
+                            "integrand_id": integrand_id_func(integrand.name),
+                            "age_lower": a,
+                            "age_upper": a,
+                            "time_lower": t,
+                            "time_upper": t,
+                            # Assuming using the first set of weights, which is constant.
+                            "weight_id": 0,
+                            # Assumes one location_id.
+                            "node_id": 0,
+                        }
+                    )
     return pd.DataFrame(
         rows, columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id"]
     )

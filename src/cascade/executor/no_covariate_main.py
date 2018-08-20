@@ -208,11 +208,7 @@ def internal_model(model, inputs):
 
     for rate in config.non_zero_rates.split() + ["prevalence"]:
         integrand = getattr(model.outputs.integrands, RATE_TO_INTEGRAND[rate].name)
-        integrand.active = True
-        integrand.age_lower = min(default_smoothing.grid.ages)
-        integrand.age_upper = max(default_smoothing.grid.ages)
-        integrand.time_lower = min(default_smoothing.grid.times)
-        integrand.time_upper = max(default_smoothing.grid.times)
+        integrand.grid = default_smoothing.grid
 
     model.rates.omega.parent_smooth = build_constraint(model.input_data.constraints)
 

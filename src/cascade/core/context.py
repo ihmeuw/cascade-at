@@ -42,11 +42,7 @@ class _Outputs:
 class _Integrand:
     def __init__(self, name):
         self.name = name
-        self.active = False
-        self.age_lower = None
-        self.age_upper = None
-        self.time_lower = None
-        self.time_upper = None
+        self.grid = None
 
 
 class _Integrands:

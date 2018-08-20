@@ -81,11 +81,7 @@ def base_context(observations, constraints):
     smooth.d_time_priors = d_time
     context.rates.pini.parent_smooth = smooth
 
-    context.outputs.integrands.Sincidence.active = True
-    context.outputs.integrands.Sincidence.age_lower = 0
-    context.outputs.integrands.Sincidence.age_upper = 120
-    context.outputs.integrands.Sincidence.time_lower = 1990
-    context.outputs.integrands.Sincidence.time_upper = 2018
+    context.outputs.integrands.Sincidence.grid = grid
 
     return context
 
@@ -211,19 +207,14 @@ def test_make_avgint_table(base_context):
     avgint_table = make_avgint_table(base_context, hash)
 
     assert set(avgint_table.integrand_id) == {
-        hash(integrand.name) for integrand in base_context.outputs.integrands if integrand.active
+        hash(integrand.name) for integrand in base_context.outputs.integrands if integrand.grid is not None
     }
 
     for integrand in base_context.outputs.integrands:
-        if integrand.active:
+        if integrand.grid is not None:
             integrand_id = hash(integrand.name)  # noqa: F841
-            row = avgint_table.query("integrand_id == @integrand_id")
-            assert len(row) == 1
-            row = row.iloc[0]
-            assert row.age_lower == integrand.age_lower
-            assert row.age_upper == integrand.age_upper
-            assert row.time_lower == integrand.time_lower
-            assert row.time_upper == integrand.time_upper
+            rows = avgint_table.query("integrand_id == @integrand_id")
+            assert len(rows) == len(integrand.grid.ages) * len(integrand.grid.times)
 
 
 def test_make_rate_table(base_context):
