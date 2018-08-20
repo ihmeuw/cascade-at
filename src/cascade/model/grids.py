@@ -4,7 +4,7 @@ from math import isclose, isinf
 
 import numpy as np
 
-GRID_SNAP_DISTANCE = 1 / 365
+GRID_SNAP_DISTANCE = 2 ** -23
 
 
 def _nearest(values, query):
