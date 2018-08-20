@@ -9,6 +9,7 @@ import pandas as pd
 
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
+from cascade.model.grids import unique_floats
 
 
 LOGGER = logging.getLogger(__name__)
@@ -217,10 +218,7 @@ def collect_ages_or_times(context, to_collect="ages"):
             )
         )
 
-    values = np.array(values)
-    uniqued_values = np.unique(values.round(decimals=14), return_index=True)[1]
-
-    return values[uniqued_values]
+    return unique_floats(values)
 
 
 def make_age_table(context):

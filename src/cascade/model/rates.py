@@ -14,7 +14,7 @@ class Smooth:
         grids = [ps.grid for ps in [self.value_priors, self.d_age_priors, self.d_time_priors, priors] if ps]
         if grids:
             if not all([grids[0] == g for g in grids]):
-                raise ValueError("Smooth cannot contain priors on hetrogenious grids")
+                raise ValueError("Smooth cannot contain priors on heterogeneous grids")
 
     @property
     def value_priors(self):

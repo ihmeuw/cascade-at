@@ -55,7 +55,7 @@ class UniformPrior(_Prior):
     def __init__(self, lower, upper, mean=None, name=None):
         super().__init__(name=name)
         if mean is None:
-            mean = (upper - lower) / 2 + lower
+            mean = (upper + lower) / 2
         _validate_bounds(lower, mean, upper)
 
         self.lower = lower
