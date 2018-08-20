@@ -176,3 +176,11 @@ class LogStudentsTPrior(_Prior):
             "nu": self.nu,
             "eta": self.eta,
         }
+
+
+# Useful predefined priors
+
+NO_PRIOR = UniformPrior(float("-inf"), float("inf"), 0)
+ZERO = UniformPrior(0, 0, 0)
+ZERO_TO_ONE = UniformPrior(0, 1, 0.1)
+MINUS_ONE_TO_ONE = UniformPrior(-1, 1, 0)

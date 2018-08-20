@@ -38,7 +38,7 @@ from cascade.dismod.db.wrapper import _get_engine
 from cascade.core.context import ModelContext
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.grids import AgeTimeGrid, PriorGrid
-from cascade.model.priors import UniformPrior, ConstantPrior
+from cascade.model.priors import UniformPrior, ConstantPrior, NO_PRIOR
 from cascade.model.rates import Smooth
 
 
@@ -181,7 +181,7 @@ def build_constraint(constraint):
     times = constraint["year_start"].tolist()
     grid = AgeTimeGrid(ages, times)
     smoothing_prior = PriorGrid(grid)
-    smoothing_prior[:, :].prior = UniformPrior(-np.inf, np.inf, 0)
+    smoothing_prior[:, :].prior = NO_PRIOR
 
     value_prior = PriorGrid(grid)
     # TODO: change the PriorGrid API to handle this elegantly
