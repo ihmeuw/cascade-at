@@ -9,6 +9,7 @@ import pandas as pd
 
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
+from cascade.model.priors import ConstantPrior
 from cascade.model.grids import unique_floats
 
 
@@ -179,7 +180,15 @@ def collect_priors(context):
 
     for rate in context.rates:
         for smooth in rate.smoothings:
-            priors.update([p for g in smooth.prior_grids for p in g.priors])
+            for grid_name in ["d_age_priors", "d_time_priors", "value_priors"]:
+                grid = getattr(smooth, grid_name)
+                if grid:
+                    ps = grid.priors
+                    if grid_name == "value_priors":
+                        # ConstantPriors on the value don't actually go in the
+                        # prior table, so exclude them
+                        ps = [p for p in ps if not isinstance(p, ConstantPrior)]
+                    priors.update(ps)
 
     return priors
 
@@ -305,7 +314,12 @@ def make_smooth_grid_table(smooth, prior_id_func):
             for year in grid.times:
                 row = {"age": float(age), "time": float(year), "const_value": np.nan}
                 if smooth.value_priors:
-                    row["value_prior_id"] = prior_id_func(smooth.value_priors[age, year].prior)
+                    prior = smooth.value_priors[age, year].prior
+                    if isinstance(prior, ConstantPrior):
+                        row["const_value"] = prior.value
+                        row["value_prior_id"] = np.nan
+                    else:
+                        row["value_prior_id"] = prior_id_func(prior)
                 else:
                     row["value_prior_id"] = np.nan
                 if smooth.d_age_priors:
