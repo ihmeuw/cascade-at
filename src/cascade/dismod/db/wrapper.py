@@ -6,6 +6,7 @@ to create it and add tables.
 """
 import logging
 
+from copy import deepcopy
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
 import pandas as pd
@@ -131,8 +132,14 @@ class DismodFile:
 
         engine = _get_engine(None)
         dm = DismodFile(engine, {"col": float}, {})
-        dm_file.add("time", pd.DataFrame({"time": [1997, 2005, 2017]}))
+        dm_file.time = pd.DataFrame({"time": [1997, 2005, 2017]}))
         time_df = dm_file.time
+
+    Each Dismod table has a primary key named with ``<table>_id``.
+    When reading a Pandas dataframe from the file, it will have this
+    column as a separate column. When writing a Pandas dataframe to
+    the file, if the column isn't present, the index of the dataframe
+    will be converted to be the primary key column.
 
     The arguments for ``avgint_columns`` and ``data_columns`` add columns
     to the avgint and data tables. These arguments are dictionaries from
@@ -150,11 +157,12 @@ class DismodFile:
             data_columns (dict): From columns to types.
         """
         self.engine = engine
-        self._table_definitions = Base.metadata.tables
+        self._metadata = deepcopy(Base.metadata)
+        self._table_definitions = self._metadata.tables
         self._table_data = {}
         self._table_hash = {}
-        add_columns_to_avgint_table(avgint_columns)
-        add_columns_to_data_table(data_columns)
+        add_columns_to_avgint_table(self._metadata, avgint_columns)
+        add_columns_to_data_table(self._metadata, data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
 
     def create_tables(self, tables=None):
@@ -177,7 +185,7 @@ class DismodFile:
         elif table_name in self._table_definitions:
             table = self._table_definitions[table_name]
             with self.engine.connect() as conn:
-                data = pd.read_sql_query(select([table]), conn)
+                data = pd.read_sql_table(table.name, conn)
             data = data.set_index(f"{table_name}_id", drop=False)
             self._table_hash[table_name] = pd.util.hash_pandas_object(data)
             self._table_data[table_name] = data
@@ -233,11 +241,17 @@ class DismodFile:
                     # That may be too expensive.
                     table_hash = pd.util.hash_pandas_object(table)
 
+                    # In order to write the <table>_id column as a primary key,
+                    # we need to make the index not have a name and be of type
+                    # int64. That makes it write as a BIGINT, which the
+                    # sqlalchemy compiler turns into a primary key statement.
                     if f"{table_name}_id" in table:
                         table = table.set_index(f"{table_name}_id")
+                        table.index = table.index.astype(np.int64)
                     try:
                         dtypes = {k: v.type for k, v in table_definition.c.items()}
                         LOGGER.debug(f"table {table_name} types {dtypes}")
+                        table.index.name = None
                         table.to_sql(
                             table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
                         )
@@ -264,20 +278,24 @@ class DismodFile:
                 else:
                     continue  # Not all tables are in all databases.
                 if table_info:
-                    in_db = {row[1]: row[2] for row in table_info}
+                    in_db = {row[1]: (row[2].lower(), int(row[5])) for row in table_info}
                     for column_name, column_object in table_definition.c.items():
                         if column_name not in in_db:
                             raise RuntimeError(
                                 f"A column wasn't written to Dismod file: {table_name}.{column_name}. "
                                 f"Columns present {table_info}."
                             )
-                        if in_db[column_name] not in expect:
+                        column_type, primary_key = in_db[column_name]
+                        if column_name == f"{table_name}_id" and primary_key != 1:
                             raise RuntimeError(
-                                f"A sqlite column type is unexpected: "
-                                f"{table_name}.{column_name} {in_db[column_name]}"
+                                f"table {table_name} column {column_name} is not a primary key {primary_key}"
                             )
-                        if type(column_object.type) != type(expect[in_db[column_name]]):  # noqa: E721
-                            raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")
+                        if column_type not in expect:
+                            raise RuntimeError(
+                                f"A sqlite column type is unexpected: " f"{table_name}.{column_name} {column_type}"
+                            )
+                        if type(column_object.type) != type(expect[column_type]):  # noqa: E721
+                            raise RuntimeError(f"{table_name}.{column_name} got wrong type {column_type}")
 
                     LOGGER.debug(f"Table integrand {table_info}")
 

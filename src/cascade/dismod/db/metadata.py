@@ -535,7 +535,7 @@ class Var(Base):
 _TYPE_MAP = {str: String, int: Integer, float: Float}
 
 
-def add_columns_to_avgint_table(column_identifiers):
+def add_columns_to_avgint_table(metadata, column_identifiers):
     """
     Args:
         column_identifiers: dict(name -> type) where type
@@ -543,10 +543,10 @@ def add_columns_to_avgint_table(column_identifiers):
     """
     LOGGER.debug("Adding columns to avgint table {}".format(list(column_identifiers.keys())))
     for name, python_type in column_identifiers.items():
-        AvgInt.__table__.append_column(Column(name, _TYPE_MAP[python_type]()))
+        metadata.tables["avgint"].append_column(Column(name, _TYPE_MAP[python_type]()))
 
 
-def add_columns_to_data_table(column_identifiers):
+def add_columns_to_data_table(metadata, column_identifiers):
     """
     Args:
         column_identifiers: dict(name -> type) where type
@@ -554,4 +554,4 @@ def add_columns_to_data_table(column_identifiers):
     """
     LOGGER.debug("Adding columns to data table {}".format(list(column_identifiers.keys())))
     for name, python_type in column_identifiers.items():
-        Data.__table__.append_column(Column(name, _TYPE_MAP[python_type]()))
+        metadata.tables["data"].append_column(Column(name, _TYPE_MAP[python_type]()))
