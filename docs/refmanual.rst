@@ -8,4 +8,5 @@ Cascade-AT Reference Manual
    core
    dismod
    executor
+   model
    input_data

@@ -31,8 +31,11 @@ import pandas as pd
 from scipy.stats import gamma
 
 from cascade.model import (
-    siler_default, prevalence_solution, integrands_from_function, omega_from_mu,
-    DemographicInterval
+    siler_default,
+    prevalence_solution,
+    integrands_from_function,
+    omega_from_mu,
+    DemographicInterval,
 )
 from cascade.input_data.db.bundle import bundle_with_study_covariates
 from cascade.dismod.db.metadata import IntegrandEnum
@@ -48,6 +51,7 @@ def pretend_diabetes():
     and made, by hand, rates of disease that sort-of match the age pattern
     of diabetes in that year.
     """
+
     def diabetes_incidence(x):
         return 0.8 * gamma(a=9, scale=7).pdf(x)
 
@@ -63,8 +67,7 @@ def pretend_diabetes():
     # Use those rates to parameterize a differential equation, which we then
     # solve to get susceptibles, with-condition, and prevalence = S/(S+C)
     # as functions of cohort time.
-    S, C, P = prevalence_solution(
-        diabetes_incidence, diabetes_remission, diabetes_emr, total_mortality)
+    S, C, P = prevalence_solution(diabetes_incidence, diabetes_remission, diabetes_emr, total_mortality)
 
     # We need N=S+C, which is the number of people alive. It's also known
     # as :math:`l_x(t)` in demography terms. This will be necessary to
@@ -103,11 +106,7 @@ def observe_demographic_rates(rates, ages):
     Returns:
         list(np.array): A list of estimated integrands on the age intervals.
     """
-    rates, norm = integrands_from_function(
-        [rates["incidence"], rates["with_condition"]],
-        rates["lx"],
-        ages,
-    )
+    rates, norm = integrands_from_function([rates["incidence"], rates["with_condition"]], rates["lx"], ages)
     return rates + [norm]
 
 
@@ -121,19 +120,15 @@ def theory():
 def cached_bundle_load(context, bundle_id, tier_idx):
     cache_bundle = Path(f"{bundle_id}.pkl")
     if cache_bundle.exists():
-        LOGGER.info(f"Reading bundle from {cache_bundle}. "
-                    f"If you want to get a fresh copy, delete this file.")
+        LOGGER.info(f"Reading bundle from {cache_bundle}. " f"If you want to get a fresh copy, delete this file.")
         return pickle.load(cache_bundle.open("rb"))
 
     LOGGER.debug(f"Begin getting study covariates {bundle_id}")
     bundle_begin = timer()
-    bundle, covariate = bundle_with_study_covariates(
-        context, bundle_id, tier_idx)
+    bundle, covariate = bundle_with_study_covariates(context, bundle_id, tier_idx)
     LOGGER.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
 
-    pickle.dump((bundle, covariate),
-                cache_bundle.open("wb"),
-                pickle.HIGHEST_PROTOCOL)
+    pickle.dump((bundle, covariate), cache_bundle.open("wb"), pickle.HIGHEST_PROTOCOL)
     return bundle, covariate
 
 
@@ -146,31 +141,32 @@ def bundle_to_observations(bundle_df):
         location_id = bundle_df["location_id"]
     else:
         location_id = np.full(len(bundle_df), -1, dtype=np.int)
-    return pd.DataFrame({
-        "measure": bundle_df["measure"],
-        "location_id": location_id,
-        "age_start": bundle_df["age_start"],
-        "age_end": bundle_df["age_end"],
-        "year_start": bundle_df["year_start"].astype(np.float),
-        "year_end": bundle_df["year_end"].astype(np.float),
-        "mean": bundle_df["mean"],
-        "standard_error": bundle_df["standard_error"],
-    })
+    return pd.DataFrame(
+        {
+            "measure": bundle_df["measure"],
+            "location_id": location_id,
+            "age_start": bundle_df["age_start"],
+            "age_end": bundle_df["age_end"],
+            "year_start": bundle_df["year_start"].astype(np.float),
+            "year_end": bundle_df["year_end"].astype(np.float),
+            "mean": bundle_df["mean"],
+            "standard_error": bundle_df["standard_error"],
+        }
+    )
 
 
 def observations_to_integrand(bundle_df, node_id):
-    measure_to_integrand = dict(
-        incidence=IntegrandEnum.Sincidence.value,
-        mtexcess=IntegrandEnum.mtexcess.value,
+    measure_to_integrand = dict(incidence=IntegrandEnum.Sincidence.value, mtexcess=IntegrandEnum.mtexcess.value)
+    return pd.DataFrame(
+        {
+            "measure": bundle_df["measure"].apply(measure_to_integrand.get),
+            "node_id": bundle_df["location_id"],
+            "age_lower": bundle_df["age_start"],
+            "age_upper": bundle_df["age_end"],
+            "time_lower": bundle_df["year_start"].astype(np.float),
+            "time_upper": bundle_df["year_end"],
+            "meas_value": bundle_df["mean"],
+            "meas_std": bundle_df["standard_error"],
+            "hold_out": [0] * len(bundle_df),
+        }
     )
-    return pd.DataFrame({
-        "measure": bundle_df["measure"].apply(measure_to_integrand.get),
-        "node_id": bundle_df["location_id"],
-        "age_lower": bundle_df["age_start"],
-        "age_upper": bundle_df["age_end"],
-        "time_lower": bundle_df["year_start"].astype(np.float),
-        "time_upper": bundle_df["year_end"],
-        "meas_value": bundle_df["mean"],
-        "meas_std": bundle_df["standard_error"],
-        "hold_out": [0] * len(bundle_df),
-    })

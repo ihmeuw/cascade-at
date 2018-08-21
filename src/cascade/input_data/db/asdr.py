@@ -75,21 +75,30 @@ def _get_asdr_data(execution_context):
         age_group_id=age_group_ids,
         sex_id=sex_ids,
         with_hiv=True,
-        rates=True
+        rates=True,
     ).drop(columns=["run_id"])
 
     asdr = asdr[asdr["mean"].notnull()]
 
-    age_group_data = get_age_metadata(
-        age_group_set_id=AGE_GROUP_SET_ID, gbd_round_id=GBD_ROUND_ID)[
-        ["age_group_id", "age_group_years_start", "age_group_years_end"]]
+    age_group_data = get_age_metadata(age_group_set_id=AGE_GROUP_SET_ID, gbd_round_id=GBD_ROUND_ID)[
+        ["age_group_id", "age_group_years_start", "age_group_years_end"]
+    ]
 
     age_group_data.columns = ["age_group_id", "age_lower", "age_upper"]
 
     asdr = asdr.merge(age_group_data, how="left", on="age_group_id")
 
-    ordered_cols = ["year_id", "location_id", "sex_id", "age_group_id",
-                    "age_upper", "age_lower", "mean", "upper", "lower"]
+    ordered_cols = [
+        "year_id",
+        "location_id",
+        "sex_id",
+        "age_group_id",
+        "age_upper",
+        "age_lower",
+        "mean",
+        "upper",
+        "lower",
+    ]
 
     asdr = asdr[ordered_cols]
 
@@ -139,8 +148,10 @@ def load_asdr_to_t3(execution_context) -> bool:
         )
         return False
     else:
-        CODELOG.info(f"""Uploading asdr data for model_version_id
-            {model_version_id} on '{database}'""")
+        CODELOG.info(
+            f"""Uploading asdr data for model_version_id
+            {model_version_id} on '{database}'"""
+        )
 
         asdr_data = _get_asdr_data(execution_context)
 

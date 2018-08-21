@@ -1,4 +1,4 @@
-"""
+r"""
 .. _compartmental-modeling-tools:
 
 Compartmental Modeling Tools

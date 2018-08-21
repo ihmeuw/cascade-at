@@ -51,19 +51,15 @@ RATE_TO_INTEGRAND = dict(
 def cached_bundle_load(context, bundle_id, tier_idx):
     cache_bundle = Path(f"{bundle_id}.pkl")
     if cache_bundle.exists():
-        LOGGER.info(f"Reading bundle from {cache_bundle}. "
-                    f"If you want to get a fresh copy, delete this file.")
+        LOGGER.info(f"Reading bundle from {cache_bundle}. " f"If you want to get a fresh copy, delete this file.")
         return pickle.load(cache_bundle.open("rb"))
 
     LOGGER.debug(f"Begin getting bundle and study covariates {bundle_id}")
     bundle_begin = timer()
-    bundle, covariate = cascade.input_data.db.bundle.bundle_with_study_covariates(
-        context, bundle_id, tier_idx)
+    bundle, covariate = cascade.input_data.db.bundle.bundle_with_study_covariates(context, bundle_id, tier_idx)
     LOGGER.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
 
-    pickle.dump((bundle, covariate),
-                cache_bundle.open("wb"),
-                pickle.HIGHEST_PROTOCOL)
+    pickle.dump((bundle, covariate), cache_bundle.open("wb"), pickle.HIGHEST_PROTOCOL)
     return bundle, covariate
 
 
@@ -78,16 +74,18 @@ def fake_mtother():
     ages = list(range(0, 105, 5))
     years = list(range(1965, 2020, 5))
     age_time = np.array(list(it.product(ages, years)), dtype=np.float)
-    return pd.DataFrame(dict(
-        measure="mtother",
-        mean=0.001,
-        sex="Male",
-        standard_error=0.0007,
-        age_start=age_time[:, 0],
-        age_end=age_time[:, 0],
-        year_start=age_time[:, 1],
-        year_end=age_time[:, 1],
-    ))
+    return pd.DataFrame(
+        dict(
+            measure="mtother",
+            mean=0.001,
+            sex="Male",
+            standard_error=0.0007,
+            age_start=age_time[:, 0],
+            age_end=age_time[:, 0],
+            year_start=age_time[:, 1],
+            year_end=age_time[:, 1],
+        )
+    )
 
 
 def retrieve_external_data(config):
@@ -105,9 +103,16 @@ def data_from_csv(data_path):
     data = pd.read_csv(data_path)
     data = data.rename(
         index=str,
-        columns={"integrand": "measure", "age_lower": "age_start", "age_upper": "age_end",
-                 "time_lower": "year_start", "time_upper": "year_end",
-                 "meas_value": "mean", "meas_std": "standard_error"})
+        columns={
+            "integrand": "measure",
+            "age_lower": "age_start",
+            "age_upper": "age_end",
+            "time_lower": "year_start",
+            "time_upper": "year_end",
+            "meas_value": "mean",
+            "meas_std": "standard_error",
+        },
+    )
     # Split the input data into observations and constraints.
     bundle_observations, bundle_constraints = choose_constraints(data, "mtother")
     return Namespace(observations=bundle_observations, constraints=bundle_constraints)
@@ -134,19 +139,21 @@ def bundle_to_observations(config, bundle_df):
     # Stick with year_start instead of time_start because that's what's in the
     # bundle, so it's probably what modelers use. Would be nice to pair
     # start with finish or begin with end.
-    return pd.DataFrame({
-        "measure": bundle_df["measure"],
-        "location_id": location_id,
-        "density": DensityEnum.gaussian,
-        "weight": "constant",
-        "age_start": bundle_df["age_start"],
-        "age_end": bundle_df["age_end"] + demographic_interval_specification,
-        # The years should be floats in the bundle.
-        "year_start": bundle_df["year_start"].astype(np.float),
-        "year_end": bundle_df["year_end"].astype(np.float) + demographic_interval_specification,
-        "mean": bundle_df["mean"],
-        "standard_error": bundle_df["standard_error"],
-    })
+    return pd.DataFrame(
+        {
+            "measure": bundle_df["measure"],
+            "location_id": location_id,
+            "density": DensityEnum.gaussian,
+            "weight": "constant",
+            "age_start": bundle_df["age_start"],
+            "age_end": bundle_df["age_end"] + demographic_interval_specification,
+            # The years should be floats in the bundle.
+            "year_start": bundle_df["year_start"].astype(np.float),
+            "year_end": bundle_df["year_end"].astype(np.float) + demographic_interval_specification,
+            "mean": bundle_df["mean"],
+            "standard_error": bundle_df["standard_error"],
+        }
+    )
 
 
 def age_year_from_data(df):
@@ -168,30 +175,36 @@ def integrand_outputs(rates, location_id, age, time):
     age_time = np.array(list(it.product(age["age"].values, time["year"].values)), dtype=np.float)
     entries = list()
     for rate in (RATE_TO_INTEGRAND.get(r) for r in rates):
-        entries.append(pd.DataFrame({
-            "integrand": rate,
-            "location_id": location_id,  # Uses location_id, not node id
-            "weight": "constant",  # Assumes a constant rate exists.
-            # Uses modeler versions of age and year, not age and time.
-            "age_start": age_time[:, 0],
-            "age_end": age_time[:, 0],
-            "year_start": age_time[:, 1],
-            "year_end": age_time[:, 1]
-        }))
+        entries.append(
+            pd.DataFrame(
+                {
+                    "integrand": rate,
+                    "location_id": location_id,  # Uses location_id, not node id
+                    "weight": "constant",  # Assumes a constant rate exists.
+                    # Uses modeler versions of age and year, not age and time.
+                    "age_start": age_time[:, 0],
+                    "age_end": age_time[:, 0],
+                    "year_start": age_time[:, 1],
+                    "year_end": age_time[:, 1],
+                }
+            )
+        )
     return pd.concat(entries, ignore_index=True)
 
 
 def build_smoothing_grid(age, time):
     """Builds a default smoothing grid with uniform priors."""
     age_time = np.array(list(it.product(age["age"].values, time["year"].values)), dtype=np.float)
-    return pd.DataFrame({
-        "age": age_time[:, 0],
-        "year": age_time[:, 1],
-        "value_prior": "uniform01",
-        "age_difference_prior": "uniform",
-        "time_difference_prior": "uniform",
-        "const_value": np.NaN,
-    })
+    return pd.DataFrame(
+        {
+            "age": age_time[:, 0],
+            "year": age_time[:, 1],
+            "value_prior": "uniform01",
+            "age_difference_prior": "uniform",
+            "time_difference_prior": "uniform",
+            "const_value": np.NaN,
+        }
+    )
 
 
 def build_constraint(constraint):
@@ -199,14 +212,16 @@ def build_constraint(constraint):
     This makes a smoothing grid where the mean value is set to a given
     set of values.
     """
-    return pd.DataFrame({
-        "age": constraint["age_start"],
-        "year": constraint["year_start"],
-        "value_prior": None,
-        "age_difference_prior": "uniform",
-        "time_difference_prior": "uniform",
-        "const_value": constraint["mean"],
-    })
+    return pd.DataFrame(
+        {
+            "age": constraint["age_start"],
+            "year": constraint["year_start"],
+            "value_prior": None,
+            "age_difference_prior": "uniform",
+            "time_difference_prior": "uniform",
+            "const_value": constraint["mean"],
+        }
+    )
 
 
 def internal_model(model_context, inputs):
@@ -218,21 +233,21 @@ def internal_model(model_context, inputs):
 
     rates_to_calculate_str = config.non_zero_rates.split()
     age_df, time_df = age_year_from_data(inputs.constraints)
-    desired_outputs = integrand_outputs(
-        rates_to_calculate_str + ["prevalence"],
-        config.location_id, age_df, time_df)
+    desired_outputs = integrand_outputs(rates_to_calculate_str + ["prevalence"], config.location_id, age_df, time_df)
     model.outputs = desired_outputs
 
-    model.priors = pd.DataFrame({
-        "prior_name": ["uniform01", "uniform"],
-        "density_id": 0,  # uniform
-        "lower": [1e-10, np.NaN],
-        "upper": [1.0, np.NaN],
-        "mean": [0.01, 0.0],
-        "std": np.array([np.NaN, np.NaN], dtype=np.float),
-        "eta": np.array([np.NaN, np.NaN], dtype=np.float),
-        "nu": np.array([np.NaN, np.NaN], dtype=np.float),
-    })
+    model.priors = pd.DataFrame(
+        {
+            "prior_name": ["uniform01", "uniform"],
+            "density_id": 0,  # uniform
+            "lower": [1e-10, np.NaN],
+            "upper": [1.0, np.NaN],
+            "mean": [0.01, 0.0],
+            "std": np.array([np.NaN, np.NaN], dtype=np.float),
+            "eta": np.array([np.NaN, np.NaN], dtype=np.float),
+            "nu": np.array([np.NaN, np.NaN], dtype=np.float),
+        }
+    )
 
     smoothing_default = build_smoothing_grid(age_df, time_df)
     # No smoothing for initial prevalence in Brad's example.

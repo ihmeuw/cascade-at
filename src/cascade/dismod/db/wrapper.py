@@ -288,11 +288,11 @@ class DismodFile:
                         column_type, primary_key = in_db[column_name]
                         if column_name == f"{table_name}_id" and primary_key != 1:
                             raise RuntimeError(
-                                f"table {table_name} column {column_name} is not a primary key {primary_key}")
+                                f"table {table_name} column {column_name} is not a primary key {primary_key}"
+                            )
                         if column_type not in expect:
                             raise RuntimeError(
-                                f"A sqlite column type is unexpected: "
-                                f"{table_name}.{column_name} {column_type}"
+                                f"A sqlite column type is unexpected: " f"{table_name}.{column_name} {column_type}"
                             )
                         if type(column_object.type) != type(expect[column_type]):  # noqa: E721
                             raise RuntimeError(f"{table_name}.{column_name} got wrong type {column_type}")

@@ -20,6 +20,7 @@ LOGGER = logging.getLogger(__name__)
 # The method is here:
 #   http://docs.sqlalchemy.org/en/latest/core/compiler.html?highlight=compiler#module-sqlalchemy.ext.compiler
 
+
 @compiles(Integer, "sqlite")
 def _integer_callback(element, compiler, **kw):
     """Changes INTEGER to integer."""
@@ -37,7 +38,7 @@ def _big_integer_callback(element, compiler, **kw):
     return "integer primary key"
 
 
-@compiles(Float, 'sqlite')
+@compiles(Float, "sqlite")
 def _float_callback(element, compiler, **kw):
     """Changes all FLOAT types to real"""
     return "real"
@@ -124,6 +125,7 @@ class DensityEnum(enum.Enum):
 
 class Density(Base):
     """Defines names of distributions to use as priors."""
+
     __tablename__ = "density"
 
     density_id = Column(Integer(), primary_key=True, autoincrement=False)
@@ -315,6 +317,7 @@ class AvgInt(Base):
     Each entry in avgint asks Dismod to calculate a value for this measure,
     age, and time.
     """
+
     __tablename__ = "avgint"
 
     avgint_id = Column(Integer(), primary_key=True, autoincrement=False)
@@ -334,6 +337,7 @@ class Data(Base):
     and as point values in age and time, instead of having different upper
     and lower limits.
     """
+
     __tablename__ = "data"
 
     data_id = Column(Integer(), primary_key=True, autoincrement=False)
