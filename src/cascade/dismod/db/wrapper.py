@@ -253,11 +253,17 @@ class DismodFile:
                     # That may be too expensive.
                     table_hash = pd.util.hash_pandas_object(table)
 
+                    # In order to write the <table>_id column as a primary key,
+                    # we need to make the index not have a name and be of type
+                    # int64. That makes it write as a BIGINT, which the
+                    # sqlalchemy compiler turns into a primary key statement.
                     if f"{table_name}_id" in table:
                         table = table.set_index(f"{table_name}_id")
+                        table.index = table.index.astype(np.int64)
                     try:
                         dtypes = {k: v.type for k, v in table_definition.c.items()}
                         LOGGER.debug(f"table {table_name} types {dtypes}")
+                        table.index.name = None
                         table.to_sql(
                             table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
                         )
@@ -283,20 +289,24 @@ class DismodFile:
                     continue
                 table_info = results.fetchall()
                 if table_info:
-                    in_db = {row[1]: row[2] for row in table_info}
+                    in_db = {row[1]: (row[2].lower(), int(row[5])) for row in table_info}
                     for column_name, column_object in table_definition.c.items():
                         if column_name not in in_db:
                             raise RuntimeError(
                                 f"A column wasn't written to Dismod file: {table_name}.{column_name}. "
                                 f"Columns present {table_info}."
                             )
-                        if in_db[column_name] not in expect:
+                        column_type, primary_key = in_db[column_name]
+                        if column_name == f"{table_name}_id" and primary_key != 1:
                             raise RuntimeError(
-                                f"A sqlite column type is unexpected: "
-                                f"{table_name}.{column_name} {in_db[column_name]}"
+                                f"table {table_name} column {column_name} is not a primary key {primary_key}"
                             )
-                        if type(column_object.type) != type(expect[in_db[column_name]]):  # noqa: E721
-                            raise RuntimeError(f"{table_name}.{column_name} got wrong type {in_db[column_name]}")
+                        if column_type not in expect:
+                            raise RuntimeError(
+                                f"A sqlite column type is unexpected: " f"{table_name}.{column_name} {column_type}"
+                            )
+                        if type(column_object.type) != type(expect[column_type]):  # noqa: E721
+                            raise RuntimeError(f"{table_name}.{column_name} got wrong type {column_type}")
 
                     LOGGER.debug(f"Table integrand {table_info}")
 

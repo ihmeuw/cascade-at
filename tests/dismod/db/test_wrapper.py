@@ -1,4 +1,5 @@
 import enum
+import time
 
 import numpy as np
 import pandas as pd
@@ -92,6 +93,20 @@ def test_is_dirty__not_yet_read(base_file):
     assert not base_file._is_dirty("foo_bar")
 
 
+def test_add_log_has_primary_key(base_file):
+    base_file.flush()
+    base_file.log = pd.DataFrame(
+        {
+            "message_type": ["command"],
+            "table_name": np.array([None], dtype=np.object),
+            "row_id": np.NaN,
+            "unix_time": int(round(time.time())),
+            "message": ["fit_no_covariates.py"],
+        }
+    )
+    base_file.flush()
+
+
 def test_dmfile_read(base_file, engine):
     ages = base_file.age
     times = base_file.time
@@ -180,26 +195,12 @@ def test_two_files_different_columns():
     for column_set in column_sets:
         engine = _get_engine(None)
         dm_file = DismodFile(engine, column_set, column_set)
-        dm_file.integrand = pd.DataFrame({
-            "integrand_id": [0],
-            "integrand_name": ["Sincidence"],
-            "minimum_meas_cv": [0.0],
-        })
-        dm_file.density = pd.DataFrame({
-            "density_id": [0],
-            "density_name": ["uniform"],
-        })
-        dm_file.node = pd.DataFrame({
-            "node_id": [0],
-            "node_name": ["Foreverland"],
-            "parent": [np.NaN],
-        })
-        dm_file.weight = pd.DataFrame({
-            "weight_id": [0],
-            "weight_name": ["uniform"],
-            "n_age": [1],
-            "n_time": [1],
-        })
+        dm_file.integrand = pd.DataFrame(
+            {"integrand_id": [0], "integrand_name": ["Sincidence"], "minimum_meas_cv": [0.0]}
+        )
+        dm_file.density = pd.DataFrame({"density_id": [0], "density_name": ["uniform"]})
+        dm_file.node = pd.DataFrame({"node_id": [0], "node_name": ["Foreverland"], "parent": [np.NaN]})
+        dm_file.weight = pd.DataFrame({"weight_id": [0], "weight_name": ["uniform"], "n_age": [1], "n_time": [1]})
         common_input = {
             "data_id": [0],
             "data_name": ["only"],
