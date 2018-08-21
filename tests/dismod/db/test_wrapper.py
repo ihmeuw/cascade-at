@@ -24,6 +24,7 @@ def base_file(engine):
     dm_file = DismodFile(engine, {"howdy": float}, {"there": int})
     dm_file.make_densities()
     ages = pd.DataFrame({"age": np.array([6.0, 22.0, 48.0])})
+    ages["age_id"] = ages.index
     dm_file.age = ages
     dm_file.time = pd.DataFrame({"time": [1997.0, 2005.0, 2017.0]})
     dm_file.integrand = pd.DataFrame({"integrand_name": ["prevalence"], "minimum_meas_cv": [0.0]})

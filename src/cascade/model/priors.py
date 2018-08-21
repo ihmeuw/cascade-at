@@ -1,10 +1,14 @@
+from functools import total_ordering
+
+
+@total_ordering
 class _Prior:
     """The base for all Priors
     """
 
     density = None
 
-    def __init__(self, name=None, **parameter_values):
+    def __init__(self, name=None):
         self.name = name
 
     def _parameters(self):
@@ -14,10 +18,20 @@ class _Prior:
         return dict(density=self.density, **self._parameters())
 
     def __hash__(self):
-        return hash(frozenset(self.parameters().items()))
+        return hash((frozenset(self.parameters().items()), self.name))
 
     def __eq__(self, other):
         return isinstance(other, _Prior) and self.name == other.name and self.parameters() == other.parameters()
+
+    def __lt__(self, other):
+        if not isinstance(other, _Prior):
+            return NotImplemented
+        return list(dict(name=self.name, **self.parameters()).items()) < list(
+            dict(name=other.name, **other.parameters()).items()
+        )
+
+    def __repr__(self):
+        return f"<{type(self).__name__} {self.parameters()}>"
 
 
 def _validate_bounds(lower, mean, upper):
@@ -38,16 +52,29 @@ def _validate_nu(nu):
 class UniformPrior(_Prior):
     density = "uniform"
 
-    def __init__(self, mean, lower=float("-inf"), upper=float("inf"), name=None):
+    def __init__(self, lower, upper, mean=None, name=None):
         super().__init__(name=name)
+        if mean is None:
+            mean = (upper + lower) / 2
         _validate_bounds(lower, mean, upper)
 
         self.lower = lower
         self.upper = upper
         self.mean = mean
 
-    def parameters(self):
+    def _parameters(self):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean}
+
+
+class ConstantPrior(_Prior):
+    density = "uniform"
+
+    def __init__(self, value, name=None):
+        super().__init__(name=name)
+        self.value = value
+
+    def _parameters(self):
+        return {"lower": self.value, "upper": self.value, "mean": self.value}
 
 
 class GaussianPrior(_Prior):
@@ -63,7 +90,7 @@ class GaussianPrior(_Prior):
         self.mean = mean
         self.standard_deviation = standard_deviation
 
-    def parameters(self):
+    def _parameters(self):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean, "std": self.standard_deviation}
 
 
@@ -86,7 +113,7 @@ class StudentsTPrior(_Prior):
         self.standard_deviation = standard_deviation
         self.nu = nu
 
-    def parameters(self):
+    def _parameters(self):
         return {
             "lower": self.lower,
             "upper": self.upper,
@@ -110,7 +137,7 @@ class LogGaussianPrior(_Prior):
         self.standard_deviation = standard_deviation
         self.eta = eta
 
-    def parameters(self):
+    def _parameters(self):
         return {
             "lower": self.lower,
             "upper": self.upper,
@@ -140,7 +167,7 @@ class LogStudentsTPrior(_Prior):
         self.nu = nu
         self.eta = eta
 
-    def parameters(self):
+    def _parameters(self):
         return {
             "lower": self.lower,
             "upper": self.upper,
@@ -149,3 +176,11 @@ class LogStudentsTPrior(_Prior):
             "nu": self.nu,
             "eta": self.eta,
         }
+
+
+# Useful predefined priors
+
+NO_PRIOR = UniformPrior(float("-inf"), float("inf"), 0)
+ZERO = UniformPrior(0, 0, 0)
+ZERO_TO_ONE = UniformPrior(0, 1, 0.1)
+MINUS_ONE_TO_ONE = UniformPrior(-1, 1, 0)

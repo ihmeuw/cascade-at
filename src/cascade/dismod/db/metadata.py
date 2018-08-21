@@ -62,7 +62,7 @@ Base = declarative_base()
 class Log(Base):
     __tablename__ = "log"
 
-    log_id = Column(Integer(), primary_key=True)
+    log_id = Column(Integer(), primary_key=True, autoincrement=True)
     message_type = Column(String(), nullable=True)
     table_name = Column(String(), nullable=True)
     row_id = Column(Integer(), nullable=True)

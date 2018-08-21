@@ -1,6 +1,8 @@
 import pytest
 
-from cascade.model.grids import PriorGrid, AgeTimeGrid, _any_close
+import numpy as np
+
+from cascade.model.grids import PriorGrid, AgeTimeGrid, _any_close, GRID_SNAP_DISTANCE, unique_floats
 from cascade.model.priors import GaussianPrior
 
 
@@ -49,6 +51,19 @@ def test_PriorGrid__point_query(age_time_grid):
     assert priors[25, 2001].prior == GaussianPrior(20, 3)
 
 
+def test_PriorGrid__point_query_with_extreme_values(age_time_grid):
+    priors = PriorGrid(age_time_grid)
+
+    priors[:, :].prior = GaussianPrior(0, 3)
+
+    assert priors[min(age_time_grid.ages), 1990].prior == GaussianPrior(0, 3)
+    assert priors[max(age_time_grid.ages), 1990].prior == GaussianPrior(0, 3)
+    assert priors[15, min(age_time_grid.times)].prior == GaussianPrior(0, 3)
+    assert priors[15, max(age_time_grid.times)].prior == GaussianPrior(0, 3)
+    assert priors[min(age_time_grid.ages), min(age_time_grid.times)].prior == GaussianPrior(0, 3)
+    assert priors[max(age_time_grid.ages), max(age_time_grid.times)].prior == GaussianPrior(0, 3)
+
+
 def test_PriorGrid__bad_alignment(age_time_grid):
     priors = PriorGrid(age_time_grid)
 
@@ -67,6 +82,10 @@ def test_PriorGrid__wrong_dimensions(age_time_grid):
 
 
 def test_any_close():
-    assert _any_close(1, [1, 2, 3], 0)
-    assert not _any_close(1, [1.5, 2, 3], 0)
-    assert _any_close(1, [1.5, 2, 3], 0.75)
+    assert _any_close(1, [1, 2, 3])
+    assert not _any_close(1, [1.5, 2, 3])
+    assert _any_close(1 + GRID_SNAP_DISTANCE, [1.5, 2, 1])
+
+
+def test_unique_floats():
+    assert np.all(np.equal(unique_floats([1, 1, 2, 3, 4, 4 + 2e-16]), [1, 2, 3, 4]))

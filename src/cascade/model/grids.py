@@ -4,12 +4,19 @@ from math import isclose, isinf
 
 import numpy as np
 
-GRID_SNAP_DISTANCE = (1 / 24) / 365  # One hour
+GRID_SNAP_DISTANCE = 2e-16
 
 
 def _nearest(values, query):
     values = np.array(values)
     return values[np.abs(values - query).argmin()]
+
+
+def unique_floats(values):
+    values = np.array(values)
+    uniqued_values = np.unique(values.round(decimals=14), return_index=True)[1]
+
+    return values[uniqued_values]
 
 
 class AgeTimeGrid:
@@ -24,21 +31,20 @@ class AgeTimeGrid:
 
         Args:
             age_start: the lowest age in the grid
-            age_end: the highest age in the grid
-            age_step: the spacing of age points
+            age_end: the highest age in the grid (inclusive)
+            age_step: the step between ages
             time_start: the earliest time in the grid
-            time_end: the latest time in the grid
-            time_step: the spacing of time points
+            time_end: the latest time in the grid (inclusive)
+            time_step: the step between times
         """
         ages = np.arange(age_start, age_end, age_step)
         times = np.arange(time_start, time_end, time_step)
 
         return cls(ages, times)
 
-    def __init__(self, ages, times, snap_distance=GRID_SNAP_DISTANCE):
-        self._ages = tuple(sorted(set(ages)))
-        self._times = tuple(sorted(set(times)))
-        self._snap_distance = snap_distance
+    def __init__(self, ages, times):
+        self._ages = tuple(sorted(unique_floats(ages)))
+        self._times = tuple(sorted(unique_floats(times)))
 
     @property
     def ages(self):
@@ -47,10 +53,6 @@ class AgeTimeGrid:
     @property
     def times(self):
         return self._times
-
-    @property
-    def snap_distance(self):
-        return self._snap_distance
 
     def to_age(self, query):
         if np.isinf(query):
@@ -63,22 +65,17 @@ class AgeTimeGrid:
         return _nearest(self._times, query)
 
     def __hash__(self):
-        return hash((self._ages, self._times, self._snap_distance))
+        return hash((self._ages, self._times))
 
     def __eq__(self, other):
-        return (
-            isinstance(other, type(self))
-            and self._ages == other._ages
-            and self._times == other._times
-            and self._snap_distance == other._snap_distance
-        )
+        return isinstance(other, type(self)) and self._ages == other._ages and self._times == other._times
 
 
-def _any_close(value, targets, tolerance):
+def _any_close(value, targets):
     """True if any element of targets is within tolerance of value
     """
     for target in targets:
-        if isclose(value, target, abs_tol=tolerance):
+        if isclose(value, target, abs_tol=GRID_SNAP_DISTANCE):
             return True
     return False
 
@@ -90,16 +87,16 @@ def _validate_region(grid, lower_age, upper_age, lower_time, upper_time):
     Raises:
         ValueError: If the rectangle does not align
     """
-    if not _any_close(lower_age, grid.ages, grid.snap_distance) and not isinf(lower_age):
+    if not _any_close(lower_age, grid.ages) and not isinf(lower_age):
         raise ValueError("Lower age not in underlying grid")
 
-    if not _any_close(upper_age, grid.ages, grid.snap_distance) and not isinf(upper_age):
+    if not _any_close(upper_age, grid.ages) and not isinf(upper_age):
         raise ValueError("Upper age not in underlying grid")
 
-    if not _any_close(lower_time, grid.times, grid.snap_distance) and not isinf(lower_time):
+    if not _any_close(lower_time, grid.times) and not isinf(lower_time):
         raise ValueError("Lower time not in underlying grid")
 
-    if not _any_close(upper_time, grid.times, grid.snap_distance) and not isinf(upper_time):
+    if not _any_close(upper_time, grid.times) and not isinf(upper_time):
         raise ValueError("Upper time not in underlying grid")
 
 
@@ -147,7 +144,8 @@ class _RegionView:
         if lower_age != upper_age or lower_time != upper_time:
             raise NotImplementedError("Currently only point queries are supported")
 
-        return self._parent._prior_at_point(lower_age, lower_time)
+        point = self._parent._prior_at_point(lower_age, lower_time)
+        return point
 
     @prior.setter
     def prior(self, p):

@@ -34,8 +34,12 @@ import pandas as pd
 import cascade.input_data.db.bundle
 from cascade.testing_utilities import make_execution_context
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
+from cascade.dismod.db.wrapper import _get_engine
 from cascade.core.context import ModelContext
 from cascade.dismod.serialize import model_to_dismod_file
+from cascade.model.grids import AgeTimeGrid, PriorGrid
+from cascade.model.priors import UniformPrior, ConstantPrior, NO_PRIOR
+from cascade.model.rates import Smooth
 
 
 LOGGER = logging.getLogger("fit_no_covariates")
@@ -165,46 +169,7 @@ def age_year_from_data(df):
         values.sort()
         results[topic] = pd.DataFrame({topic: values})
         LOGGER.debug(f"{topic}: {values}")
-    return results["age"], results["year"]
-
-
-def integrand_outputs(rates, location_id, age, time):
-    """
-    The internal model declares what outputs it wants.
-    """
-    age_time = np.array(list(it.product(age["age"].values, time["year"].values)), dtype=np.float)
-    entries = list()
-    for rate in (RATE_TO_INTEGRAND.get(r) for r in rates):
-        entries.append(
-            pd.DataFrame(
-                {
-                    "integrand": rate,
-                    "location_id": location_id,  # Uses location_id, not node id
-                    "weight": "constant",  # Assumes a constant rate exists.
-                    # Uses modeler versions of age and year, not age and time.
-                    "age_start": age_time[:, 0],
-                    "age_end": age_time[:, 0],
-                    "year_start": age_time[:, 1],
-                    "year_end": age_time[:, 1],
-                }
-            )
-        )
-    return pd.concat(entries, ignore_index=True)
-
-
-def build_smoothing_grid(age, time):
-    """Builds a default smoothing grid with uniform priors."""
-    age_time = np.array(list(it.product(age["age"].values, time["year"].values)), dtype=np.float)
-    return pd.DataFrame(
-        {
-            "age": age_time[:, 0],
-            "year": age_time[:, 1],
-            "value_prior": "uniform01",
-            "age_difference_prior": "uniform",
-            "time_difference_prior": "uniform",
-            "const_value": np.NaN,
-        }
-    )
+    return AgeTimeGrid(results["age"].age, results["year"].year)
 
 
 def build_constraint(constraint):
@@ -212,56 +177,45 @@ def build_constraint(constraint):
     This makes a smoothing grid where the mean value is set to a given
     set of values.
     """
-    return pd.DataFrame(
-        {
-            "age": constraint["age_start"],
-            "year": constraint["year_start"],
-            "value_prior": None,
-            "age_difference_prior": "uniform",
-            "time_difference_prior": "uniform",
-            "const_value": constraint["mean"],
-        }
-    )
+    ages = constraint["age_start"].tolist()
+    times = constraint["year_start"].tolist()
+    grid = AgeTimeGrid(ages, times)
+    smoothing_prior = PriorGrid(grid)
+    smoothing_prior[:, :].prior = NO_PRIOR
+
+    value_prior = PriorGrid(grid)
+    # TODO: change the PriorGrid API to handle this elegantly
+    for _, row in constraint.iterrows():
+        value_prior[row["age_start"], row["year_start"]].prior = ConstantPrior(row["mean"])
+    return Smooth(smoothing_prior, smoothing_prior, value_prior)
 
 
-def internal_model(model_context, inputs):
-    config = model_context.parameters
-    model = model_context.input_data
+def internal_model(model, inputs):
+    config = model.parameters
     # convert the observations to a normalized format.
-    model.observations = bundle_to_observations(config, inputs.observations)
-    model.constraints = bundle_to_observations(config, inputs.constraints)
+    model.input_data.observations = bundle_to_observations(config, inputs.observations)
+    model.input_data.constraints = bundle_to_observations(config, inputs.constraints)
 
-    rates_to_calculate_str = config.non_zero_rates.split()
-    age_df, time_df = age_year_from_data(inputs.constraints)
-    desired_outputs = integrand_outputs(rates_to_calculate_str + ["prevalence"], config.location_id, age_df, time_df)
-    model.outputs = desired_outputs
+    grid = age_year_from_data(inputs.constraints)
 
-    model.priors = pd.DataFrame(
-        {
-            "prior_name": ["uniform01", "uniform"],
-            "density_id": 0,  # uniform
-            "lower": [1e-10, np.NaN],
-            "upper": [1.0, np.NaN],
-            "mean": [0.01, 0.0],
-            "std": np.array([np.NaN, np.NaN], dtype=np.float),
-            "eta": np.array([np.NaN, np.NaN], dtype=np.float),
-            "nu": np.array([np.NaN, np.NaN], dtype=np.float),
-        }
-    )
+    priors = PriorGrid(grid)
+    priors[:, :].prior = UniformPrior(1e-10, 1.0, 0.01)
+    default_smoothing = Smooth(priors, priors, priors)
 
-    smoothing_default = build_smoothing_grid(age_df, time_df)
     # No smoothing for initial prevalence in Brad's example.
-    model.smoothers = {
-        "iota": smoothing_default,
-        "rho": smoothing_default,
-        "chi": smoothing_default,
-        "omega": build_constraint(model.constraints),
-    }
-    LOGGER.debug(f"Omega constraint {model.smoothers['omega']}")
-    return model_context
+    for rate in config.non_zero_rates.split():
+        getattr(model.rates, rate).parent_smooth = default_smoothing
+
+    for rate in config.non_zero_rates.split() + ["prevalence"]:
+        integrand = getattr(model.outputs.integrands, RATE_TO_INTEGRAND[rate].name)
+        integrand.grid = default_smoothing.grid
+
+    model.rates.omega.parent_smooth = build_constraint(model.input_data.constraints)
+
+    return model
 
 
-def construct_database():
+def construct_database(input_path, output_path):
     # Configuration
     model_context = ModelContext()
     model_context.parameters.bundle_id = 3209
@@ -270,13 +224,13 @@ def construct_database():
     model_context.parameters.non_zero_rates = "iota rho chi omega"
 
     # Get the bundle and process it.
-    raw_inputs = data_from_csv(Path("measure.csv"))
+    raw_inputs = data_from_csv(Path(input_path))
     internal_model(model_context, raw_inputs)
 
-    output_file = "fit.db"
-    LOGGER.info("Creating file {output_file}")
-    dismod_file = model_to_dismod_file(model_context, output_file)
+    LOGGER.info(f"Creating file {output_path}")
+    dismod_file = model_to_dismod_file(model_context)
     flush_begin = timer()
+    dismod_file.engine = _get_engine(Path(output_path))
     dismod_file.flush()
     LOGGER.debug(f"Flush db {timer() - flush_begin}")
 
@@ -284,6 +238,8 @@ def construct_database():
 def entry():
     """This is the entry that setuptools turns into an installed program."""
     parser = ArgumentParser("Reads csv for a run without covariates.")
+    parser.add_argument("input_path")
+    parser.add_argument("output_path")
     parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
     args, _ = parser.parse_known_args()
     if args.v:
@@ -291,7 +247,7 @@ def entry():
     else:
         log_level = logging.INFO
     logging.basicConfig(level=log_level)
-    construct_database()
+    construct_database(args.input_path, args.output_path)
 
 
 if __name__ == "__main__":

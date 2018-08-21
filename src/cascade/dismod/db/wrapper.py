@@ -146,7 +146,7 @@ class DismodFile:
     column name to column type.
     """
 
-    def __init__(self, engine, avgint_columns, data_columns):
+    def __init__(self, engine=None, avgint_columns=None, data_columns=None):
         """
         The columns arguments add columns to the avgint and data
         tables.
@@ -161,8 +161,10 @@ class DismodFile:
         self._table_definitions = self._metadata.tables
         self._table_data = {}
         self._table_hash = {}
-        add_columns_to_avgint_table(self._metadata, avgint_columns)
-        add_columns_to_data_table(self._metadata, data_columns)
+        if avgint_columns:
+            add_columns_to_avgint_table(self._metadata, avgint_columns)
+        if data_columns:
+            add_columns_to_data_table(self._metadata, data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
 
     def create_tables(self, tables=None):
@@ -178,11 +180,19 @@ class DismodFile:
         so this puts them all in.
         """
         self.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+        self.density["density_id"] = self.density.index
+
+    def __dir__(self):
+        attributes = list(self._table_definitions.keys())
+        attributes.extend(super().__dir__())
+        return attributes
 
     def __getattr__(self, table_name):
         if table_name in self._table_data:
             return self._table_data[table_name]
         elif table_name in self._table_definitions:
+            if self.engine is None:
+                raise ValueError("Cannot read from disk before an engine is set")
             table = self._table_definitions[table_name]
             with self.engine.connect() as conn:
                 data = pd.read_sql_table(table.name, conn)
@@ -227,6 +237,8 @@ class DismodFile:
         """Writes any data in memory to the underlying database. Data which has not been changed since
         it was last written is not re-written.
         """
+        if self.engine is None:
+            raise ValueError("Cannot flush before an engine is set")
         with self.engine.begin() as connection:
             for table_name in _ordered_by_foreign_key_dependency(Base.metadata, self._table_data.keys()):
                 if self._is_dirty(table_name):
@@ -273,10 +285,9 @@ class DismodFile:
             for table_name, table_definition in self._table_definitions.items():
                 introspect = text(f"PRAGMA table_info([{table_name}]);")
                 results = connection.execute(introspect)
-                if results.returns_rows:
-                    table_info = results.fetchall()
-                else:
-                    continue  # Not all tables are in all databases.
+                if not results.returns_rows:
+                    continue
+                table_info = results.fetchall()
                 if table_info:
                     in_db = {row[1]: (row[2].lower(), int(row[5])) for row in table_info}
                     for column_name, column_object in table_definition.c.items():

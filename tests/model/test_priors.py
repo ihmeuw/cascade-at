@@ -12,7 +12,7 @@ from cascade.model.priors import (
 
 
 def test_happy_construction():
-    UniformPrior(0, -1, 1, "test")
+    UniformPrior(-1, 1, 0, "test")
     GaussianPrior(0, 1, -10, 10, "test2")
     LaplacePrior(0, 1, -10, 10, "test3")
     StudentsTPrior(0, 1, 0.5, -10, 10, "test4")
@@ -30,12 +30,12 @@ def test_prior_equality():
     b = GaussianPrior(0, 1, -1, 1)
     assert a == b
 
-    a = UniformPrior(10)
-    b = UniformPrior(10)
+    a = UniformPrior(0, 10)
+    b = UniformPrior(0, 10)
     assert a == b
 
-    a = UniformPrior(10, name="test_prior")
-    b = UniformPrior(10, name="test_prior")
+    a = UniformPrior(0, 10, name="test_prior")
+    b = UniformPrior(0, 10, name="test_prior")
     assert a == b
 
 
@@ -44,8 +44,8 @@ def test_prior_nonequality():
     b = GaussianPrior(1, 1)
     assert a != b
 
-    a = UniformPrior(1)
-    b = UniformPrior(-1)
+    a = UniformPrior(0, 1)
+    b = UniformPrior(-1, 0)
     assert a != b
 
     a = GaussianPrior(0, 1, name="test_prior")
@@ -53,21 +53,21 @@ def test_prior_nonequality():
     assert a != b
 
     a = GaussianPrior(0, 1)
-    b = UniformPrior(0)
+    b = UniformPrior(0, 1)
     assert a != b
 
 
 def test_prior_hashing():
-    s = {GaussianPrior(0, 1), UniformPrior(1), GaussianPrior(0, 1), UniformPrior(2), UniformPrior(1)}
+    s = {GaussianPrior(0, 1), UniformPrior(0, 1), GaussianPrior(0, 1), UniformPrior(0, 2), UniformPrior(0, 1)}
 
     assert len(s) == 3
     assert GaussianPrior(0, 1) in s
-    assert UniformPrior(10) not in s
+    assert UniformPrior(0, 10) not in s
 
 
 def test_bounds_check():
     with pytest.raises(ValueError) as excinfo:
-        UniformPrior(0, 1, 1)
+        UniformPrior(0, -1, 1)
     assert "Bounds are inconsistent" in str(excinfo.value)
 
 
