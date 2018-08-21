@@ -31,7 +31,7 @@ points for all of the rates of incidence, remission, and excess mortality.
 As an example, assuming you are running on the cluster, you could run::
 
     # Reads measure.csv and writes fit.db
-    dmcsv2db
+    dmcsv2db measure.csv fit.db
     dmdismod fit.db set option quasi_fixed false
     dmdismod fit.db set option ode_step_size 1
     dmdismod fit.db init
