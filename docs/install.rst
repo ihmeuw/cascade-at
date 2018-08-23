@@ -11,7 +11,7 @@ We recommend you create a virtual environment into which to install
 the code. You need python3 to run virtualenv.  You can use our miniconda3 
 installed on the cluster::
 
-    /ihme/code/dismod_at/pyenv/versions/miniconda3-4.5.1/bin/virtualenv ./env_path
+    /ihme/code/dismod_at/pyenv/miniconda/bin/virtualenv ./env_path
     source ./env_path/bin/activate
     
 You can name the environment something happier than env_path.
