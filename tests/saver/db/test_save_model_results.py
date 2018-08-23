@@ -1,11 +1,19 @@
 import pandas as pd
 import pytest
 
-import save_results._save_results
+try:
+    from save_results._save_results import save_results_at
+except ImportError:
+
+    class DummySaveResults:
+        def __getattr__(self, name):
+            raise ImportError(f"Required package save_results not found")
+
+    save_results_at = DummySaveResults()
 
 from cascade.core.context import ExecutionContext
 import cascade.saver
-import cascade.saver.save_model_results as smr
+import cascade.saver.db.save_model_results as smr
 from cascade.dismod.db.wrapper import _get_engine, DismodFile
 
 DRAWS_INPUT_FILE_PATTERN = "all_draws.h5"
@@ -153,7 +161,7 @@ def to_hdf_fake(file_path, key, *pargs, **kwargs):
 
 @pytest.fixture
 def fake_generate_draws(monkeypatch):
-    monkeypatch.setattr(cascade.saver.save_model_results,
+    monkeypatch.setattr(cascade.saver.db.save_model_results,
                         "generate_draws_table", get_draws_table)
 
 

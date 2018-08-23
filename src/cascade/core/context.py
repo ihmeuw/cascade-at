@@ -25,10 +25,10 @@ class ExecutionContext:
     cluster resources etc.
     """
     
+    parameters = ParameterProperty()
+
     def __init__(self):
         self._dismodfile = None
-
-    parameters = ParameterProperty()
 
     @property
     def dismodfile(self):

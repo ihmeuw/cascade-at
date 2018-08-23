@@ -9,9 +9,6 @@ from cascade.saver.generate_draws import (
     retrieve_prediction_tables)
 from cascade.dismod.db.wrapper import _get_engine, DismodFile
 
-# DRAWS_DB_FILE = "save_results.db"
-# CLUSTER_DATA_PATH = Path("/share/epi/dismod_at/data/unit_test/")
-
 
 @pytest.fixture(scope="module")
 def avgint_df():
