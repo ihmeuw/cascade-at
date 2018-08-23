@@ -1,6 +1,10 @@
 from functools import total_ordering
 
 
+class PriorError(Exception):
+    pass
+
+
 @total_ordering
 class _Prior:
     """The base for all Priors
@@ -36,17 +40,17 @@ class _Prior:
 
 def _validate_bounds(lower, mean, upper):
     if not lower <= mean <= upper:
-        raise ValueError("Bounds are inconsistent")
+        raise PriorError("Bounds are inconsistent")
 
 
 def _validate_standard_deviation(standard_deviation):
     if standard_deviation < 0:
-        raise ValueError("Standard deviation must be positive")
+        raise PriorError("Standard deviation must be positive")
 
 
 def _validate_nu(nu):
     if nu < 0:
-        raise ValueError("Nu must be positive")
+        raise PriorError("Nu must be positive")
 
 
 class UniformPrior(_Prior):
