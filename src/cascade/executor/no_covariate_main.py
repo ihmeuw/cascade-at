@@ -238,9 +238,15 @@ def construct_database(input_path, output_path, non_zero_rates):
 def entry():
     """This is the entry that setuptools turns into an installed program."""
     parser = ArgumentParser("Reads csv for a run without covariates.")
-    parser.add_argument("input_path")
-    parser.add_argument("output_path")
-    parser.add_argument("--non-zero-rates", default=[], choices=["iota", "rho", "chi", "omega"], nargs="*")
+    parser.add_argument("input_path", help="Path to the csv file to load")
+    parser.add_argument("output_path", help="Path to the dismod database file to create")
+    parser.add_argument(
+        "--non-zero-rates",
+        default=[],
+        choices=["iota", "rho", "chi", "omega"],
+        nargs="*",
+        help="Rates to estimate, all others will be zero",
+    )
     parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
     args, _ = parser.parse_known_args()
     if args.v:

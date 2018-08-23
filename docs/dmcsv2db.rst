@@ -28,10 +28,14 @@ For instance, if it is defined for ages (0.0, 10.0, 50.0) and years
 those ages and times. In addition, the fit will be found on those nine
 points for all of the rates of incidence, remission, and excess mortality.
 
+You can specify which rates are expected to be non-zero using the ``--non-zero-rates``
+command line option. By default it will estimate all rates. For example, if you want
+no remission in your model you could specify just ``iota chi omega```
+
 As an example, assuming you are running on the cluster, you could run::
 
-    # Reads measure.csv and writes fit.db
-    dmcsv2db measure.csv fit.db
+    # Reads measure.csv and writes fit.db and makes estimates for iota, rho, chi and omega
+    dmcsv2db measure.csv fit.db --non-zero-rates iota rho chi omega
     dmdismod fit.db set option quasi_fixed false
     dmdismod fit.db set option ode_step_size 1
     dmdismod fit.db init
