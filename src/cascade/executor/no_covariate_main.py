@@ -203,10 +203,10 @@ def internal_model(model, inputs):
     default_smoothing = Smooth(priors, priors, priors)
 
     # No smoothing for initial prevalence in Brad's example.
-    for rate in config.non_zero_rates.split():
+    for rate in config.non_zero_rates:
         getattr(model.rates, rate).parent_smooth = default_smoothing
 
-    for rate in config.non_zero_rates.split() + ["prevalence"]:
+    for rate in config.non_zero_rates + ["prevalence"]:
         integrand = getattr(model.outputs.integrands, RATE_TO_INTEGRAND[rate].name)
         integrand.grid = default_smoothing.grid
 
@@ -215,13 +215,13 @@ def internal_model(model, inputs):
     return model
 
 
-def construct_database(input_path, output_path):
+def construct_database(input_path, output_path, non_zero_rates):
     # Configuration
     model_context = ModelContext()
     model_context.parameters.bundle_id = 3209
     model_context.parameters.tier_idx = 2
     model_context.parameters.location_id = 26
-    model_context.parameters.non_zero_rates = "iota rho chi omega"
+    model_context.parameters.non_zero_rates = non_zero_rates
 
     # Get the bundle and process it.
     raw_inputs = data_from_csv(Path(input_path))
@@ -240,6 +240,7 @@ def entry():
     parser = ArgumentParser("Reads csv for a run without covariates.")
     parser.add_argument("input_path")
     parser.add_argument("output_path")
+    parser.add_argument("--non-zero-rates", default=[], choices=["iota", "rho", "chi", "omega"], nargs="*")
     parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
     args, _ = parser.parse_known_args()
     if args.v:
@@ -247,7 +248,11 @@ def entry():
     else:
         log_level = logging.INFO
     logging.basicConfig(level=log_level)
-    construct_database(args.input_path, args.output_path)
+    if args.non_zero_rates:
+        non_zero_rates = args.non_zero_rates
+    else:
+        non_zero_rates = ["iota", "rho", "chi", "omega"]
+    construct_database(args.input_path, args.output_path, non_zero_rates)
 
 
 if __name__ == "__main__":
