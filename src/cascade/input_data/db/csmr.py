@@ -3,16 +3,7 @@
 import logging
 
 import pandas as pd
-
-try:
-    from db_queries import get_outputs
-except ImportError:
-
-    class DummyGetOutputs:
-        def __getattr__(self, name):
-            raise ImportError(f"Required package db_queries not found")
-
-    get_outputs = DummyGetOutputs()
+from cascade.input_data.db import db_queries
 
 
 from cascade.core.db import cursor
@@ -48,7 +39,7 @@ def _get_csmr_data(execution_context):
 
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
-    csmr = get_outputs(
+    csmr = db_queries.get_outputs(
         topic="cause",
         cause_id=cause_id,
         location_id=parent_loc,
