@@ -12,3 +12,27 @@ class InputData:
 
     def __init__(self):
         self.rates = Rates()
+        self.observations = None
+        self.constraints = None
+
+    @property
+    def ages(self):
+        ages = set()
+        if self.observations is not None:
+            ages.update(self.observations.age_start)
+            ages.update(self.observations.age_end)
+        if self.constraints is not None:
+            ages.update(self.constraints.age_start)
+            ages.update(self.constraints.age_end)
+        return ages
+
+    @property
+    def times(self):
+        times = set()
+        if self.observations is not None:
+            times.update(self.observations.year_start)
+            times.update(self.observations.year_end)
+        if self.constraints is not None:
+            times.update(self.constraints.year_start)
+            times.update(self.constraints.year_end)
+        return times
