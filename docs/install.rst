@@ -6,10 +6,12 @@ Installation of Cascade
 Cascade interacts with Dismod-AT underneath. Cascade runs Dismod-AT within
 the IHME infrastructure. Clone it from
 `Cascade on Github <https://github.com/ihmeuw/cascade>`_.
-We recommend you create a virtual environment into which to install
-the code. If you have Python3, virtualenv is part of it::
 
-    virtualenv ./env_path
+We recommend you create a virtual environment into which to install
+the code. You need python3 to run virtualenv.  You can use our miniconda3 
+installed on the cluster::
+
+    /ihme/code/dismod_at/pyenv/miniconda/bin/virtualenv ./env_path
     source ./env_path/bin/activate
     
 You can name the environment something happier than env_path.
@@ -34,18 +36,30 @@ Cascade as described above, it will have created two commands,
 ``dmdismod`` and ``dmdismodpy``, which are the application and its
 Python helper. You can run, for instance::
 
+    dmdismod data.db set option print_level_fixed 5
+    dmdismod data.db set option quasi_fixed false
+    dmdismod data.db set option ode_step_size 1
     dmdismod data.db init
-    dmdismod data.db fit
-    dmdismod data.db predict
-    dmdismodby data.db db2csv
+    dmdismod data.db fit fixed
+    dmdismod data.db predict fit_var
+    dmdismodpy data.db db2csv
+
+The value of print_level_fixed is a positive integer between 0 and 12 inclusive,
+0 is the default and corresponds to no printing of information about optimizing 
+the fixed effects.  You can experiment with this value, to get more information, 
+say, if your model is not converging quickly. 
 
 Without the helper, the same commands would be::
 
     SINGULARITY=/ihme/singularity-images/dismod/current.img
     DMPATH=/home/root/prefix/dismod_at/bin/dismod_at
+
+    singularity exec "${SINGULARITY}" "${DMPATH}" data.db set option print_level_fixed 5
+    singularity exec "${SINGULARITY}" "${DMPATH}" data.db set option quasi_fixed false
+    singularity exec "${SINGULARITY}" "${DMPATH}" data.db set option ode_step_size 1
     singularity exec "${SINGULARITY}" "${DMPATH}" data.db init
-    singularity exec "${SINGULARITY}" "${DMPATH}" data.db fit
-    singularity exec "${SINGULARITY}" "${DMPATH}" data.db predict
+    singularity exec "${SINGULARITY}" "${DMPATH}" data.db fit fixed
+    singularity exec "${SINGULARITY}" "${DMPATH}" data.db predict fit_var
     singularity exec "${SINGULARITY}" /home/root/prefix/dismod_at/bin/dismodat.py data.db db2csv
 
 If you are on your local machine, and have installed Docker,
@@ -83,6 +97,6 @@ current directory, you would run::
     dmdismod /app/data.db init
     dmdismod /app/data.db fit
     dmdismod /app/data.db predict
-    dmdismodby /app/data.db db2csv
+    dmdismodpy /app/data.db db2csv
 
 At least the dmdismod command provides an example to tailor.

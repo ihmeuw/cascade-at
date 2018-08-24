@@ -2,6 +2,7 @@
 Converts the internal representation to a Dismod File.
 """
 import logging
+import warnings
 import time
 
 import numpy as np
@@ -128,18 +129,46 @@ def make_log_table():
 def make_node_table(context):
     # Assume we have one location, so no parents.
     # If we had a hierarchy, that would be used to determine parents.
-    unique_locations = context.input_data.observations["location_id"].unique()
-    assert len(unique_locations) == 1
+    if context.input_data.observations is not None:
+        unique_locations = context.input_data.observations["location_id"].unique()
+        assert len(unique_locations) == 1
+    else:
+        warnings.warn("No observations in model, falling back to location_id in parameters")
+        unique_locations = np.array([context.parameters.location_id])
 
     return pd.DataFrame({"node_name": unique_locations.astype(int).astype(str), "parent": np.array([np.NaN])})
 
 
 def make_data_table(context):
-    observations = observations_to_data(context.input_data.observations)
-    constraints = observations_to_data(context.input_data.constraints, hold_out=1)
-    total_data = pd.concat([observations, constraints], ignore_index=True)
-    # Why a unique string name?
-    total_data["data_name"] = total_data.index.astype(str)
+    total_data = []
+    if context.input_data.observations is not None:
+        total_data.append(observations_to_data(context.input_data.observations))
+    if context.input_data.constraints is not None:
+        total_data.append(observations_to_data(context.input_data.constraints, hold_out=1))
+
+    if total_data:
+        total_data = pd.concat(total_data, ignore_index=True)
+        # Why a unique string name?
+        total_data["data_name"] = total_data.index.astype(str)
+    else:
+        total_data = pd.DataFrame(
+            columns=[
+                "integrand_id",
+                "node_id",
+                "density_id",
+                "weight_id",
+                "age_lower",
+                "age_upper",
+                "time_lower",
+                "time_upper",
+                "meas_value",
+                "meas_std",
+                "eta",
+                "nu",
+                "hold_out",
+                "data_name",
+            ]
+        )
     return total_data
 
 
@@ -208,31 +237,19 @@ def collect_ages_or_times(context, to_collect="ages"):
             values.extend(value)
 
     # Extreme values from the input data must also appear in the age/time table
-    if to_collect == "ages":
-        values.append(
-            np.max([np.max(context.input_data.observations.age_end), np.max(context.input_data.constraints.age_end)])
-        )
-        values.append(
-            np.min(
-                [np.min(context.input_data.observations.age_start), np.min(context.input_data.constraints.age_start)]
-            )
-        )
-    else:
-        values.append(
-            np.max([np.max(context.input_data.observations.year_end), np.max(context.input_data.constraints.year_end)])
-        )
-        values.append(
-            np.min(
-                [np.min(context.input_data.observations.year_start), np.min(context.input_data.constraints.year_start)]
-            )
-        )
+    if to_collect == "ages" and context.input_data.ages:
+        values.append(np.max(list(context.input_data.ages)))
+        values.append(np.min(list(context.input_data.ages)))
+    elif context.input_data.times:
+        values.append(np.max(list(context.input_data.times)))
+        values.append(np.min(list(context.input_data.times)))
 
     return unique_floats(values)
 
 
 def make_age_table(context):
     ages = collect_ages_or_times(context, "ages")
-    age_df = pd.DataFrame(ages, columns=["age"])
+    age_df = pd.DataFrame(ages, columns=["age"], dtype=float)
     age_df["age_id"] = age_df.index
 
     return age_df
@@ -240,7 +257,7 @@ def make_age_table(context):
 
 def make_time_table(context):
     times = collect_ages_or_times(context, "times")
-    time_df = pd.DataFrame(times, columns=["time"])
+    time_df = pd.DataFrame(times, columns=["time"], dtype=float)
     time_df["time_id"] = time_df.index
 
     return time_df
