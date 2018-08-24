@@ -237,10 +237,10 @@ def collect_ages_or_times(context, to_collect="ages"):
             values.extend(value)
 
     # Extreme values from the input data must also appear in the age/time table
-    if to_collect == "ages":
+    if to_collect == "ages" and context.input_data.ages:
         values.append(np.max(list(context.input_data.ages)))
         values.append(np.min(list(context.input_data.ages)))
-    else:
+    elif context.input_data.times:
         values.append(np.max(list(context.input_data.times)))
         values.append(np.min(list(context.input_data.times)))
 
@@ -249,7 +249,7 @@ def collect_ages_or_times(context, to_collect="ages"):
 
 def make_age_table(context):
     ages = collect_ages_or_times(context, "ages")
-    age_df = pd.DataFrame(ages, columns=["age"])
+    age_df = pd.DataFrame(ages, columns=["age"], dtype=float)
     age_df["age_id"] = age_df.index
 
     return age_df
@@ -257,7 +257,7 @@ def make_age_table(context):
 
 def make_time_table(context):
     times = collect_ages_or_times(context, "times")
-    time_df = pd.DataFrame(times, columns=["time"])
+    time_df = pd.DataFrame(times, columns=["time"], dtype=float)
     time_df["time_id"] = time_df.index
 
     return time_df
