@@ -1,12 +1,9 @@
 import pandas as pd
 import pytest
 
-from cascade.core.context import ExecutionContext
-import cascade.saver
 from cascade.saver.generate_draws import (
     generate_draws_table,
-    pure_generate_draws,
-    retrieve_prediction_tables)
+    pure_generate_draws)
 from cascade.dismod.db.wrapper import _get_engine, DismodFile
 
 
@@ -56,16 +53,23 @@ def dismod_file(avgint_df, predict_df):
 
 
 @pytest.fixture(scope="module")
-def execution_context(dismod_file):
-    defaults = {"modelable_entity_id": 1175,
-                "model_version_id": 1,
-                "model_title": "Cascade Model",
-                "db_env": "dev"}
-    execution_context = ExecutionContext()
-    execution_context.parameters = defaults
-    execution_context._dismodfile = dismod_file
+def dismod_file_avgint_df_empty(predict_df):
+    engine = _get_engine(None)
+    dismod_file_avgint_df_empty = DismodFile(engine, {}, {})
+    dismod_file_avgint_df_empty.avgint = pd.DataFrame()
+    dismod_file_avgint_df_empty.predict = predict_df
 
-    return execution_context
+    return dismod_file_avgint_df_empty
+
+
+@pytest.fixture(scope="module")
+def dismod_file_predict_df_empty(avgint_df):
+    engine = _get_engine(None)
+    dismod_file_predict_df_empty = DismodFile(engine, {}, {})
+    dismod_file_predict_df_empty.avgint = avgint_df
+    dismod_file_predict_df_empty.predict = pd.DataFrame()
+
+    return dismod_file_predict_df_empty
 
 
 @pytest.fixture(scope="module")
@@ -78,13 +82,6 @@ def predict_df_ragged(predict_df):
     predict_df_ragged = predict_df_copy.append(extra_rows_df)
 
     return predict_df_ragged
-
-
-@pytest.fixture(scope="module")
-def avgint_df_empty():
-    avgint_df_empty = pd.DataFrame()
-
-    return avgint_df_empty
 
 
 @pytest.fixture(scope="module")
@@ -103,38 +100,22 @@ def expected_draws_df():
     return expected_draws_df
 
 
-def get_avgint_predict(execution_context):
-    return avgint_df(), predict_df()
+def test_generate_draws_table(dismod_file):
 
-
-def get_draws(avgint, predict):
-    return expected_draws_df()
-
-
-@pytest.fixture
-def fake_generate_draws(monkeypatch):
-    monkeypatch.setattr(cascade.saver.generate_draws,
-                        "retrieve_prediction_tables", get_avgint_predict)
-    monkeypatch.setattr(cascade.saver.generate_draws,
-                        "pure_generate_draws", get_draws)
-
-
-def test_retrieve_prediction_tables(dismod_file):
-    avgint, predict = retrieve_prediction_tables(dismod_file)
-
-    pd.testing.assert_frame_equal(avgint, avgint_df(),
-                                  check_like=True)
-
-    pd.testing.assert_frame_equal(predict, predict_df(),
-                                  check_like=True)
-
-
-def test_generate_draws_table(fake_generate_draws, execution_context):
-
-    draws_df = generate_draws_table(execution_context)
+    draws_df = generate_draws_table(dismod_file)
 
     pd.testing.assert_frame_equal(draws_df, expected_draws_df(),
                                   check_like=True)
+
+
+def test_generate_draws_empty_avgint(dismod_file_avgint_df_empty):
+    with pytest.raises(ValueError):
+        generate_draws_table(dismod_file_avgint_df_empty)
+
+
+def test_generate_draws_empty_predict(dismod_file_predict_df_empty):
+    with pytest.raises(ValueError):
+        generate_draws_table(dismod_file_predict_df_empty)
 
 
 def test_pure_generate_draws(avgint_df, predict_df, expected_draws_df):
@@ -155,8 +136,3 @@ def test_pure_generate_draws(avgint_df, predict_df, expected_draws_df):
 def test_pure_generate_draws_mismatch_rows(avgint_df, predict_df_ragged):
     with pytest.raises(ValueError):
         pure_generate_draws(avgint_df, predict_df_ragged)
-
-
-def test_pure_generate_draws_empty_avgint(avgint_df_empty, predict_df):
-    with pytest.raises(ValueError):
-        pure_generate_draws(avgint_df_empty, predict_df)

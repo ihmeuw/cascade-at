@@ -1,21 +1,5 @@
-from contextlib import contextmanager
-from pathlib import Path
-import shutil
-import tempfile
-
 from cascade.core.parameters import ParameterProperty
 from cascade.core.input_data import InputData
-
-
-@contextmanager
-def scratch_maker():
-    """ Create a scratch directory."""
-    try:
-        # scratch_dir will be in cwd and named tmp<something>
-        scratch_dir = Path(tempfile.mkdtemp(dir="."))
-        yield scratch_dir
-    finally:
-        shutil.rmtree(scratch_dir)
 
 
 class ExecutionContext:
@@ -24,7 +8,7 @@ class ExecutionContext:
     model executes. This includes paths to data sources, information about
     cluster resources etc.
     """
-    
+
     parameters = ParameterProperty()
 
     def __init__(self):
@@ -33,9 +17,6 @@ class ExecutionContext:
     @property
     def dismodfile(self):
         return self._dismodfile
-
-    def scratch_dir(self):
-        return scratch_maker()
 
 
 class _ModelParameters:
