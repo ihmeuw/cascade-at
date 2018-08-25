@@ -44,9 +44,13 @@ class _Attribute:
     def ignore_missing_keys(self, value):
         self._ignore_missing_keys = value
 
+    def __repr__(self):
+        cname = self.__class__.__name__
+        return f"<{cname} {self._name}>"
+
 
 class _Form(_Attribute):
-    _fields = set()
+    _fields = None
 
     def __init__(self, *args, name_field=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -67,12 +71,12 @@ class _Form(_Attribute):
                     setattr(self, key, value)
                 processed_fields.add(key)
             elif not self.ignore_extra_keys:
-                raise ConfigurationError(f"Extra key '{key}' in form '{self._name}'")
+                raise ConfigurationError(f"Extra key '{key}' in form '{self}'")
 
         if not self.ignore_missing_keys:
             missing = self._fields.difference(processed_fields)
             if missing:
-                raise ConfigurationError(f"Missing keys for form '{self._name}': {missing}")
+                raise ConfigurationError(f"Missing keys for form '{self}': {missing}")
 
     def __set_name__(self, owner, name):
         super().__set_name__(owner, name)
@@ -80,6 +84,11 @@ class _Form(_Attribute):
             setattr(self, self._name_field, name)
 
     def _validate(self):
+        pass
+
+
+class DummyForm(_Form):
+    def _process_json(self, source_json):
         pass
 
 
@@ -96,11 +105,14 @@ class _Field(_Attribute):
         # FIXME The viz code uses empty strings as nulls. We should change this as soon as they fix that.
         if not (self.nullable and (value is None or value == "")):
             value = self._validate_and_normalize(value)
-        print(self._name, value)
+        else:
+            value = None
         obj._field_values[self._name] = value
 
     def __set_name__(self, owner, name):
         super().__set_name__(owner, name)
+        if owner._fields is None:
+            owner._fields = set()
         owner._fields.add(name)
 
     def _validate_and_normalize(self, value):
@@ -112,7 +124,7 @@ class IntegerField(_Field):
         try:
             return int(value)
         except (ValueError, TypeError):
-            raise ConfigurationError(f"Invalid integer value '{value}' for {self._name}")
+            raise ConfigurationError(f"Invalid integer value '{value}' for {self}")
 
 
 class FloatField(_Field):
@@ -120,7 +132,7 @@ class FloatField(_Field):
         try:
             return float(value)
         except (ValueError, TypeError):
-            raise ConfigurationError(f"Invalid integer value '{value}' for {self._name}")
+            raise ConfigurationError(f"Invalid float value '{value}' for {self}")
 
 
 class BooleanField(_Field):
@@ -132,7 +144,7 @@ class BooleanField(_Field):
         elif value == 1:
             return True
         else:
-            raise ConfigurationError(f"Invalid boolean value: {value} for {self._name}")
+            raise ConfigurationError(f"Invalid boolean value: {value} for {self}")
 
 
 class StringField(_Field):
@@ -140,7 +152,31 @@ class StringField(_Field):
         try:
             return str(value)
         except (ValueError, TypeError):
-            raise ConfigurationError(f"Invalid string value: {value} for {self._name}")
+            raise ConfigurationError(f"Invalid string value: {value} for {self}")
+
+
+class StringAsListField(_Field):
+    def __init__(self, seperator, inner_type=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.seperator = seperator
+        self.inner_type = inner_type
+
+    def _validate_and_normalize(self, value):
+        try:
+            value = str(value)
+        except (ValueError, TypeError):
+            raise ConfigurationError(f"Invalid string value: {value} for {self}")
+
+        values = value.split(self.seperator)
+        if self.inner_type:
+            converted_values = []
+            for i, v in enumerate(values):
+                try:
+                    converted_values.append(self.inner_type(v))
+                except (ValueError, TypeError):
+                    raise ConfigurationError(f"Invalid {self.inner_type} value: {v} for element {i} of {self}")
+            values = converted_values
+        return values
 
 
 class OptionField(_Field):
@@ -152,7 +188,7 @@ class OptionField(_Field):
         if value in self.options:
             return value
         else:
-            raise ConfigurationError(f"Invalid option '{value}' must be one of {self.options} for {self._name}")
+            raise ConfigurationError(f"Invalid option '{value}' must be one of {self.options} for {self}")
 
 
 class FormList(_Field):

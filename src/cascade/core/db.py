@@ -63,3 +63,18 @@ def model_version_exists(execution_context):
         exists = c.fetchone()[0]
 
         return exists == 1
+
+
+def latest_model_version(execution_context):
+    model_id = execution_context.parameters.modelable_entity_id
+
+    query = """
+    select model_version_id from epi.model_version
+    where modelable_entity_id = %(modelable_entity_id)s
+    order by last_updated desc
+    limit 1
+    """
+
+    with cursor(execution_context) as c:
+        c.execute(query, args={"modelable_entity_id": model_id})
+        return c.fetchone()[0]
