@@ -59,7 +59,7 @@ def dismod_file(avgint_df, predict_df):
 @pytest.fixture(scope="module")
 def execution_context(dismod_file):
     defaults = {"modelable_entity_id": 1175,
-                "model_version_id": None,
+                "model_version_id": 265085,
                 "model_title": "GBD 2010 Best (dm-39976)",
                 "db_env": "dev",
                 "gbd_round_id": 5,

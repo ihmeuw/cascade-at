@@ -73,8 +73,7 @@ def fake_save_results_at(monkeypatch):
 
 @pytest.fixture
 def fake_write_hdf(monkeypatch):
-    monkeypatch.setattr(pd.DataFrame, "to_hdf",
-                        to_hdf_fake)
+    monkeypatch.setattr(pd.DataFrame, "to_hdf", to_hdf_fake)
 
 
 def test_write_temp_draws_file_and_upload_model_results_no_hdf_no_sr_call(
