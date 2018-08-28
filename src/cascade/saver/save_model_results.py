@@ -4,7 +4,7 @@ Saves results from a model fit to a database which the EpiViz can access.
 import logging
 
 from cascade.saver.generate_draws import generate_draws_table
-from cascade.saver.db.save_model_results_to_db import write_temp_draws_file_and_upload_model_results
+from cascade.saver.db.save_model_results_to_db import save_model_results_to_db
 
 CODELOG = logging.getLogger(__name__)
 MATHLOG = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ def save_model_results(execution_context):
         execution_context (ExecutionContext): contains model id data
 
     Returns:
-        (int) of the mvid returned by save_results
+        (int) of the model_version_id returned by save_results
     """
 
     dm_file = execution_context.dismodfile
@@ -30,7 +30,6 @@ def save_model_results(execution_context):
 
     draws_df = generate_draws_table(dm_file)
 
-    model_version_id = write_temp_draws_file_and_upload_model_results(
-        draws_df, execution_context)
+    model_version_id = save_model_results_to_db(draws_df, execution_context)
 
     return model_version_id

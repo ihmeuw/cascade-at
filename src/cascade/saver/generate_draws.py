@@ -5,28 +5,21 @@ from the avgint table.
 
 import logging
 
-import pandas as pd
-
 CODELOG = logging.getLogger(__name__)
 MATHLOG = logging.getLogger(__name__)
 
-INTEGRAND_ID_TO_MEASURE_ID_DF = pd.DataFrame([
-    [0, 41],
-    [1, 7],
-    [2, 9],
-    [3, 16],
-    [4, 13],
-    [5, 39],
-    [6, 40],
-    [7, 5],
-    [8, 6],
-    [9, 15],
-    [10, 14],
-    [11, 12],
-    [12, 11]], columns=["integrand_id", "measure_id"])
-
 
 def generate_draws_table(dm_file):
+    """
+    Creates a draws table based on the avgint and predict tables.
+
+    Args:
+        dm_file (DismodFile): contains avgint and predict tables
+
+    Returns:
+        pd.DataFrame
+
+    """
 
     avgint_df = dm_file.avgint
     predict_df = dm_file.predict
@@ -61,9 +54,6 @@ def pure_generate_draws(avgint_df, predict_df):
             "Predict table does not have an integer number of "
             "predictions of the avgint table")
 
-    avgint = avgint_df.merge(
-        INTEGRAND_ID_TO_MEASURE_ID_DF, how="left", on="integrand_id")
-
     draws = predict_df.pivot(index="avgint_id", columns="sample_index",
                              values="avg_integrand")
 
@@ -71,7 +61,7 @@ def pure_generate_draws(avgint_df, predict_df):
 
     draws = draws.reset_index(level=["avgint_id"])
 
-    draw_df = avgint.merge(draws, how="left", on="avgint_id").drop(
-        columns=["avgint_id", "integrand_id"])
+    draws_df = avgint_df.merge(draws, how="left", on="avgint_id").drop(
+        columns=["avgint_id"])
 
-    return draw_df
+    return draws_df

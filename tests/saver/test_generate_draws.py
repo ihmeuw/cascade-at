@@ -89,7 +89,7 @@ def expected_draws_df():
     expected_draws_df = pd.DataFrame()
     expected_draws_df["age_group_id"] = [7, 7, 7, 7]
     expected_draws_df["location_id"] = [102, 102, 102, 102]
-    expected_draws_df["measure_id"] = [9, 9, 5, 5]
+    expected_draws_df["integrand_id"] = [2, 2, 7, 7]
     expected_draws_df["sex_id"] = [1, 2, 1, 2]
     expected_draws_df["year_id"] = [1990, 1990, 1990, 1990]
     expected_draws_df["draw_0"] = [1, 2, 3, 4]
@@ -125,7 +125,7 @@ def test_pure_generate_draws(avgint_df, predict_df, expected_draws_df):
     assert draws_df.shape == (4, 9)
 
     expected_columns = ["location_id", "age_group_id", "year_id", "sex_id",
-                        "measure_id", "draw_0", "draw_1", "draw_2", "draw_3"]
+                        "integrand_id", "draw_0", "draw_1", "draw_2", "draw_3"]
 
     assert set(draws_df.columns) == set(expected_columns)
 
