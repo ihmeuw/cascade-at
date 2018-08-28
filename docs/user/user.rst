@@ -7,3 +7,4 @@ User Manual
 
    install
    dmcsv2db
+   dismodat
