@@ -10,4 +10,5 @@ Cascade-AT Reference Manual
    executor
    model
    input_data
+   covariates
    saver
