@@ -218,7 +218,7 @@ a continuous function of age and time, specified by an interpolation among point
 on an age-time grid. Therefore, the model variables from a rate are its value
 at each of the age-time points.
 
-The covariate multipliers also continuous functions of age and time.
+The covariate multipliers are also continuous functions of age and time.
 Each of the covariate multipliers has model variables for every point in its
 smoothing. There can be a covariate multiplier for each combination of
 covariate column and application to rate value, measurement value, or measurement
