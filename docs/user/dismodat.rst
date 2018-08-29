@@ -145,17 +145,18 @@ to obtain a better estimate of uncertainty.
 Smoothing Continuous Functions
 ------------------------------
 
-We said that rates and covariate multipliers are continuous functions of age and time.
+We said that rates and :ref:`covariate multipliers <covariates>` are continuous functions of age and time.
 It takes a little work to parametrize an interpolated function of age and time.
 
  * You have to tell it where the control points are. In Cascade, we call this
-   the `AgeTimeGrid <file:///home/adolgert/dev/cascade/docs/_build/html/refmanual/model.html#cascade.model.grids.AgeTimeGrid>`_. It's a list of ages and a list of times
+   the :py:class:`AgeTimeGrid <cascade.model.grids.AgeTimeGrid>`.
+   It's a list of ages and a list of times
    that define a rectangular grid.
 
  * At each of the control points of the age time grid, Dismod-AT will evaluate
    how close the rate or covariate multiplier is to some reference value. At these
    points, we define prior distributions. Cascade makes these *value priors*
-   part of the `PriorGrid <file:///home/adolgert/dev/cascade/docs/_build/html/refmanual/model.html#cascade.model.grids.PriorGrid>`_.
+   part of the :py:class:`PriorGrid <cascade.model.grids.PriorGrid>`.
 
  * It's rare to have data points that are dense across all of age and time.
    Dismod-AT needs to take a data point at one end, a data point at the other
@@ -164,7 +165,7 @@ It takes a little work to parametrize an interpolated function of age and time.
    regularization of the problem, called *age-time difference priors*. They apply
    to the difference in value between one age-time point and the next greater
    in age and the next-greater in time. As with value priors, these are specified
-   in the Cascade as part of the `PriorGrid <file:///home/adolgert/dev/cascade/docs/_build/html/refmanual/model.html#cascade.model.grids.PriorGrid>`_.
+   in the Cascade as part of the :py:class:`PriorGrid <cascade.model.grids.PriorGrid>`.
 
 The random effect for locations is also a continous quantity.
 
@@ -194,3 +195,33 @@ for each child rate effect (one for each of the five rates) or let you define
 a smoothing grid for every location and every child rate effect, should that
 be necessary.
 
+.. _dismod-model-variables:
+
+
+Model Variables - The Unknowns
+------------------------------
+
+When we ask Dismod-AT to do a fit, what unknowns will it solve for?
+If we do a fit to a linear regression, :math:`y ~ b_0 + b_1 x`,
+then it tells us the parameters :math:`b_i`. It also tells us
+the uncertainty, as determined by residuals between predicted and
+actual :math:`y`. In the case of Dismod-AT, the model variables are
+equivalent to those parameters :math:`b_i`.
+Dismod-AT documentation lists all of the
+`model variables <https://bradbell.github.io/dismod_at/doc/model_variables.htm>`_, but
+let's cover the most common ones here.
+
+First are the five disease rates, which are inputs to the ODE. Each rate is
+a continuous function of age and time, specified by an interpolation among points
+on an age-time grid. Therefore, the model variables from a rate are its value
+at each of the age-time points.
+
+The covariate multipliers also continuous functions of age and time.
+Each of the covariate multipliers has model variables for every point in its
+smoothing. There can be a covariate multiplier for each combination of
+covariate column and application to rate value, measurement value, or measurement
+standard deviation, so that's a possible :math:`3c` covariate multipliers, where
+:math:`c` is the number of covariate columns.
+
+The child rate effects also are variables. Because there is one for each location,
+and there is a smoothing grid for child rate effects, this creates many model variables.
