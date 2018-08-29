@@ -81,7 +81,7 @@ Flow of Commands in Dismod-AT
 -----------------------------
 
 There are a few different ways to use Dismod-AT to examine data.
-The correspond to different sequences of
+They correspond to different sequences of
 `Dismod-AT commands <https://bradbell.github.io/dismod_at/doc/command.htm>`_.
 
 .. _stream-out-prevalence:
@@ -169,7 +169,7 @@ It takes a little work to parametrize an interpolated function of age and time.
    in age and the next-greater in time. As with value priors, these are specified
    in the Cascade as part of the :py:class:`PriorGrid <cascade.model.grids.PriorGrid>`.
 
-The random effect for locations is also a continous quantity.
+The random effect for locations is also a continuous quantity.
 
 .. _dismod-hierarchical:
 

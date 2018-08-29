@@ -7,7 +7,7 @@ Covariates are the independent variables in the statistical
 model. They appear as columns in observation data, associated
 with each measurement. The word covariate is overdetermined,
 so we will refer to a covariate column, a covariate use,
-a covariate multiplier, and and applying a covariate.
+a covariate multiplier, and applying a covariate.
 
 A covariate column has a unique name and a reference value
 for which the observed data is considered unadjusted.
@@ -34,11 +34,11 @@ There are three reasons to use a covariate.
     but this could be done based on any covariate associated
     with observation data.
 
-DismodAT applies covariate effects to one of three different variables.
+Dismod-AT applies covariate effects to one of three different variables.
 It either uses the covariate to `predict the underlying rate`_,
 or it applies the covariate to predict the measured data. It can
 be an effect on either the `measured data value`_ or the
-observation data `standard deviation`_. DismodAT calls these
+observation data `standard deviation`_. Dismod-AT calls these
 the alpha, beta, and gamma covariates.
 
 As a rule of thumb, the three uses of covariates apply
@@ -89,8 +89,8 @@ In order to use a covariate column as a country covariate, specify
    is solved. This grid defines a mean prior and elastic
    priors on age and time, as usual for smoothing grids.
 
-We give DismodAT measured data with associated covariates.
-DismodAT treats the covariates as a continuous function of age
+We give Dismod-AT measured data with associated covariates.
+Dismod-AT treats the covariates as a continuous function of age
 and time, which we call the *covariate multiplier.* It solves for
 that continuous function, much like it solves for the rates.
 Therefore, each application of a covariate column to a
