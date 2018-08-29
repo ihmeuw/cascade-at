@@ -66,6 +66,8 @@ few steps.
 
 .. index:: integrand
 
+Integrands are *outputs* from Dismod-AT that are predictions of either
+measurements or rates.
 Because studies observe participants with ranges of ages over periods of time,
 they are generally associated with the integral of the continuous rates
 underlying the disease process. For this reason, Dismod-AT
