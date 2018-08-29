@@ -12,6 +12,13 @@ class ExecutionContext:
 
     parameters = ParameterProperty()
 
+    def __init__(self):
+        self._dismodfile = None
+
+    @property
+    def dismodfile(self):
+        return self._dismodfile
+
 
 class _ModelParameters:
     location_id = -1
