@@ -26,9 +26,10 @@ class _Prior:
     def __lt__(self, other):
         if not isinstance(other, _Prior):
             return NotImplemented
-        return list(dict(name=self.name, **self.parameters()).items()) < list(
-            dict(name=other.name, **other.parameters()).items()
-        )
+        self_dict = sorted(dict(name=self.name if self.name else "", **self.parameters()).items())
+        other_dict = sorted(dict(name=other.name if other.name else "", **other.parameters()).items())
+
+        return self_dict < other_dict
 
     def __repr__(self):
         return f"<{type(self).__name__} {self.parameters()}>"

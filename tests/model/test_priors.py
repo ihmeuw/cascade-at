@@ -57,6 +57,19 @@ def test_prior_nonequality():
     assert a != b
 
 
+def test_prior_sort():
+    priors = [
+        UniformPrior(lower=1e-10, upper=1, mean=5e-5, name="iota"),
+        GaussianPrior(0, 1, name="other_test_prior"),
+        UniformPrior(0, 1),
+    ]
+
+    # NOTE: This is a weak test of actual sorting behavior however all I
+    # actually care about is that the sort is stable, I don't really care
+    # what the order is
+    assert sorted(priors) == sorted(reversed(priors))
+
+
 def test_prior_hashing():
     s = {GaussianPrior(0, 1), UniformPrior(0, 1), GaussianPrior(0, 1), UniformPrior(0, 2), UniformPrior(0, 1)}
 
