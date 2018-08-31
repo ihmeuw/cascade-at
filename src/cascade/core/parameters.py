@@ -7,7 +7,6 @@ class _ParameterHierarchy:
             if isinstance(value, dict):
                 value = _ParameterHierarchy(**value)
             setattr(self, key, value)
-        self._frozen = True
 
     def __setattr__(self, key, value):
         if hasattr(self, "_frozen") and self._frozen:

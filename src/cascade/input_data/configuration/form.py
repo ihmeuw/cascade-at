@@ -6,7 +6,6 @@ from cascade.input_data.configuration.abstract_form import (
     StringAsListField,
     OptionField,
     FormList,
-    BooleanField,
     DummyForm,
 )
 
@@ -38,13 +37,13 @@ class SmoothingPriorGroup(_Form):
     value = SmoothingPrior(name_field="prior_type")
 
 
-class RandomEffect(_Form):
-    default = SmoothingPriorGroup()
-    mulstd = SmoothingPrior()
-    detail = FormList(SmoothingPrior)
+class Smoothing(_Form):
     rate = IntegerField()
     age_grid = StringAsListField(" ", float)
     time_grid = StringAsListField(" ", float)
+    default = SmoothingPriorGroup()
+    mulstd = SmoothingPrior()
+    detail = FormList(SmoothingPrior)
 
     custom_age_grid = DummyForm()
     custom_time_grid = DummyForm()
@@ -55,8 +54,11 @@ class Model(_Form):
     title = StringField()
     description = StringField()
     bundle_id = IntegerField()
-    drill = BooleanField(nullable=True)
-    drill_sex = OptionField(["male", "female"], nullable=True)
+    drill = OptionField(["cascade", "drill"])
+    drill_location = IntegerField()
+    drill_sex = OptionField([1, 2], nullable=True)
+    default_age_grid = StringAsListField(" ", float)
+    default_time_grid = StringAsListField(" ", float)
 
 
 class Configuration(_Form):
@@ -65,12 +67,12 @@ class Configuration(_Form):
     csmr_cod_output_version_id = IntegerField()
     csmr_mortality_output_version_id = IntegerField()
     location_set_version_id = IntegerField()
-    random_effect = FormList(RandomEffect)
+    random_effect = FormList(Smoothing)
+    rate = FormList(Smoothing)
 
     min_cv = FormList(DummyForm)
     min_cv_by_rate = FormList(DummyForm)
     re_bound_location = FormList(DummyForm)
-    rate = DummyForm()
     study_covariate = DummyForm()
     country_covariate = DummyForm()
     derivative_test = DummyForm()

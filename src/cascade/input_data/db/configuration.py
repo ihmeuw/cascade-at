@@ -16,4 +16,11 @@ def from_epiviz(execution_context):
     if len(raw_data) > 1:
         raise ValueError(f"Multiple parameter entries for model version {model_version_id}")
 
-    return json.loads(raw_data[0][0])
+    config_data = json.loads(raw_data[0][0])
+
+    # Fix bugs in epiviz
+    # TODO: remove this once EPI-999 is resolved
+    if "bundle_id" not in config_data["model"]:
+        config_data["model"]["bundle_id"] = None
+
+    return config_data
