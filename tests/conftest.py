@@ -7,6 +7,10 @@ def mock_execution_context(mocker):
     mock_context.parameters.database = "test_database"
     mock_context.parameters.model_version_id = 12345
     mock_context.parameters.add_csmr_cause = 173
+    # covariate_ids
+    # 26 = Cumulative Cigarettes (20 Years) 
+    # 28 = Diabetes Fasting Plasma Glucose (mmol/L)
+    # 33 = Education (years per capita)
     mock_context.parameters.country_covariate_ids = [26, 28, 33]
     return mock_context
 
