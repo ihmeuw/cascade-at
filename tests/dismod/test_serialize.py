@@ -62,9 +62,9 @@ def base_context(observations, constraints):
     grid = AgeTimeGrid.uniform(age_start=0, age_end=100, age_step=1, time_start=1990, time_end=2018, time_step=5)
 
     d_time = PriorGrid(grid)
-    d_time[:, :].prior = GaussianPrior(0, 0.1)
+    d_time[:, :].prior = GaussianPrior(0, 0.1, eta=1)
     d_age = PriorGrid(grid)
-    d_age[:, :].prior = GaussianPrior(0, 0.1)
+    d_age[:, :].prior = GaussianPrior(0, 0.1, name="TestPrior")
     value = PriorGrid(grid)
     value[:, :].prior = GaussianPrior(0, 0.1)
 
@@ -113,7 +113,13 @@ def test_development_target(base_context):
 
 def test_collect_priors(base_context):
     priors = collect_priors(base_context)
-    assert priors == {GaussianPrior(0, 0.1), UniformPrior(0, 1, 0.5), GaussianPrior(1, 0.1)}
+    assert priors == {
+        GaussianPrior(0, 0.1, name="TestPrior"),
+        UniformPrior(0, 1, 0.5),
+        GaussianPrior(1, 0.1),
+        GaussianPrior(0, 0.1),
+        GaussianPrior(0, 0.1, eta=1),
+    }
 
 
 def test_collect_ages_or_times__ages(base_context):
@@ -175,7 +181,10 @@ def test_make_prior_table(base_context):
 
         assert set(r_dict.keys()) == set(o_dict.keys())
         for k, v in r_dict.items():
-            assert r_dict[k] == o_dict[k] or (np.isnan(r_dict[k]) and np.isnan(o_dict[k]))
+            if k == "eta" and o_dict[k] is None:
+                assert np.isnan(r_dict[k])
+            else:
+                assert r_dict[k] == o_dict[k] or (np.isnan(r_dict[k]) and np.isnan(o_dict[k]))
 
 
 def test_make_smooth_and_smooth_grid_tables(base_context):

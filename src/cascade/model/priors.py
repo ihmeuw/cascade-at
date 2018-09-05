@@ -1,5 +1,12 @@
 from functools import total_ordering
 
+# TODO: Several of these prior types accept eta as a parameter and the others
+# don't use it as a parameter but use it as an offset in the optimization
+# process only if certain conditions are met. I think that means that the
+# offset case should be represented differently and there is also a validation
+# of eta for that case which could be done but isn't. For more details see the
+# docs: https://bradbell.github.io/dismod_at/doc/prior_table.htm#eta.Scaling%20Fixed%20Effects
+
 
 @total_ordering
 class _Prior:
@@ -26,9 +33,10 @@ class _Prior:
     def __lt__(self, other):
         if not isinstance(other, _Prior):
             return NotImplemented
-        return list(dict(name=self.name, **self.parameters()).items()) < list(
-            dict(name=other.name, **other.parameters()).items()
-        )
+        self_dict = sorted([(k, v) for k, v in dict(name=self.name, **self.parameters()).items() if v is not None])
+        other_dict = sorted([(k, v) for k, v in dict(name=other.name, **other.parameters()).items() if v is not None])
+
+        return self_dict < other_dict
 
     def __repr__(self):
         return f"<{type(self).__name__} {self.parameters()}>"
@@ -52,7 +60,7 @@ def _validate_nu(nu):
 class UniformPrior(_Prior):
     density = "uniform"
 
-    def __init__(self, lower, upper, mean=None, name=None):
+    def __init__(self, lower, upper, mean=None, eta=None, name=None):
         super().__init__(name=name)
         if mean is None:
             mean = (upper + lower) / 2
@@ -61,9 +69,10 @@ class UniformPrior(_Prior):
         self.lower = lower
         self.upper = upper
         self.mean = mean
+        self.eta = eta
 
     def _parameters(self):
-        return {"lower": self.lower, "upper": self.upper, "mean": self.mean}
+        return {"lower": self.lower, "upper": self.upper, "mean": self.mean, "eta": self.eta}
 
 
 class ConstantPrior(_Prior):
@@ -80,7 +89,7 @@ class ConstantPrior(_Prior):
 class GaussianPrior(_Prior):
     density = "gaussian"
 
-    def __init__(self, mean, standard_deviation, lower=float("-inf"), upper=float("inf"), name=None):
+    def __init__(self, mean, standard_deviation, lower=float("-inf"), upper=float("inf"), eta=None, name=None):
         super().__init__(name=name)
         _validate_bounds(lower, mean, upper)
         _validate_standard_deviation(standard_deviation)
@@ -89,9 +98,16 @@ class GaussianPrior(_Prior):
         self.upper = upper
         self.mean = mean
         self.standard_deviation = standard_deviation
+        self.eta = eta
 
     def _parameters(self):
-        return {"lower": self.lower, "upper": self.upper, "mean": self.mean, "std": self.standard_deviation}
+        return {
+            "lower": self.lower,
+            "upper": self.upper,
+            "mean": self.mean,
+            "std": self.standard_deviation,
+            "eta": self.eta,
+        }
 
 
 class LaplacePrior(GaussianPrior):
@@ -101,7 +117,7 @@ class LaplacePrior(GaussianPrior):
 class StudentsTPrior(_Prior):
     density = "students"
 
-    def __init__(self, mean, standard_deviation, nu, lower=float("-inf"), upper=float("inf"), name=None):
+    def __init__(self, mean, standard_deviation, nu, lower=float("-inf"), upper=float("inf"), eta=None, name=None):
         super().__init__(name=name)
         _validate_bounds(lower, mean, upper)
         _validate_standard_deviation(standard_deviation)
@@ -112,6 +128,7 @@ class StudentsTPrior(_Prior):
         self.mean = mean
         self.standard_deviation = standard_deviation
         self.nu = nu
+        self.eta = eta
 
     def _parameters(self):
         return {
@@ -120,6 +137,7 @@ class StudentsTPrior(_Prior):
             "mean": self.mean,
             "std": self.standard_deviation,
             "nu": self.nu,
+            "eta": self.eta,
         }
 
 

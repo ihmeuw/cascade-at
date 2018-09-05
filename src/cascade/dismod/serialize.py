@@ -289,7 +289,7 @@ def make_avgint_table(context, integrand_id_func):
 
 def _prior_row(prior):
     row = {
-        "prior_name": None,
+        "prior_name": prior.name,
         "density": None,
         "lower": np.nan,
         "upper": np.nan,
@@ -300,6 +300,14 @@ def _prior_row(prior):
     }
     row.update(prior.parameters())
     row["density_name"] = row["density"]
+
+    if row["eta"] is None:
+        # For some distributions eta is a required parameter but for others
+        # it is nullable and represents an offset to be used during
+        # optimization. This let's us have None represent the missing
+        # value in python
+        row["eta"] = np.nan
+
     del row["density"]
     return row
 
@@ -307,7 +315,10 @@ def _prior_row(prior):
 def make_prior_table(context, density_table):
     priors = sorted(collect_priors(context))
 
-    prior_table = pd.DataFrame([_prior_row(p) for p in priors])
+    prior_table = pd.DataFrame(
+        [_prior_row(p) for p in priors],
+        columns=["prior_name", "density_name", "lower", "upper", "mean", "std", "eta", "nu"],
+    )
     prior_table["prior_id"] = prior_table.index
     prior_table.loc[prior_table.prior_name.isnull(), "prior_name"] = prior_table.loc[
         prior_table.prior_name.isnull(), "prior_id"
