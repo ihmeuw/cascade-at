@@ -33,8 +33,8 @@ class _Prior:
     def __lt__(self, other):
         if not isinstance(other, _Prior):
             return NotImplemented
-        self_dict = sorted(dict(name=self.name if self.name else "", **self.parameters()).items())
-        other_dict = sorted(dict(name=other.name if other.name else "", **other.parameters()).items())
+        self_dict = sorted([(k, v) for k, v in dict(name=self.name, **self.parameters()).items() if v is not None])
+        other_dict = sorted([(k, v) for k, v in dict(name=other.name, **other.parameters()).items() if v is not None])
 
         return self_dict < other_dict
 
