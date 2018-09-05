@@ -64,7 +64,7 @@ def base_context(observations, constraints):
     d_time = PriorGrid(grid)
     d_time[:, :].prior = GaussianPrior(0, 0.1)
     d_age = PriorGrid(grid)
-    d_age[:, :].prior = GaussianPrior(0, 0.1)
+    d_age[:, :].prior = GaussianPrior(0, 0.1, name="TestPrior")
     value = PriorGrid(grid)
     value[:, :].prior = GaussianPrior(0, 0.1)
 
@@ -113,7 +113,12 @@ def test_development_target(base_context):
 
 def test_collect_priors(base_context):
     priors = collect_priors(base_context)
-    assert priors == {GaussianPrior(0, 0.1), UniformPrior(0, 1, 0.5), GaussianPrior(1, 0.1)}
+    assert priors == {
+        GaussianPrior(0, 0.1, name="TestPrior"),
+        UniformPrior(0, 1, 0.5),
+        GaussianPrior(1, 0.1),
+        GaussianPrior(0, 0.1),
+    }
 
 
 def test_collect_ages_or_times__ages(base_context):
