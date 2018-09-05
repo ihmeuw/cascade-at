@@ -62,7 +62,7 @@ def base_context(observations, constraints):
     grid = AgeTimeGrid.uniform(age_start=0, age_end=100, age_step=1, time_start=1990, time_end=2018, time_step=5)
 
     d_time = PriorGrid(grid)
-    d_time[:, :].prior = GaussianPrior(0, 0.1)
+    d_time[:, :].prior = GaussianPrior(0, 0.1, eta=1)
     d_age = PriorGrid(grid)
     d_age[:, :].prior = GaussianPrior(0, 0.1, name="TestPrior")
     value = PriorGrid(grid)
@@ -118,6 +118,7 @@ def test_collect_priors(base_context):
         UniformPrior(0, 1, 0.5),
         GaussianPrior(1, 0.1),
         GaussianPrior(0, 0.1),
+        GaussianPrior(0, 0.1, eta=1),
     }
 
 
