@@ -7,6 +7,7 @@ def mock_execution_context(mocker):
     mock_context.parameters.database = "test_database"
     mock_context.parameters.model_version_id = 12345
     mock_context.parameters.add_csmr_cause = 173
+    mock_context.parameters.country_covariate_ids = [26, 28, 33]
     return mock_context
 
 
