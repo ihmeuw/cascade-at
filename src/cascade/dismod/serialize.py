@@ -300,6 +300,14 @@ def _prior_row(prior):
     }
     row.update(prior.parameters())
     row["density_name"] = row["density"]
+
+    if row["eta"] is None:
+        # For some distributions eta is a required parameter but for others
+        # it is nullable and represents an offset to be used during
+        # optimization. This let's us have None represent the missing
+        # value in python
+        row["eta"] = np.nan
+
     del row["density"]
     return row
 

@@ -175,7 +175,10 @@ def test_make_prior_table(base_context):
 
         assert set(r_dict.keys()) == set(o_dict.keys())
         for k, v in r_dict.items():
-            assert r_dict[k] == o_dict[k] or (np.isnan(r_dict[k]) and np.isnan(o_dict[k]))
+            if k == "eta" and o_dict[k] is None:
+                assert np.isnan(r_dict[k])
+            else:
+                assert r_dict[k] == o_dict[k] or (np.isnan(r_dict[k]) and np.isnan(o_dict[k]))
 
 
 def test_make_smooth_and_smooth_grid_tables(base_context):
