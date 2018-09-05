@@ -12,13 +12,16 @@ from cascade.model.priors import (
 
 
 def test_happy_construction():
-    UniformPrior(-1, 1, 0, "test")
-    GaussianPrior(0, 1, -10, 10, "test2")
-    LaplacePrior(0, 1, -10, 10, "test3")
-    StudentsTPrior(0, 1, 0.5, -10, 10, "test4")
-    LogGaussianPrior(0, 1, 0.5, -10, 10, "test5")
-    LogLaplacePrior(0, 1, 0.5, -10, 10, "test6")
-    LogStudentsTPrior(0, 1, 0.5, 0.5, -10, 10, "test7")
+    UniformPrior(-1, 1, 0, name="test")
+    UniformPrior(-1, 1, 0, 0.5, name="test")
+    GaussianPrior(0, 1, -10, 10, name="test2")
+    GaussianPrior(0, 1, -10, 10, 0.5, name="test2")
+    LaplacePrior(0, 1, -10, 10, name="test3")
+    LaplacePrior(0, 1, -10, 10, 0.5, name="test3")
+    StudentsTPrior(0, 1, 0.5, -10, 10, name="test4")
+    LogGaussianPrior(0, 1, 0.5, -10, 10, name="test5")
+    LogLaplacePrior(0, 1, 0.5, -10, 10, name="test6")
+    LogStudentsTPrior(0, 1, 0.5, 0.5, -10, 10, name="test7")
 
 
 def test_prior_equality():
