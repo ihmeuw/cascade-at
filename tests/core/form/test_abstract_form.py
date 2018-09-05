@@ -10,6 +10,9 @@ def test_development_target():
                 return f"Invalid integer value '{value}'"
             return None
 
+        def _normalize(self, instance, value):
+            return int(value)
+
     class MyInnerForm(Form):
         my_inner_field = IntField()
 
@@ -20,6 +23,10 @@ def test_development_target():
     f = MyForm({"my_field": "10", "my_inner_form": {"my_inner_field": 100}})
     errors = f.validate()
     assert not errors
+
+    f.normalize()
+    assert f.my_field == 10
+    assert f.my_inner_form.my_inner_field == 100
 
     f = MyForm({"my_field": "10", "my_inner_form": {"my_inner_field": "eaoeao"}})
     errors = f.validate()
@@ -34,6 +41,19 @@ def test_development_target():
 
     errors = f.validate(ignore_missing_keys=True)
     assert set(errors) == {("my_field", "Invalid integer value 'None'")}
+
+
+def test_Form__name_field():
+    class MyInnerForm(Form):
+        my_field = SimpleTypeField(int)
+        foo = SimpleTypeField(str)
+
+    class MyOuter(Form):
+        inner_form = MyInnerForm(name_field="foo")
+
+    f = MyOuter({"inner_form": {"my_field": "10"}})
+    assert not f.validate()
+    assert f.inner_form.foo == "inner_form"
 
 
 def test_SimpleTypeField__validation():
@@ -51,3 +71,14 @@ def test_SimpleTypeField__validation():
         ("my_int_field", "Invalid int value 'oueou'"),
         ("my_float_field", "Invalid float value 'blaa'"),
     }
+
+
+def test_SimpleTypeField__normalization():
+    class MyForm(Form):
+        my_int_field = SimpleTypeField(int)
+        my_float_field = SimpleTypeField(float)
+
+    f = MyForm({"my_int_field": 10, "my_float_field": 1.5})
+    f.normalize()
+    assert f.my_int_field == 10
+    assert f.my_float_field == 1.5

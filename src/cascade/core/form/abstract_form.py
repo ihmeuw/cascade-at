@@ -50,6 +50,14 @@ class Field(Node):
     def _validate(self, instance, value):
         raise NotImplementedError()
 
+    def normalize(self, instance):
+        value = self.__get__(instance, instance.__class__)
+        value = self._normalize(instance, value)
+        self.__set__(instance, value)
+
+    def _normalize(self, instance, value):
+        raise NotImplementedError()
+
 
 class SimpleTypeField(Field):
     def __init__(self, constructor, *args, **kwargs):
@@ -63,20 +71,32 @@ class SimpleTypeField(Field):
             return f"Invalid {self.constructor.__name__} value '{value}'"
         return None
 
+    def _normalize(self, instance, value):
+        return self.constructor(value)
+
 
 class Form(Node):
-    def __init__(self, source=None):
+    def __init__(self, source=None, name_field=None):
         super().__init__()
+        self._args = []
+        self._kwargs = {"name_field": name_field}
+        self.name_field = name_field
         if source:
-            self.process_dict(source)
+            self.process_source(source)
 
     def __set__(self, instance, value):
         if isinstance(instance, Node):
-            form = self.__class__(value)
+            form = self.new_instance()
             form.name = self.name
+            form.process_source(value)
             instance._child_instances[self] = form
 
-    def process_dict(self, source):
+    def new_instance(self):
+        return self.__class__(*self._args, **self._kwargs)
+
+    def process_source(self, source):
+        if self.name_field:
+            setattr(self, self.name_field, self.name)
         for k, v in source.items():
             for c in self._children:
                 if c.name == k:
@@ -91,7 +111,18 @@ class Form(Node):
             c_errors = child.validate(self, ignore_missing_keys)
             if c_errors:
                 if child.name:
-                    errors.extend([(f"{child.name}." + p if p else child.name, e) for p, e in c_errors])
+                    # TODO: This replace is ugly and probably means that I'm
+                    # not thinking clearly about how these error paths
+                    # get constructed.
+                    errors.extend(
+                        [((f"{child.name}." + p).replace(".[", "[") if p else child.name, e) for p, e in c_errors]
+                    )
                 else:
                     errors.extend(c_errors)
         return errors
+
+    def normalize(self, instance=None):
+        for child, child_value in self._child_instances.items():
+            if isinstance(child_value, Node):
+                child = child_value
+            child.normalize(self)

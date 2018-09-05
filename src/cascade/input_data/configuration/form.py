@@ -1,16 +1,7 @@
-from cascade.input_data.configuration.abstract_form import (
-    _Form,
-    IntegerField,
-    FloatField,
-    StringField,
-    StringAsListField,
-    OptionField,
-    FormList,
-    DummyForm,
-)
+from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
 
 
-class Distribution(_Form):
+class Distribution(Form):
     density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"])
     min = FloatField(nullable=True)
     mean = FloatField(nullable=True)
@@ -18,7 +9,7 @@ class Distribution(_Form):
     std = FloatField(nullable=True)
 
 
-class SmoothingPrior(_Form):
+class SmoothingPrior(Form):
     prior_type = OptionField(["dage", "dtime", "value"])
     age_lower = FloatField()
     age_upper = FloatField()
@@ -31,58 +22,58 @@ class SmoothingPrior(_Form):
     std = FloatField(nullable=True)
 
 
-class SmoothingPriorGroup(_Form):
+class SmoothingPriorGroup(Form):
     dage = SmoothingPrior(name_field="prior_type")
     dtime = SmoothingPrior(name_field="prior_type")
     value = SmoothingPrior(name_field="prior_type")
 
 
-class Smoothing(_Form):
-    rate = IntegerField()
-    age_grid = StringAsListField(" ", float)
-    time_grid = StringAsListField(" ", float)
+class Smoothing(Form):
+    rate = IntField()
+    age_grid = StringListField(constructor=float)
+    time_grid = StringListField(constructor=float)
     default = SmoothingPriorGroup()
     mulstd = SmoothingPrior()
     detail = FormList(SmoothingPrior)
 
-    custom_age_grid = DummyForm()
-    custom_time_grid = DummyForm()
+    custom_age_grid = Dummy()
+    custom_time_grid = Dummy()
 
 
-class Model(_Form):
-    modelable_entity_id = IntegerField()
-    title = StringField()
-    description = StringField()
-    bundle_id = IntegerField()
+class Model(Form):
+    modelable_entity_id = IntField()
+    title = StrField()
+    description = StrField()
+    bundle_id = IntField()
     drill = OptionField(["cascade", "drill"])
-    drill_location = IntegerField()
+    drill_location = IntField()
     drill_sex = OptionField([1, 2], nullable=True)
-    default_age_grid = StringAsListField(" ", float)
-    default_time_grid = StringAsListField(" ", float)
+    default_age_grid = StringListField(constructor=float)
+    default_time_grid = StringListField(constructor=float)
 
 
-class Configuration(_Form):
+class Configuration(Form):
     model = Model()
-    gbd_round_id = IntegerField()
-    csmr_cod_output_version_id = IntegerField()
-    csmr_mortality_output_version_id = IntegerField()
-    location_set_version_id = IntegerField()
+    gbd_round_id = IntField()
+    csmr_cod_output_version_id = IntField()
+    csmr_mortality_output_version_id = IntField()
+    location_set_version_id = IntField()
     random_effect = FormList(Smoothing)
     rate = FormList(Smoothing)
 
-    min_cv = FormList(DummyForm)
-    min_cv_by_rate = FormList(DummyForm)
-    re_bound_location = FormList(DummyForm)
-    study_covariate = DummyForm()
-    country_covariate = DummyForm()
-    derivative_test = DummyForm()
-    max_num_iter = DummyForm()
-    print_level = DummyForm()
-    accept_after_max_steps = DummyForm()
-    tolerance = DummyForm()
-    students_dof = DummyForm()
-    log_students_dof = DummyForm()
-    eta = DummyForm()
-    data_eta_by_integrand = DummyForm()
-    data_density_by_integrand = DummyForm()
-    config_version = DummyForm()
+    min_cv = FormList(Dummy)
+    min_cv_by_rate = FormList(Dummy)
+    re_bound_location = FormList(Dummy)
+    study_covariate = Dummy()
+    country_covariate = Dummy()
+    derivative_test = Dummy()
+    max_num_iter = Dummy()
+    print_level = Dummy()
+    accept_after_max_steps = Dummy()
+    tolerance = Dummy()
+    students_dof = Dummy()
+    log_students_dof = Dummy()
+    eta = Dummy()
+    data_eta_by_integrand = Dummy()
+    data_density_by_integrand = Dummy()
+    config_version = Dummy()
