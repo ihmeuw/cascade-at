@@ -289,7 +289,7 @@ def make_avgint_table(context, integrand_id_func):
 
 def _prior_row(prior):
     row = {
-        "prior_name": None,
+        "prior_name": prior.name,
         "density": None,
         "lower": np.nan,
         "upper": np.nan,
