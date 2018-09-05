@@ -315,7 +315,10 @@ def _prior_row(prior):
 def make_prior_table(context, density_table):
     priors = sorted(collect_priors(context))
 
-    prior_table = pd.DataFrame([_prior_row(p) for p in priors])
+    prior_table = pd.DataFrame(
+        [_prior_row(p) for p in priors],
+        columns=["prior_name", "density_name", "lower", "upper", "mean", "std", "eta", "nu"],
+    )
     prior_table["prior_id"] = prior_table.index
     prior_table.loc[prior_table.prior_name.isnull(), "prior_name"] = prior_table.loc[
         prior_table.prior_name.isnull(), "prior_id"
