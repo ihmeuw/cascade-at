@@ -146,25 +146,19 @@ class DismodFile:
     column name to column type.
     """
 
-    def __init__(self, engine=None, avgint_columns=None, data_columns=None):
+    def __init__(self, engine=None):
         """
         The columns arguments add columns to the avgint and data
         tables.
 
         Args:
             engine: A sqlalchemy engine
-            avgint_columns (dict): From columns to types.
-            data_columns (dict): From columns to types.
         """
         self.engine = engine
         self._metadata = deepcopy(Base.metadata)
         self._table_definitions = self._metadata.tables
         self._table_data = {}
         self._table_hash = {}
-        if avgint_columns:
-            add_columns_to_avgint_table(self._metadata, avgint_columns)
-        if data_columns:
-            add_columns_to_data_table(self._metadata, data_columns)
         LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
 
     def create_tables(self, tables=None):
@@ -187,6 +181,18 @@ class DismodFile:
         attributes.extend(super().__dir__())
         return attributes
 
+    def update_table_columns(self, table, new_columns):
+        bad_column_names = [c for c in new_columns.keys() if not c.startswith("x_")]
+        if bad_column_names:
+            raise ValueError("Covariate column names must start with 'x_'")
+
+        if table.name == "avgint":
+            add_columns_to_avgint_table(self._metadata, new_columns)
+        elif table.name == "data":
+            add_columns_to_data_table(self._metadata, new_columns)
+        else:
+            raise ValueError(f"Can't add columns to {table.name}")
+
     def __getattr__(self, table_name):
         if table_name in self._table_data:
             return self._table_data[table_name]
@@ -194,8 +200,18 @@ class DismodFile:
             if self.engine is None:
                 raise ValueError("Cannot read from disk before an engine is set")
             table = self._table_definitions[table_name]
-            with self.engine.connect() as conn:
-                data = pd.read_sql_table(table.name, conn)
+            try:
+                with self.engine.connect() as conn:
+                    data = pd.read_sql_table(table.name, conn)
+            except ValueError as e:
+                if str(e) != f"Table {table.name} not found":
+                    raise
+                data = pd.DataFrame({k: pd.Series(dtype=v.type.python_type) for k, v in table.c.items()})
+
+            extra_columns = set(data.columns.difference(table.c.keys()))
+            if extra_columns:
+                self.update_table_columns(table, extra_columns)
+
             data = data.set_index(f"{table_name}_id", drop=False)
             self._table_hash[table_name] = pd.util.hash_pandas_object(data)
             self._table_data[table_name] = data
@@ -247,6 +263,12 @@ class DismodFile:
                         raise DismodFileError(f"Table '{table_name}' is not writable")
 
                     table_definition = self._table_definitions[table_name]
+
+                    extra_columns = set(table.columns.difference(table_definition.c.keys()))
+                    if extra_columns:
+                        extra_columns = {c: table.dtypes[c] for c in extra_columns}
+                        self.update_table_columns(table_definition, extra_columns)
+
                     _validate_data(table_definition, table)
 
                     # TODO: I'm re-calculating this hash for the sake of having a nice _is_dirty function.
