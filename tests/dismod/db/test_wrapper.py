@@ -215,8 +215,9 @@ def test_write_covariate_column__success(base_file):
     base_file.flush()
 
 
-def test_read_covariate_column__success(base_file):
-    new_data = pd.DataFrame(
+@pytest.fixture
+def dummy_data_row():
+    return pd.DataFrame(
         {
             "data_name": "foo",
             "integrand_id": 1,
@@ -237,7 +238,10 @@ def test_read_covariate_column__success(base_file):
         },
         index=[0],
     )
-    base_file.data = new_data
+
+
+def test_read_covariate_column__success(base_file, dummy_data_row):
+    base_file.data = dummy_data_row
     base_file.flush()
 
     new_dm = DismodFile(base_file.engine)
@@ -245,29 +249,9 @@ def test_read_covariate_column__success(base_file):
     assert list(new_dm.data.x_sex) == [2.0]
 
 
-def test_write_covariate_column__bad_name(base_file):
-    new_data = pd.DataFrame(
-        {
-            "data_name": "foo",
-            "integrand_id": 1,
-            "density_id": 1,
-            "node_id": 1,
-            "weight_id": 1,
-            "hold_out": 0,
-            "meas_value": 0.0,
-            "meas_std": 0.0,
-            "eta": np.nan,
-            "nu": np.nan,
-            "age_lower": 0,
-            "age_upper": 10,
-            "time_lower": 1990,
-            "time_upper": 2000,
-            "x_s_source": 0,
-            "not_x_sex": 2.0,
-        },
-        index=[0],
-    )
-    base_file.data = new_data
+def test_write_covariate_column__bad_name(base_file, dummy_data_row):
+    dummy_data_row = dummy_data_row.rename(columns={"x_sex": "not_x_sex"})
+    base_file.data = dummy_data_row
     with pytest.raises(ValueError) as excinfo:
         base_file.flush()
     assert "Covariate column names must start with 'x_'" == str(excinfo.value)
