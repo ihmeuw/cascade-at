@@ -64,7 +64,7 @@ def test_nested_forms__succesful_validation(nested_forms):
             }
         }
     )
-    assert not f.validate()
+    assert not f.validate_and_normalize()
 
 
 def test_nested_forms__failed_validation(nested_forms):
@@ -79,7 +79,7 @@ def test_nested_forms__failed_validation(nested_forms):
             }
         }
     )
-    assert set(f.validate()) == {
+    assert set(f.validate_and_normalize()) == {
         ("inner_form.inner_sanctum.int_field", "Invalid int value 'oeueou'"),
         ("inner_form.inner_sanctum.float_list_field", "Errors in items: [Invalid float value 'non']"),
     }
@@ -97,7 +97,7 @@ def test_nested_forms__normalization(nested_forms):
             }
         }
     )
-    f.normalize()
+    f.validate_and_normalize()
     assert f.inner_form.inner_sanctum.int_field == 10
     assert f.inner_form.inner_sanctum.float_list_field[:2] == [10.0, 5.5]
     assert np.isnan(f.inner_form.inner_sanctum.float_list_field[-1])
@@ -107,30 +107,30 @@ def test_nested_forms__normalization(nested_forms):
 
 def test_form_with_FormList__empty(form_with_list):
     f = form_with_list({"inner_forms": []})
-    assert not f.validate()
+    assert not f.validate_and_normalize()
     assert len(f.inner_forms) == 0
 
 
 def test_form_with_FormList__non_empty(form_with_list):
     f = form_with_list({"inner_forms": [{"int_field": "10"}, {"int_field": "20"}]})
-    assert not f.validate()
-    assert f.inner_forms[0].int_field == "10"
-    assert f.inner_forms[1].int_field == "20"
+    assert not f.validate_and_normalize()
+    assert f.inner_forms[0].int_field == 10
+    assert f.inner_forms[1].int_field == 20
 
 
 def test_form_with_FormList__validation(form_with_list):
     f = form_with_list({"inner_forms": [{"int_field": "oeueoueo"}, {"int_field": "20"}]})
-    assert f.validate() == [("inner_forms[0].int_field", "Invalid int value 'oeueoueo'")]
+    assert f.validate_and_normalize() == [("inner_forms[0].int_field", "Invalid int value 'oeueoueo'")]
 
 
 def test_OptionField__success(form_with_options):
     f = form_with_options({"str_option_field": "a", "int_option_field": "1"})
-    assert not f.validate()
+    assert not f.validate_and_normalize()
 
 
 def test_OptionField__validation(form_with_options):
     f = form_with_options({"str_option_field": "c", "int_option_field": "oueo"})
-    assert set(f.validate()) == {
+    assert set(f.validate_and_normalize()) == {
         ("str_option_field", "Invalid option 'c'"),
         ("int_option_field", "Invalid int value 'oueo'"),
     }
@@ -138,22 +138,24 @@ def test_OptionField__validation(form_with_options):
 
 def test_OptionField__normalization(form_with_options):
     f = form_with_options({"str_option_field": "a", "int_option_field": "3"})
-    f.normalize()
+    f.validate_and_normalize()
     assert f.str_option_field == "a"
     assert f.int_option_field == 3
 
 
 def test_StringListField__successful_validation(form_with_string_list):
     f = form_with_string_list({"ints_field": "1 2 3 4 5"})
-    assert not f.validate()
+    assert not f.validate_and_normalize()
 
 
 def test_StringListField__successful_normalization(form_with_string_list):
     f = form_with_string_list({"ints_field": "1 2 3 4 5"})
-    f.normalize()
+    f.validate_and_normalize()
     assert f.ints_field == [1, 2, 3, 4, 5]
 
 
 def test_StringListField__failed_validation(form_with_string_list):
     f = form_with_string_list({"ints_field": "1 2 three 4 five"})
-    assert f.validate() == [("ints_field", "Errors in items: [Invalid int value 'three', Invalid int value 'five']")]
+    assert f.validate_and_normalize() == [
+        ("ints_field", "Errors in items: [Invalid int value 'three', Invalid int value 'five']")
+    ]

@@ -32,12 +32,12 @@ class FormList(Form):
             forms.append(form)
         self._forms = forms
 
-    def validate(self, instance=None, ignore_missing_keys=False):
-        return [(f"[{i}].{p}", e) for i, form in enumerate(self) for (p, e) in form.validate(self, ignore_missing_keys)]
-
-    def normalize(self, instance=None):
-        for form in self:
-            form.normalize(self)
+    def validate_and_normalize(self, instance=None, ignore_missing_keys=False):
+        return [
+            (f"[{i}].{p}", e)
+            for i, form in enumerate(self)
+            for (p, e) in form.validate_and_normalize(self, ignore_missing_keys)
+        ]
 
     def __iter__(self):
         return iter(self._forms)
@@ -66,21 +66,17 @@ class OptionField(Field):
         self.options = options
         self.constructor = constructor
 
-    def _validate(self, instance, value):
+    def _validate_and_normalize(self, instance, value):
+        new_value = value
         if self.constructor:
             try:
-                value = self.constructor(value)
+                new_value = self.constructor(value)
             except (ValueError, TypeError):
-                return f"Invalid {self.constructor.__name__} value '{value}'"
+                return None, f"Invalid {self.constructor.__name__} value '{value}'"
 
-        if value not in self.options:
-            return f"Invalid option '{value}'"
-        return None
-
-    def _normalize(self, instance, value):
-        if self.constructor:
-            return self.constructor(value)
-        return value
+        if new_value not in self.options:
+            return None, f"Invalid option '{new_value}'"
+        return new_value, None
 
 
 class StringListField(SimpleTypeField):
@@ -88,15 +84,15 @@ class StringListField(SimpleTypeField):
         super().__init__(constructor, *args, **kwargs)
         self.seperator = seperator
 
-    def _validate(self, instance, value):
+    def _validate_and_normalize(self, instance, value):
         errors = []
+        new_values = []
         for item in value.split(self.seperator):
-            error = super()._validate(instance, item)
+            new_value, error = super()._validate_and_normalize(instance, item)
             if error:
                 errors.append(error)
+            else:
+                new_values.append(new_value)
         if errors:
-            return "Errors in items: [" + ", ".join(errors) + "]"
-
-    def _normalize(self, instance, value):
-        parent_normalize = super()._normalize
-        return [parent_normalize(instance, item) for item in value.split(self.seperator)]
+            return None, "Errors in items: [" + ", ".join(errors) + "]"
+        return new_values, None

@@ -21,12 +21,11 @@ RATE_TO_INTEGRAND = dict(
 def model_context_from_epiviz(execution_context):
     config_data = from_epiviz(execution_context)
     configuration = Configuration(config_data)
-    errors = configuration.validate()
+    errors = configuration.validate_and_normalize()
     if errors:
         import pdb
 
         pdb.set_trace()
-    configuration.normalize()
 
     model_context = initial_context_from_epiviz(configuration)
 

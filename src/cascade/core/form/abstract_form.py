@@ -40,29 +40,21 @@ class Field(Node):
         super().__init__(*args, **kwargs)
         self.nullable = nullable
 
-    def validate(self, instance, ignore_missing_keys=False):
+    def validate_and_normalize(self, instance, ignore_missing_keys=False):
         value = self.__get__(instance, instance.__class__)
         if value is NO_VALUE:
             if not ignore_missing_keys and not self.nullable:
                 return [("", "Missing data")]
             return []
 
-        error = self._validate(instance, value)
+        new_value, error = self._validate_and_normalize(instance, value)
         if error is not None:
             return [("", error)]
+        self.__set__(instance, new_value)
         return []
 
-    def _validate(self, instance, value):
-        raise NotImplementedError()
-
-    def normalize(self, instance):
-        value = self.__get__(instance, instance.__class__)
-        if value is not NO_VALUE:
-            value = self._normalize(instance, value)
-            self.__set__(instance, value)
-
-    def _normalize(self, instance, value):
-        raise NotImplementedError()
+    def _validate_and_normalize(self, instance, value):
+        return value, None
 
 
 class SimpleTypeField(Field):
@@ -70,15 +62,12 @@ class SimpleTypeField(Field):
         super().__init__(*args, **kwargs)
         self.constructor = constructor
 
-    def _validate(self, instance, value):
+    def _validate_and_normalize(self, instance, value):
         try:
-            self.constructor(value)
+            new_value = self.constructor(value)
         except (ValueError, TypeError):
-            return f"Invalid {self.constructor.__name__} value '{value}'"
-        return None
-
-    def _normalize(self, instance, value):
-        return self.constructor(value)
+            return None, f"Invalid {self.constructor.__name__} value '{value}'"
+        return new_value, None
 
 
 class Form(Node):
@@ -110,12 +99,12 @@ class Form(Node):
         if self.name_field:
             setattr(self, self.name_field, self.name)
 
-    def validate(self, instance=None, ignore_missing_keys=False):
+    def validate_and_normalize(self, instance=None, ignore_missing_keys=False):
         errors = []
         for child, child_value in self._child_instances.items():
             if isinstance(child_value, Node):
                 child = child_value
-            c_errors = child.validate(self, ignore_missing_keys)
+            c_errors = child.validate_and_normalize(self, ignore_missing_keys)
             if c_errors:
                 if child.name:
                     # TODO: This replace is ugly and probably means that I'm
@@ -127,9 +116,3 @@ class Form(Node):
                 else:
                     errors.extend(c_errors)
         return errors
-
-    def normalize(self, instance=None):
-        for child, child_value in self._child_instances.items():
-            if isinstance(child_value, Node):
-                child = child_value
-            child.normalize(self)
