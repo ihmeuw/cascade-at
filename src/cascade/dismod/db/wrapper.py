@@ -181,14 +181,17 @@ class DismodFile:
         attributes.extend(super().__dir__())
         return attributes
 
-    def update_table_columns(self, table, new_columns):
+    def update_table_columns(self, table_definition, table):
+        new_columns = table.columns.difference(table_definition.c.keys())
+        new_columns = {c: table.dtypes[c] for c in new_columns}
+
         bad_column_names = [c for c in new_columns.keys() if not c.startswith("x_")]
         if bad_column_names:
             raise ValueError("Covariate column names must start with 'x_'")
 
-        if table.name == "avgint":
+        if table_definition.name == "avgint":
             add_columns_to_avgint_table(self._metadata, new_columns)
-        elif table.name == "data":
+        elif table_definition.name == "data":
             add_columns_to_data_table(self._metadata, new_columns)
         else:
             raise ValueError(f"Can't add columns to {table.name}")
@@ -210,7 +213,7 @@ class DismodFile:
 
             extra_columns = set(data.columns.difference(table.c.keys()))
             if extra_columns:
-                self.update_table_columns(table, extra_columns)
+                self.update_table_columns(table, data)
 
             data = data.set_index(f"{table_name}_id", drop=False)
             self._table_hash[table_name] = pd.util.hash_pandas_object(data)
@@ -266,8 +269,7 @@ class DismodFile:
 
                     extra_columns = set(table.columns.difference(table_definition.c.keys()))
                     if extra_columns:
-                        extra_columns = {c: table.dtypes[c] for c in extra_columns}
-                        self.update_table_columns(table_definition, extra_columns)
+                        self.update_table_columns(table_definition, table)
 
                     _validate_data(table_definition, table)
 
