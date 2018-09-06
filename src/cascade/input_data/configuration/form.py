@@ -11,10 +11,10 @@ class Distribution(Form):
 
 class SmoothingPrior(Form):
     prior_type = OptionField(["dage", "dtime", "value"])
-    age_lower = FloatField()
-    age_upper = FloatField()
-    time_lower = FloatField()
-    time_upper = FloatField()
+    age_lower = FloatField(nullable=True)
+    age_upper = FloatField(nullable=True)
+    time_lower = FloatField(nullable=True)
+    time_upper = FloatField(nullable=True)
     density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"])
     min = FloatField(nullable=True)
     mean = FloatField(nullable=True)
@@ -33,7 +33,7 @@ class Smoothing(Form):
     age_grid = StringListField(constructor=float)
     time_grid = StringListField(constructor=float)
     default = SmoothingPriorGroup()
-    mulstd = SmoothingPrior()
+    mulstd = SmoothingPriorGroup()
     detail = FormList(SmoothingPrior)
 
     custom_age_grid = Dummy()

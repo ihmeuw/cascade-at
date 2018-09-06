@@ -1,4 +1,9 @@
-NO_VALUE = object()
+class NoValue:
+    def __repr__(self):
+        return "NO_VALUE"
+
+
+NO_VALUE = NoValue()
 
 
 class Node:
@@ -38,7 +43,7 @@ class Field(Node):
     def validate(self, instance, ignore_missing_keys=False):
         value = self.__get__(instance, instance.__class__)
         if value is NO_VALUE:
-            if not ignore_missing_keys:
+            if not ignore_missing_keys and not self.nullable:
                 return [("", "Missing data")]
             return []
 
@@ -52,8 +57,9 @@ class Field(Node):
 
     def normalize(self, instance):
         value = self.__get__(instance, instance.__class__)
-        value = self._normalize(instance, value)
-        self.__set__(instance, value)
+        if value is not NO_VALUE:
+            value = self._normalize(instance, value)
+            self.__set__(instance, value)
 
     def _normalize(self, instance, value):
         raise NotImplementedError()
@@ -95,13 +101,14 @@ class Form(Node):
         return self.__class__(*self._args, **self._kwargs)
 
     def process_source(self, source):
-        if self.name_field:
-            setattr(self, self.name_field, self.name)
         for k, v in source.items():
             for c in self._children:
                 if c.name == k:
                     setattr(self, k, v)
                     break
+
+        if self.name_field:
+            setattr(self, self.name_field, self.name)
 
     def validate(self, instance=None, ignore_missing_keys=False):
         errors = []

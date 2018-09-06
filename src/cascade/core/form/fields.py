@@ -37,7 +37,7 @@ class FormList(Form):
 
     def normalize(self, instance=None):
         for form in self:
-            form.validate(self)
+            form.normalize(self)
 
     def __iter__(self):
         return iter(self._forms)
@@ -98,4 +98,5 @@ class StringListField(SimpleTypeField):
             return "Errors in items: [" + ", ".join(errors) + "]"
 
     def _normalize(self, instance, value):
-        return [super()._normalize(instance, item) for item in value.split(self.seperator)]
+        parent_normalize = super()._normalize
+        return [parent_normalize(instance, item) for item in value.split(self.seperator)]

@@ -1,6 +1,27 @@
 import pytest
 
+import numpy as np
+
 from cascade.core.form import Form, FormList, IntField, OptionField, StringListField
+
+
+@pytest.fixture
+def nested_forms():
+    class EvenMoreInner(Form):
+        int_list_field = StringListField(seperator=" ", constructor=float)
+
+    class MyInnerSanctum(Form):
+        int_field = IntField()
+        float_list_field = StringListField(seperator=" ", constructor=float)
+        further_in = FormList(EvenMoreInner)
+
+    class MyInnerForm(Form):
+        inner_sanctum = MyInnerSanctum()
+
+    class MyOuterForm(Form):
+        inner_form = MyInnerForm()
+
+    return MyOuterForm
 
 
 @pytest.fixture
@@ -31,20 +52,73 @@ def form_with_string_list():
     return MyForm
 
 
-def form_with_listList__empty(form_with_list):
+def test_nested_forms__succesful_validation(nested_forms):
+    f = nested_forms(
+        {
+            "inner_form": {
+                "inner_sanctum": {
+                    "int_field": "10",
+                    "float_list_field": "10 5.5 nan",
+                    "further_in": [{"int_list_field": "1 2 3"}],
+                }
+            }
+        }
+    )
+    assert not f.validate()
+
+
+def test_nested_forms__failed_validation(nested_forms):
+    f = nested_forms(
+        {
+            "inner_form": {
+                "inner_sanctum": {
+                    "int_field": "oeueou",
+                    "float_list_field": "10 5.5 non",
+                    "further_in": [{"int_list_field": "1 2 3"}],
+                }
+            }
+        }
+    )
+    assert set(f.validate()) == {
+        ("inner_form.inner_sanctum.int_field", "Invalid int value 'oeueou'"),
+        ("inner_form.inner_sanctum.float_list_field", "Errors in items: [Invalid float value 'non']"),
+    }
+
+
+def test_nested_forms__normalization(nested_forms):
+    f = nested_forms(
+        {
+            "inner_form": {
+                "inner_sanctum": {
+                    "int_field": "10",
+                    "float_list_field": "10 5.5 nan",
+                    "further_in": [{"int_list_field": "1 2 3"}],
+                }
+            }
+        }
+    )
+    f.normalize()
+    assert f.inner_form.inner_sanctum.int_field == 10
+    assert f.inner_form.inner_sanctum.float_list_field[:2] == [10.0, 5.5]
+    assert np.isnan(f.inner_form.inner_sanctum.float_list_field[-1])
+    assert len(f.inner_form.inner_sanctum.float_list_field) == 3
+    assert f.inner_form.inner_sanctum.further_in[0].int_list_field == [1, 2, 3]
+
+
+def test_form_with_FormList__empty(form_with_list):
     f = form_with_list({"inner_forms": []})
     assert not f.validate()
     assert len(f.inner_forms) == 0
 
 
-def form_with_listList__non_empty(form_with_list):
+def test_form_with_FormList__non_empty(form_with_list):
     f = form_with_list({"inner_forms": [{"int_field": "10"}, {"int_field": "20"}]})
     assert not f.validate()
     assert f.inner_forms[0].int_field == "10"
     assert f.inner_forms[1].int_field == "20"
 
 
-def form_with_listList__validation(form_with_list):
+def test_form_with_FormList__validation(form_with_list):
     f = form_with_list({"inner_forms": [{"int_field": "oeueoueo"}, {"int_field": "20"}]})
     assert f.validate() == [("inner_forms[0].int_field", "Invalid int value 'oeueoueo'")]
 
@@ -69,11 +143,17 @@ def test_OptionField__normalization(form_with_options):
     assert f.int_option_field == 3
 
 
-def test_StringListField__success(form_with_string_list):
+def test_StringListField__successful_validation(form_with_string_list):
     f = form_with_string_list({"ints_field": "1 2 3 4 5"})
     assert not f.validate()
 
 
-def test_StringListField__validation(form_with_string_list):
+def test_StringListField__successful_normalization(form_with_string_list):
+    f = form_with_string_list({"ints_field": "1 2 3 4 5"})
+    f.normalize()
+    assert f.ints_field == [1, 2, 3, 4, 5]
+
+
+def test_StringListField__failed_validation(form_with_string_list):
     f = form_with_string_list({"ints_field": "1 2 three 4 five"})
     assert f.validate() == [("ints_field", "Errors in items: [Invalid int value 'three', Invalid int value 'five']")]

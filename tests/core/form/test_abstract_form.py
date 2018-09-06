@@ -51,7 +51,7 @@ def test_Form__name_field():
     class MyOuter(Form):
         inner_form = MyInnerForm(name_field="foo")
 
-    f = MyOuter({"inner_form": {"my_field": "10"}})
+    f = MyOuter({"inner_form": {"my_field": "10", "foo": "not_inner_form"}})
     assert not f.validate()
     assert f.inner_form.foo == "inner_form"
 
