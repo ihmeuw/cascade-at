@@ -3,11 +3,7 @@ from cascade.model.rates import Smooth
 import cascade.model.priors as priors
 from cascade.input_data.configuration import ConfigurationError
 from cascade.core.context import ModelContext
-from cascade.input_data.db.configuration import from_epiviz
-from cascade.input_data.db.bundle import bundle_with_study_covariates, freeze_bundle
-from cascade.executor.no_covariate_main import bundle_to_observations
 from cascade.dismod.db.metadata import IntegrandEnum
-from cascade.input_data.configuration.form import Configuration
 
 RATE_TO_INTEGRAND = dict(
     iota=IntegrandEnum.Sincidence,
@@ -16,30 +12,6 @@ RATE_TO_INTEGRAND = dict(
     omega=IntegrandEnum.mtother,
     prevalence=IntegrandEnum.prevalence,
 )
-
-
-def model_context_from_epiviz(execution_context):
-    config_data = from_epiviz(execution_context)
-    configuration = Configuration(config_data)
-    errors = configuration.validate_and_normalize()
-    if errors:
-        import pdb
-
-        pdb.set_trace()
-
-    model_context = initial_context_from_epiviz(configuration)
-
-    fixed_effects_from_epiviz(model_context, configuration.rate)
-
-    freeze_bundle(execution_context)
-    bundle, study_covariates = bundle_with_study_covariates(
-        execution_context, bundle_id=model_context.parameters.bundle_id
-    )
-    model_context.inputs = bundle_to_observations(model_context.parameters, bundle)
-
-    integrand_grids_from_epiviz(model_context, configuration)
-
-    return model_context
 
 
 def initial_context_from_epiviz(configuration):
