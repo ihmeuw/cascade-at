@@ -64,6 +64,32 @@ def test_non_existent_table(base_file):
         base_file.integrands_with_an_s = pd.DataFrame()
 
 
+def test_empty_table__regular_tables(base_file):
+    table = base_file.empty_table("node")
+    assert set(table.columns) == {"node_id", "node_name", "parent"}
+    assert table.dtypes.node_id == np.int64
+    assert table.dtypes.node_name == np.object
+    assert table.dtypes.parent == np.int64
+
+
+def test_empty_table__table_with_mutable_columns(base_file, dummy_data_row):
+    table = base_file.empty_table("data")
+    assert "x_sex" not in table.columns
+    assert "x_s_source" not in table.columns
+
+    base_file.data = dummy_data_row
+    base_file.flush()
+
+    table = base_file.empty_table("data")
+    assert "x_sex" in table.columns
+    assert "x_s_source" in table.columns
+
+
+def test_attribute_access_of_empty_table(base_file):
+    table = base_file.node
+    assert set(table.columns) == {"node_id", "node_name", "parent"}
+
+
 def test_is_dirty__initially(base_file):
     assert base_file._is_dirty("age")
 
@@ -254,4 +280,14 @@ def test_write_covariate_column__bad_name(base_file, dummy_data_row):
     base_file.data = dummy_data_row
     with pytest.raises(ValueError) as excinfo:
         base_file.flush()
-    assert "Covariate column names must start with 'x_'" == str(excinfo.value)
+    assert "Covariate column names must start with 'x_'. Malformed names: ['not_x_sex']" == str(excinfo.value)
+
+
+def test_write_covariate_column__schema_changes_are_isolated(dummy_data_row):
+    dm_file = DismodFile(_get_engine(None))
+    dm_file.data = dummy_data_row
+    dm_file.flush()
+
+    dm_file2 = DismodFile(_get_engine(None))
+    table = dm_file2.data
+    assert "x_sex" not in table

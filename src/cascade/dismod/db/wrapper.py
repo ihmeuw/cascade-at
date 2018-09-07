@@ -187,7 +187,7 @@ class DismodFile:
 
         bad_column_names = [c for c in new_columns.keys() if not c.startswith("x_")]
         if bad_column_names:
-            raise ValueError("Covariate column names must start with 'x_'")
+            raise ValueError(f"Covariate column names must start with 'x_'. Malformed names: {bad_column_names}")
 
         if table_definition.name == "avgint":
             add_columns_to_avgint_table(self._metadata, new_columns)
@@ -209,7 +209,7 @@ class DismodFile:
             except ValueError as e:
                 if str(e) != f"Table {table.name} not found":
                     raise
-                data = pd.DataFrame({k: pd.Series(dtype=v.type.python_type) for k, v in table.c.items()})
+                data = self.empty_table(table.name)
 
             extra_columns = set(data.columns.difference(table.c.keys()))
             if extra_columns:
@@ -362,7 +362,4 @@ class DismodFile:
             An empty dataframe, but columns have correcct types.
         """
         table_definition = self._table_definitions[table_name]
-        # Skip the first one. It's always the column_id.
-        dtypes = [(k, v.type) for k, v in table_definition.c.items()][1:]
-        type_map = {Integer: np.int, Float: np.float, String: np.str, Enum: np.str}
-        return pd.DataFrame({column: np.zeros(0, dtype=type_map[type(kind)]) for column, kind in dtypes})
+        return pd.DataFrame({k: pd.Series(dtype=v.type.python_type) for k, v in table_definition.c.items()})
