@@ -9,7 +9,8 @@ NO_VALUE = NoValue()
 class Node:
     _children = None
 
-    def __init__(self):
+    def __init__(self, nullable=False):
+        self.nullable = nullable
         self.name = None
         if self._children:
             self._child_instances = {c: NO_VALUE for c in self._children}
@@ -36,9 +37,8 @@ class Node:
 
 
 class Field(Node):
-    def __init__(self, *args, nullable=False, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.nullable = nullable
 
     def validate_and_normalize(self, instance, ignore_missing_keys=False):
         value = self.__get__(instance, instance.__class__)
@@ -71,10 +71,10 @@ class SimpleTypeField(Field):
 
 
 class Form(Node):
-    def __init__(self, source=None, name_field=None):
-        super().__init__()
+    def __init__(self, source=None, name_field=None, nullable=False):
+        super().__init__(nullable)
         self._args = []
-        self._kwargs = {"name_field": name_field}
+        self._kwargs = {"name_field": name_field, "nullable": nullable}
         self.name_field = name_field
         if source:
             self.process_source(source)
@@ -90,17 +90,19 @@ class Form(Node):
         return self.__class__(*self._args, **self._kwargs)
 
     def process_source(self, source):
-        for k, v in source.items():
-            for c in self._children:
-                if c.name == k:
-                    setattr(self, k, v)
-                    break
+        if source:
+            for k, v in source.items():
+                for c in self._children:
+                    if c.name == k:
+                        setattr(self, k, v)
+                        break
 
         if self.name_field:
             setattr(self, self.name_field, self.name)
 
     def validate_and_normalize(self, instance=None, ignore_missing_keys=False):
         errors = []
+        ignore_missing_keys = ignore_missing_keys or self.nullable
         for child, child_value in self._child_instances.items():
             if isinstance(child_value, Node):
                 child = child_value

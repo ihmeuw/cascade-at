@@ -39,6 +39,12 @@ class FormList(Form):
             for (p, e) in form.validate_and_normalize(self, ignore_missing_keys)
         ]
 
+    def __get__(self, instance, owner):
+        value = super().__get__(instance, owner)
+        if value is NO_VALUE:
+            return []
+        return value
+
     def __iter__(self):
         return iter(self._forms)
 

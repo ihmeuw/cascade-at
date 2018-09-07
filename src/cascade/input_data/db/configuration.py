@@ -20,7 +20,44 @@ def from_epiviz(execution_context):
 
     # Fix bugs in epiviz
     # TODO: remove this once EPI-999 is resolved
-    if "bundle_id" not in config_data["model"]:
-        config_data["model"]["bundle_id"] = None
+    config_data = trim_config(config_data)
+    if config_data is DO_REMOVE:
+        config_data = {}
 
     return config_data
+
+
+DO_REMOVE = object()
+
+
+def trim_config(source):
+    """ This function represents the approach to missing data which the viz
+    team says the will enforce in the front end, though that hasn't happened
+    yet.
+    """
+    trimmed = None
+    remove = True
+    if isinstance(source, dict):
+        trimmed = {}
+        for k, v in source.items():
+            if k.startswith("__"):
+                continue
+            tv = trim_config(v)
+            if tv is not DO_REMOVE:
+                trimmed[k] = tv
+                remove = False
+    elif isinstance(source, list):
+        trimmed = []
+        for v in source:
+            tv = trim_config(v)
+            if tv is not DO_REMOVE:
+                trimmed.append(tv)
+                remove = False
+    else:
+        if source is not None and source != "":
+            trimmed = source
+            remove = False
+
+    if remove:
+        return DO_REMOVE
+    return trimmed

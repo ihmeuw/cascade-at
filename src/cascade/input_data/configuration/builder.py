@@ -64,6 +64,13 @@ def _make_prior(config):
                 config.min if config.min else float("-inf"),
                 config.max if config.max else float("inf"),
             )
+        elif config.density == "laplace":
+            result = priors.LaplacePrior(
+                config.mean,
+                config.std,
+                config.min if config.min else float("-inf"),
+                config.max if config.max else float("inf"),
+            )
     except (TypeError, ValueError):
         raise ValueError(f"Supplied pramaters not compatible with density '{config.density}':" f"{config}")
 

@@ -33,8 +33,8 @@ class Smoothing(Form):
     age_grid = StringListField(constructor=float)
     time_grid = StringListField(constructor=float)
     default = SmoothingPriorGroup()
-    mulstd = SmoothingPriorGroup()
-    detail = FormList(SmoothingPrior)
+    mulstd = SmoothingPriorGroup(nullable=True)
+    detail = FormList(SmoothingPrior, nullable=True)
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
@@ -44,7 +44,7 @@ class Model(Form):
     modelable_entity_id = IntField()
     title = StrField()
     description = StrField()
-    bundle_id = IntField()
+    bundle_id = IntField(nullable=True)
     drill = OptionField(["cascade", "drill"])
     drill_location = IntField()
     drill_sex = OptionField([1, 2], nullable=True)
@@ -58,7 +58,7 @@ class Configuration(Form):
     csmr_cod_output_version_id = IntField()
     csmr_mortality_output_version_id = IntField()
     location_set_version_id = IntField()
-    random_effect = FormList(Smoothing)
+    random_effect = FormList(Smoothing, nullable=True)
     rate = FormList(Smoothing)
 
     min_cv = FormList(Dummy)
