@@ -1,7 +1,7 @@
 .. _executor:
 
 Executor Functionality
-=======================
+======================
 
 .. automodule:: cascade.executor.argument_parser
     :members:

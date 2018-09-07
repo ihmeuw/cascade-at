@@ -11,7 +11,8 @@ Cascade is something the team can augment as needed.
 
 The input is a CSV file called ``measure.csv`` with the following columns.
 
- *  integrand (str): One of ``remission``, ``mtexcess``, ``prevalence``, ``mtall``, ``mtother``.
+ *  integrand (str): examples ``Sincidence``, ``Tincidence``, ``remission``, ``mtexcess``, 
+                              ``prevalence``, ``mtall``, ``mtother``.
  *  age_lower (float): Lower age of observation age-span and time-span.
  *  age_upper (float): Upper age of observation age-span and time-span.
  *  time_lower (float): Lower time of observation age-span and time-span.
@@ -21,17 +22,22 @@ The input is a CSV file called ``measure.csv`` with the following columns.
  *  hold_out (int): 0 or 1, where 1 says to use this data as the constraint, mtother.
 
 The ``mtother`` data is special. The script assumes that this is entirely known
-and treat it as a constraint on the fit. The ``mtother`` data must,
+and treats it as a constraint on the fit.  The ``mtother`` data must,
 as a consequence, be defined over the whole computational grid.
 For instance, if it is defined for ages (0.0, 10.0, 50.0) and years
 (1990, 1995, 2000), then it must be defined for all nine combinations of
 those ages and times. In addition, the fit will be found on those nine
 points for all of the rates of incidence, remission, and excess mortality.
 
+You can specify which rates are expected to be non-zero using the ``--non-zero-rates``
+command line option. By default it will estimate all rates. For example, if you want
+no remission in your model you could specify just ``iota chi omega```
+
 As an example, assuming you are running on the cluster, you could run::
 
-    # Reads measure.csv and writes fit.db
-    dmcsv2db
+    # Reads measure.csv and writes fit.db and makes estimates for iota, rho, chi and omega
+    dmcsv2db measure.csv fit.db --non-zero-rates iota rho chi omega
+    dmdismod fit.db set option print_level_fixed 5
     dmdismod fit.db set option quasi_fixed false
     dmdismod fit.db set option ode_step_size 1
     dmdismod fit.db init
@@ -41,4 +47,3 @@ As an example, assuming you are running on the cluster, you could run::
     dmdismod fit.db predict fit_var
     # Translates db contents into CSV files.
     dmdismodpy fit.db db2csv
-
