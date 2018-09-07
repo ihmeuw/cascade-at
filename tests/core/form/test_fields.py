@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from cascade.core.form import Form, FormList, IntField, OptionField, StringListField
+from cascade.core.form import Form, FormList, IntField, OptionField, StringListField, Dummy
 
 
 @pytest.fixture
@@ -17,9 +17,11 @@ def nested_forms():
 
     class MyInnerForm(Form):
         inner_sanctum = MyInnerSanctum()
+        nothing_here_either = Dummy()
 
     class MyOuterForm(Form):
         inner_form = MyInnerForm()
+        nothing_here = Dummy()
 
     return MyOuterForm
 

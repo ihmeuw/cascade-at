@@ -1,4 +1,4 @@
-from cascade.core.form.abstract_form import Form, Field, SimpleTypeField
+from cascade.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
 
 
 class IntField(SimpleTypeField):
@@ -50,13 +50,16 @@ class FormList(Form):
 
 
 class Dummy(Field):
-    def validate(self, instance, ignore_missing_keys=False):
+    def validate_and_normalize(self, instance, ignore_missing_keys=False):
         return []
 
-    def normalize(self, instance):
+    def process_source(self, source):
         pass
 
-    def process_source(self, source):
+    def __get__(self, instance, owner):
+        return NO_VALUE
+
+    def __set__(self, instance, value):
         pass
 
 
