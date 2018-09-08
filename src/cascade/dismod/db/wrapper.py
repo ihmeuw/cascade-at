@@ -183,16 +183,16 @@ class DismodFile:
 
     def update_table_columns(self, table_definition, table):
         new_columns = table.columns.difference(table_definition.c.keys())
-        new_columns = {c: table.dtypes[c] for c in new_columns}
+        new_column_types = {c: table.dtypes[c] for c in new_columns}
 
-        bad_column_names = [c for c in new_columns.keys() if not c.startswith("x_")]
+        bad_column_names = [c for c in new_columns if not c.startswith("x_")]
         if bad_column_names:
             raise ValueError(f"Covariate column names must start with 'x_'. Malformed names: {bad_column_names}")
 
         if table_definition.name == "avgint":
-            add_columns_to_avgint_table(self._metadata, new_columns)
+            add_columns_to_avgint_table(self._metadata, new_column_types)
         elif table_definition.name == "data":
-            add_columns_to_data_table(self._metadata, new_columns)
+            add_columns_to_data_table(self._metadata, new_column_types)
         else:
             raise ValueError(f"Can't add columns to {table.name}")
 
