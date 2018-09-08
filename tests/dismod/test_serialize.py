@@ -91,7 +91,7 @@ def test_development_target(base_context):
     e = _get_engine(None)
     dm.engine = e
     dm.flush()
-    dm2 = DismodFile(e, {}, {})
+    dm2 = DismodFile(e)
 
     age_table = make_age_table(base_context)
     time_table = make_time_table(base_context)
@@ -153,7 +153,7 @@ def test_make_time_table(base_context):
 
 
 def test_make_prior_table(base_context):
-    dm = DismodFile(None, {}, {})
+    dm = DismodFile(None)
     dm.make_densities()
 
     prior_table, prior_id_func = make_prior_table(base_context, dm.density)
@@ -188,7 +188,7 @@ def test_make_prior_table(base_context):
 
 
 def test_make_smooth_and_smooth_grid_tables(base_context):
-    dm = DismodFile(None, {}, {})
+    dm = DismodFile(None)
     dm.make_densities()
 
     age_table = make_age_table(base_context)
@@ -234,7 +234,7 @@ def test_make_avgint_table(base_context):
 
 
 def test_make_rate_table(base_context):
-    dm = DismodFile(None, {}, {})
+    dm = DismodFile(None)
     dm.make_densities()
     age_table = make_age_table(base_context)
     time_table = make_time_table(base_context)

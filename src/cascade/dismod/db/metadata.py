@@ -4,6 +4,8 @@ This describes the tables in the sqlite file that Dismod reads.
 import enum
 import logging
 
+import numpy as np
+
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Enum, ForeignKey
 from sqlalchemy import BigInteger
@@ -532,7 +534,7 @@ class Var(Base):
     covariate_id = Column(Integer(), nullable=False)
 
 
-_TYPE_MAP = {str: String, int: Integer, float: Float}
+_TYPE_MAP = {str: String, int: Integer, float: Float, np.dtype("int64"): Integer, np.dtype("float64"): Float}
 
 
 def add_columns_to_avgint_table(metadata, column_identifiers):
