@@ -68,7 +68,7 @@ def base_context(observations, constraints):
     value = PriorGrid(grid)
     value[:, :].prior = GaussianPrior(0, 0.1)
 
-    smooth = Smooth()
+    smooth = Smooth(name="iota_smooth")
     smooth.d_time_priors = d_time
     smooth.d_age_priors = d_age
     smooth.value_priors = value
@@ -201,6 +201,7 @@ def test_make_smooth_and_smooth_grid_tables(base_context):
     )
 
     assert len(smooth_table) == 2
+    assert "iota_smooth" in smooth_table.smooth_name.values
 
     assert set(smooth_table.index) == set(smooth_grid_table.smooth_id)
 
