@@ -1,6 +1,5 @@
 from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.rates import Smooth
-import cascade.model.priors as priors
 from cascade.input_data.configuration import ConfigurationError
 from cascade.core.context import ModelContext
 from cascade.dismod.db.metadata import IntegrandEnum
@@ -22,34 +21,6 @@ def initial_context_from_epiviz(configuration):
     context.parameters.location_id = configuration.model.drill_location
 
     return context
-
-
-def _make_prior(config):
-    result = None
-    try:
-        if config.density == "uniform":
-            result = priors.UniformPrior(config.min, config.max, config.mean)
-        elif config.density == "gaussian":
-            result = priors.GaussianPrior(
-                config.mean,
-                config.std,
-                config.min if config.min else float("-inf"),
-                config.max if config.max else float("inf"),
-            )
-        elif config.density == "laplace":
-            result = priors.LaplacePrior(
-                config.mean,
-                config.std,
-                config.min if config.min else float("-inf"),
-                config.max if config.max else float("inf"),
-            )
-    except (TypeError, ValueError):
-        raise ValueError(f"Supplied pramaters not compatible with density '{config.density}':" f"{config}")
-
-    if result is None:
-        raise ValueError(f"Unsuported density: '{config.density}'")
-
-    return result
 
 
 MEASURE_ID_TO_RATE_NAME = {
@@ -77,9 +48,9 @@ def fixed_effects_from_epiviz(model_context, rates_configuration):
         d_age = PriorGrid(grid)
         value = PriorGrid(grid)
 
-        d_age[:, :].prior = _make_prior(rate_config.default.dage)
-        d_time[:, :].prior = _make_prior(rate_config.default.dtime)
-        value[:, :].prior = _make_prior(rate_config.default.value)
+        d_age[:, :].prior = rate_config.default.dage.prior_object
+        d_time[:, :].prior = rate_config.default.dtime.prior_object
+        value[:, :].prior = rate_config.default.value.prior_object
 
         for row in rate_config.detail:
             if row.prior_type == "dage":
@@ -90,7 +61,7 @@ def fixed_effects_from_epiviz(model_context, rates_configuration):
                 pgrid = value
             else:
                 raise ConfigurationError(f"Unknown prior type {row.prior_type}")
-            pgrid[slice(row.age_lower, row.age_upper), slice(row.time_lower, row.time_upper)].prior = _make_prior(row)
+            pgrid[slice(row.age_lower, row.age_upper), slice(row.time_lower, row.time_upper)].prior = row.prior_object
         rate.parent_smooth = Smooth(value, d_age, d_time)
 
 
