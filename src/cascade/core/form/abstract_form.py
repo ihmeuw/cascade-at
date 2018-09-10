@@ -47,13 +47,15 @@ class Node:
 
     Args:
         nullable (bool): If False then missing data for this node is considered
-        an error. Defaults to False.
+          an error. Defaults to False.
+        default: Default value to return if unset
     """
 
     _children = None
 
-    def __init__(self, nullable=False):
+    def __init__(self, nullable=False, default=None):
         self.nullable = nullable
+        self.default = default
         self.name = None
         if self._children:
             self._child_instances = {c: NO_VALUE for c in self._children}
@@ -62,12 +64,15 @@ class Node:
 
     def __get__(self, instance, owner):
         if isinstance(instance, Node):
-            return instance._child_instances[self]
+            value = instance._child_instances[self]
+            if value is NO_VALUE and self.nullable:
+                return self.default
+            return value
         else:
             return None
 
     def is_unset(self, instance):
-        value = self.__get__(instance, type(self))
+        value = instance._child_instances[self]
         if value is NO_VALUE:
             return True
         return False
@@ -158,8 +163,8 @@ class SimpleTypeField(Field):
     Args:
         constructor: a function which takes one argument and returns a
                      normalized version of that argument. It must raise
-                     ValueError or TypeError if transformation is not
-                     possible.
+                     ValueError, TypeError or OverflowError if transformation
+                     is not possible.
     """
 
     def __init__(self, constructor, *args, **kwargs):
@@ -169,7 +174,7 @@ class SimpleTypeField(Field):
     def _validate_and_normalize(self, instance, value):
         try:
             new_value = self.constructor(value)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             return None, f"Invalid {self.constructor.__name__} value '{value}'"
         return new_value, None
 
@@ -226,6 +231,13 @@ class Form(Node):
             if isinstance(child_value, Node):
                 child = child_value
             yield child
+
+    def is_field_unset(self, field_name):
+        child = type(self).__dict__[field_name]
+        child_value = self._child_instances[child]
+        if isinstance(child_value, Node):
+            child = child_value
+        return child.is_unset(self)
 
     def is_unset(self, instance=None):
         return all([c.is_unset(self) for c in self.children])

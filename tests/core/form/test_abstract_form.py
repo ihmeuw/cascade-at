@@ -97,6 +97,17 @@ def test_Form__nullable():
     assert not f.validate_and_normalize()
 
 
+def test_Field__default_value():
+    class MyForm(Form):
+        my_field = SimpleTypeField(int, nullable=True)
+        my_other_field = SimpleTypeField(int, nullable=True, default=float("inf"))
+
+    f = MyForm({})
+    f.validate_and_normalize()
+    assert f.my_field is None
+    assert f.my_other_field == float("inf")
+
+
 def test_Form__name_field():
     class MyInnerForm(Form):
         my_field = SimpleTypeField(int)

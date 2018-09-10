@@ -9,19 +9,58 @@ The Configuration class is the root of the form.
 
 """
 from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
+from cascade.model import priors
 
 
 class SmoothingPrior(Form):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.prior_object = None
+
     prior_type = OptionField(["dage", "dtime", "value"])
     age_lower = FloatField(nullable=True)
     age_upper = FloatField(nullable=True)
     time_lower = FloatField(nullable=True)
     time_upper = FloatField(nullable=True)
     density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"])
-    min = FloatField(nullable=True)
+    min = FloatField(nullable=True, default=float("-inf"))
     mean = FloatField(nullable=True)
-    max = FloatField(nullable=True)
+    max = FloatField(nullable=True, default=float("inf"))
     std = FloatField(nullable=True)
+    nu = FloatField(nullable=True)
+    eta = FloatField(nullable=True)
+
+    def _full_form_validation(self):
+        errors = []
+
+        if not self.is_field_unset("age_lower") and not self.is_field_unset("age_lower"):
+            if self.age_lower > self.age_upper:
+                errors.append("age_lower must be less than or equal to age_upper")
+        if not self.is_field_unset("time_lower") and not self.is_field_unset("time_lower"):
+            if self.time_lower > self.time_upper:
+                errors.append("time_lower must be less than or equal to time_upper")
+
+        try:
+            if self.density == "uniform":
+                self.prior_object = priors.UniformPrior(self.min, self.max, self.mean)
+            elif self.density == "gaussian":
+                self.prior_object = priors.GaussianPrior(self.mean, self.std, self.min, self.max)
+            elif self.density == "laplace":
+                self.prior_object = priors.LaplacePrior(self.mean, self.std, self.min, self.max)
+            elif self.density == "students":
+                self.prior_object = priors.StudentsTPrior(self.mean, self.std, self.nu, self.min, self.max, self.eta)
+            elif self.density == "log_gaussian":
+                self.prior_object = priors.LogGaussianPrior(self.mean, self.std, self.eta, self.min, self.max)
+            elif self.density == "log_laplace":
+                self.prior_object = priors.LogLaplacePrior(self.mean, self.std, self.eta, self.min, self.max)
+            elif self.density == "log_students":
+                self.prior_object = priors.LogStudentsTPrior(self.mean, self.std, self.nu, self.eta, self.min, self.max)
+            else:
+                errors.append(f"Unknown density '{self.density}'")
+        except priors.PriorError as e:
+            errors.append(f"Parameters incompatible with density '{self.density}': {str(e)}")
+
+        return errors
 
 
 class SmoothingPriorGroup(Form):
@@ -55,7 +94,7 @@ class Model(Form):
 
 
 class Configuration(Form):
-    """ The root of the whole configuration form.
+    """ The root Form of the whole configuration tree.
 
     Example:
         >>> input_data = json.loads(json_blob)
@@ -68,6 +107,7 @@ class Configuration(Form):
                 print(f"Ready to configure a model for {form.model.modelable_entity_id}")
 
     """
+
     model = Model()
     gbd_round_id = IntField()
     csmr_cod_output_version_id = IntField()
