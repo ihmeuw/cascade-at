@@ -32,12 +32,8 @@ class FormList(Form):
             forms.append(form)
         self._forms = forms
 
-    def validate_and_normalize(self, instance=None, ignore_missing_keys=False):
-        return [
-            (f"[{i}].{p}", e)
-            for i, form in enumerate(self)
-            for (p, e) in form.validate_and_normalize(self, ignore_missing_keys)
-        ]
+    def validate_and_normalize(self, instance=None):
+        return [(f"[{i}].{p}", e) for i, form in enumerate(self) for (p, e) in form.validate_and_normalize(self)]
 
     def __get__(self, instance, owner):
         value = super().__get__(instance, owner)
@@ -56,7 +52,7 @@ class FormList(Form):
 
 
 class Dummy(Field):
-    def validate_and_normalize(self, instance, ignore_missing_keys=False):
+    def validate_and_normalize(self, instance):
         return []
 
     def process_source(self, source):

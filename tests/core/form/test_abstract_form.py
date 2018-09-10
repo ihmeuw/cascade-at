@@ -35,8 +35,64 @@ def test_development_target():
         ("my_inner_form.my_inner_field", "Missing data"),
     }
 
-    errors = f.validate_and_normalize(ignore_missing_keys=True)
-    assert set(errors) == {("my_field", "Invalid integer value 'None'")}
+
+def test_Field__is_unset():
+    class MyForm(Form):
+        my_field = SimpleTypeField(int)
+
+    f = MyForm({"my_field": 10})
+    assert not type(f).__dict__["my_field"].is_unset(f)
+
+    f = MyForm({"my_field": 0})
+    assert not type(f).__dict__["my_field"].is_unset(f)
+
+    f = MyForm({"my_field": None})
+    assert not type(f).__dict__["my_field"].is_unset(f)
+
+    f = MyForm({})
+    assert type(f).__dict__["my_field"].is_unset(f)
+
+
+def test_Form__is_unset():
+    class MyForm(Form):
+        my_field = SimpleTypeField(int)
+        my_other_field = SimpleTypeField(int)
+
+    f = MyForm({"my_field": 10, "my_other_field": 5})
+    assert not f.is_unset()
+
+    f = MyForm({"my_field": 10})
+    assert not f.is_unset()
+
+    f = MyForm({})
+    assert f.is_unset()
+
+
+def test_Field__nullable():
+    class MyForm(Form):
+        my_field = SimpleTypeField(int)
+        my_other_field = SimpleTypeField(int, nullable=True)
+
+    f = MyForm({"my_field": 10, "my_other_field": 5})
+    assert not f.validate_and_normalize()
+
+    f = MyForm({"my_field": 10})
+    assert not f.validate_and_normalize()
+
+
+def test_Form__nullable():
+    class MyInnerForm(Form):
+        my_field = SimpleTypeField(int)
+        my_other_field = SimpleTypeField(int)
+
+    class MyForm(Form):
+        inner = MyInnerForm(nullable=True)
+
+    f = MyForm({"inner": {"my_field": 10, "my_other_field": 0}})
+    assert not f.validate_and_normalize()
+
+    f = MyForm({"inner": {}})
+    assert not f.validate_and_normalize()
 
 
 def test_Form__name_field():

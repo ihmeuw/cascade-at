@@ -23,6 +23,12 @@ class Node:
         else:
             return None
 
+    def is_unset(self, instance):
+        value = self.__get__(instance, type(self))
+        if value is NO_VALUE:
+            return True
+        return False
+
     def __set__(self, instance, value):
         if isinstance(instance, Node):
             instance._child_instances[self] = value
@@ -40,10 +46,10 @@ class Field(Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def validate_and_normalize(self, instance, ignore_missing_keys=False):
-        value = self.__get__(instance, instance.__class__)
-        if value is NO_VALUE:
-            if not ignore_missing_keys and not self.nullable:
+    def validate_and_normalize(self, instance):
+        value = self.__get__(instance, type(instance))
+        if self.is_unset(instance):
+            if not self.nullable:
                 return [("", "Missing data")]
             return []
 
@@ -86,8 +92,18 @@ class Form(Node):
             form.process_source(value)
             instance._child_instances[self] = form
 
+    @property
+    def children(self):
+        for child, child_value in self._child_instances.items():
+            if isinstance(child_value, Node):
+                child = child_value
+            yield child
+
+    def is_unset(self, instance=None):
+        return all([c.is_unset(self) for c in self.children])
+
     def new_instance(self):
-        return self.__class__(*self._args, **self._kwargs)
+        return type(self)(*self._args, **self._kwargs)
 
     def process_source(self, source):
         if source:
@@ -100,13 +116,13 @@ class Form(Node):
         if self.name_field:
             setattr(self, self.name_field, self.name)
 
-    def validate_and_normalize(self, instance=None, ignore_missing_keys=False):
+    def validate_and_normalize(self, instance=None):
+        if self.is_unset() and self.nullable:
+            return []
+
         errors = []
-        ignore_missing_keys = ignore_missing_keys or self.nullable
-        for child, child_value in self._child_instances.items():
-            if isinstance(child_value, Node):
-                child = child_value
-            c_errors = child.validate_and_normalize(self, ignore_missing_keys)
+        for child in self.children:
+            c_errors = child.validate_and_normalize(self)
             if c_errors:
                 if child.name:
                     # TODO: This replace is ugly and probably means that I'm
