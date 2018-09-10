@@ -1,3 +1,5 @@
+import pytest
+
 from cascade.core.form.abstract_form import Form, Field, SimpleTypeField
 
 
@@ -134,3 +136,35 @@ def test_SimpleTypeField__normalization():
     f.validate_and_normalize()
     assert f.my_int_field == 10
     assert f.my_float_field == 1.5
+
+
+@pytest.fixture
+def form_with_validation():
+    class MyForm(Form):
+        a = SimpleTypeField(int)
+        b = SimpleTypeField(int)
+        c = SimpleTypeField(int)
+
+        def _full_form_validation(self, instance):
+            if self.a < self.b:
+                return ["a must be >= b"]
+            return []
+
+    return MyForm
+
+
+def test_full_form_validation__successful(form_with_validation):
+    f = form_with_validation({"a": "10", "b": 8, "c": 1})
+    assert not f.validate_and_normalize()
+
+
+def test_full_form_validation__failure_due_to_form_validation(form_with_validation):
+    f = form_with_validation({"a": "1", "b": 8, "c": 1})
+    assert f.validate_and_normalize() == [("", "a must be >= b")]
+
+
+def test_full_form_validation__failure_due_to_inconsistent_state(form_with_validation):
+    f = form_with_validation({"a": "1", "b": 8, "c": "ooeueou"})
+    errors = f.validate_and_normalize()
+    assert errors
+    assert ("", "a must be >= b") not in errors
