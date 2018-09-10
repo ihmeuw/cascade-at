@@ -244,7 +244,7 @@ def collect_ages_or_times(context, to_collect="ages"):
         values.append(np.max(list(context.input_data.times)))
         values.append(np.min(list(context.input_data.times)))
 
-    return unique_floats(values)
+    return sorted(unique_floats(values))
 
 
 def make_age_table(context):
@@ -340,8 +340,8 @@ def make_smooth_grid_table(smooth, prior_id_func):
 
     rows = []
     if grid is not None:
-        for age in grid.ages:
-            for year in grid.times:
+        for year in grid.times:
+            for age in grid.ages:
                 row = {"age": float(age), "time": float(year), "const_value": np.nan}
                 if smooth.value_priors:
                     prior = smooth.value_priors[age, year].prior
@@ -401,6 +401,7 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
             grid_table["smooth_id"] = len(smooths)
             grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
             grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
+            grid_table = grid_table.sort_values(["time_id", "age_id"])
 
             if smooth.name is None:
                 name = f"smooth_{len(smooths)}"
