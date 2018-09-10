@@ -401,7 +401,12 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
             grid_table["smooth_id"] = len(smooths)
             grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
             grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
-            smooth_rows.append(_smooth_row(f"smooth_{len(smooths)}", smooth, grid_table, prior_id_func))
+
+            if smooth.name is None:
+                name = f"smooth_{len(smooths)}"
+            else:
+                name = smooth.name
+            smooth_rows.append(_smooth_row(name, smooth, grid_table, prior_id_func))
             smooths.append(smooth)
             grid_tables.append(grid_table)
 
