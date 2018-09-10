@@ -44,6 +44,10 @@ NO_VALUE = NoValue()
 
 class Node:
     """ Base class for all form components.
+
+    Args:
+        nullable (bool): If False then missing data for this node is considered
+        an error. Defaults to False.
     """
 
     _children = None
@@ -173,6 +177,24 @@ class SimpleTypeField(Field):
 class Form(Node):
     """ The parent class of all forms.
 
+    Validation for forms happens in two stages. First all the form's fields and
+    sub forms are validated. If none of those have errors, then the form is
+    known to be in a consistent state and it's `_full_form_validation` method
+    is run to finalize validation. If any field or sub form is invalid then
+    this form's `_full_form_validation` method will not be run because the form
+    may be in an inconsistent state.
+
+    Simple forms will be valid if all their fields are valid but more complex
+    forms will require additional checks across multiple fields which are
+    handled by `_full_form_validation`.
+
+    Note:
+      A nested form may be marked nullable. It is considered null if all of
+      it's children are null. If a nullable form is null then it is not an
+      error for non-nullable fields in it to be null. If any of the form's
+      fields are non-null then the whole form is considered non-null at which
+      point missing data for non-nullable fields becomes an error again.
+
     Args:
         source (dict): The input data to parse. If None, it can be supplied
                        later by calling process_source
@@ -240,7 +262,7 @@ class Form(Node):
                 else:
                     errors.extend(c_errors)
         if not errors:
-            errors = [("", e) for e in self._full_form_validation(instance)]
+            errors = [("", e) for e in self._full_form_validation()]
 
         return errors
 
@@ -248,5 +270,10 @@ class Form(Node):
     def unset(self):
         return all([c.unset for c in self.children])
 
-    def _full_form_validation(self, instance):
+    def _full_form_validation(self):
+        """ Can be overridden by subclasses to do any validation that requires
+        multiple fields. This method will only execute if all the form's fields
+        are themselves valid and have been normalize. If not overridden it does
+        no additional checks.
+        """
         return []

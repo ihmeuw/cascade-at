@@ -8,11 +8,11 @@ from cascade.core.form import Form, FormList, IntField, OptionField, StringListF
 @pytest.fixture
 def nested_forms():
     class EvenMoreInner(Form):
-        int_list_field = StringListField(seperator=" ", constructor=float)
+        int_list_field = StringListField(separator=" ", constructor=float)
 
     class MyInnerSanctum(Form):
         int_field = IntField()
-        float_list_field = StringListField(seperator=" ", constructor=float)
+        float_list_field = StringListField(separator=" ", constructor=float)
         further_in = FormList(EvenMoreInner)
 
     class MyInnerForm(Form):
@@ -49,7 +49,7 @@ def form_with_options():
 @pytest.fixture
 def form_with_string_list():
     class MyForm(Form):
-        ints_field = StringListField(seperator=" ", constructor=int)
+        ints_field = StringListField(separator=" ", constructor=int)
 
     return MyForm
 

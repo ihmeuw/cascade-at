@@ -1,3 +1,6 @@
+""" This module defines specializations of the general tools in abstract_form,
+mostly useful field types.
+"""
 from cascade.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
 
 
@@ -17,6 +20,13 @@ class StrField(SimpleTypeField):
 
 
 class FormList(Form):
+    """ This represents a homogeneous list of forms. For example, it might be
+    used to contain a list of priors within a smoothing grid.
+
+    Args:
+      inner_form_constructor: A factory which produces an instance of a Form
+      subclass. Most often it will just be the Form subclass itself.
+    """
     def __init__(self, inner_form_constructor, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.inner_form_constructor = inner_form_constructor
@@ -52,6 +62,10 @@ class FormList(Form):
 
 
 class Dummy(Field):
+    """ A black hole which consumes all values without error. Use to mark
+    sections of the configuration which have yet to be implemented and should
+    be ignored.
+    """
     def validate_and_normalize(self, instance):
         return []
 
@@ -65,34 +79,47 @@ class Dummy(Field):
         pass
 
 
-class OptionField(Field):
-    def __init__(self, options, *args, constructor=None, **kwargs):
-        super().__init__(*args, **kwargs)
+class OptionField(SimpleTypeField):
+    """ A field which will only accept values form a predefined set.
+
+    Args:
+        options (list): The list of options to choose from
+        constructor: A function which takes a string and returns the expected
+          type. Behaves as the constructor for SimpleTypeField. Defaults to str
+    """
+    def __init__(self, options, *args, constructor=str, **kwargs):
+        super().__init__(constructor, *args, **kwargs)
         self.options = options
-        self.constructor = constructor
 
     def _validate_and_normalize(self, instance, value):
-        new_value = value
-        if self.constructor:
-            try:
-                new_value = self.constructor(value)
-            except (ValueError, TypeError):
-                return None, f"Invalid {self.constructor.__name__} value '{value}'"
+        new_value, error = super()._validate_and_normalize(instance, value)
+        if error:
+            return None, error
 
         if new_value not in self.options:
             return None, f"Invalid option '{new_value}'"
+
         return new_value, None
 
 
 class StringListField(SimpleTypeField):
-    def __init__(self, *args, constructor=str, seperator=" ", **kwargs):
+    """ A field which takes a string containing values demarcated by some
+    separator and transforms them into a homogeneous list of items of an
+    expected type.
+
+    Args:
+        constructor: A function which takes a string and returns the expected
+          type. Behaves as the constructor for SimpleTypeField. Defaults to str
+        separator (str): The string to split by. Defaults to a single space.
+    """
+    def __init__(self, *args, constructor=str, separator=" ", **kwargs):
         super().__init__(constructor, *args, **kwargs)
-        self.seperator = seperator
+        self.separator = separator
 
     def _validate_and_normalize(self, instance, value):
         errors = []
         new_values = []
-        for item in value.split(self.seperator):
+        for item in value.split(self.separator):
             new_value, error = super()._validate_and_normalize(instance, item)
             if error:
                 errors.append(error)
