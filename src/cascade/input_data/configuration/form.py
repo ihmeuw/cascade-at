@@ -1,21 +1,11 @@
 """A representation of the configuration form we expect to receive from EpiViz.
-The hoe is that this form will do as much validation and precondition checking
+The hope is that this form will do as much validation and precondition checking
 as is feasible within the constraint that it must be able to validate a full
 EpiViz parameter document in significantly less than one second. This is
 because it will be used as part of a web service which gates EpiViz submissions
 and must return in near real time.
 
 The Configuration class is the root of the form.
-
-Example:
-    >>> input_data = json.loads(json_blob)
-    >>> form = Configuration(input_data)
-    >>> errors = form.validate_and_normalize()
-    >>> if errors:
-            print(errors)
-            raise Exception("Woops")
-        else:
-            print(f"Ready to configure a model for {form.model.modelable_entity_id}")
 
 """
 from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
@@ -65,6 +55,19 @@ class Model(Form):
 
 
 class Configuration(Form):
+    """ The root of the whole configuration form.
+
+    Example:
+        >>> input_data = json.loads(json_blob)
+        >>> form = Configuration(input_data)
+        >>> errors = form.validate_and_normalize()
+        >>> if errors:
+                print(errors)
+                raise Exception("Woops")
+            else:
+                print(f"Ready to configure a model for {form.model.modelable_entity_id}")
+
+    """
     model = Model()
     gbd_round_id = IntField()
     csmr_cod_output_version_id = IntField()

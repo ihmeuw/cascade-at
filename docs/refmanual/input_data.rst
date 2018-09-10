@@ -11,3 +11,8 @@ Input Data Functionality
 
 .. automodule:: cascade.input_data.db.csmr
     :members:
+
+.. automodule:: cascade.input_data.configuration.form
+
+    .. autoclass:: Configuration
+        :members:
