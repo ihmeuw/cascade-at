@@ -1,10 +1,11 @@
 class Smooth:
-    __slots__ = ["_value_priors", "_d_age_priors", "_d_time_priors"]
+    __slots__ = ["_value_priors", "_d_age_priors", "_d_time_priors", "name"]
 
-    def __init__(self, value_priors=None, d_age_priors=None, d_time_priors=None):
+    def __init__(self, value_priors=None, d_age_priors=None, d_time_priors=None, name=None):
         self._value_priors = None
         self._d_age_priors = None
         self._d_time_priors = None
+        self.name = name
 
         self.value_priors = value_priors
         self.d_age_priors = d_age_priors
