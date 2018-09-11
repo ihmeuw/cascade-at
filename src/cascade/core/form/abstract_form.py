@@ -1,7 +1,7 @@
 """ This module defines general tools for building validators for messy
-hierarchical parameter data. It tries to follow conventions from form
-validation systems in the web application world since that is a very similar
-problem.
+hierarchical parameter data. It provides a declarative API for creating form
+validators. It tries to follow conventions from form validation systems in the
+web application world since that is a very similar problem.
 
 Example:
     Validators are defined as classes with attributes which corrispond to the
@@ -45,6 +45,13 @@ NO_VALUE = NoValue()
 class FormComponent:
     """ Base class for all form components. It bundles up behavior shared by
     both (sub)Forms and Fields.
+
+    Note:
+        FormComponent, Form and Field all make heavy use of the descriptor
+        protocol (https://docs.python.org/3/howto/descriptor.html). That means
+        that the relationship between objects and the data they operate on is
+        more complex than usual. Read up on descriptors, if you aren't familiar,
+        and pay close attention to how __set__ and __get__ access data.
 
     Args:
         nullable (bool): If False then missing data for this node is considered
