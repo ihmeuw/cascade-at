@@ -42,8 +42,9 @@ class NoValue:
 NO_VALUE = NoValue()
 
 
-class Node:
-    """ Base class for all form components.
+class FormComponent:
+    """ Base class for all form components. It bundles up behavior shared by
+    both (sub)Forms and Fields.
 
     Args:
         nullable (bool): If False then missing data for this node is considered
@@ -63,7 +64,7 @@ class Node:
             self._child_instances = {}
 
     def __get__(self, instance, owner):
-        if isinstance(instance, Node):
+        if isinstance(instance, FormComponent):
             value = instance._child_instances[self]
             if value is NO_VALUE and self.nullable:
                 return self.default
@@ -78,11 +79,11 @@ class Node:
         return False
 
     def __set__(self, instance, value):
-        if isinstance(instance, Node):
+        if isinstance(instance, FormComponent):
             instance._child_instances[self] = value
 
     def __set_name__(self, owner, name):
-        if issubclass(owner, Node):
+        if issubclass(owner, FormComponent):
             if owner._children is None:
                 owner._children = {self}
             else:
@@ -97,7 +98,7 @@ class Node:
         return False
 
 
-class Field(Node):
+class Field(FormComponent):
     """ A field within a form. Fields are responsible for validating the data
     they contain (without respect to data in other fields) and transforming
     it into a normalized form.
@@ -179,7 +180,7 @@ class SimpleTypeField(Field):
         return new_value, None
 
 
-class Form(Node):
+class Form(FormComponent):
     """ The parent class of all forms.
 
     Validation for forms happens in two stages. First all the form's fields and
@@ -219,7 +220,7 @@ class Form(Node):
             self.process_source(source)
 
     def __set__(self, instance, value):
-        if isinstance(instance, Node):
+        if isinstance(instance, FormComponent):
             form = self.new_instance()
             form.name = self.name
             form.process_source(value)
@@ -228,14 +229,14 @@ class Form(Node):
     @property
     def children(self):
         for child, child_value in self._child_instances.items():
-            if isinstance(child_value, Node):
+            if isinstance(child_value, FormComponent):
                 child = child_value
             yield child
 
     def is_field_unset(self, field_name):
         child = type(self).__dict__[field_name]
         child_value = self._child_instances[child]
-        if isinstance(child_value, Node):
+        if isinstance(child_value, FormComponent):
             child = child_value
         return child.is_unset(self)
 
