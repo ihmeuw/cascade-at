@@ -48,17 +48,17 @@ class _Prior:
 
 def _validate_bounds(lower, mean, upper):
     if not lower <= mean <= upper:
-        raise PriorError("Bounds are inconsistent")
+        raise PriorError(f"Bounds are inconsistent: lower={lower} mean={mean} upper={upper}")
 
 
 def _validate_standard_deviation(standard_deviation):
     if standard_deviation < 0:
-        raise PriorError("Standard deviation must be positive")
+        raise PriorError(f"Standard deviation must be positive: standard deviation={standard_deviation}")
 
 
 def _validate_nu(nu):
     if nu < 0:
-        raise PriorError("Nu must be positive")
+        raise PriorError(f"Nu must be positive: nu={nu}")
 
 
 class UniformPrior(_Prior):
