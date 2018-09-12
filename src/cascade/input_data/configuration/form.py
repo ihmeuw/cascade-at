@@ -71,6 +71,7 @@ class SmoothingPriorGroup(Form):
 
 class Smoothing(Form):
     rate = IntField()
+    location = IntField(nullable=True)
     age_grid = StringListField(constructor=float, nullable=True)
     time_grid = StringListField(constructor=float, nullable=True)
     default = SmoothingPriorGroup()

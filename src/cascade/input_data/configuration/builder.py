@@ -35,42 +35,44 @@ def initial_context_from_epiviz(configuration):
     return context
 
 
+def make_smooth(configuration, smooth_configuration):
+    ages = smooth_configuration.age_grid
+    if ages is None:
+        ages = configuration.model.default_age_grid
+    times = smooth_configuration.time_grid
+    if times is None:
+        times = configuration.model.default_time_grid
+    grid = AgeTimeGrid(ages, times)
+
+    d_time = PriorGrid(grid)
+    d_age = PriorGrid(grid)
+    value = PriorGrid(grid)
+
+    d_age[:, :].prior = smooth_configuration.default.dage.prior_object
+    d_time[:, :].prior = smooth_configuration.default.dtime.prior_object
+    value[:, :].prior = smooth_configuration.default.value.prior_object
+
+    if smooth_configuration.detail:
+        for row in smooth_configuration.detail:
+            if row.prior_type == "dage":
+                pgrid = d_age
+            elif row.prior_type == "dtime":
+                pgrid = d_time
+            elif row.prior_type == "value":
+                pgrid = value
+            else:
+                raise ConfigurationError(f"Unknown prior type {row.prior_type}")
+            pgrid[slice(row.age_lower, row.age_upper), slice(row.time_lower, row.time_upper)].prior = row.prior_object
+    return Smooth(value, d_age, d_time)
+
+
 def fixed_effects_from_epiviz(model_context, configuration):
     for rate_config in configuration.rate:
         rate_name = MEASURE_ID_TO_RATE_NAME[rate_config.rate]
         if rate_name not in [r.name for r in model_context.rates]:
             raise ConfigurationError(f"Unspported rate {rate_name}")
         rate = getattr(model_context.rates, rate_name)
-        ages = rate_config.age_grid
-        if ages is None:
-            ages = configuration.model.default_age_grid
-        times = rate_config.time_grid
-        if times is None:
-            times = configuration.model.default_time_grid
-        grid = AgeTimeGrid(ages, times)
-
-        d_time = PriorGrid(grid)
-        d_age = PriorGrid(grid)
-        value = PriorGrid(grid)
-
-        d_age[:, :].prior = rate_config.default.dage.prior_object
-        d_time[:, :].prior = rate_config.default.dtime.prior_object
-        value[:, :].prior = rate_config.default.value.prior_object
-
-        if rate_config.detail:
-            for row in rate_config.detail:
-                if row.prior_type == "dage":
-                    pgrid = d_age
-                elif row.prior_type == "dtime":
-                    pgrid = d_time
-                elif row.prior_type == "value":
-                    pgrid = value
-                else:
-                    raise ConfigurationError(f"Unknown prior type {row.prior_type}")
-                pgrid[
-                    slice(row.age_lower, row.age_upper), slice(row.time_lower, row.time_upper)
-                ].prior = row.prior_object
-        rate.parent_smooth = Smooth(value, d_age, d_time)
+        rate.parent_smooth = make_smooth(configuration, rate_config)
 
 
 def integrand_grids_from_epiviz(model_context, configuration):
@@ -82,3 +84,13 @@ def integrand_grids_from_epiviz(model_context, configuration):
         if rate.parent_smooth:
             integrand = getattr(model_context.outputs.integrands, RATE_TO_INTEGRAND[rate.name].name)
             integrand.grid = grid
+
+
+def random_effects_from_epiviz(model_context, configuration):
+    for smoothing_config in configuration.random_effect:
+        rate_name = MEASURE_ID_TO_RATE_NAME[smoothing_config.rate]
+        if rate_name not in [r.name for r in model_context.rates]:
+            raise ConfigurationError(f"Unspported rate {rate_name}")
+        rate = getattr(model_context.rates, rate_name)
+        location = smoothing_config.location
+        rate.child_smoothings.append((location, make_smooth(configuration, smoothing_config)))

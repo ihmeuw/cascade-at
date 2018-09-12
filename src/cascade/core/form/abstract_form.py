@@ -218,6 +218,8 @@ class Form(FormComponent):
                           the field had in the input data.
     """
 
+    _mixddin = None
+
     def __init__(self, source=None, name_field=None, nullable=False):
         super().__init__(nullable=nullable)
         self._args = []
