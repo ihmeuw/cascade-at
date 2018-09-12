@@ -51,6 +51,8 @@ class _Integrand:
     def __init__(self, name):
         self.name = name
         self.grid = None
+        self.value_covariate_multipliers = []
+        self.stddev_covariate_multipliers = []
 
 
 class _Integrands:

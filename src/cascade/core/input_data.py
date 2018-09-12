@@ -14,6 +14,7 @@ class InputData:
         self.rates = Rates()
         self.observations = None
         self.constraints = None
+        self.covariate_columns = []
 
     @property
     def ages(self):
