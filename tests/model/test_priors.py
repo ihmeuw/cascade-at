@@ -8,6 +8,7 @@ from cascade.model.priors import (
     LogGaussianPrior,
     LogLaplacePrior,
     LogStudentsTPrior,
+    PriorError,
 )
 
 
@@ -82,18 +83,18 @@ def test_prior_hashing():
 
 
 def test_bounds_check():
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(PriorError) as excinfo:
         UniformPrior(0, -1, 1)
     assert "Bounds are inconsistent" in str(excinfo.value)
 
 
 def test_validate_standard_deviation():
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(PriorError) as excinfo:
         GaussianPrior(0, -1)
     assert "must be positive" in str(excinfo.value)
 
 
 def test_validate_nu():
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(PriorError) as excinfo:
         StudentsTPrior(0, 1, -1)
     assert "must be positive" in str(excinfo.value)

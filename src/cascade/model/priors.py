@@ -8,6 +8,10 @@ from functools import total_ordering
 # docs: https://bradbell.github.io/dismod_at/doc/prior_table.htm#eta.Scaling%20Fixed%20Effects
 
 
+class PriorError(Exception):
+    pass
+
+
 @total_ordering
 class _Prior:
     """The base for all Priors
@@ -44,17 +48,17 @@ class _Prior:
 
 def _validate_bounds(lower, mean, upper):
     if not lower <= mean <= upper:
-        raise ValueError("Bounds are inconsistent")
+        raise PriorError(f"Bounds are inconsistent: lower={lower} mean={mean} upper={upper}")
 
 
 def _validate_standard_deviation(standard_deviation):
     if standard_deviation < 0:
-        raise ValueError("Standard deviation must be positive")
+        raise PriorError(f"Standard deviation must be positive: standard deviation={standard_deviation}")
 
 
 def _validate_nu(nu):
     if nu < 0:
-        raise ValueError("Nu must be positive")
+        raise PriorError(f"Nu must be positive: nu={nu}")
 
 
 class UniformPrior(_Prior):

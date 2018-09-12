@@ -257,7 +257,7 @@ def _normalize_measures(data):
     """Transform measure_ids into canonical measure names
     """
     data = data.copy()
-    data["measure"] = data.measure_id.apply(MEASURES.get)
+    data["measure"] = data.measure_id.apply(lambda k: MEASURES[k])
     return data
 
 
