@@ -61,7 +61,7 @@ def _validate_nu(nu):
         raise PriorError(f"Nu must be positive: nu={nu}")
 
 
-class UniformPrior(_Prior):
+class Uniform(_Prior):
     density = "uniform"
 
     def __init__(self, lower, upper, mean=None, eta=None, name=None):
@@ -79,7 +79,7 @@ class UniformPrior(_Prior):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean, "eta": self.eta}
 
 
-class ConstantPrior(_Prior):
+class Constant(_Prior):
     density = "uniform"
 
     def __init__(self, value, name=None):
@@ -90,7 +90,7 @@ class ConstantPrior(_Prior):
         return {"lower": self.value, "upper": self.value, "mean": self.value}
 
 
-class GaussianPrior(_Prior):
+class Gaussian(_Prior):
     density = "gaussian"
 
     def __init__(self, mean, standard_deviation, lower=float("-inf"), upper=float("inf"), eta=None, name=None):
@@ -114,11 +114,11 @@ class GaussianPrior(_Prior):
         }
 
 
-class LaplacePrior(GaussianPrior):
+class Laplace(Gaussian):
     density = "laplace"
 
 
-class StudentsTPrior(_Prior):
+class StudentsT(_Prior):
     density = "students"
 
     def __init__(self, mean, standard_deviation, nu, lower=float("-inf"), upper=float("inf"), eta=None, name=None):
@@ -145,7 +145,7 @@ class StudentsTPrior(_Prior):
         }
 
 
-class LogGaussianPrior(_Prior):
+class LogGaussian(_Prior):
     density = "log_gaussian"
 
     def __init__(self, mean, standard_deviation, eta, lower=float("-inf"), upper=float("inf"), name=None):
@@ -169,11 +169,11 @@ class LogGaussianPrior(_Prior):
         }
 
 
-class LogLaplacePrior(LogGaussianPrior):
+class LogLaplace(LogGaussian):
     density = "log_laplace"
 
 
-class LogStudentsTPrior(_Prior):
+class LogStudentsT(_Prior):
     density = "log_students"
 
     def __init__(self, mean, standard_deviation, nu, eta, lower=float("-inf"), upper=float("inf"), name=None):
@@ -202,7 +202,7 @@ class LogStudentsTPrior(_Prior):
 
 # Useful predefined priors
 
-NO_PRIOR = UniformPrior(float("-inf"), float("inf"), 0)
-ZERO = UniformPrior(0, 0, 0)
-ZERO_TO_ONE = UniformPrior(0, 1, 0.1)
-MINUS_ONE_TO_ONE = UniformPrior(-1, 1, 0)
+NO_PRIOR = Uniform(float("-inf"), float("inf"), 0)
+ZERO = Uniform(0, 0, 0)
+ZERO_TO_ONE = Uniform(0, 1, 0.1)
+MINUS_ONE_TO_ONE = Uniform(-1, 1, 0)

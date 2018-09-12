@@ -10,7 +10,7 @@ import pandas as pd
 
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
-from cascade.model.priors import ConstantPrior
+from cascade.model.priors import Constant
 from cascade.model.grids import unique_floats
 
 
@@ -129,7 +129,7 @@ def make_log_table():
 def make_node_table(context):
     # Assume we have one location, so no parents.
     # If we had a hierarchy, that would be used to determine parents.
-    if context.input_data.observations is not None:
+    if context.input_data.observations is not None and not context.input_data.observations.empty:
         unique_locations = context.input_data.observations["location_id"].unique()
         assert len(unique_locations) == 1
     else:
@@ -214,9 +214,9 @@ def collect_priors(context):
                 if grid:
                     ps = grid.priors
                     if grid_name == "value_priors":
-                        # ConstantPriors on the value don't actually go in the
+                        # Constants on the value don't actually go in the
                         # prior table, so exclude them
-                        ps = [p for p in ps if not isinstance(p, ConstantPrior)]
+                        ps = [p for p in ps if not isinstance(p, Constant)]
                     priors.update(ps)
 
     return priors
@@ -345,7 +345,7 @@ def make_smooth_grid_table(smooth, prior_id_func):
                 row = {"age": float(age), "time": float(year), "const_value": np.nan}
                 if smooth.value_priors:
                     prior = smooth.value_priors[age, year].prior
-                    if isinstance(prior, ConstantPrior):
+                    if isinstance(prior, Constant):
                         row["const_value"] = prior.value
                         row["value_prior_id"] = np.nan
                     else:

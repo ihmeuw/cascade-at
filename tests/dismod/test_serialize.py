@@ -7,7 +7,7 @@ from pandas.util.testing import assert_frame_equal
 from cascade.core.context import ModelContext
 from cascade.model.grids import PriorGrid, AgeTimeGrid
 from cascade.model.rates import Smooth
-from cascade.model.priors import GaussianPrior, UniformPrior
+from cascade.model.priors import Gaussian, Uniform
 from cascade.dismod.serialize import (
     model_to_dismod_file,
     collect_ages_or_times,
@@ -62,11 +62,11 @@ def base_context(observations, constraints):
     grid = AgeTimeGrid.uniform(age_start=0, age_end=100, age_step=1, time_start=1990, time_end=2018, time_step=5)
 
     d_time = PriorGrid(grid)
-    d_time[:, :].prior = GaussianPrior(0, 0.1, eta=1)
+    d_time[:, :].prior = Gaussian(0, 0.1, eta=1)
     d_age = PriorGrid(grid)
-    d_age[:, :].prior = GaussianPrior(0, 0.1, name="TestPrior")
+    d_age[:, :].prior = Gaussian(0, 0.1, name="TestPrior")
     value = PriorGrid(grid)
-    value[:, :].prior = GaussianPrior(0, 0.1)
+    value[:, :].prior = Gaussian(0, 0.1)
 
     smooth = Smooth(name="iota_smooth")
     smooth.d_time_priors = d_time
@@ -76,8 +76,8 @@ def base_context(observations, constraints):
 
     smooth = Smooth()
     d_time = PriorGrid(grid)
-    d_time[:, :].prior = GaussianPrior(1, 0.1)
-    d_time.hyper_prior = UniformPrior(0, 1, 0.5)
+    d_time[:, :].prior = Gaussian(1, 0.1)
+    d_time.hyper_prior = Uniform(0, 1, 0.5)
     smooth.d_time_priors = d_time
     context.rates.pini.parent_smooth = smooth
 
@@ -114,11 +114,11 @@ def test_development_target(base_context):
 def test_collect_priors(base_context):
     priors = collect_priors(base_context)
     assert priors == {
-        GaussianPrior(0, 0.1, name="TestPrior"),
-        UniformPrior(0, 1, 0.5),
-        GaussianPrior(1, 0.1),
-        GaussianPrior(0, 0.1),
-        GaussianPrior(0, 0.1, eta=1),
+        Gaussian(0, 0.1, name="TestPrior"),
+        Uniform(0, 1, 0.5),
+        Gaussian(1, 0.1),
+        Gaussian(0, 0.1),
+        Gaussian(0, 0.1, eta=1),
     }
 
 

@@ -54,9 +54,9 @@ class Node:
     _children = None
 
     def __init__(self, nullable=False, default=None):
-        self.nullable = nullable
-        self.default = default
-        self.name = None
+        self._nullable = nullable
+        self._default = default
+        self._name = None
         if self._children:
             self._child_instances = {c: NO_VALUE for c in self._children}
         else:
@@ -65,8 +65,8 @@ class Node:
     def __get__(self, instance, owner):
         if isinstance(instance, Node):
             value = instance._child_instances[self]
-            if value is NO_VALUE and self.nullable:
-                return self.default
+            if value is NO_VALUE and self._nullable:
+                return self._default
             return value
         else:
             return None
@@ -87,7 +87,7 @@ class Node:
                 owner._children = {self}
             else:
                 owner._children.add(self)
-        self.name = name
+        self._name = name
 
     @property
     def unset(self):
@@ -122,7 +122,7 @@ class Field(Node):
                           fields the path will always be empty.
         """
         if self.is_unset(instance):
-            if not self.nullable:
+            if not self._nullable:
                 return [("", "Missing data")]
             return []
 
@@ -211,17 +211,17 @@ class Form(Node):
     """
 
     def __init__(self, source=None, name_field=None, nullable=False):
-        super().__init__(nullable)
+        super().__init__(nullable=nullable)
         self._args = []
         self._kwargs = {"name_field": name_field, "nullable": nullable}
-        self.name_field = name_field
+        self._name_field = name_field
         if source:
             self.process_source(source)
 
     def __set__(self, instance, value):
         if isinstance(instance, Node):
             form = self.new_instance()
-            form.name = self.name
+            form._name = self._name
             form.process_source(value)
             instance._child_instances[self] = form
 
@@ -249,27 +249,27 @@ class Form(Node):
         if source:
             for k, v in source.items():
                 for c in self._children:
-                    if c.name == k:
+                    if c._name == k:
                         setattr(self, k, v)
                         break
 
-        if self.name_field:
-            setattr(self, self.name_field, self.name)
+        if self._name_field:
+            setattr(self, self._name_field, self._name)
 
     def validate_and_normalize(self, instance=None):
-        if self.is_unset() and self.nullable:
+        if self.is_unset() and self._nullable:
             return []
 
         errors = []
         for child in self.children:
             c_errors = child.validate_and_normalize(self)
             if c_errors:
-                if child.name:
+                if child._name:
                     # TODO: This replace is ugly and probably means that I'm
                     # not thinking clearly about how these error paths
                     # get constructed.
                     errors.extend(
-                        [((f"{child.name}." + p).replace(".[", "[") if p else child.name, e) for p, e in c_errors]
+                        [((f"{child._name}." + p).replace(".[", "[") if p else child._name, e) for p, e in c_errors]
                     )
                 else:
                     errors.extend(c_errors)

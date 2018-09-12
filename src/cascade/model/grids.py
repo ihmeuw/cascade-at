@@ -163,11 +163,11 @@ class PriorGrid:
         >>> grid = AgeTimeGrid.uniform(age_start=0,age_end=120,age_step=5,time_start=1990,time_end=2018,time_step=1)
         >>> d_time = PriorGrid(grid)
         >>> #Set a prior for the whole grid:
-        >>> d_time[:, :].prior = GaussianPrior(0, 0.1)
+        >>> d_time[:, :].prior = Gaussian(0, 0.1)
         >>> #Set a prior for a band of ages
-        >>> d_time[0:15, :].prior = GaussianPrior(1, 0.01)
+        >>> d_time[0:15, :].prior = Gaussian(1, 0.01)
         >>> #Or a single year
-        >>> d_time[:, 1995].prior = GaussianPrior(0, 3)
+        >>> d_time[:, 1995].prior = Gaussian(0, 3)
     """
 
     def __init__(self, grid, hyper_prior=None):

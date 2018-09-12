@@ -42,19 +42,19 @@ class SmoothingPrior(Form):
 
         try:
             if self.density == "uniform":
-                self.prior_object = priors.UniformPrior(self.min, self.max, self.mean)
+                self.prior_object = priors.Uniform(self.min, self.max, self.mean)
             elif self.density == "gaussian":
-                self.prior_object = priors.GaussianPrior(self.mean, self.std, self.min, self.max)
+                self.prior_object = priors.Gaussian(self.mean, self.std, self.min, self.max)
             elif self.density == "laplace":
-                self.prior_object = priors.LaplacePrior(self.mean, self.std, self.min, self.max)
+                self.prior_object = priors.Laplace(self.mean, self.std, self.min, self.max)
             elif self.density == "students":
-                self.prior_object = priors.StudentsTPrior(self.mean, self.std, self.nu, self.min, self.max, self.eta)
+                self.prior_object = priors.StudentsT(self.mean, self.std, self.nu, self.min, self.max, self.eta)
             elif self.density == "log_gaussian":
-                self.prior_object = priors.LogGaussianPrior(self.mean, self.std, self.eta, self.min, self.max)
+                self.prior_object = priors.LogGaussian(self.mean, self.std, self.eta, self.min, self.max)
             elif self.density == "log_laplace":
-                self.prior_object = priors.LogLaplacePrior(self.mean, self.std, self.eta, self.min, self.max)
+                self.prior_object = priors.LogLaplace(self.mean, self.std, self.eta, self.min, self.max)
             elif self.density == "log_students":
-                self.prior_object = priors.LogStudentsTPrior(self.mean, self.std, self.nu, self.eta, self.min, self.max)
+                self.prior_object = priors.LogStudentsT(self.mean, self.std, self.nu, self.eta, self.min, self.max)
             else:
                 errors.append(f"Unknown density '{self.density}'")
         except priors.PriorError as e:
@@ -71,8 +71,8 @@ class SmoothingPriorGroup(Form):
 
 class Smoothing(Form):
     rate = IntField()
-    age_grid = StringListField(constructor=float)
-    time_grid = StringListField(constructor=float)
+    age_grid = StringListField(constructor=float, nullable=True)
+    time_grid = StringListField(constructor=float, nullable=True)
     default = SmoothingPriorGroup()
     mulstd = SmoothingPriorGroup(nullable=True)
     detail = FormList(SmoothingPrior, nullable=True)
@@ -110,12 +110,12 @@ class Configuration(Form):
 
     model = Model()
     gbd_round_id = IntField()
-    csmr_cod_output_version_id = IntField()
-    csmr_mortality_output_version_id = IntField()
-    location_set_version_id = IntField()
     random_effect = FormList(Smoothing, nullable=True)
     rate = FormList(Smoothing)
 
+    csmr_cod_output_version_id = Dummy()
+    csmr_mortality_output_version_id = Dummy()
+    location_set_version_id = Dummy()
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)

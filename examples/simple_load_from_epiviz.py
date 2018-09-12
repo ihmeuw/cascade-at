@@ -28,14 +28,14 @@ def model_context_from_epiviz(execution_context):
 
     model_context = initial_context_from_epiviz(configuration)
 
-    fixed_effects_from_epiviz(model_context, configuration.rate)
+    fixed_effects_from_epiviz(model_context, configuration)
 
     freeze_bundle(execution_context)
 
     bundle, study_covariates = bundle_with_study_covariates(
         execution_context, bundle_id=model_context.parameters.bundle_id
     )
-    model_context.inputs = bundle_to_observations(model_context.parameters, bundle)
+    model_context.input_data.observations = bundle_to_observations(model_context.parameters, bundle)
 
     integrand_grids_from_epiviz(model_context, configuration)
 
