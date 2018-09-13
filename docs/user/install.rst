@@ -94,9 +94,9 @@ It's a long command, but it will run Dismod-AT.
 If you use the dmdismod commands and have ``data.db`` in the
 current directory, you would run::
 
-    dmdismod /app/data.db init
-    dmdismod /app/data.db fit
-    dmdismod /app/data.db predict
-    dmdismodpy /app/data.db db2csv
+    dmdismod data.db init
+    dmdismod data.db fit
+    dmdismod data.db predict
+    dmdismodpy data.db db2csv
 
 At least the dmdismod command provides an example to tailor.
