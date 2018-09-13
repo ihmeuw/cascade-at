@@ -84,7 +84,7 @@ class Smoothing(Form):
 
 class Model(Form):
     modelable_entity_id = IntField()
-    modelable_version_id = IntField(nullable=True)
+    model_version_id = IntField(nullable=True)
     title = StrField(nullable=True)
     description = StrField(nullable=True)
     bundle_id = IntField(nullable=True)

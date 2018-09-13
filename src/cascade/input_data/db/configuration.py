@@ -3,7 +3,7 @@ import json
 from cascade.core.db import cursor
 
 
-def from_epiviz(execution_context):
+def settings_json_from_epiviz(execution_context):
     model_version_id = execution_context.parameters.model_version_id
 
     query = """select parameter_json from at_model_parameter where model_version_id = %(model_version_id)s"""
@@ -32,27 +32,15 @@ DO_REMOVE = object()
 
 def trim_config(source):
     """ This function represents the approach to missing data which the viz
-    team says the will enforce in the front end, though that hasn't happened
+    team says it will enforce in the front end, though that hasn't happened
     yet.
     """
     trimmed = None
     remove = True
     if isinstance(source, dict):
-        trimmed = {}
-        for k, v in source.items():
-            if k.startswith("__"):
-                continue
-            tv = trim_config(v)
-            if tv is not DO_REMOVE:
-                trimmed[k] = tv
-                remove = False
+        trimmed, remove = _trim_dict(source)
     elif isinstance(source, list):
-        trimmed = []
-        for v in source:
-            tv = trim_config(v)
-            if tv is not DO_REMOVE:
-                trimmed.append(tv)
-                remove = False
+        trimmed, remove = _trim_list(source)
     else:
         if source is not None and source != "":
             trimmed = source
@@ -60,4 +48,30 @@ def trim_config(source):
 
     if remove:
         return DO_REMOVE
-    return trimmed
+    else:
+        return trimmed
+
+
+def _trim_dict(source_dict):
+    trimmed = {}
+    remove = True
+    for k, v in source_dict.items():
+        # Removing keys prefixed by "__" because they represent garbage that
+        # the GUI framework sticks in sometimes but isn't useful to us.
+        if not k.startswith("__"):
+            tv = trim_config(v)
+            if tv is not DO_REMOVE:
+                trimmed[k] = tv
+                remove = False
+    return trimmed, remove
+
+
+def _trim_list(source_list):
+    trimmed = []
+    remove = True
+    for v in source_list:
+        tv = trim_config(v)
+        if tv is not DO_REMOVE:
+            trimmed.append(tv)
+            remove = False
+    return trimmed, remove
