@@ -8,7 +8,7 @@ import json
 from cascade.dismod.db.wrapper import _get_engine
 from cascade.testing_utilities import make_execution_context
 from cascade.core.db import latest_model_version
-from cascade.input_data.db.configuration import from_epiviz
+from cascade.input_data.db.configuration import settings_json_from_epiviz
 from cascade.executor.no_covariate_main import bundle_to_observations
 from cascade.executor.dismod_runner import run_and_watch
 from cascade.input_data.configuration.form import Configuration
@@ -38,7 +38,7 @@ def load_settings(meid=None, mvid=None, settings_file=None):
             ec = make_execution_context(modelable_entity_id=modelable_entity_id)
             mvid = latest_model_version(ec)
         ec = make_execution_context(model_version_id=mvid)
-        raw_settings = from_epiviz(ec)
+        raw_settings = settings_json_from_epiviz(ec)
 
     settings = Configuration(raw_settings)
     settings.model.model_version_id = mvid
