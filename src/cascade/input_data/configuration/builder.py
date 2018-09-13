@@ -67,9 +67,7 @@ def fixed_effects_from_epiviz(model_context, configuration):
                     pgrid = value
                 else:
                     raise ConfigurationError(f"Unknown prior type {row.prior_type}")
-                pgrid[
-                    slice(row.age_lower, row.age_upper), slice(row.time_lower, row.time_upper)
-                ].prior = row.prior_object
+                pgrid[row.age_lower:row.age_upper, row.time_lower:row.time_upper].prior = row.prior_object
         rate.parent_smooth = Smooth(value, d_age, d_time)
 
 

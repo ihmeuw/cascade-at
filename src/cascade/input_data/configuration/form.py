@@ -83,8 +83,8 @@ class Smoothing(Form):
 
 class Model(Form):
     modelable_entity_id = IntField()
-    title = StrField()
-    description = StrField()
+    title = StrField(nullable=True)
+    description = StrField(nullable=True)
     bundle_id = IntField(nullable=True)
     drill = OptionField(["cascade", "drill"])
     drill_location = IntField()

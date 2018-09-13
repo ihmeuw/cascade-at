@@ -1,11 +1,11 @@
 from pathlib import Path
-import pprint
+from pprint import pprint
 from argparse import ArgumentParser
 
 from cascade.dismod.db.wrapper import _get_engine
 from cascade.testing_utilities import make_execution_context
 from cascade.core.db import latest_model_version
-from cascade.input_data.db.configuration import from_epiviz
+from cascade.input_data.db.configuration import settings_json_from_epiviz
 from cascade.executor.no_covariate_main import bundle_to_observations
 from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.db.bundle import bundle_with_study_covariates, freeze_bundle
@@ -18,7 +18,7 @@ from cascade.input_data.configuration.builder import (
 
 
 def model_context_from_epiviz(execution_context):
-    config_data = from_epiviz(execution_context)
+    config_data = settings_json_from_epiviz(execution_context)
     configuration = Configuration(config_data)
     errors = configuration.validate_and_normalize()
     if errors:
