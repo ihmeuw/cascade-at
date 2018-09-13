@@ -5,11 +5,11 @@ from cascade.model import priors
 def test_SmoothingPrior__full_form_validation__success():
     f = SmoothingPrior({"prior_type": "value", "density": "uniform", "min": 0, "max": 10})
     assert not f.validate_and_normalize()
-    assert f.prior_object == priors.UniformPrior(0, 10)
+    assert f.prior_object == priors.Uniform(0, 10)
 
     f = SmoothingPrior({"prior_type": "value", "density": "log_gaussian", "mean": 0, "std": 1, "eta": 1})
     assert not f.validate_and_normalize()
-    assert f.prior_object == priors.LogGaussianPrior(0, 1, 1)
+    assert f.prior_object == priors.LogGaussian(0, 1, 1)
 
 
 def test_SmoothingPrior__full_form_validation__fail():

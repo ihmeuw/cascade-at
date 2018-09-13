@@ -13,7 +13,7 @@ from cascade.core.db import cursor, connection
 CODELOG = logging.getLogger(__name__)
 
 # FIXME: There is a shared function that get's the official mapping, I think. Or an sql query at least.
-MEASURES = {6: "incidence", 9: "mtexcess"}
+MEASURES = {6: "incidence", 9: "mtexcess", 5: "prevalence"}
 
 
 def _bundle_is_frozen(execution_context):

@@ -38,7 +38,7 @@ from cascade.dismod.db.wrapper import _get_engine
 from cascade.core.context import ModelContext
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.grids import AgeTimeGrid, PriorGrid
-from cascade.model.priors import UniformPrior, ConstantPrior, NO_PRIOR
+from cascade.model.priors import Uniform, Constant, NO_PRIOR
 from cascade.model.rates import Smooth
 
 
@@ -186,7 +186,7 @@ def build_constraint(constraint):
     value_prior = PriorGrid(grid)
     # TODO: change the PriorGrid API to handle this elegantly
     for _, row in constraint.iterrows():
-        value_prior[row["age_start"], row["year_start"]].prior = ConstantPrior(row["mean"])
+        value_prior[row["age_start"], row["year_start"]].prior = Constant(row["mean"])
     return Smooth(smoothing_prior, smoothing_prior, value_prior)
 
 
@@ -199,7 +199,7 @@ def internal_model(model, inputs):
     grid = age_year_from_data(inputs.constraints)
 
     priors = PriorGrid(grid)
-    priors[:, :].prior = UniformPrior(1e-10, 1.0, 0.01)
+    priors[:, :].prior = Uniform(1e-10, 1.0, 0.01)
     default_smoothing = Smooth(priors, priors, priors)
 
     # No smoothing for initial prevalence in Brad's example.

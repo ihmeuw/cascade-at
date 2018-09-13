@@ -27,17 +27,18 @@ class FormList(Form):
       inner_form_constructor: A factory which produces an instance of a Form
       subclass. Most often it will just be the Form subclass itself.
     """
+
     def __init__(self, inner_form_constructor, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.inner_form_constructor = inner_form_constructor
+        self._inner_form_constructor = inner_form_constructor
         self._forms = []
         self._args = [inner_form_constructor] + self._args
 
     def process_source(self, source):
         forms = []
         for i, inner_source in enumerate(source):
-            form = self.inner_form_constructor()
-            form.name = str(i)
+            form = self._inner_form_constructor()
+            form._name = str(i)
             form.process_source(inner_source)
             forms.append(form)
         self._forms = forms
@@ -66,6 +67,7 @@ class Dummy(Field):
     sections of the configuration which have yet to be implemented and should
     be ignored.
     """
+
     def validate_and_normalize(self, instance):
         return []
 
@@ -87,6 +89,7 @@ class OptionField(SimpleTypeField):
         constructor: A function which takes a string and returns the expected
           type. Behaves as the constructor for SimpleTypeField. Defaults to str
     """
+
     def __init__(self, options, *args, constructor=str, **kwargs):
         super().__init__(constructor, *args, **kwargs)
         self.options = options
@@ -112,6 +115,7 @@ class StringListField(SimpleTypeField):
           type. Behaves as the constructor for SimpleTypeField. Defaults to str
         separator (str): The string to split by. Defaults to a single space.
     """
+
     def __init__(self, *args, constructor=str, separator=" ", **kwargs):
         super().__init__(constructor, *args, **kwargs)
         self.separator = separator
