@@ -1,3 +1,5 @@
+import sys
+import logging
 from pathlib import Path
 import pprint
 import argparse
@@ -39,6 +41,7 @@ def load_settings(meid=None, mvid=None, settings_file=None):
         raw_settings = from_epiviz(ec)
 
     settings = Configuration(raw_settings)
+    settings.model.model_version_id = mvid
     errors = settings.validate_and_normalize()
     if errors:
         pprint(raw_settings)
@@ -49,7 +52,9 @@ def load_settings(meid=None, mvid=None, settings_file=None):
 
 
 def execution_context_from_settings(settings):
-    return make_execution_context(modelable_entity_id=settings.model.modelable_entity_id)
+    return make_execution_context(
+        modelable_entity_id=settings.model.modelable_entity_id, model_version_id=settings.model.model_version_id
+    )
 
 
 def model_context_from_settings(execution_context, settings):
@@ -78,7 +83,7 @@ def write_dismod_file(mc, db_file_path):
 
 
 def run_dismod(dismod_file, with_random_effects):
-    dm_file_path = dismod_file.e.url.database
+    dm_file_path = dismod_file.engine.url.database
     if dm_file_path == ":memory:":
         raise ValueError("Cannot run dismodat on an in-memory database")
 
@@ -104,6 +109,15 @@ def main():
     parser.add_argument("--settings_file")
     parser.add_argument("--no-upload", action="store_true")
     args = parser.parse_args()
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    ch.setFormatter(formatter)
+    root.addHandler(ch)
 
     settings = load_settings(args.meid, args.mvid, args.settings_file)
 

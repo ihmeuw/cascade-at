@@ -13,11 +13,7 @@ class ExecutionContext:
     parameters = ParameterProperty()
 
     def __init__(self):
-        self._dismodfile = None
-
-    @property
-    def dismodfile(self):
-        return self._dismodfile
+        self.dismodfile = None
 
 
 class _ModelParameters:

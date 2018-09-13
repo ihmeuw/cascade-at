@@ -67,12 +67,13 @@ def make_smooth(configuration, smooth_configuration):
 
 
 def fixed_effects_from_epiviz(model_context, configuration):
-    for rate_config in configuration.rate:
-        rate_name = MEASURE_ID_TO_RATE_NAME[rate_config.rate]
-        if rate_name not in [r.name for r in model_context.rates]:
-            raise ConfigurationError(f"Unspported rate {rate_name}")
-        rate = getattr(model_context.rates, rate_name)
-        rate.parent_smooth = make_smooth(configuration, rate_config)
+    if configuration.rate:
+        for rate_config in configuration.rate:
+            rate_name = MEASURE_ID_TO_RATE_NAME[rate_config.rate]
+            if rate_name not in [r.name for r in model_context.rates]:
+                raise ConfigurationError(f"Unspported rate {rate_name}")
+            rate = getattr(model_context.rates, rate_name)
+            rate.parent_smooth = make_smooth(configuration, rate_config)
 
 
 def integrand_grids_from_epiviz(model_context, configuration):
@@ -87,10 +88,11 @@ def integrand_grids_from_epiviz(model_context, configuration):
 
 
 def random_effects_from_epiviz(model_context, configuration):
-    for smoothing_config in configuration.random_effect:
-        rate_name = MEASURE_ID_TO_RATE_NAME[smoothing_config.rate]
-        if rate_name not in [r.name for r in model_context.rates]:
-            raise ConfigurationError(f"Unspported rate {rate_name}")
-        rate = getattr(model_context.rates, rate_name)
-        location = smoothing_config.location
-        rate.child_smoothings.append((location, make_smooth(configuration, smoothing_config)))
+    if configuration.random_effect:
+        for smoothing_config in configuration.random_effect:
+            rate_name = MEASURE_ID_TO_RATE_NAME[smoothing_config.rate]
+            if rate_name not in [r.name for r in model_context.rates]:
+                raise ConfigurationError(f"Unspported rate {rate_name}")
+            rate = getattr(model_context.rates, rate_name)
+            location = smoothing_config.location
+            rate.child_smoothings.append((location, make_smooth(configuration, smoothing_config)))

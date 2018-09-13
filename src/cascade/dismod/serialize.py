@@ -417,17 +417,28 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
     else:
         grid_table = pd.DataFrame(
             columns=[
-                "age",
-                "time",
+                "age_id",
+                "time_id",
                 "const_value",
                 "value_prior_id",
                 "dage_prior_id",
                 "dtime_prior_id",
                 "smooth_grid_id",
+                "smooth_id",
             ]
         )
 
-    smooth_table = pd.DataFrame(smooth_rows)
+    smooth_table = pd.DataFrame(
+        smooth_rows,
+        columns=[
+            "smooth_name",
+            "n_age",
+            "n_time",
+            "mulstd_value_prior_id",
+            "mulstd_dage_prior_id",
+            "mulstd_dtime_prior_id",
+        ],
+    )
 
     def smooth_id_func(smooth):
         return smooths.index(smooth)
