@@ -44,7 +44,7 @@ fi
 # We're going to create a virtual env containing the project code
 # Check that the expected installed python containing virtualenv exists
 
-PYTHON_MINICONDA=/ihme/code/dismod_at/pyenv/miniconda
+PYTHON_MINICONDA=/ihme/code/dismod_at/pyenv/versions/current
 VIRTUALENV="${PYTHON_MINICONDA}/bin/virtualenv"
 
 if ! test -e "${VIRTUALENV}"; then
@@ -83,12 +83,12 @@ echo $ENV
 
 # Create the virtual environment for the project code and required packages
 
-"${VIRTUALENV}" "${ENV}"
+"${PYTHON_MINICONDA}/bin/python" -m venv "${ENV}"
 
 source "${ENV}/bin/activate"
 pip install --upgrade pip
 cd "${CASCADE_DEVELOP_DIR}"
-pip install .[ihme_databases,testing]
+pip install .[ihme_databases,documentation,testing]
 
 
 # Install the virtual environment to be the "current" if the tests pass

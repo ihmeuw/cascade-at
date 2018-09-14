@@ -4,12 +4,9 @@ set -x
 # This script installs miniconda and numpy into the dismod_at space, 
 # and upgrades pip, virtualenv, and pipenv
 
-# This should be 2 or 3.
-PYTHONVERSION=3
-
 CODE=/ihme/code/dismod_at
 WORKDIR="${CODE}/build"
-SCRIPT="Miniconda${PYTHONVERSION}-latest-Linux-x86_64.sh"
+SCRIPT="Miniconda3-latest-Linux-x86_64.sh"
 INSTALLDIR="${CODE}/pyenv/versions"
 
 # Any existing python path can interfere with installation, as can
@@ -37,7 +34,7 @@ fi
 # Run the installer in batch mode.
 bash "${SCRIPT}" -b -p "${CONDAHOME}"
 
-"${CONDAHOME}/bin/conda" install -y numpy[mkl]
+"${CONDAHOME}/bin/conda" install -y arrow blosc hdf5 mysql-connector-c numpy[mkl] redis
 "${CONDAHOME}/bin/pip" install --upgrade pip virtualenv pipenv
 
 # Lock it down so we can't accidentally modify it.
