@@ -14,16 +14,6 @@ RATE_TO_INTEGRAND = dict(
     prevalence=IntegrandEnum.prevalence,
 )
 
-MEASURE_ID_TO_RATE_NAME = {
-    6: "iota",  # Incidence
-    7: "rho",  # Remission
-    9: "chi",  # Excess Mortality
-    16: "omega",
-    18: "proportion",
-    19: "continuous",
-    38: "birth_prevalence",
-}
-
 
 def initial_context_from_epiviz(configuration):
     context = ModelContext()
@@ -69,7 +59,7 @@ def make_smooth(configuration, smooth_configuration):
 def fixed_effects_from_epiviz(model_context, configuration):
     if configuration.rate:
         for rate_config in configuration.rate:
-            rate_name = MEASURE_ID_TO_RATE_NAME[rate_config.rate]
+            rate_name = rate_config.rate
             if rate_name not in [r.name for r in model_context.rates]:
                 raise ConfigurationError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
@@ -90,7 +80,7 @@ def integrand_grids_from_epiviz(model_context, configuration):
 def random_effects_from_epiviz(model_context, configuration):
     if configuration.random_effect:
         for smoothing_config in configuration.random_effect:
-            rate_name = MEASURE_ID_TO_RATE_NAME[smoothing_config.rate]
+            rate_name = smoothing_config.rate
             if rate_name not in [r.name for r in model_context.rates]:
                 raise ConfigurationError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)

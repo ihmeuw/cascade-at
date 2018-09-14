@@ -4,6 +4,7 @@ Converts the internal representation to a Dismod File.
 import logging
 import warnings
 import time
+import sys
 
 import numpy as np
 import pandas as pd
@@ -115,13 +116,14 @@ def default_integrand_names():
 
 
 def make_log_table():
+    command_name = " ".join(sys.argv)
     return pd.DataFrame(
         {
             "message_type": ["command"],
             "table_name": np.array([None], dtype=np.object),
             "row_id": np.NaN,
             "unix_time": int(round(time.time())),
-            "message": ["fit_no_covariates.py"],
+            "message": [command_name],
         }
     )
 

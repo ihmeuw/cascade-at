@@ -196,6 +196,11 @@ class DismodFile:
         else:
             raise ValueError(f"Can't add columns to {table.name}")
 
+    def refresh(self):
+        """ Throw away any un-flushed changes and reread data from disk.
+        """
+        self._table_data = {}
+
     def __getattr__(self, table_name):
         if table_name in self._table_data:
             return self._table_data[table_name]

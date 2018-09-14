@@ -1,16 +1,15 @@
 import sys
 import logging
 from pathlib import Path
-import pprint
+from pprint import pprint
 import argparse
 import json
 
 from cascade.dismod.db.wrapper import _get_engine
 from cascade.testing_utilities import make_execution_context
-from cascade.core.db import latest_model_version
-from cascade.input_data.db.configuration import settings_json_from_epiviz
+from cascade.input_data.db.configuration import settings_for_model
 from cascade.executor.no_covariate_main import bundle_to_observations
-from cascade.executor.dismod_runner import run_and_watch
+from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.db.bundle import bundle_with_study_covariates, freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
@@ -31,17 +30,9 @@ def load_settings(meid=None, mvid=None, settings_file=None):
         with open(settings_file, "r") as f:
             raw_settings = json.load(f)
     else:
-        if mvid is not None:
-            mvid = mvid
-        else:
-            modelable_entity_id = meid
-            ec = make_execution_context(modelable_entity_id=modelable_entity_id)
-            mvid = latest_model_version(ec)
-        ec = make_execution_context(model_version_id=mvid)
-        raw_settings = settings_json_from_epiviz(ec)
+        raw_settings = settings_for_model(meid, mvid)
 
     settings = Configuration(raw_settings)
-    settings.model.model_version_id = mvid
     errors = settings.validate_and_normalize()
     if errors:
         pprint(raw_settings)
@@ -53,7 +44,9 @@ def load_settings(meid=None, mvid=None, settings_file=None):
 
 def execution_context_from_settings(settings):
     return make_execution_context(
-        modelable_entity_id=settings.model.modelable_entity_id, model_version_id=settings.model.model_version_id
+        modelable_entity_id=settings.model.modelable_entity_id,
+        model_version_id=settings.model.model_version_id,
+        model_title=settings.model.title,
     )
 
 
@@ -90,11 +83,20 @@ def run_dismod(dismod_file, with_random_effects):
     command_prefix = ["dmdismod", dm_file_path]
 
     run_and_watch(command_prefix + ["init"], False, 1)
+    dismod_file.refresh()
+    if "end init" not in dismod_file.log.message.iloc[-1]:
+        raise DismodATException("DismodAt failed to complete 'init' command")
 
     random_or_fixed = "random" if with_random_effects else "fixed"
     run_and_watch(command_prefix + ["fit", random_or_fixed], False, 1)
+    dismod_file.refresh()
+    if "end fit" not in dismod_file.log.message.iloc[-1]:
+        raise DismodATException("DismodAt failed to complete 'fit' command")
 
-    run_and_watch(command_prefix + ["predict"], False, 1)
+    run_and_watch(command_prefix + ["predict", "fit_var"], False, 1)
+    dismod_file.refresh()
+    if "end predict" not in dismod_file.log.message.iloc[-1]:
+        raise DismodATException("DismodAt failed to complete 'predict' command")
 
 
 def has_random_effects(model):

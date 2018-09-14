@@ -70,7 +70,7 @@ class SmoothingPriorGroup(Form):
 
 
 class Smoothing(Form):
-    rate = IntField()
+    rate = OptionField(["pini", "iota", "rho", "chi", "omega"])
     location = IntField(nullable=True)
     age_grid = StringListField(constructor=float, nullable=True)
     time_grid = StringListField(constructor=float, nullable=True)
