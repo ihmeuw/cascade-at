@@ -6,6 +6,10 @@ from pathlib import Path
 import tempfile
 
 import pandas as pd
+import numpy as np
+
+from cascade.input_data.db.demographics import get_age_groups, get_years
+from cascade.model.grids import unique_floats
 
 try:
     from save_results._save_results import save_results_at
@@ -42,12 +46,53 @@ CODELOG = logging.getLogger(__name__)
 MATHLOG = logging.getLogger(__name__)
 
 
-def _normalize_draws_df(draws_df):
+def _normalize_draws_df(draws_df, execution_context):
     """The database stores measure_id rather than integrand_id."""
 
     draws = draws_df.merge(INTEGRAND_ID_TO_MEASURE_ID_DF, how="left", on="integrand_id").drop(columns=["integrand_id"])
 
-    return draws
+    if not np.allclose(draws.time_lower, draws.time_upper):
+        raise ValueError(
+            "There are integrands over time intervals but we only " "know how to upload integrands for a point in time."
+        )
+
+    expected_years = sorted(get_years(execution_context))
+    actual_years = sorted(unique_floats(draws.time_lower))
+    if not np.allclose(expected_years, actual_years):
+        raise ValueError("There are times in the avgint table that don't match GBD years")
+
+    year_ids = pd.DataFrame({"year_id": expected_years, "year_float": np.array(expected_years, dtype=np.float64)})
+    draws = pd.merge_asof(draws.sort_values("time_lower"), year_ids, left_on="time_lower", right_on="year_float").drop(
+        ["time_lower", "time_upper", "year_float"], "columns"
+    )
+
+    age_groups = get_age_groups(execution_context)
+    with_age_groups = pd.merge_asof(
+        draws.sort_values("age_lower"), age_groups, left_on="age_lower", right_on="age_group_years_start"
+    )
+
+    merge_is_good = np.allclose(with_age_groups.age_lower, with_age_groups.age_group_years_start)
+    merge_is_good = merge_is_good and np.allclose(with_age_groups.age_upper, with_age_groups.age_group_years_end)
+    merge_is_good = merge_is_good and len(draws) == len(with_age_groups)
+    if not merge_is_good:
+        raise ValueError(
+            "There are age_lowers or age_uppers in the avgint table that do not match GBD age group boundaries"
+        )
+
+    draws = with_age_groups.drop(["age_group_years_start", "age_group_years_end", "age_lower", "age_upper"], "columns")
+
+    node_table = execution_context.dismodfile.node
+    node_to_location = {r.node_id: int(r.node_name) for _, r in node_table.iterrows()}
+
+    draws["location_id"] = draws.node_id.apply(lambda nid: node_to_location[nid])
+
+    # FIXME: NONONO sex is a covariate? I don't know!
+    draws["sex_id"] = 2
+    draws2 = draws.copy()
+    draws2["sex_id"] = 1
+    draws = pd.concat([draws, draws2])
+
+    return draws.drop(["node_id", "weight_id"], "columns")
 
 
 def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context):
@@ -72,14 +117,11 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
             format="table",
             data_columns=["age_group_id", "location_id", "measure_id", "sex_id", "year_id"],
         )
-        import pdb
-
-        pdb.set_trace()
 
         CODELOG.debug("Saving Results to DB")
 
         modelable_entity_id = execution_context.parameters.modelable_entity_id
-        model_title = execution_context.parameters.model_title
+        model_title = execution_context.parameters.model_title or ""
         measures_to_save = list(draws_df["measure_id"].unique())
         model_version_id = execution_context.parameters.model_version_id
         if "prod" in execution_context.parameters.database:
@@ -115,7 +157,7 @@ def save_model_results_to_db(draws_df, execution_context):
 
     """
 
-    draws_df = _normalize_draws_df(draws_df)
+    draws_df = _normalize_draws_df(draws_df, execution_context)
 
     model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
 

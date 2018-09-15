@@ -1,5 +1,6 @@
 """ Functions for creating internal model representations of settings from EpiViv
 """
+
 from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.rates import Smooth
 from cascade.input_data.configuration import ConfigurationError
@@ -64,17 +65,6 @@ def fixed_effects_from_epiviz(model_context, configuration):
                 raise ConfigurationError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             rate.parent_smooth = make_smooth(configuration, rate_config)
-
-
-def integrand_grids_from_epiviz(model_context, configuration):
-    ages = configuration.model.default_age_grid
-    times = configuration.model.default_time_grid
-    grid = AgeTimeGrid(ages, times)
-
-    for rate in model_context.rates:
-        if rate.parent_smooth:
-            integrand = getattr(model_context.outputs.integrands, RATE_TO_INTEGRAND[rate.name].name)
-            integrand.grid = grid
 
 
 def random_effects_from_epiviz(model_context, configuration):

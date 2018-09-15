@@ -238,6 +238,13 @@ def collect_ages_or_times(context, to_collect="ages"):
                 value = smooth.grid.times
             values.extend(value)
 
+    for integrand in context.outputs.integrands:
+        if to_collect == "ages":
+            value = [age for ages in integrand.age_ranges for age in ages]
+        else:
+            value = [time for times in integrand.time_ranges for time in times]
+        values.extend(value)
+
     # Extreme values from the input data must also appear in the age/time table
     if to_collect == "ages" and context.input_data.ages:
         values.append(np.max(list(context.input_data.ages)))
@@ -268,16 +275,16 @@ def make_time_table(context):
 def make_avgint_table(context, integrand_id_func):
     rows = []
     for integrand in context.outputs.integrands:
-        if integrand.grid is not None:
-            for a in integrand.grid.ages:
-                for t in integrand.grid.times:
+        if integrand.age_ranges is not None and integrand.time_ranges is not None:
+            for age_lower, age_upper in integrand.age_ranges:
+                for time_lower, time_upper in integrand.time_ranges:
                     rows.append(
                         {
                             "integrand_id": integrand_id_func(integrand.name),
-                            "age_lower": a,
-                            "age_upper": a,
-                            "time_lower": t,
-                            "time_upper": t,
+                            "age_lower": age_lower,
+                            "age_upper": age_upper,
+                            "time_lower": time_lower,
+                            "time_upper": time_upper,
                             # Assuming using the first set of weights, which is constant.
                             "weight_id": 0,
                             # Assumes one location_id.

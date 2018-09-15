@@ -46,7 +46,8 @@ class _Outputs:
 class _Integrand:
     def __init__(self, name):
         self.name = name
-        self.grid = None
+        self.age_ranges = None
+        self.time_ranges = None
 
 
 class _Integrands:
