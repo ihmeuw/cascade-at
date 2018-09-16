@@ -381,7 +381,7 @@ def _smooth_row(name, smooth, grid, prior_id_func):
 
 
 def covariate_multiplier_iter(context):
-    for rate_mul in context.rates.covariate_multipliers
+    for rate_mul in context.rates.covariate_multipliers:
         yield rate_mul, "rate_value"
 
     for val_mul in context.outputs.integrands.value_covariate_multipliers:
