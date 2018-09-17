@@ -2,8 +2,9 @@
 Converts the internal representation to a Dismod File.
 """
 import logging
-import warnings
+from numbers import Real
 import time
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -263,6 +264,16 @@ def make_time_table(context):
     return time_df
 
 
+def integrand_to_id(integrand):
+    """
+    This is the general function from integrand to its index in the db.
+
+    Args:
+        integrand (str): The name of the integrand.
+    """
+    return IntegrandEnum[integrand].value
+
+
 def make_avgint_table(context, integrand_id_func):
     rows = []
     for integrand in context.outputs.integrands:
@@ -415,6 +426,7 @@ def covariate_multiplier_iter(context):
 
 
 def smooth_iter(context):
+    """Iterate over every smooth in the context."""
     for rate in context.rates:
         for smooth in rate.child_smoothings + [rate.parent_smooth] if rate.parent_smooth else []:
             yield smooth
@@ -507,6 +519,12 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
         "reference": np.array([col.reference for col in cov_cols], dtype=np.float),
         "max_difference": np.array([col.max_difference for col in cov_cols], dtype=np.float),
     })
+    if covariate_columns["reference"].isnull().any():
+        null_references = list()
+        for check_ref_col in cols:
+            if not isinstance(check_ref_col.reference, Real):
+                null_references.append(check_ref_col.name)
+        raise RuntimeError(f"Covariate columns without reference values {null_references}")
 
     def cov_col_id_func(query_column):
         return cov_cols.index(query_column)
@@ -521,7 +539,7 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
             integrand_id = np.NaN
         else:
             rate_id = np.NaN
-            integrand_id = integrand_id_func(rate_or_integrand)
+            integrand_id = integrand_id_func(rate_or_integrand.name)
 
         cm_data[cidx] = [
             cidx,

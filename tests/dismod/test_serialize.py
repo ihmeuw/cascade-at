@@ -14,12 +14,14 @@ from cascade.dismod.serialize import (
     collect_priors,
     make_age_table,
     make_time_table,
+    integrand_to_id,
     make_prior_table,
     make_smooth_and_smooth_grid_tables,
     make_node_table,
     make_data_table,
     make_avgint_table,
     make_rate_table,
+    make_covariate_table,
 )
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.dismod.db.metadata import DensityEnum
@@ -221,15 +223,16 @@ def test_make_data_table(base_context):
 
 
 def test_make_avgint_table(base_context):
-    avgint_table = make_avgint_table(base_context, hash)
+    avgint_table = make_avgint_table(base_context, integrand_to_id)
 
     assert set(avgint_table.integrand_id) == {
-        hash(integrand.name) for integrand in base_context.outputs.integrands if integrand.grid is not None
+        integrand_to_id(integrand.name) for integrand in base_context.outputs.integrands
+        if integrand.grid is not None
     }
 
     for integrand in base_context.outputs.integrands:
         if integrand.grid is not None:
-            integrand_id = hash(integrand.name)  # noqa: F841
+            integrand_id = integrand_to_id(integrand.name)  # noqa: F841
             rows = avgint_table.query("integrand_id == @integrand_id")
             assert len(rows) == len(integrand.grid.ages) * len(integrand.grid.times)
 
@@ -253,3 +256,18 @@ def test_make_rate_table(base_context):
         if not df.empty:
             rate_id = float(df.rate_id)
             assert rate_to_id(rate) == rate_id
+
+
+def test_make_covariate_table(base_context):
+    dm = DismodFile(None)
+    dm.make_densities()
+    age_table = make_age_table(base_context)
+    time_table = make_time_table(base_context)
+    prior_table, prior_objects = make_prior_table(base_context, dm.density)
+    smooth_table, smooth_grid_table, smooth_id_func = make_smooth_and_smooth_grid_tables(
+        base_context, age_table, time_table, prior_objects
+    )
+
+    rate_table, rate_to_id = make_rate_table(base_context, smooth_id_func)
+    columns_df, mulcov_df, columns_func = make_covariate_table(
+        base_context, smooth_id_func, rate_to_id, integrand_to_id)

@@ -5,7 +5,7 @@ import pytest
 
 from cascade.model import covariates
 from cascade.model.grids import PriorGrid, AgeTimeGrid
-from cascade.model.priors import GaussianPrior
+from cascade.model.priors import Gaussian
 from cascade.model.rates import Smooth
 from cascade.core.context import ModelContext
 
@@ -22,9 +22,9 @@ def test_assign_covariates_to_iota():
         age_start=0, age_end=120, age_step=5,
         time_start=1990, time_end=2018, time_step=1)
     value_priors = PriorGrid(at_grid)
-    value_priors[:, :].prior = GaussianPrior(0, 1.0)
+    value_priors[:, :].prior = Gaussian(0, 1.0)
     at_priors = PriorGrid(at_grid)
-    at_priors[:, :].prior = GaussianPrior(0, 0.1)
+    at_priors[:, :].prior = Gaussian(0, 0.1)
 
     income_on_incidence = covariates.CovariateMultiplier(
         income, Smooth(value_priors, at_priors, at_priors)
@@ -52,6 +52,8 @@ def test_create_covariate(cov, ref, diff):
     income.reference = ref
     income.max_difference = diff
     covariates.CovariateColumn(cov, ref, diff)
+# What happens downstream if you don't set the reference on a covariate column?
+# When does that get checked?
 
 
 @pytest.mark.parametrize("name,ref,diff", [
@@ -80,9 +82,3 @@ def test_covariate_column_equality():
     income3 = covariates.CovariateColumn("income", -1000, 500)
     assert income1 == income2
     assert income2 != income3
-
-
-def test_rate_to_id():
-    model = ModelContext()
-    d = dict()
-    d[model.rates.iota] = 3
