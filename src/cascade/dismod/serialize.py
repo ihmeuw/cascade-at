@@ -212,17 +212,16 @@ def observations_to_data(observations_df, hold_out=0):
 def collect_priors(context):
     priors = set()
 
-    for rate in context.rates:
-        for smooth in rate.smoothings:
-            for grid_name in ["d_age_priors", "d_time_priors", "value_priors"]:
-                grid = getattr(smooth, grid_name)
-                if grid:
-                    ps = grid.priors
-                    if grid_name == "value_priors":
-                        # Constants on the value don't actually go in the
-                        # prior table, so exclude them
-                        ps = [p for p in ps if not isinstance(p, Constant)]
-                    priors.update(ps)
+    for smooth in smooth_iter(context):
+        for grid_name in ["d_age_priors", "d_time_priors", "value_priors"]:
+            grid = getattr(smooth, grid_name)
+            if grid:
+                ps = grid.priors
+                if grid_name == "value_priors":
+                    # Constants on the value don't actually go in the
+                    # prior table, so exclude them
+                    ps = [p for p in ps if not isinstance(p, Constant)]
+                priors.update(ps)
 
     return priors
 
@@ -509,19 +508,11 @@ def make_rate_table(context, smooth_id_func):
 
 def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_func):
     cols = context.input_data.covariate_columns
-    # Guarantee that covariates are in same order as in input data.
-    cov_cols = [cname[2:] for cname in context.input_data.observations
-                if cname.startswith("x_") and cname[2:] in cols]
-    if not set(cols).issubset(set(cov_cols)):
-        raise RuntimeError(
-            f"Every covariate should have data in the observations. "
-            f"These are missing {set(cols) - set(cov_cols)}"
-        )
     covariate_columns = pd.DataFrame({
         "covariate_id": np.arange(len(cols)),
-        "covariate_name": [col.name for col in cov_cols],
-        "reference": np.array([col.reference for col in cov_cols], dtype=np.float),
-        "max_difference": np.array([col.max_difference for col in cov_cols], dtype=np.float),
+        "covariate_name": [col.name for col in cols],
+        "reference": np.array([col.reference for col in cols], dtype=np.float),
+        "max_difference": np.array([col.max_difference for col in cols], dtype=np.float),
     })
     if covariate_columns["reference"].isnull().any():
         null_references = list()
@@ -531,7 +522,7 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
         raise RuntimeError(f"Covariate columns without reference values {null_references}")
 
     def cov_col_id_func(query_column):
-        return cov_cols.index(query_column)
+        return cols.index(query_column)
 
     cm_rows = []
     # The kinds are described here:

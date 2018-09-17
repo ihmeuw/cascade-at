@@ -94,7 +94,7 @@ class CovariateMultiplier:
         """
         if not isinstance(covariate_column, CovariateColumn):
             raise ValueError("Second argument must be a Smooth.")
-        if not isinstance(smooth, Smooth):
+        if not isinstance(smooth, Smooth) and not smooth is None:
             raise ValueError("Second argument must be a Smooth.")
 
         self.column = covariate_column

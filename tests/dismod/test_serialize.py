@@ -8,6 +8,7 @@ from cascade.core.context import ModelContext
 from cascade.model.grids import PriorGrid, AgeTimeGrid
 from cascade.model.rates import Smooth
 from cascade.model.priors import Gaussian, Uniform
+from cascade.model.covariates import CovariateColumn, CovariateMultiplier
 from cascade.dismod.serialize import (
     model_to_dismod_file,
     collect_ages_or_times,
@@ -259,6 +260,41 @@ def test_make_rate_table(base_context):
 
 
 def test_make_covariate_table(base_context):
+    at_grid = AgeTimeGrid.uniform(
+        age_start=0, age_end=120, age_step=5,
+        time_start=1990, time_end=2018, time_step=1)
+    value_priors = PriorGrid(at_grid)
+    value_priors[:, :].prior = Gaussian(0, 0.8)
+    at_priors = PriorGrid(at_grid)
+    at_priors[:, :].prior = Gaussian(0, 0.15)
+
+    income = CovariateColumn("income")
+    income.reference = 1000
+    income.max_difference = None
+    income_time_tight = CovariateMultiplier(income, Smooth(value_priors, at_priors, at_priors))
+
+    wash = CovariateColumn("wash")
+    wash.reference = 0
+    wash.max_difference = None
+    wash_cov = CovariateMultiplier(wash, Smooth(value_priors, at_priors, at_priors))
+
+    sex_id = CovariateColumn("sex")
+    sex_id.reference = -0.5
+    sex_id.max_difference = 0.5
+    # A sex covariate is often also used as a study covariate.
+
+    base_context.input_data.covariate_columns.extend([income, wash, sex_id])
+
+    # There isn't much to test about the lists of covariate multipliers.
+    # They are lists and would permit, for instance, adding the same one twice.
+    base_context.rates.iota.covariate_multipliers.append(income_time_tight)
+    base_context.outputs.integrands.remission.value_covariate_multipliers.append(income_time_tight)
+    base_context.outputs.integrands.prevalence.std_covariate_multipliers.append(income_time_tight)
+
+    for rate_adj in base_context.rates:
+        rate_adj.covariate_multipliers.append(wash_cov)
+
+
     dm = DismodFile(None)
     dm.make_densities()
     age_table = make_age_table(base_context)
