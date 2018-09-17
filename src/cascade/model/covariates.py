@@ -78,8 +78,11 @@ class CovariateColumn:
 
 class CovariateMultiplier:
     """
-    A covariate multiplier makes a covariate column predict a response
-    on its target. This class is only two-thirds of the definition.
+    A covariate multiplier makes a given covariate column the predictor
+    of a model variable, where the model variable can be one of a
+    rate, an integrand's value, or an integrand's standard deviation.
+
+    This class is only two-thirds of the definition.
     The covariate column has to be attached to a particular rate
     or measured value or measured standard deviation.
     """

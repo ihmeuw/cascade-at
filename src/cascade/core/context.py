@@ -52,7 +52,7 @@ class _Integrand:
         self.name = name
         self.grid = None
         self.value_covariate_multipliers = []
-        self.stddev_covariate_multipliers = []
+        self.std_covariate_multipliers = []
 
 
 class _Integrands:

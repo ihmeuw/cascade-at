@@ -381,29 +381,41 @@ def _smooth_row(name, smooth, grid, prior_id_func):
 
 
 def covariate_multiplier_iter(context):
-    for rate_mul in context.rates.covariate_multipliers:
-        yield rate_mul, "rate_value"
+    """
+    Covariate multipliers are stored in three places of the context.
+    This iterates through those three places. The same covariate multiplier
+    instance can be attached to more than one of those three places, and each
+    time it creates a different covariate multiplier set of model variables.
+    """
+    # α according to Dismod-AT
+    for rate in context.rates:
+        for rate_mul in rate.covariate_multipliers:
+            yield rate_mul, "rate_value", rate
 
-    for val_mul in context.outputs.integrands.value_covariate_multipliers:
-        yield val_mul, "meas_value"
+    # β
+    for val_integrand in context.outputs.integrands:
+        for val_mul in val_integrand.value_covariate_multipliers:
+            yield val_mul, "meas_value", val_integrand
 
-    for std_mul in context.outputs.integrands.stddev_covariate_multipliers:
-        yield std_mul, "meas_std"
+    # γ
+    for std_integrand in context.outputs.integrands:
+        for std_mul in std_integrand.std_covariate_multipliers:
+            yield std_mul, "meas_std", std_integrand
+
+
+def smooth_iter(context):
+    for rate in context.rates:
+        for smooth in rate.child_smoothings + [rate.parent_smooth] if rate.parent_smooth else []:
+            yield smooth
+
+    for cov_multiplier, _, _ in covariate_multiplier_iter(context):
+        yield cov_multiplier.smooth
 
 
 def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_func):
     grid_tables = []
     smooths = []
     smooth_rows = []
-
-    def smooth_iter(context):
-        for rate in context.rates:
-            for smooth in rate.child_smoothings + [rate.parent_smooth] if rate.parent_smooth else []:
-                yield smooth
-
-        for cov_multiplier, _ in covariate_multiplier_iter(context):
-            yield cov_multiplier.smooth
-
 
     for smooth in smooth_iter(context):
         grid_table = make_smooth_grid_table(smooth, prior_id_func)
@@ -472,13 +484,29 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
         "max_difference": np.array([col.max_difference for col in cov_cols], dtype=np.float),
     })
 
+    def cov_col_id_func(query_column):
+        return cov_cols.index(query_column)
+
     cm_data = dict()
+    # The kinds are described here:
+    # https://bradbell.github.io/dismod_at/doc/avg_integrand.htm
     for cidx, mul_type in enumerate(covariate_multiplier_iter(context)):
-        cov_mul, kind = mul_type
+        cov_mul, kind, rate_or_integrand = mul_type
+        if kind == "rate_value":
+            rate_id = rate_id_func(rate_or_integrand)
+            integrand_id = np.NaN
+        else:
+            rate_id = np.NaN
+            integrand_id = integrand_id_func(rate_or_integrand)
+
         cm_data[cidx] = [
             cidx,
             kind,
-            rate_id_func()
+            rate_id,
+            integrand_id,
+            cov_col_id_func(cov_mul.column),
+            smooth_id_func(cov_mul.smooth),
         ]
+    cov_mul = pd.DataFrame.from_dict(cm_data)
 
-    return covariate_columns
+    return covariate_columns, cov_mul, cov_col_id_func

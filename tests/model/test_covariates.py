@@ -30,6 +30,8 @@ def test_assign_covariates_to_iota():
         income, Smooth(value_priors, at_priors, at_priors)
     )
     model.rates.iota.covariate_multipliers.append(income_on_incidence)
+    model.outputs.integrands.remission.value_covariate_multipliers.append(income_on_incidence)
+    model.outputs.integrands.prevalence.std_covariate_multipliers.append(income_on_incidence)
 
 
 @pytest.mark.parametrize("cov,ref,diff", [
