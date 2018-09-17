@@ -94,6 +94,10 @@ def model_to_dismod_file(model):
 
     bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
 
+    bundle_fit.covariate, bundle_fit.mulcov, covariate_id_func = make_covariate_table(
+        model, smooth_id_func, rate_id_func, integrand_to_id
+    )
+
     return bundle_fit
 
 
@@ -529,7 +533,7 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
     def cov_col_id_func(query_column):
         return cov_cols.index(query_column)
 
-    cm_data = dict()
+    cm_rows = []
     # The kinds are described here:
     # https://bradbell.github.io/dismod_at/doc/avg_integrand.htm
     for cidx, mul_type in enumerate(covariate_multiplier_iter(context)):
@@ -541,14 +545,15 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
             rate_id = np.NaN
             integrand_id = integrand_id_func(rate_or_integrand.name)
 
-        cm_data[cidx] = [
-            cidx,
-            kind,
-            rate_id,
-            integrand_id,
-            cov_col_id_func(cov_mul.column),
-            smooth_id_func(cov_mul.smooth),
-        ]
-    cov_mul = pd.DataFrame.from_dict(cm_data)
+        cm_rows.append(dict(
+            mulcov_id=cidx,
+            mulcov_type=kind,
+            rate_id=rate_id,
+            integrand_id=integrand_id,
+            covariate_id=cov_col_id_func(cov_mul.column),
+            smooth_id=smooth_id_func(cov_mul.smooth),
+        ))
+    mul_cov = pd.DataFrame.from_records(
+        cm_rows, columns=["mulcov_id", "mulcov_type", "rate_id", "integrand_id", "covariate_id", "smooth_id"])
 
-    return covariate_columns, cov_mul, cov_col_id_func
+    return covariate_columns, mul_cov, cov_col_id_func
