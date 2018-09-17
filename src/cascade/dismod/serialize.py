@@ -10,7 +10,7 @@ import pandas as pd
 
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
-from cascade.model.priors import ConstantPrior
+from cascade.model.priors import Constant
 from cascade.model.grids import unique_floats
 
 
@@ -129,7 +129,7 @@ def make_log_table():
 def make_node_table(context):
     # Assume we have one location, so no parents.
     # If we had a hierarchy, that would be used to determine parents.
-    if context.input_data.observations is not None:
+    if context.input_data.observations is not None and not context.input_data.observations.empty:
         unique_locations = context.input_data.observations["location_id"].unique()
         assert len(unique_locations) == 1
     else:
@@ -214,9 +214,9 @@ def collect_priors(context):
                 if grid:
                     ps = grid.priors
                     if grid_name == "value_priors":
-                        # ConstantPriors on the value don't actually go in the
+                        # Constants on the value don't actually go in the
                         # prior table, so exclude them
-                        ps = [p for p in ps if not isinstance(p, ConstantPrior)]
+                        ps = [p for p in ps if not isinstance(p, Constant)]
                     priors.update(ps)
 
     return priors
@@ -244,7 +244,7 @@ def collect_ages_or_times(context, to_collect="ages"):
         values.append(np.max(list(context.input_data.times)))
         values.append(np.min(list(context.input_data.times)))
 
-    return unique_floats(values)
+    return sorted(unique_floats(values))
 
 
 def make_age_table(context):
@@ -289,7 +289,7 @@ def make_avgint_table(context, integrand_id_func):
 
 def _prior_row(prior):
     row = {
-        "prior_name": None,
+        "prior_name": prior.name,
         "density": None,
         "lower": np.nan,
         "upper": np.nan,
@@ -300,6 +300,14 @@ def _prior_row(prior):
     }
     row.update(prior.parameters())
     row["density_name"] = row["density"]
+
+    if row["eta"] is None:
+        # For some distributions eta is a required parameter but for others
+        # it is nullable and represents an offset to be used during
+        # optimization. This let's us have None represent the missing
+        # value in python
+        row["eta"] = np.nan
+
     del row["density"]
     return row
 
@@ -307,7 +315,10 @@ def _prior_row(prior):
 def make_prior_table(context, density_table):
     priors = sorted(collect_priors(context))
 
-    prior_table = pd.DataFrame([_prior_row(p) for p in priors])
+    prior_table = pd.DataFrame(
+        [_prior_row(p) for p in priors],
+        columns=["prior_name", "density_name", "lower", "upper", "mean", "std", "eta", "nu"],
+    )
     prior_table["prior_id"] = prior_table.index
     prior_table.loc[prior_table.prior_name.isnull(), "prior_name"] = prior_table.loc[
         prior_table.prior_name.isnull(), "prior_id"
@@ -329,12 +340,12 @@ def make_smooth_grid_table(smooth, prior_id_func):
 
     rows = []
     if grid is not None:
-        for age in grid.ages:
-            for year in grid.times:
+        for year in grid.times:
+            for age in grid.ages:
                 row = {"age": float(age), "time": float(year), "const_value": np.nan}
                 if smooth.value_priors:
                     prior = smooth.value_priors[age, year].prior
-                    if isinstance(prior, ConstantPrior):
+                    if isinstance(prior, Constant):
                         row["const_value"] = prior.value
                         row["value_prior_id"] = np.nan
                     else:
@@ -422,7 +433,13 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
         grid_table["smooth_id"] = len(smooths)
         grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
         grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
-        smooth_rows.append(_smooth_row(f"smooth_{len(smooths)}", smooth, grid_table, prior_id_func))
+        grid_table = grid_table.sort_values(["time_id", "age_id"])
+
+        if smooth.name is None:
+            name = f"smooth_{len(smooths)}"
+        else:
+            name = smooth.name
+        smooth_rows.append(_smooth_row(name, smooth, grid_table, prior_id_func))
         smooths.append(smooth)
         grid_tables.append(grid_table)
 

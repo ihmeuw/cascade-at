@@ -1,7 +1,14 @@
 .. _core:
 
+
 Core Functionality
 ==================
+
+.. toctree::
+   :maxdepth: 2
+
+   form
+
 
 .. automodule:: cascade.core.context
     :members:

@@ -1,9 +1,7 @@
 import pandas as pd
 import pytest
 
-from cascade.saver.generate_draws import (
-    generate_draws_table,
-    pure_generate_draws)
+from cascade.saver.generate_draws import generate_draws_table, pure_generate_draws
 from cascade.dismod.db.wrapper import _get_engine, DismodFile
 
 
@@ -23,21 +21,9 @@ def avgint_df():
 @pytest.fixture(scope="module")
 def predict_df():
     predict_df = pd.DataFrame()
-    predict_df["sample_index"] = [
-        0, 0, 0, 0,
-        1, 1, 1, 1,
-        2, 2, 2, 2,
-        3, 3, 3, 3]
-    predict_df["avgint_id"] = [
-        3, 0, 1, 2,
-        0, 1, 2, 3,
-        0, 1, 2, 3,
-        0, 1, 2, 3]
-    predict_df["avg_integrand"] = [
-        4, 1, 2, 3,
-        5, 6, 7, 8,
-        9, 10, 11, 12,
-        13, 14, 15, 16]
+    predict_df["sample_index"] = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
+    predict_df["avgint_id"] = [3, 0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3]
+    predict_df["avg_integrand"] = [4, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 
     return predict_df
 
@@ -45,7 +31,7 @@ def predict_df():
 @pytest.fixture(scope="module")
 def dismod_file(avgint_df, predict_df):
     engine = _get_engine(None)
-    dismod_file = DismodFile(engine, {}, {})
+    dismod_file = DismodFile(engine)
     dismod_file.avgint = avgint_df
     dismod_file.predict = predict_df
 
@@ -55,7 +41,7 @@ def dismod_file(avgint_df, predict_df):
 @pytest.fixture(scope="module")
 def dismod_file_avgint_df_empty(predict_df):
     engine = _get_engine(None)
-    dismod_file_avgint_df_empty = DismodFile(engine, {}, {})
+    dismod_file_avgint_df_empty = DismodFile(engine)
     dismod_file_avgint_df_empty.avgint = pd.DataFrame()
     dismod_file_avgint_df_empty.predict = predict_df
 
@@ -65,7 +51,7 @@ def dismod_file_avgint_df_empty(predict_df):
 @pytest.fixture(scope="module")
 def dismod_file_predict_df_empty(avgint_df):
     engine = _get_engine(None)
-    dismod_file_predict_df_empty = DismodFile(engine, {}, {})
+    dismod_file_predict_df_empty = DismodFile(engine)
     dismod_file_predict_df_empty.avgint = avgint_df
     dismod_file_predict_df_empty.predict = pd.DataFrame()
 
@@ -75,8 +61,7 @@ def dismod_file_predict_df_empty(avgint_df):
 @pytest.fixture(scope="module")
 def predict_df_ragged(predict_df):
     predict_df_copy = predict_df.copy()
-    extra_data = {"sample_index": [4, 4], "avgint_id": [0, 1],
-                  "avg_integrand": [17, 18]}
+    extra_data = {"sample_index": [4, 4], "avgint_id": [0, 1], "avg_integrand": [17, 18]}
     extra_rows_df = pd.DataFrame(extra_data)
 
     predict_df_ragged = predict_df_copy.append(extra_rows_df)
@@ -104,8 +89,7 @@ def test_generate_draws_table(dismod_file):
 
     draws_df = generate_draws_table(dismod_file)
 
-    pd.testing.assert_frame_equal(draws_df, expected_draws_df(),
-                                  check_like=True)
+    pd.testing.assert_frame_equal(draws_df, expected_draws_df(), check_like=True)
 
 
 def test_generate_draws_empty_avgint(dismod_file_avgint_df_empty):
@@ -124,8 +108,17 @@ def test_pure_generate_draws(avgint_df, predict_df, expected_draws_df):
 
     assert draws_df.shape == (4, 9)
 
-    expected_columns = ["location_id", "age_group_id", "year_id", "sex_id",
-                        "integrand_id", "draw_0", "draw_1", "draw_2", "draw_3"]
+    expected_columns = [
+        "location_id",
+        "age_group_id",
+        "year_id",
+        "sex_id",
+        "integrand_id",
+        "draw_0",
+        "draw_1",
+        "draw_2",
+        "draw_3",
+    ]
 
     assert set(draws_df.columns) == set(expected_columns)
 

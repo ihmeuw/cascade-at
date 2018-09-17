@@ -7,7 +7,7 @@ from pandas.util.testing import assert_frame_equal
 from cascade.core.context import ModelContext
 from cascade.model.grids import PriorGrid, AgeTimeGrid
 from cascade.model.rates import Smooth
-from cascade.model.priors import GaussianPrior, UniformPrior
+from cascade.model.priors import Gaussian, Uniform
 from cascade.dismod.serialize import (
     model_to_dismod_file,
     collect_ages_or_times,
@@ -62,13 +62,13 @@ def base_context(observations, constraints):
     grid = AgeTimeGrid.uniform(age_start=0, age_end=100, age_step=1, time_start=1990, time_end=2018, time_step=5)
 
     d_time = PriorGrid(grid)
-    d_time[:, :].prior = GaussianPrior(0, 0.1)
+    d_time[:, :].prior = Gaussian(0, 0.1, eta=1)
     d_age = PriorGrid(grid)
-    d_age[:, :].prior = GaussianPrior(0, 0.1)
+    d_age[:, :].prior = Gaussian(0, 0.1, name="TestPrior")
     value = PriorGrid(grid)
-    value[:, :].prior = GaussianPrior(0, 0.1)
+    value[:, :].prior = Gaussian(0, 0.1)
 
-    smooth = Smooth()
+    smooth = Smooth(name="iota_smooth")
     smooth.d_time_priors = d_time
     smooth.d_age_priors = d_age
     smooth.value_priors = value
@@ -76,8 +76,8 @@ def base_context(observations, constraints):
 
     smooth = Smooth()
     d_time = PriorGrid(grid)
-    d_time[:, :].prior = GaussianPrior(1, 0.1)
-    d_time.hyper_prior = UniformPrior(0, 1, 0.5)
+    d_time[:, :].prior = Gaussian(1, 0.1)
+    d_time.hyper_prior = Uniform(0, 1, 0.5)
     smooth.d_time_priors = d_time
     context.rates.pini.parent_smooth = smooth
 
@@ -91,7 +91,7 @@ def test_development_target(base_context):
     e = _get_engine(None)
     dm.engine = e
     dm.flush()
-    dm2 = DismodFile(e, {}, {})
+    dm2 = DismodFile(e)
 
     age_table = make_age_table(base_context)
     time_table = make_time_table(base_context)
@@ -113,7 +113,13 @@ def test_development_target(base_context):
 
 def test_collect_priors(base_context):
     priors = collect_priors(base_context)
-    assert priors == {GaussianPrior(0, 0.1), UniformPrior(0, 1, 0.5), GaussianPrior(1, 0.1)}
+    assert priors == {
+        Gaussian(0, 0.1, name="TestPrior"),
+        Uniform(0, 1, 0.5),
+        Gaussian(1, 0.1),
+        Gaussian(0, 0.1),
+        Gaussian(0, 0.1, eta=1),
+    }
 
 
 def test_collect_ages_or_times__ages(base_context):
@@ -147,7 +153,7 @@ def test_make_time_table(base_context):
 
 
 def test_make_prior_table(base_context):
-    dm = DismodFile(None, {}, {})
+    dm = DismodFile(None)
     dm.make_densities()
 
     prior_table, prior_id_func = make_prior_table(base_context, dm.density)
@@ -175,11 +181,14 @@ def test_make_prior_table(base_context):
 
         assert set(r_dict.keys()) == set(o_dict.keys())
         for k, v in r_dict.items():
-            assert r_dict[k] == o_dict[k] or (np.isnan(r_dict[k]) and np.isnan(o_dict[k]))
+            if k == "eta" and o_dict[k] is None:
+                assert np.isnan(r_dict[k])
+            else:
+                assert r_dict[k] == o_dict[k] or (np.isnan(r_dict[k]) and np.isnan(o_dict[k]))
 
 
 def test_make_smooth_and_smooth_grid_tables(base_context):
-    dm = DismodFile(None, {}, {})
+    dm = DismodFile(None)
     dm.make_densities()
 
     age_table = make_age_table(base_context)
@@ -192,6 +201,7 @@ def test_make_smooth_and_smooth_grid_tables(base_context):
     )
 
     assert len(smooth_table) == 2
+    assert "iota_smooth" in smooth_table.smooth_name.values
 
     assert set(smooth_table.index) == set(smooth_grid_table.smooth_id)
 
@@ -225,7 +235,7 @@ def test_make_avgint_table(base_context):
 
 
 def test_make_rate_table(base_context):
-    dm = DismodFile(None, {}, {})
+    dm = DismodFile(None)
     dm.make_densities()
     age_table = make_age_table(base_context)
     time_table = make_time_table(base_context)

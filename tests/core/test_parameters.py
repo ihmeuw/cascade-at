@@ -42,6 +42,7 @@ def test_ParameterHierarchy__basic_initialization(parameters):
 
 def test_ParameterHierarchy__freezing():
     ph = _ParameterHierarchy(a="a", b="b")
+    ph._frozen = True
 
     with pytest.raises(TypeError):
         ph.a = "c"

@@ -21,7 +21,7 @@ def engine():
 
 @pytest.fixture
 def base_file(engine):
-    dm_file = DismodFile(engine, {"howdy": float}, {"there": int})
+    dm_file = DismodFile(engine)
     dm_file.make_densities()
     ages = pd.DataFrame({"age": np.array([6.0, 22.0, 48.0])})
     ages["age_id"] = ages.index
@@ -64,6 +64,32 @@ def test_non_existent_table(base_file):
         base_file.integrands_with_an_s = pd.DataFrame()
 
 
+def test_empty_table__regular_tables(base_file):
+    table = base_file.empty_table("node")
+    assert set(table.columns) == {"node_id", "node_name", "parent"}
+    assert table.dtypes.node_id == np.int64
+    assert table.dtypes.node_name == np.object
+    assert table.dtypes.parent == np.int64
+
+
+def test_empty_table__table_with_mutable_columns(base_file, dummy_data_row):
+    table = base_file.empty_table("data")
+    assert "x_sex" not in table.columns
+    assert "x_s_source" not in table.columns
+
+    base_file.data = dummy_data_row
+    base_file.flush()
+
+    table = base_file.empty_table("data")
+    assert "x_sex" in table.columns
+    assert "x_s_source" in table.columns
+
+
+def test_attribute_access_of_empty_table(base_file):
+    table = base_file.node
+    assert set(table.columns) == {"node_id", "node_name", "parent"}
+
+
 def test_is_dirty__initially(base_file):
     assert base_file._is_dirty("age")
 
@@ -82,7 +108,7 @@ def test_is_dirty__after_modification(base_file):
 def test_is_dirty__on_read(base_file, engine):
     base_file.flush()
 
-    dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
+    dm_file2 = DismodFile(engine)
 
     dm_file2.age
 
@@ -112,7 +138,7 @@ def test_dmfile_read(base_file, engine):
     times = base_file.time
     base_file.flush()
 
-    dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
+    dm_file2 = DismodFile(engine)
     assert ages.sort_index("columns").equals(dm_file2.age.sort_index("columns"))
     assert times.sort_index("columns").equals(dm_file2.time.sort_index("columns"))
 
@@ -123,7 +149,7 @@ def test_reading_modified_columns(base_file, engine):
     ages = base_file.age.copy()
     base_file.flush()
 
-    dm_file2 = DismodFile(engine, {"howdy": float}, {"there": int})
+    dm_file2 = DismodFile(engine)
     assert ages.sort_index("columns").equals(dm_file2.age.sort_index("columns"))
 
 
@@ -189,42 +215,79 @@ def test_validate_data__missing_column():
     assert "nonnullable_column" in str(excinfo.value)
 
 
-def test_two_files_different_columns():
-    column_sets = [{"howdy": float}, {"there": int}]
-    dm_files = list()
-    for column_set in column_sets:
-        engine = _get_engine(None)
-        dm_file = DismodFile(engine, column_set, column_set)
-        dm_file.integrand = pd.DataFrame(
-            {"integrand_id": [0], "integrand_name": ["Sincidence"], "minimum_meas_cv": [0.0]}
-        )
-        dm_file.density = pd.DataFrame({"density_id": [0], "density_name": ["uniform"]})
-        dm_file.node = pd.DataFrame({"node_id": [0], "node_name": ["Foreverland"], "parent": [np.NaN]})
-        dm_file.weight = pd.DataFrame({"weight_id": [0], "weight_name": ["uniform"], "n_age": [1], "n_time": [1]})
-        common_input = {
-            "data_id": [0],
-            "data_name": ["only"],
-            "integrand_id": [0],
-            "density_id": [0],
-            "node_id": [0],
-            "weight_id": [0],
-            "hold_out": [0],
-            "meas_value": [1.0],
-            "meas_std": [0.1],
-            "eta": [0.0],
-            "nu": [0.0],
-            "age_lower": [0.0],
-            "age_upper": [10.0],
-            "time_lower": [1971],
-            "time_upper": [2020],
-        }
-        for col_title, col_type in column_set.items():
-            common_input[col_title] = col_type()
+def test_write_covariate_column__success(base_file):
+    new_data = pd.DataFrame(
+        {
+            "data_name": "foo",
+            "integrand_id": 1,
+            "density_id": 1,
+            "node_id": 1,
+            "weight_id": 1,
+            "hold_out": 0,
+            "meas_value": 0.0,
+            "meas_std": 0.0,
+            "eta": np.nan,
+            "nu": np.nan,
+            "age_lower": 0,
+            "age_upper": 10,
+            "time_lower": 1990,
+            "time_upper": 2000,
+            "x_s_source": 0,
+            "x_sex": 2.0,
+        },
+        index=[0],
+    )
+    base_file.data = new_data
+    base_file.flush()
 
-        dm_file.data = pd.DataFrame(common_input)
-        dm_file.flush()
-        dm_files.append(dm_file)
 
-    for check_set, in_file in zip(column_sets, dm_files):
-        for check_col in check_set:
-            assert check_col in in_file.data.columns
+@pytest.fixture
+def dummy_data_row():
+    return pd.DataFrame(
+        {
+            "data_name": "foo",
+            "integrand_id": 1,
+            "density_id": 1,
+            "node_id": 1,
+            "weight_id": 1,
+            "hold_out": 0,
+            "meas_value": 0.0,
+            "meas_std": 0.0,
+            "eta": np.nan,
+            "nu": np.nan,
+            "age_lower": 0,
+            "age_upper": 10,
+            "time_lower": 1990,
+            "time_upper": 2000,
+            "x_s_source": 0,
+            "x_sex": 2.0,
+        },
+        index=[0],
+    )
+
+
+def test_read_covariate_column__success(base_file, dummy_data_row):
+    base_file.data = dummy_data_row
+    base_file.flush()
+
+    new_dm = DismodFile(base_file.engine)
+    assert list(new_dm.data.x_s_source) == [0]
+    assert list(new_dm.data.x_sex) == [2.0]
+
+
+def test_write_covariate_column__bad_name(base_file, dummy_data_row):
+    dummy_data_row = dummy_data_row.rename(columns={"x_sex": "not_x_sex"})
+    base_file.data = dummy_data_row
+    with pytest.raises(ValueError) as excinfo:
+        base_file.flush()
+    assert "Covariate column names must start with 'x_'. Malformed names: ['not_x_sex']" == str(excinfo.value)
+
+
+def test_write_covariate_column__schema_changes_are_isolated(dummy_data_row):
+    dm_file = DismodFile(_get_engine(None))
+    dm_file.data = dummy_data_row
+    dm_file.flush()
+
+    dm_file2 = DismodFile(_get_engine(None))
+    table = dm_file2.data
+    assert "x_sex" not in table

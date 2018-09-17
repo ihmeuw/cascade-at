@@ -13,7 +13,7 @@ from cascade.core.db import cursor, connection
 CODELOG = logging.getLogger(__name__)
 
 # FIXME: There is a shared function that get's the official mapping, I think. Or an sql query at least.
-MEASURES = {6: "incidence", 9: "mtexcess"}
+MEASURES = {6: "incidence", 9: "mtexcess", 5: "prevalence"}
 
 
 def _bundle_is_frozen(execution_context):
@@ -257,7 +257,7 @@ def _normalize_measures(data):
     """Transform measure_ids into canonical measure names
     """
     data = data.copy()
-    data["measure"] = data.measure_id.apply(MEASURES.get)
+    data["measure"] = data.measure_id.apply(lambda k: MEASURES[k])
     return data
 
 
