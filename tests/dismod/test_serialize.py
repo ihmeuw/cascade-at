@@ -234,6 +234,12 @@ def test_make_rate_table(base_context):
         base_context, age_table, time_table, prior_objects
     )
 
-    rate_table = make_rate_table(base_context, smooth_id_func)
+    rate_table, rate_to_id = make_rate_table(base_context, smooth_id_func)
 
     assert rate_table.rate_name.tolist() == ["pini", "iota", "rho", "chi", "omega"]
+
+    for rate in base_context.rates:
+        df = rate_table.loc[rate_table["rate_name"] == rate.name]
+        if not df.empty:
+            rate_id = float(df.rate_id)
+            assert rate_to_id(rate) == rate_id

@@ -80,3 +80,9 @@ def test_covariate_column_equality():
     income3 = covariates.CovariateColumn("income", -1000, 500)
     assert income1 == income2
     assert income2 != income3
+
+
+def test_rate_to_id():
+    model = ModelContext()
+    d = dict()
+    d[model.rates.iota] = 3

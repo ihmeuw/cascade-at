@@ -91,7 +91,7 @@ def model_to_dismod_file(model):
     # The avgint needs to be translated.
     bundle_fit.avgint = make_avgint_table(model, integrand_id_func)
 
-    bundle_fit.rate = make_rate_table(model, smooth_id_func)
+    bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
 
     return bundle_fit
 
@@ -451,20 +451,27 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
 
 
 def make_rate_table(context, smooth_id_func):
+    rate_to_id = {}
     rows = []
-    for rate in context.rates:
+    for rate_id, rate in enumerate(context.rates):
         if len(rate.child_smoothings) > 1:
             raise NotImplementedError("Multiple child smoothings not supported yet")
 
         rows.append(
             {
+                "rate_id": rate_id,
                 "rate_name": rate.name,
                 "parent_smooth_id": smooth_id_func(rate.parent_smooth) if rate.parent_smooth else np.NaN,
                 "child_smooth_id": smooth_id_func(rate.child_smoothings[0]) if rate.child_smoothings else np.NaN,
                 "child_nslist_id": np.NaN,
             }
         )
-    return pd.DataFrame(rows)
+        rate_to_id[rate] = rate_id
+
+    def rate_id_func(rate):
+        return rate_to_id[rate]
+
+    return pd.DataFrame(rows), rate_id_func
 
 
 def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_func):
