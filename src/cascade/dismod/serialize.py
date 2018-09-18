@@ -544,7 +544,7 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
             covariate_id=cov_col_id_func(cov_mul.column),
             smooth_id=smooth_id_func(cov_mul.smooth),
         ))
-    mul_cov = pd.DataFrame.from_records(
+    mul_cov = pd.DataFrame(
         cm_rows, columns=["mulcov_id", "mulcov_type", "rate_id", "integrand_id", "covariate_id", "smooth_id"])
 
     return covariate_columns, mul_cov, cov_col_id_func
