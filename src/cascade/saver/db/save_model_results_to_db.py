@@ -86,12 +86,6 @@ def _normalize_draws_df(draws_df, execution_context):
 
     draws["location_id"] = draws.node_id.apply(lambda nid: node_to_location[nid])
 
-    # FIXME: NONONO sex is a covariate? I don't know!
-    draws["sex_id"] = 2
-    draws2 = draws.copy()
-    draws2["sex_id"] = 1
-    draws = pd.concat([draws, draws2])
-
     return draws.drop(["node_id", "weight_id"], "columns")
 
 

@@ -187,7 +187,7 @@ def _async_run_and_watch(command, single_use_machine, poll_time):
         raise Exception(f"Dismod couldn't run due to OS error {ose}")
 
     loop = asyncio.get_event_loop()
-    std_out_task = loop.create_task(_read_pipe(sub_process.stdout, lambda text: MATHLOG.debug(text)))
+    std_out_task = loop.create_task(_read_pipe(sub_process.stdout, lambda text: MATHLOG.info(text)))
     std_err_task = loop.create_task(_read_pipe(sub_process.stderr, lambda text: MATHLOG.error(text)))
     yield from sub_process.wait()
     yield from std_out_task

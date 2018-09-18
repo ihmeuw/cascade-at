@@ -205,16 +205,17 @@ class DismodFile:
         if table_name in self._table_data:
             return self._table_data[table_name]
         elif table_name in self._table_definitions:
-            if self.engine is None:
-                raise ValueError("Cannot read from disk before an engine is set")
             table = self._table_definitions[table_name]
-            try:
-                with self.engine.connect() as conn:
-                    data = pd.read_sql_table(table.name, conn)
-            except ValueError as e:
-                if str(e) != f"Table {table.name} not found":
-                    raise
+            if self.engine is None:
                 data = self.empty_table(table.name)
+            else:
+                try:
+                    with self.engine.connect() as conn:
+                        data = pd.read_sql_table(table.name, conn)
+                except ValueError as e:
+                    if str(e) != f"Table {table.name} not found":
+                        raise
+                    data = self.empty_table(table.name)
 
             extra_columns = set(data.columns.difference(table.c.keys()))
             if extra_columns:
