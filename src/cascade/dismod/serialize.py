@@ -507,7 +507,7 @@ def make_rate_table(context, smooth_id_func):
 
 
 def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_func):
-    cols = context.input_data.covariate_columns
+    cols = context.input_data.covariates
     covariate_columns = pd.DataFrame({
         "covariate_id": np.arange(len(cols)),
         "covariate_name": [col.name for col in cols],

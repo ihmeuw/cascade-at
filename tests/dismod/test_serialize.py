@@ -8,7 +8,7 @@ from cascade.core.context import ModelContext
 from cascade.model.grids import PriorGrid, AgeTimeGrid
 from cascade.model.rates import Smooth
 from cascade.model.priors import Gaussian, Uniform
-from cascade.model.covariates import CovariateColumn, CovariateMultiplier
+from cascade.model.covariates import Covariate, CovariateMultiplier
 from cascade.dismod.serialize import (
     model_to_dismod_file,
     collect_ages_or_times,
@@ -268,22 +268,22 @@ def test_make_covariate_table(base_context):
     at_priors = PriorGrid(at_grid)
     at_priors[:, :].prior = Gaussian(0, 0.15)
 
-    income = CovariateColumn("income")
+    income = Covariate("income")
     income.reference = 1000
     income.max_difference = None
     income_time_tight = CovariateMultiplier(income, Smooth(value_priors, at_priors, at_priors))
 
-    wash = CovariateColumn("wash")
+    wash = Covariate("wash")
     wash.reference = 0
     wash.max_difference = None
     wash_cov = CovariateMultiplier(wash, Smooth(value_priors, at_priors, at_priors))
 
-    sex_id = CovariateColumn("sex")
+    sex_id = Covariate("sex")
     sex_id.reference = -0.5
     sex_id.max_difference = 0.5
     # A sex covariate is often also used as a study covariate.
 
-    base_context.input_data.covariate_columns.extend([income, wash, sex_id])
+    base_context.input_data.covariates.extend([income, wash, sex_id])
 
     # There isn't much to test about the lists of covariate multipliers.
     # They are lists and would permit, for instance, adding the same one twice.
