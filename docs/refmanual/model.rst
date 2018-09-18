@@ -23,3 +23,9 @@ Age-Time and Prior Grids
 ------------------------
 .. automodule:: cascade.model.grids
     :members:
+
+Covariates
+----------
+
+.. automodule:: cascade.model.covariates
+    :members:

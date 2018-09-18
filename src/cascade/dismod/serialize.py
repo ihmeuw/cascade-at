@@ -2,8 +2,9 @@
 Converts the internal representation to a Dismod File.
 """
 import logging
-import warnings
+from numbers import Real
 import time
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -91,7 +92,11 @@ def model_to_dismod_file(model):
     # The avgint needs to be translated.
     bundle_fit.avgint = make_avgint_table(model, integrand_id_func)
 
-    bundle_fit.rate = make_rate_table(model, smooth_id_func)
+    bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
+
+    bundle_fit.covariate, bundle_fit.mulcov, covariate_id_func = make_covariate_table(
+        model, smooth_id_func, rate_id_func, integrand_to_id
+    )
 
     return bundle_fit
 
@@ -207,17 +212,16 @@ def observations_to_data(observations_df, hold_out=0):
 def collect_priors(context):
     priors = set()
 
-    for rate in context.rates:
-        for smooth in rate.smoothings:
-            for grid_name in ["d_age_priors", "d_time_priors", "value_priors"]:
-                grid = getattr(smooth, grid_name)
-                if grid:
-                    ps = grid.priors
-                    if grid_name == "value_priors":
-                        # Constants on the value don't actually go in the
-                        # prior table, so exclude them
-                        ps = [p for p in ps if not isinstance(p, Constant)]
-                    priors.update(ps)
+    for smooth in smooth_iter(context):
+        for grid_name in ["d_age_priors", "d_time_priors", "value_priors"]:
+            grid = getattr(smooth, grid_name)
+            if grid:
+                ps = grid.priors
+                if grid_name == "value_priors":
+                    # Constants on the value don't actually go in the
+                    # prior table, so exclude them
+                    ps = [p for p in ps if not isinstance(p, Constant)]
+                priors.update(ps)
 
     return priors
 
@@ -261,6 +265,16 @@ def make_time_table(context):
     time_df["time_id"] = time_df.index
 
     return time_df
+
+
+def integrand_to_id(integrand):
+    """
+    This is the general function from integrand to its index in the db.
+
+    Args:
+        integrand (str): The name of the integrand.
+    """
+    return IntegrandEnum[integrand].value
 
 
 def make_avgint_table(context, integrand_id_func):
@@ -391,25 +405,58 @@ def _smooth_row(name, smooth, grid, prior_id_func):
     }
 
 
+def covariate_multiplier_iter(context):
+    """
+    Covariate multipliers are stored in three places of the context.
+    This iterates through those three places. The same covariate multiplier
+    instance can be attached to more than one of those three places, and each
+    time it creates a different covariate multiplier set of model variables.
+    """
+    # α according to Dismod-AT
+    for rate in context.rates:
+        for rate_mul in rate.covariate_multipliers:
+            yield rate_mul, "rate_value", rate
+
+    # β
+    for val_integrand in context.outputs.integrands:
+        for val_mul in val_integrand.value_covariate_multipliers:
+            yield val_mul, "meas_value", val_integrand
+
+    # γ
+    for std_integrand in context.outputs.integrands:
+        for std_mul in std_integrand.std_covariate_multipliers:
+            yield std_mul, "meas_std", std_integrand
+
+
+def smooth_iter(context):
+    """Iterate over every smooth in the context."""
+    for rate in context.rates:
+        for smooth in rate.child_smoothings + [rate.parent_smooth] if rate.parent_smooth else []:
+            yield smooth
+
+    for cov_multiplier, _, _ in covariate_multiplier_iter(context):
+        yield cov_multiplier.smooth
+
+
 def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_func):
     grid_tables = []
     smooths = []
     smooth_rows = []
-    for rate in context.rates:
-        for smooth in rate.child_smoothings + [rate.parent_smooth] if rate.parent_smooth else []:
-            grid_table = make_smooth_grid_table(smooth, prior_id_func)
-            grid_table["smooth_id"] = len(smooths)
-            grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
-            grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
-            grid_table = grid_table.sort_values(["time_id", "age_id"])
 
-            if smooth.name is None:
-                name = f"smooth_{len(smooths)}"
-            else:
-                name = smooth.name
-            smooth_rows.append(_smooth_row(name, smooth, grid_table, prior_id_func))
-            smooths.append(smooth)
-            grid_tables.append(grid_table)
+    for smooth in smooth_iter(context):
+        grid_table = make_smooth_grid_table(smooth, prior_id_func)
+        grid_table["smooth_id"] = len(smooths)
+        grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
+        grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
+        grid_table = grid_table.sort_values(["time_id", "age_id"])
+
+        if smooth.name is None:
+            name = f"smooth_{len(smooths)}"
+        else:
+            name = smooth.name
+        smooth_rows.append(_smooth_row(name, smooth, grid_table, prior_id_func))
+        smooths.append(smooth)
+        grid_tables.append(grid_table)
 
     if grid_tables:
         grid_table = pd.concat(grid_tables).reset_index(drop=True)
@@ -436,17 +483,68 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
 
 
 def make_rate_table(context, smooth_id_func):
+    rate_to_id = {}
     rows = []
-    for rate in context.rates:
+    for rate_id, rate in enumerate(context.rates):
         if len(rate.child_smoothings) > 1:
             raise NotImplementedError("Multiple child smoothings not supported yet")
 
         rows.append(
             {
+                "rate_id": rate_id,
                 "rate_name": rate.name,
                 "parent_smooth_id": smooth_id_func(rate.parent_smooth) if rate.parent_smooth else np.NaN,
                 "child_smooth_id": smooth_id_func(rate.child_smoothings[0]) if rate.child_smoothings else np.NaN,
                 "child_nslist_id": np.NaN,
             }
         )
-    return pd.DataFrame(rows)
+        rate_to_id[rate] = rate_id
+
+    def rate_id_func(rate):
+        return rate_to_id[rate]
+
+    return pd.DataFrame(rows), rate_id_func
+
+
+def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_func):
+    cols = context.input_data.covariates
+    covariate_columns = pd.DataFrame({
+        "covariate_id": np.arange(len(cols)),
+        "covariate_name": [col.name for col in cols],
+        "reference": np.array([col.reference for col in cols], dtype=np.float),
+        "max_difference": np.array([col.max_difference for col in cols], dtype=np.float),
+    })
+    if covariate_columns["reference"].isnull().any():
+        null_references = list()
+        for check_ref_col in cols:
+            if not isinstance(check_ref_col.reference, Real):
+                null_references.append(check_ref_col.name)
+        raise RuntimeError(f"Covariate columns without reference values {null_references}")
+
+    def cov_col_id_func(query_column):
+        return cols.index(query_column)
+
+    cm_rows = []
+    # The kinds are described here:
+    # https://bradbell.github.io/dismod_at/doc/avg_integrand.htm
+    for cidx, mul_type in enumerate(covariate_multiplier_iter(context)):
+        cov_mul, kind, rate_or_integrand = mul_type
+        if kind == "rate_value":
+            rate_id = rate_id_func(rate_or_integrand)
+            integrand_id = np.NaN
+        else:
+            rate_id = np.NaN
+            integrand_id = integrand_id_func(rate_or_integrand.name)
+
+        cm_rows.append(dict(
+            mulcov_id=cidx,
+            mulcov_type=kind,
+            rate_id=rate_id,
+            integrand_id=integrand_id,
+            covariate_id=cov_col_id_func(cov_mul.column),
+            smooth_id=smooth_id_func(cov_mul.smooth),
+        ))
+    mul_cov = pd.DataFrame(
+        cm_rows, columns=["mulcov_id", "mulcov_type", "rate_id", "integrand_id", "covariate_id", "smooth_id"])
+
+    return covariate_columns, mul_cov, cov_col_id_func

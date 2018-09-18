@@ -57,7 +57,7 @@ class Smooth:
 
 
 class Rate:
-    __slots__ = ["name", "parent_smooth", "child_smoothings"]
+    __slots__ = ["name", "parent_smooth", "child_smoothings", "covariate_multipliers"]
 
     def __init__(self, name, parent_smooth=None, child_smoothings=None):
         self.name = name
@@ -65,6 +65,7 @@ class Rate:
         if child_smoothings is None:
             child_smoothings = []
         self.child_smoothings = child_smoothings
+        self.covariate_multipliers = []
 
     @property
     def smoothings(self):
