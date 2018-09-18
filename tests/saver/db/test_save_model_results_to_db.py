@@ -15,6 +15,7 @@ def execution_context():
                 "model_title": "GBD 2010 Best (dm-39976)",
                 "db_env": "dev",
                 "gbd_round_id": 5,
+                "database": "dismod-at-dev",
                 "year_id": 2010}
     execution_context = ExecutionContext()
     execution_context.parameters = defaults
@@ -25,13 +26,17 @@ def execution_context():
 @pytest.fixture(scope="module")
 def pre_normalized_draws_df():
     pre_normalized_draws_df = pd.DataFrame()
-    pre_normalized_draws_df["age_group_id"] = [7, 7, 7, 7, 20, 20, 20, 20]
-    pre_normalized_draws_df["location_id"] = [102, 102, 102, 102, 102, 102, 102, 102]
+    pre_normalized_draws_df["age_upper"] = [15.0, 15.0, 15.0, 15.0, 80.0, 80.0, 80.0, 80]
+    pre_normalized_draws_df["age_lower"] = [10.0, 10.0, 10.0, 10.0, 75.0, 75.0, 75.0, 75]
+    pre_normalized_draws_df["node_id"] = [102, 102, 102, 102, 102, 102, 102, 102]
     pre_normalized_draws_df["integrand_id"] = [2, 2, 7, 7, 2, 2, 7, 7]
     pre_normalized_draws_df["sex_id"] = [1, 2, 1, 2, 1, 2, 1, 2]
-    pre_normalized_draws_df["year_id"] = [
-        1990, 1990, 1995, 1995,
-        2000, 2005, 2010, 2017]
+    pre_normalized_draws_df["time_lower"] = [
+        1990.0, 1990.0, 1995.0, 1995.0,
+        2000.0, 2005.0, 2010.0, 2017.0]
+    pre_normalized_draws_df["time_upper"] = [
+        1990.0, 1990.0, 1995.0, 1995.0,
+        2000.0, 2005.0, 2010.0, 2017.0]
     pre_normalized_draws_df["draw_0"] = [
         1, 2, 3, 4,
         1.1, 2.1, 3.1, 4.1]
@@ -103,9 +108,9 @@ def fake_write_hdf(monkeypatch):
     monkeypatch.setattr(pd.DataFrame, "to_hdf", to_hdf_fake)
 
 
-def test_normalize_draws_df(pre_normalized_draws_df, draws_df):
+def test_normalize_draws_df(pre_normalized_draws_df, draws_df, execution_context):
 
-    normalized_draws = _normalize_draws_df(pre_normalized_draws_df)
+    normalized_draws = _normalize_draws_df(pre_normalized_draws_df, execution_context)
 
     # ignoring the order of the rows and columns
     pd.testing.assert_frame_equal(draws_df, normalized_draws, check_like=True)

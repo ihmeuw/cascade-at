@@ -81,7 +81,8 @@ def base_context(observations, constraints):
     smooth.d_time_priors = d_time
     context.rates.pini.parent_smooth = smooth
 
-    context.outputs.integrands.Sincidence.grid = grid
+    context.outputs.integrands.Sincidence.age_ranges = [(a, a + 5) for a in range(0, 95, 5)]
+    context.outputs.integrands.Sincidence.time_ranges = [(y, y + 5) for y in range(1990, 2015, 5)]
 
     return context
 
@@ -224,14 +225,14 @@ def test_make_avgint_table(base_context):
     avgint_table = make_avgint_table(base_context, hash)
 
     assert set(avgint_table.integrand_id) == {
-        hash(integrand.name) for integrand in base_context.outputs.integrands if integrand.grid is not None
+        hash(integrand.name) for integrand in base_context.outputs.integrands if integrand.age_ranges is not None
     }
 
     for integrand in base_context.outputs.integrands:
-        if integrand.grid is not None:
+        if integrand.age_ranges is not None:
             integrand_id = hash(integrand.name)  # noqa: F841
             rows = avgint_table.query("integrand_id == @integrand_id")
-            assert len(rows) == len(integrand.grid.ages) * len(integrand.grid.times)
+            assert len(rows) == len(integrand.age_ranges) * len(integrand.time_ranges)
 
 
 def test_make_rate_table(base_context):

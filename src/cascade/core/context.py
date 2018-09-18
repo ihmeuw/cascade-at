@@ -44,6 +44,8 @@ class _Outputs:
 
 
 class _Integrand:
+    __slots__ = ["name", "age_ranges", "time_ranges"]
+
     def __init__(self, name):
         self.name = name
         self.age_ranges = None

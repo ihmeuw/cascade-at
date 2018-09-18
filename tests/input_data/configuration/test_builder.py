@@ -4,7 +4,6 @@ from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
     fixed_effects_from_epiviz,
-    integrand_grids_from_epiviz,
     random_effects_from_epiviz,
     make_smooth,
 )
@@ -27,7 +26,7 @@ def base_config():
             "gbd_round_id": 5,
             "random_effect": [
                 {
-                    "rate": 7,
+                    "rate": "rho",
                     "location": 180,
                     "time_grid": "1990 1991 1992 2000 2009",
                     "default": {
@@ -53,7 +52,7 @@ def base_config():
             ],
             "rate": [
                 {
-                    "rate": 6,
+                    "rate": "iota",
                     "age_grid": "0 20 40 60 80",
                     "default": {
                         "dage": {"density": "gaussian", "mean": 0, "std": 0.1},
@@ -113,18 +112,6 @@ def test_fixed_effects_from_epiviz(base_config):
     fixed_effects_from_epiviz(mc, base_config)
     assert all([r.parent_smooth is None for r in [mc.rates.rho, mc.rates.pini, mc.rates.chi, mc.rates.omega]])
     assert mc.rates.iota.parent_smooth == make_smooth(base_config, base_config.rate[0])
-
-
-def test_integrand_grids_from_epiviz(base_config):
-    mc = initial_context_from_epiviz(base_config)
-    fixed_effects_from_epiviz(mc, base_config)
-    integrand_grids_from_epiviz(mc, base_config)
-
-    assert all([integrand.grid is None for integrand in mc.outputs.integrands if integrand.name not in ["Sincidence"]])
-    integrand = mc.outputs.integrands.Sincidence
-
-    assert set(integrand.grid.ages) == {0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0}
-    assert set(integrand.grid.times) == {1990.0, 1995.0, 2000.0, 2005.0, 2010.0}
 
 
 def test_random_effects_from_epiviz(base_config):

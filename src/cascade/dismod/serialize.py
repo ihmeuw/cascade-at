@@ -240,9 +240,9 @@ def collect_ages_or_times(context, to_collect="ages"):
 
     for integrand in context.outputs.integrands:
         if to_collect == "ages":
-            value = [age for ages in integrand.age_ranges for age in ages]
+            value = [age for ages in integrand.age_ranges or [] for age in ages]
         else:
-            value = [time for times in integrand.time_ranges for time in times]
+            value = [time for times in integrand.time_ranges or [] for time in times]
         values.extend(value)
 
     # Extreme values from the input data must also appear in the age/time table
