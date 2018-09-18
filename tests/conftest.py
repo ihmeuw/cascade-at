@@ -1,4 +1,7 @@
 import pytest
+from cascade.input_data.db import module_proxy
+
+module_proxy.BLOCK_SHARED_FUNCTION_ACCESS = True
 
 
 @pytest.fixture
@@ -18,3 +21,25 @@ def mock_ezfuncs(mocker):
 @pytest.fixture
 def mock_database_access(mock_ezfuncs):
     return {"cursor": mock_ezfuncs.get_connection().cursor(), "connection": mock_ezfuncs.get_connection()}
+
+
+def pytest_addoption(parser):
+    group = parser.getgroup("cascade")
+    group.addoption("--ihme-db", action="store_true",
+                    help="run functions requiring access to central comp and Dismod-AT")
+
+
+@pytest.fixture
+def ihme_db(request):
+    return IhmeDbFuncArg(request)
+
+
+class IhmeDbFuncArg:
+    """
+    Uses a pattern from https://pytest.readthedocs.io/en/2.0.3/example/attic.html
+    """
+    def __init__(self, request):
+        if not request.config.getoption("ihme_db"):
+            pytest.skip(f"specify --ihme to run tests requiring Central Comp databases")
+
+        module_proxy.BLOCK_SHARED_FUNCTION_ACCESS = False

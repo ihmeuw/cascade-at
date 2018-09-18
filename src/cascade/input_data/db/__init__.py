@@ -11,7 +11,3 @@ MEASURE_IDS = {"deaths": 1}
 db_queries = module_proxy.ModuleProxy("db_queries")
 db_tools = module_proxy.ModuleProxy("db_tools")
 save_results = module_proxy.ModuleProxy("save_results")
-
-
-def disable_databases():
-    module_proxy.BLOCK_SHARED_FUNCTION_ACCESS = True

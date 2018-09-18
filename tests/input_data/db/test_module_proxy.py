@@ -30,6 +30,15 @@ def test_disable_proxy(save_access):
 
 
 def test_disable_all(save_access):
-    db.disable_databases()
+    module_proxy.BLOCK_SHARED_FUNCTION_ACCESS = True
     with pytest.raises(ModuleNotFoundError):
         db.db_queries.get_cause_metadata("the values", "don't matter")
+
+
+def test_ihme_access(ihme_db):
+    """
+    This test should be skipped normally and execute (and pass)
+    when the --ihme-db flag is used.
+    """
+    df = db.db_queries.get_age_metadata(age_group_set_id=12, gbd_round_id=5)
+    assert not df.empty
