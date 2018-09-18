@@ -55,7 +55,7 @@ As a rule of thumb, the three uses of covariates apply
 to different variables, as shown in the table below.
 
 ====================  =======  ================ ===============
-Use of Covariate      Rate     Measured Value   Measured Stdev
+Use of Covariate      Rate     Measured Value   Measured Stddev
 ====================  =======  ================ ===============
 Country               Yes      Maybe            Maybe
 Study                 Maybe    Yes              Yes
