@@ -98,7 +98,7 @@ def run_dismod(dismod_file, with_random_effects):
     if "end init" not in dismod_file.log.message.iloc[-1]:
         raise DismodATException("DismodAt failed to complete 'init' command")
 
-    random_or_fixed = "random" if with_random_effects else "fixed"
+    random_or_fixed = "both" if with_random_effects else "fixed"
     run_and_watch(command_prefix + ["fit", random_or_fixed], False, 1)
     dismod_file.refresh()
     if "end fit" not in dismod_file.log.message.iloc[-1]:

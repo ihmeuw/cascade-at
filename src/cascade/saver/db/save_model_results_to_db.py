@@ -25,19 +25,19 @@ DRAWS_INPUT_FILE_PATTERN = "all_draws.h5"
 
 INTEGRAND_ID_TO_MEASURE_ID_DF = pd.DataFrame(
     [
-        [0, 41],
-        [1, 7],
-        [2, 9],
-        [3, 16],
-        [4, 13],
-        [5, 39],
-        [6, 40],
-        [7, 5],
-        [8, 6],
-        [9, 15],
-        [10, 14],
-        [11, 12],
-        [12, 11],
+        [0, 41],  # Susceptible incidence
+        [1, 7],  # Remission
+        [2, 9],  # Excess mortality rate
+        [3, 16],  # Other cause mortality rate
+        [4, 13],  # With-condition mortality rate
+        [5, 39],  # Susceptible population fraction
+        [6, 40],  # With Condition population fraction
+        [7, 5],  # Prevalence
+        [8, 42],  # Total Incidence
+        [9, 15],  # Cause-specific mortality rate
+        [10, 14],  # All-cause mortality rate
+        [11, 12],  # Standardized mortality ratio
+        [12, 11],  # Relative risk
     ],
     columns=["integrand_id", "measure_id"],
 )
@@ -85,6 +85,13 @@ def _normalize_draws_df(draws_df, execution_context):
     node_to_location = {r.node_id: int(r.node_name) for _, r in node_table.iterrows()}
 
     draws["location_id"] = draws.node_id.apply(lambda nid: node_to_location[nid])
+
+    # FIXME This is a placeholder because we don't have covariates yet and can't actually predict sex differences
+    male_draws = draws.copy()
+    male_draws["sex_id"] = 1
+    female_draws = draws.copy()
+    female_draws["sex_id"] = 2
+    draws = pd.concat([male_draws, female_draws])
 
     return draws.drop(["node_id", "weight_id"], "columns")
 
