@@ -33,6 +33,7 @@ def make_data(integrands):
     df["age_end"] = df.age_start + 5
     df["year_end"] = df.year_start + 5
     df["location_id"] = 1
+    df["sex"] = "Both"
     df["density"] = DensityEnum.gaussian
     df["weight"] = "constant"
 
