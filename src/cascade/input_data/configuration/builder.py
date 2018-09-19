@@ -3,7 +3,7 @@
 
 from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.rates import Smooth
-from cascade.input_data.configuration import ConfigurationError
+from cascade.input_data.configuration import SettingsError
 from cascade.core.context import ModelContext
 from cascade.dismod.db.metadata import IntegrandEnum
 
@@ -52,7 +52,7 @@ def make_smooth(configuration, smooth_configuration):
             elif row.prior_type == "value":
                 pgrid = value
             else:
-                raise ConfigurationError(f"Unknown prior type {row.prior_type}")
+                raise SettingsError(f"Unknown prior type {row.prior_type}")
             pgrid[slice(row.age_lower, row.age_upper), slice(row.time_lower, row.time_upper)].prior = row.prior_object
     return Smooth(value, d_age, d_time)
 
@@ -62,7 +62,7 @@ def fixed_effects_from_epiviz(model_context, configuration):
         for rate_config in configuration.rate:
             rate_name = rate_config.rate
             if rate_name not in [r.name for r in model_context.rates]:
-                raise ConfigurationError(f"Unspported rate {rate_name}")
+                raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             rate.parent_smooth = make_smooth(configuration, rate_config)
 
@@ -72,7 +72,7 @@ def random_effects_from_epiviz(model_context, configuration):
         for smoothing_config in configuration.random_effect:
             rate_name = smoothing_config.rate
             if rate_name not in [r.name for r in model_context.rates]:
-                raise ConfigurationError(f"Unspported rate {rate_name}")
+                raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             location = smoothing_config.location
             rate.child_smoothings.append((location, make_smooth(configuration, smoothing_config)))

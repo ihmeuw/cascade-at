@@ -1,10 +1,10 @@
-import sys
+import os
 import logging
 from pathlib import Path
-from pprint import pprint
-import argparse
+from pprint import pformat
 import json
 
+from cascade.executor.argument_parser import DMArgumentParser
 from cascade.input_data.db.demographics import get_age_groups, get_years
 from cascade.dismod.db.wrapper import _get_engine
 from cascade.testing_utilities import make_execution_context
@@ -15,11 +15,14 @@ from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.db.bundle import bundle_with_study_covariates, freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.saver.save_model_results import save_model_results
+from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
     fixed_effects_from_epiviz,
     random_effects_from_epiviz,
 )
+
+CODELOG = logging.getLogger(__name__)
 
 
 def load_settings(meid=None, mvid=None, settings_file=None):
@@ -35,9 +38,7 @@ def load_settings(meid=None, mvid=None, settings_file=None):
     settings = Configuration(raw_settings)
     errors = settings.validate_and_normalize()
     if errors:
-        pprint(raw_settings)
-        pprint(errors)
-        raise ValueError("Configuration does not validate")
+        raise SettingsError("Configuration does not validate", errors, raw_settings)
 
     return settings
 
@@ -115,22 +116,11 @@ def has_random_effects(model):
 
 
 def main():
-    parser = argparse.ArgumentParser("Run DismodAT from Epiviz")
+    parser = DMArgumentParser("Run DismodAT from Epiviz")
     parser.add_argument("db_file_path")
-    parser.add_argument("--meid", type=int)
-    parser.add_argument("--mvid", type=int)
     parser.add_argument("--settings_file")
     parser.add_argument("--no-upload", action="store_true")
-    args = parser.parse_args()
-
-    root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
-
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    ch.setFormatter(formatter)
-    root.addHandler(ch)
+    args, _ = parser.parse_known_args()
 
     settings = load_settings(args.meid, args.mvid, args.settings_file)
 
@@ -146,4 +136,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SettingsError as e:
+        CODELOG.error(str(e))
+        CODELOG.error(f"Form data: {pformat(e.form_data)}")
+        CODELOG.error(f"Form validation errors: {pformat(e.form_errors)}")
+        exit(1)
+    except Exception:
+        CODELOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
+        raise

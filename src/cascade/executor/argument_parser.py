@@ -127,7 +127,7 @@ class BaseArgumentParser(ArgumentParser):
         # If the script is started with a model version ID, then it's
         # probably being run under EpiViz and should make a math log.
         if args.mvid is not None and epiviz_log_dir.exists():
-            mvid = args.mvid.lower()
+            mvid = str(args.mvid)
             math_log_dir = epiviz_log_dir / mvid
             try:
                 math_log_dir.mkdir()

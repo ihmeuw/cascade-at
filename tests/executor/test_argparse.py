@@ -58,7 +58,7 @@ def test_math_log(tmpdir):
     mathlog.error("errorhum")
     close_all_handlers()
 
-    in_log = (tmp_dir / args.mvid / "log.log").read_text().splitlines()
+    in_log = (tmp_dir / str(args.mvid) / "log.log").read_text().splitlines()
     assert any(in_line.strip().endswith("infofum") for in_line in in_log)
     assert any(in_line.strip().endswith("warningfo") for in_line in in_log)
     assert any(in_line.strip().endswith("errorhum") for in_line in in_log)

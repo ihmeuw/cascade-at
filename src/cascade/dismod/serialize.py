@@ -174,7 +174,6 @@ def make_data_table(context):
                 "nu",
                 "hold_out",
                 "data_name",
-                "x_sex",
             ]
         )
     return total_data
@@ -208,7 +207,6 @@ def observations_to_data(observations_df, hold_out=0):
             "eta": np.NaN,
             "nu": np.NaN,
             "hold_out": hold_out,
-            "x_sex": observations_df.sex.apply({"Male": 0.5, "Female": -0.5, "Both": 0}.get),
         }
     )
 
