@@ -10,6 +10,7 @@ from scipy import spatial
 
 from cascade.input_data.db.ccov import country_covariates
 from cascade.model.covariates import Covariate, CovariateMultiplier
+from cascade.input_data.configuration.builder import smooth_from_settings
 
 
 MATHLOG = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def unique_covariate_transform(context):
     yield [(26, [1, 3])]
 
 
-def assign_covariates(input_data):
+def assign_covariates(context):
     """
     The EpiViz interface allows assigning a covariate with a transformation
     to a specific target (rate, measure value, measure standard deviation).
@@ -50,19 +51,27 @@ def assign_covariates(input_data):
     transformation to chi with a *different smoothing*.
     Therefore, there can be multiple covariate columns built from the same
     covariate, one for each kind of transformation required.
+
+    Args:
+        context (ModelContext): model context that has age groups.
+            The context is modified by this function. Covariates are added
+            to input data.
+
+    Returns:
+        function: This function is a map from the covariate identifier in the
+            settings to the covariate name.
     """
-    locations = [6, 102]
-    covariate_map = {}
+    covariate_map = {}  # to find the covariates for covariate multipliers.
 
     # This walks through all unique combinations of covariates and their
     # transformations. Then, later, we apply them to particular target
     # rates, meas_values, meas_stds.
-    for country_covariate_id, transforms in unique_covariate_transform(input_data):
+    for country_covariate_id, transforms in unique_covariate_transform(context.input_data):
         demographics = dict(
             age_group_ids="all",
             year_ids="all",
             sex_ids="all",
-            location_ids=locations,
+            location_ids=context.settings.locations,
         )
         ccov_df = country_covariates(country_covariate_id, demographics)
         covariate_name = ccov_df.loc[0]["covariate_short_name"]
@@ -72,7 +81,10 @@ def assign_covariates(input_data):
 
         # Decide how to take the given data and extend / subset / interpolate.
         ccov_ranges_df = convert_age_year_ids_to_ranges(ccov_df, context.input_data.age_groups)
-        column_for_measurements = covariate_to_measurements_nearest_favoring_same_year(measurements, ccov_ranges_df)
+        desired_sex = [1, 2, 3]
+        ccov_sexed_df = prune_covariate_sex(ccov_ranges_df, desired_sex)
+        column_for_measurements = covariate_to_measurements_nearest_favoring_same_year(
+            context.input_data.observations, ccov_sexed_df)
 
         reference = 1.0
 
@@ -87,6 +99,7 @@ def assign_covariates(input_data):
             # Now attach the column to the observations.
 
             covariate_obj = Covariate(name, settings_transform(reference))
+            context.covariates.append(covariate_obj)
 
     def column_id_func(covariate_name, transformation_id):
         return covariate_map[(covariate_name, transformation_id)]
@@ -94,9 +107,31 @@ def assign_covariates(input_data):
     return column_id_func
 
 
+def prune_covariate_sex(covariate_df, desired_sex):
+    """
+    The observations need to be pruned so that there is only one value
+    per demographic interval, which means often using sex=male or female
+    and dropping sex=both.
+
+    Args:
+        covariate_df (pd.DataFrame): Must have a sex_id column.
+        desired_sex (pd.DataFrame): Nonempty list containg any of 1, 2, 3.
+
+    Returns:
+        pd.DataFrame: Same data as input with possibly-fewer rows and
+            possible renaming of rows.
+    """
+    return covariate_df
+
+
 def create_covariate_multipliers(context, column_id_func):
     # Assumes covariates exist.
-    CovariateMultiplier(covariate_obj, smooth)
+    for mul_cov_config in context.settings.covariate_multipliers():
+        smooth = smooth_from_settings(
+            mul_cov_config, configuration.model.default_age_grid, configuration.model.default_time_grid)
+        covariate_obj = column_id_func(mul_cov_config.name, mul_cov_config.transformation)
+        covariate_multiplier = CovariateMultiplier(covariate_obj, smooth)
+        getattr(context.model, mul_cov_config.target).append(covariate_multiplier)
 
 
 def covariate_to_measurements_dummy(measurements, covariate):

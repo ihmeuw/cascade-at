@@ -41,34 +41,37 @@ def fixed_effects_from_epiviz(model_context, configuration):
         if rate_name not in [r.name for r in model_context.rates]:
             raise ConfigurationError(f"Unspported rate {rate_name}")
         rate = getattr(model_context.rates, rate_name)
-        ages = rate_config.age_grid
-        if ages is None:
-            ages = configuration.model.default_age_grid
-        times = rate_config.time_grid
-        if times is None:
-            times = configuration.model.default_time_grid
-        grid = AgeTimeGrid(ages, times)
+        rate.parent_smooth = smooth_from_settings(
+            rate_config, configuration.model.default_age_grid, configuration.model.default_time_grid)
 
-        d_time = PriorGrid(grid)
-        d_age = PriorGrid(grid)
-        value = PriorGrid(grid)
 
-        d_age[:, :].prior = rate_config.default.dage.prior_object
-        d_time[:, :].prior = rate_config.default.dtime.prior_object
-        value[:, :].prior = rate_config.default.value.prior_object
-
-        if rate_config.detail:
-            for row in rate_config.detail:
-                if row.prior_type == "dage":
-                    pgrid = d_age
-                elif row.prior_type == "dtime":
-                    pgrid = d_time
-                elif row.prior_type == "value":
-                    pgrid = value
-                else:
-                    raise ConfigurationError(f"Unknown prior type {row.prior_type}")
-                pgrid[row.age_lower:row.age_upper, row.time_lower:row.time_upper].prior = row.prior_object
-        rate.parent_smooth = Smooth(value, d_age, d_time)
+def smooth_from_settings(rate_config, default_age_grid, default_time_grid):
+    ages = rate_config.age_grid
+    if ages is None:
+        ages = default_age_grid
+    times = rate_config.time_grid
+    if times is None:
+        times = default_time_grid
+    grid = AgeTimeGrid(ages, times)
+    d_time = PriorGrid(grid)
+    d_age = PriorGrid(grid)
+    value = PriorGrid(grid)
+    d_age[:, :].prior = rate_config.default.dage.prior_object
+    d_time[:, :].prior = rate_config.default.dtime.prior_object
+    value[:, :].prior = rate_config.default.value.prior_object
+    if rate_config.detail:
+        for row in rate_config.detail:
+            if row.prior_type == "dage":
+                pgrid = d_age
+            elif row.prior_type == "dtime":
+                pgrid = d_time
+            elif row.prior_type == "value":
+                pgrid = value
+            else:
+                raise ConfigurationError(f"Unknown prior type {row.prior_type}")
+            pgrid[row.age_lower:row.age_upper,
+            row.time_lower:row.time_upper].prior = row.prior_object
+    return Smooth(value, d_age, d_time)
 
 
 def integrand_grids_from_epiviz(model_context, configuration):
