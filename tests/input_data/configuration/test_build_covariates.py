@@ -1,5 +1,6 @@
 import pytest
 
+import numpy as np
 import pandas as pd
 
 from cascade.input_data.configuration import covariates
@@ -52,3 +53,36 @@ def test_covariate_nearest(sample_measurements, sample_covariate):
     expected = [0.2, 0.5, 0.7, 0.8, 0.8, 0.8, 2.0, 2.0]
     for idx, ex in enumerate(expected):
         assert c.iloc[idx] == ex, f"idx {idx} versus {ex}"
+
+
+def test_convert_age_groups():
+    groups = pd.DataFrame({
+        "age_group_id": [2, 3, 8],
+        "age_group_years_start": [0.0, 1/52, 10],
+        "age_group_years_end": [1/52, 1, 15],
+    })
+    by_id = pd.DataFrame({
+        "age_group_id": [3, 2, 8, 3, 2, 8],
+        "year_id": [1970, 1971, 1975, 1980, 1990, 1995],
+        "value": [0, 1, 2, 3, 4, 5],
+    })
+    with_ranges = covariates.convert_age_year_ids_to_ranges(by_id, groups)
+    for column in ["age_lower", "age_upper", "time_lower", "time_upper"]:
+        assert column in with_ranges.columns
+
+    assert np.allclose(with_ranges["age_lower"].values, [1/52, 0, 10, 1/52, 0, 10])
+
+
+def test_convert_age_groups_failure():
+    groups = pd.DataFrame({
+        "age_group_id": [2, 3, 8],
+        "age_group_years_start": [0.0, 1/52, 10],
+        "age_group_years_end": [1/52, 1, 15],
+    })
+    by_id = pd.DataFrame({
+        "age_group_id": [3, 2, 8, 3, 2, 10],
+        "year_id": [1970, 1971, 1975, 1980, 1990, 1995],
+        "value": [0, 1, 2, 3, 4, 5],
+    })
+    with pytest.raises(RuntimeError):
+        covariates.convert_age_year_ids_to_ranges(by_id, groups)
