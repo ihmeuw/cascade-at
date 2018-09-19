@@ -125,6 +125,15 @@ Covariates are unique combinations of the covariate column,
 and the rate or measured value or standard deviation,
 so they can be accessed that way.
 
+Missing Values
+--------------
+
+Were a covariate value to be missing, Dismod-AT would assume it has
+the reference value. In this sense, *every measurement always has a covariate.*
+Therefore, the interface requires every measurement explicitly have every
+covariate.
+
+
 
 .. _predict the underlying rate:
     https://bradbell.github.io/dismod_at/doc/avg_integrand.htm#Rate%20Functions.Rate%20Covariate%20Multiplier,%20alpha_jk
