@@ -44,12 +44,14 @@ class _Outputs:
 
 
 class _Integrand:
-    __slots__ = ["name", "age_ranges", "time_ranges"]
+    __slots__ = ["name", "age_ranges", "time_ranges", "value_covariate_multipliers", "std_covariate_multipliers"]
 
     def __init__(self, name):
         self.name = name
         self.age_ranges = None
         self.time_ranges = None
+        self.value_covariate_multipliers = []
+        self.std_covariate_multipliers = []
 
 
 class _Integrands:

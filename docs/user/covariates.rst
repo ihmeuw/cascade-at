@@ -32,7 +32,17 @@ There are three reasons to use a covariate.
 *Sex Covariate*
     This is usually used to select a subset of data by sex,
     but this could be done based on any covariate associated
-    with observation data.
+    with observation data. In addition to being used to subset
+    data, the sex covariate is a covariate multiplier applied
+    the same way as a study covariate.
+
+A covariate column that is used just for exclusion doesn't need
+a covariate multiplier. In practice, the sex covariate is used
+at global or super-region level as a study covariate. Then the
+adjustments determined at the upper level are applied as constraints
+down the hierarchy. This means there is a covariate multiplier
+for sex, and its smooth is a grid of constraints, not typical
+priors.
 
 Dismod-AT applies covariate effects to one of three different variables.
 It either uses the covariate to `predict the underlying rate`_,
@@ -45,7 +55,7 @@ As a rule of thumb, the three uses of covariates apply
 to different variables, as shown in the table below.
 
 ====================  =======  ================ ===============
-Use of Covariate      Rate     Measured Value   Measured Stdev
+Use of Covariate      Rate     Measured Value   Measured Stddev
 ====================  =======  ================ ===============
 Country               Yes      Maybe            Maybe
 Study                 Maybe    Yes              Yes
@@ -103,16 +113,13 @@ of an integrand.
 
 For instance::
 
-    covariate_smooth = SmoothGrid()
-    reference_outlier = (1000, 50000)
-    income = CovariateMultiplier(
-        "income", "iota", reference_outlier, covariate_smooth)
-    model.covariates.append(income)
-    model.covariates.append(income.predict("chi"))
-    just_reference = 0.0
-    study = CovariateMultiplier(
-        "study7", ("prevalence", "value"), just_reference, covariate_smooth)
-    model.covariates.append(study)
+    # Assume smooth = Smooth() exists.
+    income = Covariate("income", 1000)
+    income_cov = CovariateMultiplier(income, smooth)
+
+    model.rates.iota.covariate_multipliers.append(income)
+    model.outputs.integrands.prevalence.value_covariate_multipliers.append(income)
+    model.outputs.integrands.prevalence.std_covariate_multipliers.append(income)
 
 Covariates are unique combinations of the covariate column,
 and the rate or measured value or standard deviation,
