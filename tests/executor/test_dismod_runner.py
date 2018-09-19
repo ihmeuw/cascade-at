@@ -23,14 +23,26 @@ def test_run_ls():
     dr.run_and_watch(["/bin/ls"], False, 15)
 
 
-def test_run_dmchat(dmchat):
-    o, e = dr.run_and_watch([dmchat, "5", "0", "0"], False, 2)
-    assert o == "".join(["out" + os.linesep] * 5)
+def test_run_dmchat(dmchat, caplog):
+    with caplog.at_level(logging.INFO):
+        dr.run_and_watch([dmchat, "5", "0", "0"], False, 0.2)
+    records = caplog.records
+    out = ""
+    # Dropping the first message because it's just noise
+    for r in records[1:]:
+        if r.levelname == "INFO":
+            out += r.message
+    assert out == "".join(["out" + os.linesep] * 5)
 
 
-def test_dmchat_low_priority(dmchat):
-    o, e = dr.run_and_watch([dmchat, "2", "0", "0"], True, 2)
-    assert e == "".join(["err" + os.linesep] * 2)
+def test_dmchat_low_priority(dmchat, caplog):
+    dr.run_and_watch([dmchat, "2", "0", "0"], True, 2)
+    records = caplog.records
+    err = ""
+    for r in records:
+        if r.levelname == "ERROR":
+            err += r.message
+    assert err == "".join(["err" + os.linesep] * 2)
 
 
 def test_dmchat_nonzero(dmchat):

@@ -1,6 +1,31 @@
 import json
+import logging
 
 from cascade.core.db import cursor
+from cascade.testing_utilities import make_execution_context
+from cascade.core.db import latest_model_version
+
+CODELOG = logging.getLogger(__name__)
+
+
+def settings_for_model(meid=None, mvid=None):
+    if len([c for c in [meid, mvid] if c is not None]) != 1:
+        raise ValueError("Must supply either mvid or meid")
+
+    if mvid is not None:
+        mvid = mvid
+    else:
+        modelable_entity_id = meid
+        ec = make_execution_context(modelable_entity_id=modelable_entity_id)
+        mvid = latest_model_version(ec)
+        CODELOG.info(f"No model version specified so using the latest version for model {meid} which is {mvid}")
+    ec = make_execution_context(model_version_id=mvid)
+    raw_settings = settings_json_from_epiviz(ec)
+
+    if "model_version_id" not in raw_settings["model"] or not raw_settings["model"]["model_version_id"]:
+        raw_settings["model"]["model_version_id"] = mvid
+
+    return raw_settings
 
 
 def settings_json_from_epiviz(execution_context):

@@ -68,7 +68,9 @@ class AgeTimeGrid:
         return hash((self._ages, self._times))
 
     def __eq__(self, other):
-        return isinstance(other, type(self)) and self._ages == other._ages and self._times == other._times
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._ages == other._ages and self._times == other._times
 
 
 def _any_close(value, targets):
@@ -224,9 +226,7 @@ class PriorGrid:
         return hash((self.grid, tuple(self._priors), self.hyper_prior))
 
     def __eq__(self, other):
-        return (
-            isinstance(other, type(self))
-            and self.grid == other.grid
-            and self._priors == other._priors
-            and self.hyper_prior == other.hyper_prior
-        )
+        if not isinstance(other, type(self)):
+            return NotImplemented
+
+        return self.grid == other.grid and self._priors == other._priors and self.hyper_prior == other.hyper_prior

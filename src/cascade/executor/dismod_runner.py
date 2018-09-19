@@ -43,6 +43,10 @@ CODELOG = logging.getLogger(__name__)
 MATHLOG = logging.getLogger(__name__)
 
 
+class DismodATException(Exception):
+    pass
+
+
 def dismod_run(command_list):
     """
     Returns a batch stage that runs DismodAT on these commands. This
@@ -128,18 +132,16 @@ def reduce_process_priority():
 
 
 @asyncio.coroutine
-def _read_pipe(pipe, result, callback=lambda text: None):
+def _read_pipe(pipe, callback=lambda text: None):
     """Read from a pipe until it closes.
 
     Args:
         pipe: The pipe to read from
-        result: a list to accumulate the output into
         callback: a callable which will be invoked each time data is read from the pipe
     """
     while not pipe.at_eof():
         text = yield from pipe.read(2 ** 16)
         text = text.decode("utf-8")
-        result.append(text)
         callback(text)
 
 
@@ -184,24 +186,15 @@ def _async_run_and_watch(command, single_use_machine, poll_time):
     except OSError as ose:
         raise Exception(f"Dismod couldn't run due to OS error {ose}")
 
-    out_list = []
-    err_list = []
-
     loop = asyncio.get_event_loop()
-    std_out_task = loop.create_task(_read_pipe(sub_process.stdout, out_list, lambda text: MATHLOG.debug(text)))
-    std_err_task = loop.create_task(_read_pipe(sub_process.stderr, err_list, lambda text: MATHLOG.error(text)))
+    std_out_task = loop.create_task(_read_pipe(sub_process.stdout, lambda text: MATHLOG.info(text)))
+    std_err_task = loop.create_task(_read_pipe(sub_process.stderr, lambda text: MATHLOG.error(text)))
     yield from sub_process.wait()
     yield from std_out_task
     yield from std_err_task
 
     if sub_process.returncode != 0:
-        msg = (
-            f"return code {sub_process.returncode}\n"
-            f"stdout {os.linesep.join(out_list)}\n"
-            f"stderr {os.linesep.join(err_list)}\n"
-        )
-        raise Exception("dismod_at failed.\n{}".format(msg))
+        msg = f"return code {sub_process.returncode}\n"
+        raise DismodATException("dismod_at failed.\n{}".format(msg))
     else:
         pass  # Return code is 0. Success.
-
-    return "".join(out_list), "".join(err_list)

@@ -13,11 +13,7 @@ class ExecutionContext:
     parameters = ParameterProperty()
 
     def __init__(self):
-        self._dismodfile = None
-
-    @property
-    def dismodfile(self):
-        return self._dismodfile
+        self.dismodfile = None
 
 
 class _ModelParameters:
@@ -48,9 +44,12 @@ class _Outputs:
 
 
 class _Integrand:
+    __slots__ = ["name", "age_ranges", "time_ranges", "value_covariate_multipliers", "std_covariate_multipliers"]
+
     def __init__(self, name):
         self.name = name
-        self.grid = None
+        self.age_ranges = None
+        self.time_ranges = None
         self.value_covariate_multipliers = []
         self.std_covariate_multipliers = []
 

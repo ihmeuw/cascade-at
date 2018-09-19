@@ -4,6 +4,7 @@ Converts the internal representation to a Dismod File.
 import logging
 from numbers import Real
 import time
+import sys
 import warnings
 
 import numpy as np
@@ -120,13 +121,14 @@ def default_integrand_names():
 
 
 def make_log_table():
+    command_name = " ".join(sys.argv)
     return pd.DataFrame(
         {
             "message_type": ["command"],
             "table_name": np.array([None], dtype=np.object),
             "row_id": np.NaN,
             "unix_time": int(round(time.time())),
-            "message": ["fit_no_covariates.py"],
+            "message": [command_name],
         }
     )
 
@@ -240,6 +242,13 @@ def collect_ages_or_times(context, to_collect="ages"):
                 value = smooth.grid.times
             values.extend(value)
 
+    for integrand in context.outputs.integrands:
+        if to_collect == "ages":
+            value = [age for ages in integrand.age_ranges or [] for age in ages]
+        else:
+            value = [time for times in integrand.time_ranges or [] for time in times]
+        values.extend(value)
+
     # Extreme values from the input data must also appear in the age/time table
     if to_collect == "ages" and context.input_data.ages:
         values.append(np.max(list(context.input_data.ages)))
@@ -280,16 +289,16 @@ def integrand_to_id(integrand):
 def make_avgint_table(context, integrand_id_func):
     rows = []
     for integrand in context.outputs.integrands:
-        if integrand.grid is not None:
-            for a in integrand.grid.ages:
-                for t in integrand.grid.times:
+        if integrand.age_ranges is not None and integrand.time_ranges is not None:
+            for age_lower, age_upper in integrand.age_ranges:
+                for time_lower, time_upper in integrand.time_ranges:
                     rows.append(
                         {
                             "integrand_id": integrand_id_func(integrand.name),
-                            "age_lower": a,
-                            "age_upper": a,
-                            "time_lower": t,
-                            "time_upper": t,
+                            "age_lower": age_lower,
+                            "age_upper": age_upper,
+                            "time_lower": time_lower,
+                            "time_upper": time_upper,
                             # Assuming using the first set of weights, which is constant.
                             "weight_id": 0,
                             # Assumes one location_id.
@@ -464,17 +473,28 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
     else:
         grid_table = pd.DataFrame(
             columns=[
-                "age",
-                "time",
+                "age_id",
+                "time_id",
                 "const_value",
                 "value_prior_id",
                 "dage_prior_id",
                 "dtime_prior_id",
                 "smooth_grid_id",
+                "smooth_id",
             ]
         )
 
-    smooth_table = pd.DataFrame(smooth_rows)
+    smooth_table = pd.DataFrame(
+        smooth_rows,
+        columns=[
+            "smooth_name",
+            "n_age",
+            "n_time",
+            "mulstd_value_prior_id",
+            "mulstd_dage_prior_id",
+            "mulstd_dtime_prior_id",
+        ],
+    )
 
     def smooth_id_func(smooth):
         return smooths.index(smooth)
