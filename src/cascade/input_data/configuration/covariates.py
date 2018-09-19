@@ -3,8 +3,10 @@ Decides how to assign covariates for IHME's EpiViz.
 """
 import logging
 
-from numpy import log, sqrt, power
+import numpy as np
+import pandas as pd
 from scipy.special import logit
+from scipy import spatial
 
 from cascade.input_data.db.ccov import country_covariates
 
@@ -15,7 +17,7 @@ MATHLOG = logging.getLogger(__name__)
 def identity(x): return x
 
 
-def squared(x): return power(x, 2)
+def squared(x): return np.power(x, 2)
 
 
 def scale1000(x): return x * 1000
@@ -23,10 +25,10 @@ def scale1000(x): return x * 1000
 
 COVARIATE_TRANSFORMS = {
     0: identity,
-    1: log,
+    1: np.log,
     2: logit,
     3: squared,
-    4: sqrt,
+    4: np.sqrt,
     5: scale1000
 }
 """
@@ -85,3 +87,57 @@ def assign_covariates(input_data):
 def create_covariate_multipliers(context, column_id_func):
     # Assumes covariates exist.
     pass
+
+
+def covariate_to_measurements_dummy(measurements, covariate):
+    """
+    Given a covariate that might not cover all of the age and time range
+    of the measurements select a covariate value for each measurement.
+    This version assigns 1.0 to every measurement.
+
+    Args:
+        measurements (pd.DataFrame):
+            Columns include ``age_lower``, ``age_upper``, ``time_lower``,
+            ``time_upper``. All others are ignored.
+        covariate (pd.DataFrame):
+            Columns include ``age_lower``, ``age_upper``, ``time_lower``,
+            ``time_upper``, and ``value``.
+
+    Returns:
+        pd.Series: One row for every row in the measurements.
+    """
+    return pd.Series(np.ones((len(measurements),), dtype=np.float))
+
+
+def covariate_to_measurements_nearest_favoring_same_year(measurements, covariates):
+    """
+    Given a covariate that might not cover all of the age and time range
+    of the measurements select a covariate value for each measurement.
+    This version chooses the covariate value whose mean age and time
+    is closest to the mean age and time of the measurement in the same
+    year. If that isn't found, it picks the covariate that is closest
+    in age and time in the nearest year. In the case of a tie for distance,
+    it averages.
+
+    Args:
+        measurements (pd.DataFrame):
+            Columns include ``age_lower``, ``age_upper``, ``time_lower``,
+            ``time_upper``. All others are ignored.
+        covariate (pd.DataFrame):
+            Columns include ``age_lower``, ``age_upper``, ``time_lower``,
+            ``time_upper``, and ``value``.
+
+    Returns:
+        pd.Series: One row for every row in the measurements.
+    """
+    # Rescaling the age by 120 means that the nearest age within the year
+    # will always be closer than the nearest time across a full year.
+    tree = spatial.KDTree(list(zip(
+        covariates[["age_lower", "age_upper"]].mean(axis=1) / 120,
+        covariates[["time_lower", "time_upper"]].mean(axis=1)
+    )))
+    _, indices = tree.query(list(zip(
+        measurements[["age_lower", "age_upper"]].mean(axis=1) / 120,
+        measurements[["time_lower", "time_upper"]].mean(axis=1)
+    )))
+    return pd.Series(covariates.iloc[indices]["value"].values, index=measurements.index)
