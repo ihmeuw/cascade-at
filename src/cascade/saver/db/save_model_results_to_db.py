@@ -47,7 +47,13 @@ MATHLOG = logging.getLogger(__name__)
 
 
 def _normalize_draws_df(draws_df, execution_context):
-    """The database stores measure_id rather than integrand_id."""
+    """The database stores measure_id rather than integrand_id.
+
+    Args:
+        draws_df (DataFrame): The draws to normalize
+        execution_context (ExecutionContext): The context to use when getting
+                 demographic indexes for use in normalization.
+    """
 
     draws = draws_df.merge(INTEGRAND_ID_TO_MEASURE_ID_DF, how="left", on="integrand_id").drop(columns=["integrand_id"])
 

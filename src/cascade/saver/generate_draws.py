@@ -50,7 +50,7 @@ def pure_generate_draws(avgint_df, predict_df):
     num_draws = predict_df["sample_index"].fillna(-1).nunique()
 
     if predict_rows % avgint_rows != 0:
-        raise ValueError("Predict table does not have an integer number of " "predictions of the avgint table")
+        raise ValueError("Predict table does not have an integer number of predictions of the avgint table")
 
     draws = predict_df.pivot(index="avgint_id", columns="sample_index", values="avg_integrand")
 

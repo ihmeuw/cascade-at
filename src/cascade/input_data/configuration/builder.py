@@ -1,4 +1,4 @@
-""" Functions for creating internal model representations of settings from EpiViv
+""" Functions for creating internal model representations of settings from EpiViz
 """
 
 from cascade.model.grids import AgeTimeGrid, PriorGrid
