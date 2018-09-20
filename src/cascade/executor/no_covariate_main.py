@@ -149,6 +149,7 @@ def bundle_to_observations(config, bundle_df):
             "location_id": location_id,
             "density": DensityEnum.gaussian,
             "weight": "constant",
+            "sex": bundle_df["sex"],
             "age_start": bundle_df["age_start"],
             "age_end": bundle_df["age_end"] + demographic_interval_specification,
             # The years should be floats in the bundle.

@@ -10,7 +10,7 @@ from scipy import spatial
 
 from cascade.input_data.db.ccov import country_covariates
 from cascade.model.covariates import Covariate, CovariateMultiplier
-from cascade.input_data.configuration.builder import smooth_from_settings
+#from cascade.input_data.configuration.builder import smooth_from_settings
 
 
 MATHLOG = logging.getLogger(__name__)

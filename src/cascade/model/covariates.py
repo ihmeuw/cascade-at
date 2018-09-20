@@ -73,8 +73,8 @@ class Covariate:
         return f"Covariate({self.name}, {self.reference}, {self.max_difference})"
 
     def __eq__(self, other):
-        return (self._name == other.name and self._reference == other._reference
-                and self._max_difference == other._max_difference)
+        return (self._name == other.name and self._reference == other._reference and
+                self._max_difference == other._max_difference)
 
 
 class CovariateMultiplier:
@@ -94,7 +94,7 @@ class CovariateMultiplier:
     def __init__(self, covariate_column, smooth):
         if not isinstance(covariate_column, Covariate):
             raise ValueError("Second argument must be a Smooth.")
-        if not isinstance(smooth, Smooth) and not smooth is None:
+        if not isinstance(smooth, Smooth) and smooth is not None:
             raise ValueError("Second argument must be a Smooth.")
 
         self.column = covariate_column

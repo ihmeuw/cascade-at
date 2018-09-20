@@ -32,7 +32,9 @@ class _Prior:
         return hash((frozenset(self.parameters().items()), self.name))
 
     def __eq__(self, other):
-        return isinstance(other, _Prior) and self.name == other.name and self.parameters() == other.parameters()
+        if not isinstance(other, _Prior):
+            return NotImplemented
+        return self.name == other.name and self.parameters() == other.parameters()
 
     def __lt__(self, other):
         if not isinstance(other, _Prior):

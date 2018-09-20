@@ -11,6 +11,16 @@ class Smooth:
         self.d_age_priors = d_age_priors
         self.d_time_priors = d_time_priors
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (
+            self.name == other.name
+            and self._value_priors == other._value_priors
+            and self._d_age_priors == other._d_age_priors
+            and self._d_time_priors == other._d_time_priors
+        )
+
     def _validate_grids(self, priors):
         grids = [ps.grid for ps in [self.value_priors, self.d_age_priors, self.d_time_priors, priors] if ps]
         if grids:

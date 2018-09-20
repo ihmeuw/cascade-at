@@ -90,5 +90,5 @@ def test_save_model_results_no_dismodfile(execution_context_no_dismodfile):
 
 
 @pytest.mark.skip
-def test_save_model_results_real(execution_context):
+def test_save_model_results_real(ihme, execution_context):
     save_model_results(execution_context)

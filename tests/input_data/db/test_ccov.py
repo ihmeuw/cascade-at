@@ -52,7 +52,7 @@ def demographics_default():
     return demographics_default
 
 
-def test_country_covariates_real(demographics_default):
+def test_country_covariates_real(ihme, demographics_default):
 
     country_covariate_id = 26
 
