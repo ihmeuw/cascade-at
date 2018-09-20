@@ -3,8 +3,9 @@
 All other code which accesses the external databases should do so through the context managers defined here so we
 have consistency and a single chokepoint for that access.
 """
-
+import importlib
 from contextlib import contextmanager
+
 
 try:
     from db_tools import ezfuncs
@@ -78,3 +79,53 @@ def latest_model_version(execution_context):
     with cursor(execution_context) as c:
         c.execute(query, args={"modelable_entity_id": model_id})
         return c.fetchone()[0]
+
+
+BLOCK_SHARED_FUNCTION_ACCESS = False
+"""
+Used to control access to the testing environment. You can't load this
+with from <module> import BLOCK_SHARED_FUNCTION_ACCESS. You have to
+modify the value as ``module_proxy.BLOCK_SHARED_FUNCTION_ACCESS``.
+"""
+
+
+class SandboxViolation(Exception):
+    """Attempted to call a module that is intentionally restricted in the current environment."""
+
+
+class ModuleProxy:
+    """
+    This class acts like a module. It's meant to be imported into an init.
+    This exists in order to actively turn off modules during testing.
+    """
+    def __init__(self, module_name):
+        if not isinstance(module_name, str):
+            raise ValueError(f"This accepts a module name, not the module itself.")
+
+        self.name = module_name
+        try:
+            self._module = importlib.import_module(module_name)
+        except ModuleNotFoundError:
+            self._module = None
+
+    def __getattr__(self, name):
+        if BLOCK_SHARED_FUNCTION_ACCESS:
+            raise SandboxViolation(
+                f"Illegal access to module {self.name}. Are you trying to use "
+                f"the shared functions in a unit test?")
+
+        if self._module:
+            return getattr(self._module, name)
+        else:
+            raise ModuleNotFoundError(
+                f"The module {self.name} could not be imported in this environment. "
+                f"Failed to call {self.name}.{name}."
+            )
+
+    def __dir__(self):
+        return dir(self._module)
+
+
+db_queries = ModuleProxy("db_queries")
+db_tools = ModuleProxy("db_tools")
+save_results = ModuleProxy("save_results")

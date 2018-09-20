@@ -15,6 +15,7 @@ from the sum of all available disease and death observations in all countries.
 
    user/user
    refmanual/refmanual
+   dev/dev
 
 
 Indices and tables

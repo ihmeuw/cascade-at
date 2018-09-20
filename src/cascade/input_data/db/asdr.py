@@ -4,9 +4,7 @@ import logging
 
 import pandas as pd
 
-
-from cascade.input_data.db import db_queries
-from cascade.core.db import cursor
+from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import AGE_GROUP_SET_ID, GBD_ROUND_ID
 
 
