@@ -16,8 +16,12 @@ default = 1.0
 help = "Seconds between checks on whether subprocesses are done"
 
 [mvid]
-type = "str"
+type = "int"
 help = "Model version ID"
+
+[meid]
+type = "int"
+help = "Modelable entity ID"
 
 [bundle-id]
 type = "int"
