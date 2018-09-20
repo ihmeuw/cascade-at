@@ -156,7 +156,7 @@ def form_with_validation():
         b = SimpleTypeField(int)
         c = SimpleTypeField(int)
 
-        def _full_form_validation(self):
+        def _full_form_validation(self, root):
             if self.a < self.b:
                 return ["a must be >= b"]
             return []

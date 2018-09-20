@@ -114,7 +114,7 @@ class Field(FormComponent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def validate_and_normalize(self, instance):
+    def validate_and_normalize(self, instance, root=None):
         """ Validates the data for this field on the given parent instance and
         transforms the data into it's normalized form. The actual details of
         validating and transforming are delegated to subclasses except for
@@ -264,13 +264,17 @@ class Form(FormComponent):
         if self._name_field:
             setattr(self, self._name_field, self._name)
 
-    def validate_and_normalize(self, instance=None):
+    def validate_and_normalize(self, instance=None, root=None):
         if self.is_unset() and self._nullable:
             return []
 
         errors = []
+
+        if root is None:
+            root = self
+
         for child in self.children:
-            c_errors = child.validate_and_normalize(self)
+            c_errors = child.validate_and_normalize(self, root=root)
             if c_errors:
                 if child._name:
                     # TODO: This replace is ugly and probably means that I'm
@@ -282,7 +286,7 @@ class Form(FormComponent):
                 else:
                     errors.extend(c_errors)
         if not errors:
-            errors = [("", e) for e in self._full_form_validation()]
+            errors = [("", e) for e in self._full_form_validation(root)]
 
         return errors
 
@@ -290,7 +294,7 @@ class Form(FormComponent):
     def unset(self):
         return all([c.unset for c in self.children])
 
-    def _full_form_validation(self):
+    def _full_form_validation(self, root):
         """ Can be overridden by subclasses to do any validation that requires
         multiple fields. This method will only execute if all the form's fields
         are themselves valid and have been normalize. If not overridden it does

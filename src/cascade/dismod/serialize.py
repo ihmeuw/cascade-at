@@ -99,6 +99,8 @@ def model_to_dismod_file(model):
         model, smooth_id_func, rate_id_func, integrand_to_id
     )
 
+    bundle_fit.option = make_option_table(model)
+
     return bundle_fit
 
 
@@ -440,7 +442,7 @@ def covariate_multiplier_iter(context):
 def smooth_iter(context):
     """Iterate over every smooth in the context."""
     for rate in context.rates:
-        for smooth in rate.child_smoothings + [rate.parent_smooth] if rate.parent_smooth else []:
+        for smooth in [s for _, s in rate.child_smoothings] + [rate.parent_smooth] if rate.parent_smooth else []:
             yield smooth
 
     for cov_multiplier, _, _ in covariate_multiplier_iter(context):
@@ -514,7 +516,7 @@ def make_rate_table(context, smooth_id_func):
                 "rate_id": rate_id,
                 "rate_name": rate.name,
                 "parent_smooth_id": smooth_id_func(rate.parent_smooth) if rate.parent_smooth else np.NaN,
-                "child_smooth_id": smooth_id_func(rate.child_smoothings[0]) if rate.child_smoothings else np.NaN,
+                "child_smooth_id": smooth_id_func(rate.child_smoothings[0][1]) if rate.child_smoothings else np.NaN,
                 "child_nslist_id": np.NaN,
             }
         )
@@ -528,12 +530,14 @@ def make_rate_table(context, smooth_id_func):
 
 def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_func):
     cols = context.input_data.covariates
-    covariate_columns = pd.DataFrame({
-        "covariate_id": np.arange(len(cols)),
-        "covariate_name": [col.name for col in cols],
-        "reference": np.array([col.reference for col in cols], dtype=np.float),
-        "max_difference": np.array([col.max_difference for col in cols], dtype=np.float),
-    })
+    covariate_columns = pd.DataFrame(
+        {
+            "covariate_id": np.arange(len(cols)),
+            "covariate_name": [col.name for col in cols],
+            "reference": np.array([col.reference for col in cols], dtype=np.float),
+            "max_difference": np.array([col.max_difference for col in cols], dtype=np.float),
+        }
+    )
     if covariate_columns["reference"].isnull().any():
         null_references = list()
         for check_ref_col in cols:
@@ -556,15 +560,24 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
             rate_id = np.NaN
             integrand_id = integrand_id_func(rate_or_integrand.name)
 
-        cm_rows.append(dict(
-            mulcov_id=cidx,
-            mulcov_type=kind,
-            rate_id=rate_id,
-            integrand_id=integrand_id,
-            covariate_id=cov_col_id_func(cov_mul.column),
-            smooth_id=smooth_id_func(cov_mul.smooth),
-        ))
+        cm_rows.append(
+            dict(
+                mulcov_id=cidx,
+                mulcov_type=kind,
+                rate_id=rate_id,
+                integrand_id=integrand_id,
+                covariate_id=cov_col_id_func(cov_mul.column),
+                smooth_id=smooth_id_func(cov_mul.smooth),
+            )
+        )
     mul_cov = pd.DataFrame(
-        cm_rows, columns=["mulcov_id", "mulcov_type", "rate_id", "integrand_id", "covariate_id", "smooth_id"])
+        cm_rows, columns=["mulcov_id", "mulcov_type", "rate_id", "integrand_id", "covariate_id", "smooth_id"]
+    )
 
     return covariate_columns, mul_cov, cov_col_id_func
+
+
+def make_option_table(context):
+    options = {"rate_case": context.parameters.rate_case, "parent_node_id": "0"}
+
+    return pd.DataFrame([{"option_name": k, "option_value": v} for k, v in sorted(options.items())])

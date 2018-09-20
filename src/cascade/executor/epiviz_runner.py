@@ -104,6 +104,7 @@ def run_dismod(dismod_file, with_random_effects):
     dismod_file.refresh()
     if "end fit" not in dismod_file.log.message.iloc[-1]:
         raise DismodATException("DismodAt failed to complete 'fit' command")
+    return
 
     run_and_watch(command_prefix + ["predict", "fit_var"], False, 1)
     dismod_file.refresh()
