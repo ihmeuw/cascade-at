@@ -295,21 +295,23 @@ def make_avgint_table(context, integrand_id_func):
         if integrand.age_ranges is not None and integrand.time_ranges is not None:
             for age_lower, age_upper in integrand.age_ranges:
                 for time_lower, time_upper in integrand.time_ranges:
-                    rows.append(
-                        {
-                            "integrand_id": integrand_id_func(integrand.name),
-                            "age_lower": age_lower,
-                            "age_upper": age_upper,
-                            "time_lower": time_lower,
-                            "time_upper": time_upper,
-                            # Assuming using the first set of weights, which is constant.
-                            "weight_id": 0,
-                            # Assumes one location_id.
-                            "node_id": 0,
-                        }
-                    )
+                    for sex in [-0.5, 0.5]:
+                        rows.append(
+                            {
+                                "integrand_id": integrand_id_func(integrand.name),
+                                "age_lower": age_lower,
+                                "age_upper": age_upper,
+                                "time_lower": time_lower,
+                                "time_upper": time_upper,
+                                # Assuming using the first set of weights, which is constant.
+                                "weight_id": 0,
+                                # Assumes one location_id.
+                                "node_id": 0,
+                                "x_sex": sex,
+                            }
+                        )
     return pd.DataFrame(
-        rows, columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id"]
+        rows, columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id", "x_sex"]
     )
 
 

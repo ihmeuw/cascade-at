@@ -31,12 +31,12 @@ def sample_measurements():
 @pytest.fixture
 def sample_covariate():
     return pd.DataFrame([
-        dict(age_lower=0, age_upper=5, time_lower=1969, time_upper=1969, value=2.0, x_sex=0.5),
-        dict(age_lower=5, age_upper=10, time_lower=1970, time_upper=1971, value=0.2, x_sex=0.5),
-        dict(age_lower=20, age_upper=20, time_lower=1970, time_upper=1971, value=0.5, x_sex=0.5),
-        dict(age_lower=30, age_upper=35, time_lower=1970, time_upper=1971, value=0.9, x_sex=0.5),
-        dict(age_lower=35, age_upper=40, time_lower=1970, time_upper=1971, value=0.8, x_sex=0.5),
-        dict(age_lower=60, age_upper=60, time_lower=1983, time_upper=1983, value=0.7, x_sex=0.5),
+        dict(age_lower=0, age_upper=5, time_lower=1969, time_upper=1969, mean_value=2.0, x_sex=0.5),
+        dict(age_lower=5, age_upper=10, time_lower=1970, time_upper=1971, mean_value=0.2, x_sex=0.5),
+        dict(age_lower=20, age_upper=20, time_lower=1970, time_upper=1971, mean_value=0.5, x_sex=0.5),
+        dict(age_lower=30, age_upper=35, time_lower=1970, time_upper=1971, mean_value=0.9, x_sex=0.5),
+        dict(age_lower=35, age_upper=40, time_lower=1970, time_upper=1971, mean_value=0.8, x_sex=0.5),
+        dict(age_lower=60, age_upper=60, time_lower=1983, time_upper=1983, mean_value=0.7, x_sex=0.5),
     ])
 
 

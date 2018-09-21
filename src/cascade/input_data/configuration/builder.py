@@ -8,25 +8,18 @@ import pandas as pd
 from scipy.special import logit
 from scipy import spatial
 
+from cascade.input_data.configuration.id_map import PRIMARY_INTEGRANDS_TO_RATES, make_integrand_map
 from cascade.model.covariates import Covariate, CovariateMultiplier
 from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.rates import Smooth
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.ccov import country_covariates
+from cascade.input_data.db.demographics import get_age_groups
 from cascade.core.context import ModelContext
-from cascade.dismod.db.metadata import IntegrandEnum
 from cascade.dismod.serialize import make_avgint_table
 
 
 MATHLOG = logging.getLogger(__name__)
-
-RATE_TO_INTEGRAND = dict(
-    iota=IntegrandEnum.Sincidence,
-    rho=IntegrandEnum.remission,
-    chi=IntegrandEnum.mtexcess,
-    omega=IntegrandEnum.mtother,
-    prevalence=IntegrandEnum.prevalence,
-)
 
 
 def identity(x): return x
@@ -51,6 +44,10 @@ These functions transform covariate data, as specified in EpiViz.
 """
 
 
+class SettingsToModelError(Exception):
+    """Error creating a model from the settings"""
+
+
 def initial_context_from_epiviz(configuration):
     context = ModelContext()
     context.parameters.modelable_entity_id = configuration.model.modelable_entity_id
@@ -71,7 +68,7 @@ def unique_country_covariate_transform(configuration):
         for covariate_configuration in configuration.country_covariate:
             seen_covariate[covariate_configuration.country_covariate_id].add(covariate_configuration.transformation)
 
-    for cov_id, cov_transformations in seen_covariate:
+    for cov_id, cov_transformations in seen_covariate.items():
         yield cov_id, list(sorted(cov_transformations))
 
 
@@ -96,6 +93,8 @@ def assign_covariates(model_context, configuration):
             settings to the covariate name.
     """
     covariate_map = {}  # to find the covariates for covariate multipliers.
+    avgint_table = make_avgint_table(model_context, lambda x: "BradBellRocks")
+    age_groups = get_age_groups(model_context)
 
     # This walks through all unique combinations of covariates and their
     # transformations. Then, later, we apply them to particular target
@@ -108,14 +107,13 @@ def assign_covariates(model_context, configuration):
             location_ids=[model_context.parameters.location_id],
         )
         ccov_df = country_covariates(country_covariate_id, demographics)
-        covariate_name = ccov_df.loc[0]["covariate_short_name"]
+        covariate_name = ccov_df.loc[0]["covariate_name_short"]
 
         # There is an order dependency from whether we interpolate before we
         # transform or transform before we interpolate.
 
         # Decide how to take the given data and extend / subset / interpolate.
-        ccov_ranges_df = convert_age_year_ids_to_ranges(ccov_df, model_context.input_data.age_groups)
-        avgint_table = make_avgint_table(model_context, lambda x: "BradBellRocks")
+        ccov_ranges_df = convert_age_year_ids_to_ranges(ccov_df, age_groups)
 
         column_for_measurements = [
             covariate_to_measurements_nearest_favoring_same_year(construct_column, ccov_ranges_df)
@@ -132,32 +130,48 @@ def assign_covariates(model_context, configuration):
             # The reference value is calculated from the download, not from the
             # the download as applied to the observations.
             reference = reference_value_for_covariate_mean_all_values(settings_transform(ccov_df))
-            covariate_obj = Covariate(name, settings_transform(reference))
+            covariate_obj = Covariate(name, reference)
             model_context.input_data.covariates.append(covariate_obj)
-            covariate_map[(covariate_name, transform)] = name
+            covariate_map[(country_covariate_id, transform)] = covariate_obj
 
             # Now attach the column to the observations.
             model_context.input_data.observations[f"x_{name}"] = settings_transform(column_for_measurements[0])
             model_context.input_data.avgint_covariates.append(settings_transform(column_for_measurements[1]))
 
-    def column_id_func(covariate_search_name, transformation_id):
-        return covariate_map[(covariate_search_name, transformation_id)]
+    def column_id_func(covariate_search_id, transformation_id):
+        return covariate_map[(covariate_search_id, transformation_id)]
 
     return column_id_func
 
 
 def create_covariate_multipliers(context, configuration, column_id_func):
     # Assumes covariates exist.
+    gbd_to_dismod_integrand_enum = make_integrand_map()
+
     for mul_cov_config in configuration.country_covariate:
         smooth = make_smooth(configuration, mul_cov_config)
-        covariate_obj = column_id_func(mul_cov_config.name, mul_cov_config.transformation)
+        covariate_obj = column_id_func(mul_cov_config.country_covariate_id, mul_cov_config.transformation)
         covariate_multiplier = CovariateMultiplier(covariate_obj, smooth)
-        getattr(context.model, mul_cov_config.target).append(covariate_multiplier)
+        target_dismod_name = gbd_to_dismod_integrand_enum[mul_cov_config.measure_id].name
+        if mul_cov_config.mulcov_type == "rate_value":
+            if target_dismod_name not in PRIMARY_INTEGRANDS_TO_RATES:
+                raise SettingsToModelError(f"Can only set a rate_value on a primary integrand. "
+                                           f"{mul_cov_config.measure_id} is not a primary integrand.")
+            add_to_rate = getattr(context.rates, PRIMARY_INTEGRANDS_TO_RATES[target_dismod_name])
+            add_to_rate.covariate_multipliers.append(covariate_multiplier)
+        else:
+            add_to_integrand = getattr(context.outputs.integrands, target_dismod_name)
+            if mul_cov_config.mulcov_type == "meas_value":
+                add_to_integrand.value_covariate_multipliers.append(covariate_multiplier)
+            elif mul_cov_config.mulcov_type == "meas_std":
+                add_to_integrand.std_covariate_multipliers.append(covariate_multiplier)
+            else:
+                raise RuntimeError(f"mulcov_type isn't among the three {configuration.mulcov_type}")
 
 
 def reference_value_for_covariate_mean_all_values(cov_df):
     """Strategy for choosing reference value for country covariate."""
-    return cov_df.mean()
+    return float(cov_df["mean_value"].mean())
 
 
 def covariate_to_measurements_dummy(measurements, covariate):
@@ -213,7 +227,7 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
         measurements[["time_lower", "time_upper"]].mean(axis=1),
         measurements["x_sex"],
     )))
-    return pd.Series(covariates.iloc[indices]["value"].values, index=measurements.index)
+    return pd.Series(covariates.iloc[indices]["mean_value"].values, index=measurements.index)
 
 
 def convert_age_year_ids_to_ranges(with_ids_df, age_groups_df):

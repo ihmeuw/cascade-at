@@ -1,4 +1,7 @@
+from copy import deepcopy
 import pytest
+
+import pandas as pd
 
 from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.configuration.builder import (
@@ -6,6 +9,8 @@ from cascade.input_data.configuration.builder import (
     fixed_effects_from_epiviz,
     random_effects_from_epiviz,
     make_smooth,
+    assign_covariates,
+    create_covariate_multipliers,
 )
 from cascade.model import priors
 
@@ -107,7 +112,7 @@ def test_make_smooth(base_config):
                 assert smooth.value_priors[0, 1990].prior == priors.Gaussian(mean=0, standard_deviation=0.3)
 
 
-def test_fixed_effects_from_epiviz(base_config):
+def test_fixed_effects_from_epiviz(base_config, ihme):
     mc = initial_context_from_epiviz(base_config)
     fixed_effects_from_epiviz(mc, base_config)
     assert all([r.parent_smooth is None for r in [mc.rates.rho, mc.rates.pini, mc.rates.chi, mc.rates.omega]])
@@ -126,3 +131,52 @@ def test_random_effects_from_epiviz(base_config):
 
     expected_smooth = make_smooth(base_config, base_config.random_effect[0])
     assert rate.child_smoothings[0][1] == expected_smooth
+
+
+def test_covariates_from_settings_logic(base_config, ihme):
+    # Can get rid of ihme by stubbing retrieval of covariates.
+    mc = initial_context_from_epiviz(base_config)
+
+    # These are enough to populate the avgint table.
+    mc.outputs.integrands.Sincidence.age_ranges = [(a, a + 5) for a in range(0, 95, 5)]
+    mc.outputs.integrands.Sincidence.time_ranges = [(y, y + 5) for y in range(1990, 2015, 5)]
+
+    mc.input_data.observations = pd.DataFrame(dict(
+        age_lower=[0, 10, 20, 50, 100],
+        age_upper=[10, 20, 40, 70, 120],
+        time_lower=[1970, 1980, 1990, 2000, 2005],
+        time_upper=[1975, 1990, 2000, 2005, 2010],
+        integrand=[6, 6, 6, 6, 6],
+        x_sex=[0.5, 0.5, -0.5, -0.5, 0],
+    ))
+    configuration = base_config
+    start = {
+        "country_covariate_id": 26,
+        "transformation": 0,
+        "measure_id": 41, # Sincidence
+        "mulcov_type": "rate_value",
+        "age_grid": [0, 20, 40, 60, 80],
+        "default": {
+            "dage": {"density": "gaussian", "mean": 0, "std": 0.1},
+            "dtime": {"density": "gaussian", "mean": 0, "std": 0.2},
+            "value": {"density": "gaussian", "mean": 0, "std": 0.3},
+        },
+        "detail": [
+            {
+                "prior_type": "value",
+                "age_lower": 20,
+                "age_upper": 40,
+                "time_lower": 1995,
+                "time_upper": 2005,
+                "density": "students",
+                "mean": 0,
+                "std": 0.25,
+                "nu": 1,
+            }
+        ],
+    }
+    configuration.country_covariate = [start]
+    assert configuration.model.default_time_grid
+
+    column_id_func = assign_covariates(mc, configuration)
+    create_covariate_multipliers(mc, configuration, column_id_func)

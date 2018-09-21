@@ -237,7 +237,8 @@ def test_make_avgint_table(base_context):
         if integrand.age_ranges is not None:
             integrand_id = integrand_to_id(integrand.name)  # noqa: F841
             rows = avgint_table.query("integrand_id == @integrand_id")
-            assert len(rows) == len(integrand.age_ranges) * len(integrand.time_ranges)
+            sex_cnt = 2
+            assert len(rows) == sex_cnt * len(integrand.age_ranges) * len(integrand.time_ranges)
 
 
 def test_make_rate_table(base_context):
