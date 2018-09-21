@@ -1,3 +1,5 @@
+import numpy as np
+
 from functools import total_ordering
 
 # TODO: Several of these prior types accept eta as a parameter and the others
@@ -49,17 +51,21 @@ class _Prior:
 
 
 def _validate_bounds(lower, mean, upper):
+    any_nones = lower is None or mean is None or upper is None
+    any_nans = np.isnan(lower) or np.isnan(mean) or np.isnan(upper)
+    if any_nones or any_nans:
+        raise PriorError(f"Bounds contain invalid values: lower={lower} mean={mean} upper={upper}")
     if not lower <= mean <= upper:
         raise PriorError(f"Bounds are inconsistent: lower={lower} mean={mean} upper={upper}")
 
 
 def _validate_standard_deviation(standard_deviation):
-    if standard_deviation < 0:
+    if standard_deviation is None or np.isnan(standard_deviation) or standard_deviation < 0:
         raise PriorError(f"Standard deviation must be positive: standard deviation={standard_deviation}")
 
 
 def _validate_nu(nu):
-    if nu < 0:
+    if nu is None or np.isnan(nu) or nu < 0:
         raise PriorError(f"Nu must be positive: nu={nu}")
 
 

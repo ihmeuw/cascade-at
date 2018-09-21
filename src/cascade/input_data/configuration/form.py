@@ -8,6 +8,8 @@ and must return in near real time.
 The Configuration class is the root of the form.
 
 """
+import numpy as np
+
 from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
 from cascade.model import priors
 
@@ -44,6 +46,9 @@ class SmoothingPrior(Form):
             lower = self.min
             upper = self.max
             mean = self.mean
+            if mean is None:
+                if np.isinf(lower) or np.isinf(upper):
+                    mean = max(lower, 0)
             std = self.std
             nu = self.nu
             if self.eta is None:
