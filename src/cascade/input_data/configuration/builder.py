@@ -87,10 +87,18 @@ def assign_covariates(model_context, configuration):
             The context is modified by this function. Covariate columns are
             added to input data and covariates are added to the list of
             covariates.
+        configuration (Configuration): Holds settings from EpiViz form.
 
     Returns:
-        function: This function is a map from the covariate identifier in the
+        function:
+            This function is a map from the covariate identifier in the
             settings to the covariate name.
+
+    The important choices are assignment of covariates to observations and
+    integrands by
+    :py:func:`covariate_to_measurements_nearest_favoring_same_year`
+    and how reference values are chosen by
+    :py:func:`reference_value_for_covariate_mean_all_values`.
     """
     covariate_map = {}  # to find the covariates for covariate multipliers.
     avgint_table = make_avgint_table(model_context, lambda x: "BradBellRocks")
@@ -145,6 +153,17 @@ def assign_covariates(model_context, configuration):
 
 
 def create_covariate_multipliers(context, configuration, column_id_func):
+    """
+    Reads settings to create covariate multipliers. This attaches a
+    covariate column with its reference value to a smooth grid
+    and applies it to a rate value, integrand value, or integrand
+    standard deviation. There aren't a lot of interesting choices in here.
+
+    Args:
+        context:
+        configuration:
+        column_id_func:
+    """
     # Assumes covariates exist.
     gbd_to_dismod_integrand_enum = make_integrand_map()
 
@@ -152,6 +171,8 @@ def create_covariate_multipliers(context, configuration, column_id_func):
         smooth = make_smooth(configuration, mul_cov_config)
         covariate_obj = column_id_func(mul_cov_config.country_covariate_id, mul_cov_config.transformation)
         covariate_multiplier = CovariateMultiplier(covariate_obj, smooth)
+        if mul_cov_config.measure_id not in gbd_to_dismod_integrand_enum:
+            raise RuntimeError(f"The measure id isn't recognized as an integrand {mul_cov_config.measure_id}")
         target_dismod_name = gbd_to_dismod_integrand_enum[mul_cov_config.measure_id].name
         if mul_cov_config.mulcov_type == "rate_value":
             if target_dismod_name not in PRIMARY_INTEGRANDS_TO_RATES:
@@ -170,28 +191,11 @@ def create_covariate_multipliers(context, configuration, column_id_func):
 
 
 def reference_value_for_covariate_mean_all_values(cov_df):
-    """Strategy for choosing reference value for country covariate."""
+    """
+    Strategy for choosing reference value for country covariate.
+    This one takes the mean of all incoming covariate values.
+    """
     return float(cov_df["mean_value"].mean())
-
-
-def covariate_to_measurements_dummy(measurements, covariate):
-    """
-    Given a covariate that might not cover all of the age and time range
-    of the measurements select a covariate value for each measurement.
-    This version assigns 1.0 to every measurement.
-
-    Args:
-        measurements (pd.DataFrame):
-            Columns include ``age_lower``, ``age_upper``, ``time_lower``,
-            ``time_upper``. All others are ignored.
-        covariate (pd.DataFrame):
-            Columns include ``age_lower``, ``age_upper``, ``time_lower``,
-            ``time_upper``, and ``value``.
-
-    Returns:
-        pd.Series: One row for every row in the measurements.
-    """
-    return pd.Series(np.ones((len(measurements),), dtype=np.float))
 
 
 def covariate_to_measurements_nearest_favoring_same_year(measurements, covariates):

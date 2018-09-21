@@ -56,9 +56,11 @@ idx measure_id                                     measure_name
 
 
 def make_integrand_map():
-    return {int(line.split()[1]): IntegrandEnum[line[64:].strip()]
+    """Makes dict where key=GBD measure_id, value=IntegrandEnum member"""
+    split_column = 64
+    return {int(line.split()[1]): IntegrandEnum[line[split_column:].strip()]
             for line in INTEGRAND_ENCODED.splitlines()
-            if len(line) > 64}
+            if len(line) > split_column}
 
 
 RATE_TO_INTEGRAND = dict(

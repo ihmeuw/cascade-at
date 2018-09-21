@@ -40,11 +40,6 @@ def sample_covariate():
     ])
 
 
-def test_covariate_dummy(sample_measurements, sample_covariate):
-    m = sample_measurements.copy()
-    m["cov_name"] = builder.covariate_to_measurements_dummy(sample_measurements, sample_covariate)
-
-
 def test_covariate_nearest(sample_measurements, sample_covariate):
     m = sample_measurements.copy()
     m["cov_name"] = builder.covariate_to_measurements_nearest_favoring_same_year(
