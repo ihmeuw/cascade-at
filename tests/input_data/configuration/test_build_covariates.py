@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from cascade.input_data.configuration import covariates
+from cascade.input_data.configuration import builder
 
 
 @pytest.fixture
