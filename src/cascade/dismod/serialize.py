@@ -91,7 +91,10 @@ def model_to_dismod_file(model):
         return int(bundle_fit.integrand.query("integrand_name==@name").integrand_id)
 
     # The avgint needs to be translated.
-    bundle_fit.avgint = make_avgint_table(model, integrand_id_func)
+    avgint_no_covariates = make_avgint_table(model, integrand_id_func)
+    bundle_fit.avgint = pd.concat([avgint_no_covariates] + model.input_data.avgint_covariates, axis=1, sort=False)
+    if len(bundle_fit.avgint) != len(avgint_no_covariates):
+        raise RuntimeError("Covariates didn't line up for the avgint table.")
 
     bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
 

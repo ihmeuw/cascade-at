@@ -15,6 +15,7 @@ from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.ccov import country_covariates
 from cascade.core.context import ModelContext
 from cascade.dismod.db.metadata import IntegrandEnum
+from cascade.dismod.serialize import make_avgint_table
 
 
 MATHLOG = logging.getLogger(__name__)
@@ -114,12 +115,15 @@ def assign_covariates(context):
 
         # Decide how to take the given data and extend / subset / interpolate.
         ccov_ranges_df = convert_age_year_ids_to_ranges(ccov_df, context.input_data.age_groups)
-
-        for assign_to_measurement in [context.outputs.integrands]:
         desired_sex = [1, 2, 3]
         ccov_sexed_df = prune_covariate_sex(ccov_ranges_df, desired_sex)
-        column_for_measurements = covariate_to_measurements_nearest_favoring_same_year(
-            context.input_data.observations, ccov_sexed_df)
+
+        avgint_table = make_avgint_table(context, lambda x: "BradBellRocks")
+
+        column_for_measurements = [
+            covariate_to_measurements_nearest_favoring_same_year(construct_column, ccov_sexed_df)
+            for construct_column in [context.input_data.observations, avgint_table]
+        ]
 
         for transform in transforms:
             # This happens per application to integrand.
@@ -127,18 +131,17 @@ def assign_covariates(context):
             transform_name = settings_transform.__name__
             MATHLOG.info(f"Transforming {covariate_name} with {transform_name}")
             name = f"{covariate_name}_{transform_name}"
-            covariate_map[(covariate_name, transform)] = name
-            ccov_df["value"] = settings_transform(column_for_measurements.mean_value)
 
             # The reference value is calculated from the download, not from the
             # the download as applied to the observations.
             reference = reference_value_for_covariate_mean_all_values(settings_transform(ccov_sexed_df))
-
-            # Now attach the column to the observations.
-            context.input_data.observations[f"x_{name}"] = ccov_df["value"]
-
             covariate_obj = Covariate(name, settings_transform(reference))
             context.input_data.covariates.append(covariate_obj)
+            covariate_map[(covariate_name, transform)] = name
+
+            # Now attach the column to the observations.
+            context.input_data.observations[f"x_{name}"] = settings_transform(column_for_measurements[0])
+            context.input_data.avgint_covariates.append(settings_transform(column_for_measurements[1]))
 
     def column_id_func(covariate_search_name, transformation_id):
         return covariate_map[(covariate_search_name, transformation_id)]
@@ -177,7 +180,6 @@ def reference_value_for_covariate_mean_all_values(cov_df):
     return cov_df.mean()
 
 
-
 def covariate_to_measurements_dummy(measurements, covariate):
     """
     Given a covariate that might not cover all of the age and time range
@@ -212,7 +214,7 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
         measurements (pd.DataFrame):
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``. All others are ignored.
-        covariate (pd.DataFrame):
+        covariates (pd.DataFrame):
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``, and ``value``.
 
@@ -257,10 +259,10 @@ def convert_age_year_ids_to_ranges(with_ids_df, age_groups_df):
         # This is a fault in the input data.
         missing = set(with_ids_df.age_group_id.unique()) - set(age_groups_df.age_group_id.unique())
         raise RuntimeError(f"Not all age group ids from observations are found in the age group list {missing}")
-    sorted = merged.sort_values(by="original_index").reset_index()
-    sorted["time_lower"] = sorted["year_id"]
-    sorted["time_upper"] = sorted["year_id"] + 1
-    dropped = sorted.drop(columns=["age_group_id", "year_id", "original_index"])
+    reordered = merged.sort_values(by="original_index").reset_index()
+    reordered["time_lower"] = reordered["year_id"]
+    reordered["time_upper"] = reordered["year_id"] + 1
+    dropped = reordered.drop(columns=["age_group_id", "year_id", "original_index"])
     return dropped.rename(columns={"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"})
 
 
@@ -303,7 +305,6 @@ def fixed_effects_from_epiviz(model_context, configuration):
                 raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             rate.parent_smooth = make_smooth(configuration, rate_config)
-
 
 
 def random_effects_from_epiviz(model_context, configuration):

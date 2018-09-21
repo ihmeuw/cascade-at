@@ -42,12 +42,12 @@ def sample_covariate():
 
 def test_covariate_dummy(sample_measurements, sample_covariate):
     m = sample_measurements.copy()
-    m["cov_name"] = covariates.covariate_to_measurements_dummy(sample_measurements, sample_covariate)
+    m["cov_name"] = builder.covariate_to_measurements_dummy(sample_measurements, sample_covariate)
 
 
 def test_covariate_nearest(sample_measurements, sample_covariate):
     m = sample_measurements.copy()
-    m["cov_name"] = covariates.covariate_to_measurements_nearest_favoring_same_year(
+    m["cov_name"] = builder.covariate_to_measurements_nearest_favoring_same_year(
         sample_measurements, sample_covariate)
     c = m["cov_name"]
     expected = [0.2, 0.5, 0.7, 0.8, 0.8, 0.8, 2.0, 2.0]
@@ -66,7 +66,7 @@ def test_convert_age_groups():
         "year_id": [1970, 1971, 1975, 1980, 1990, 1995],
         "value": [0, 1, 2, 3, 4, 5],
     })
-    with_ranges = covariates.convert_age_year_ids_to_ranges(by_id, groups)
+    with_ranges = builder.convert_age_year_ids_to_ranges(by_id, groups)
     for column in ["age_lower", "age_upper", "time_lower", "time_upper"]:
         assert column in with_ranges.columns
 
@@ -85,4 +85,4 @@ def test_convert_age_groups_failure():
         "value": [0, 1, 2, 3, 4, 5],
     })
     with pytest.raises(RuntimeError):
-        covariates.convert_age_year_ids_to_ranges(by_id, groups)
+        builder.convert_age_year_ids_to_ranges(by_id, groups)
