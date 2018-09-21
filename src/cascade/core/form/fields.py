@@ -43,8 +43,10 @@ class FormList(Form):
             forms.append(form)
         self._forms = forms
 
-    def validate_and_normalize(self, instance=None):
-        return [(f"[{i}].{p}", e) for i, form in enumerate(self) for (p, e) in form.validate_and_normalize(self)]
+    def validate_and_normalize(self, instance=None, root=None):
+        return [
+            (f"[{i}].{p}", e) for i, form in enumerate(self) for (p, e) in form.validate_and_normalize(self, root=root)
+        ]
 
     def __get__(self, instance, owner):
         value = super().__get__(instance, owner)
@@ -68,7 +70,7 @@ class Dummy(Field):
     be ignored.
     """
 
-    def validate_and_normalize(self, instance):
+    def validate_and_normalize(self, instance, root=None):
         return []
 
     def process_source(self, source):
@@ -123,7 +125,16 @@ class StringListField(SimpleTypeField):
     def _validate_and_normalize(self, instance, value):
         errors = []
         new_values = []
-        for item in value.split(self.separator):
+
+        if isinstance(value, str):
+            values = value.split(self.separator)
+        else:
+            # This case hits when there's only a single numerical value in the
+            # list because Epiviz switches from strings to the actual numerical
+            # type in that case.
+            values = [value]
+
+        for item in values:
             new_value, error = super()._validate_and_normalize(instance, item)
             if error:
                 errors.append(error)
