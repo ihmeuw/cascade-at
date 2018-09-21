@@ -160,8 +160,6 @@ class Configuration(Form):
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)
-    study_covariate = Dummy()
-    country_covariate = Dummy()
     derivative_test = Dummy()
     max_num_iter = Dummy()
     print_level = Dummy()

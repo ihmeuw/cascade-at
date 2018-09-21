@@ -75,7 +75,7 @@ def unique_country_covariate_transform(configuration):
         yield cov_id, list(sorted(cov_transformations))
 
 
-def assign_covariates(context):
+def assign_covariates(model_context, configuration):
     """
     The EpiViz interface allows assigning a covariate with a transformation
     to a specific target (rate, measure value, measure standard deviation).
@@ -86,7 +86,7 @@ def assign_covariates(context):
     covariate, one for each kind of transformation required.
 
     Args:
-        context (ModelContext): model context that has age groups.
+        model_context (ModelContext): model context that has age groups.
             The context is modified by this function. Covariate columns are
             added to input data and covariates are added to the list of
             covariates.
@@ -100,12 +100,12 @@ def assign_covariates(context):
     # This walks through all unique combinations of covariates and their
     # transformations. Then, later, we apply them to particular target
     # rates, meas_values, meas_stds.
-    for country_covariate_id, transforms in unique_country_covariate_transform(context.parameters):
+    for country_covariate_id, transforms in unique_country_covariate_transform(configuration):
         demographics = dict(
             age_group_ids="all",
             year_ids="all",
             sex_ids="all",
-            location_ids=[context.parameters.location_id],
+            location_ids=[model_context.parameters.location_id],
         )
         ccov_df = country_covariates(country_covariate_id, demographics)
         covariate_name = ccov_df.loc[0]["covariate_short_name"]
@@ -114,15 +114,12 @@ def assign_covariates(context):
         # transform or transform before we interpolate.
 
         # Decide how to take the given data and extend / subset / interpolate.
-        ccov_ranges_df = convert_age_year_ids_to_ranges(ccov_df, context.input_data.age_groups)
-        desired_sex = [1, 2, 3]
-        ccov_sexed_df = prune_covariate_sex(ccov_ranges_df, desired_sex)
-
-        avgint_table = make_avgint_table(context, lambda x: "BradBellRocks")
+        ccov_ranges_df = convert_age_year_ids_to_ranges(ccov_df, model_context.input_data.age_groups)
+        avgint_table = make_avgint_table(model_context, lambda x: "BradBellRocks")
 
         column_for_measurements = [
-            covariate_to_measurements_nearest_favoring_same_year(construct_column, ccov_sexed_df)
-            for construct_column in [context.input_data.observations, avgint_table]
+            covariate_to_measurements_nearest_favoring_same_year(construct_column, ccov_ranges_df)
+            for construct_column in [model_context.input_data.observations, avgint_table]
         ]
 
         for transform in transforms:
@@ -134,14 +131,14 @@ def assign_covariates(context):
 
             # The reference value is calculated from the download, not from the
             # the download as applied to the observations.
-            reference = reference_value_for_covariate_mean_all_values(settings_transform(ccov_sexed_df))
+            reference = reference_value_for_covariate_mean_all_values(settings_transform(ccov_df))
             covariate_obj = Covariate(name, settings_transform(reference))
-            context.input_data.covariates.append(covariate_obj)
+            model_context.input_data.covariates.append(covariate_obj)
             covariate_map[(covariate_name, transform)] = name
 
             # Now attach the column to the observations.
-            context.input_data.observations[f"x_{name}"] = settings_transform(column_for_measurements[0])
-            context.input_data.avgint_covariates.append(settings_transform(column_for_measurements[1]))
+            model_context.input_data.observations[f"x_{name}"] = settings_transform(column_for_measurements[0])
+            model_context.input_data.avgint_covariates.append(settings_transform(column_for_measurements[1]))
 
     def column_id_func(covariate_search_name, transformation_id):
         return covariate_map[(covariate_search_name, transformation_id)]
@@ -149,27 +146,10 @@ def assign_covariates(context):
     return column_id_func
 
 
-def prune_covariate_sex(covariate_df, desired_sex):
-    """
-    The observations need to be pruned so that there is only one value
-    per demographic interval, which means often using sex=male or female
-    and dropping sex=both.
-
-    Args:
-        covariate_df (pd.DataFrame): Must have a sex_id column.
-        desired_sex (List[int]): Nonempty list containing any of 1, 2, 3.
-
-    Returns:
-        pd.DataFrame: Same data as input with possibly-fewer rows and
-            possible renaming of rows.
-    """
-    return covariate_df
-
-
-def create_covariate_multipliers(context, column_id_func):
+def create_covariate_multipliers(context, configuration, column_id_func):
     # Assumes covariates exist.
-    for mul_cov_config in context.parameters.country_covariate:
-        smooth = make_smooth(mul_cov_config, context)
+    for mul_cov_config in configuration.country_covariate:
+        smooth = make_smooth(configuration, mul_cov_config)
         covariate_obj = column_id_func(mul_cov_config.name, mul_cov_config.transformation)
         covariate_multiplier = CovariateMultiplier(covariate_obj, smooth)
         getattr(context.model, mul_cov_config.target).append(covariate_multiplier)
@@ -224,12 +204,14 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
     # Rescaling the age by 120 means that the nearest age within the year
     # will always be closer than the nearest time across a full year.
     tree = spatial.KDTree(list(zip(
-        covariates[["age_lower", "age_upper"]].mean(axis=1) / 120,
-        covariates[["time_lower", "time_upper"]].mean(axis=1)
+        covariates[["age_lower", "age_upper"]].mean(axis=1) / 240,
+        covariates[["time_lower", "time_upper"]].mean(axis=1),
+        covariates["x_sex"]
     )))
     _, indices = tree.query(list(zip(
-        measurements[["age_lower", "age_upper"]].mean(axis=1) / 120,
-        measurements[["time_lower", "time_upper"]].mean(axis=1)
+        measurements[["age_lower", "age_upper"]].mean(axis=1) / 240,
+        measurements[["time_lower", "time_upper"]].mean(axis=1),
+        measurements["x_sex"],
     )))
     return pd.Series(covariates.iloc[indices]["value"].values, index=measurements.index)
 
@@ -239,6 +221,7 @@ def convert_age_year_ids_to_ranges(with_ids_df, age_groups_df):
     Converts ``age_group_id`` into ``age_lower`` and ``age_upper`` and
     ``year_id`` into ``time_lower`` and ``time_upper``. This treats the year
     as a range from start of year to start of the next year.
+    Also converts sex_id=[1, 2, 3] into x_sex=[-0.5, 0.5, 0].
 
     Args:
         with_ids_df (pd.DataFrame): Has ``age_group_id`` and ``year_id``.
@@ -249,12 +232,15 @@ def convert_age_year_ids_to_ranges(with_ids_df, age_groups_df):
         pd.DataFrame: New pd.DataFrame with four added columns and in the same
             order as the input dataset.
     """
+    # Is this mapping right? Is -0.5 men or women?
+    sex_df = pd.DataFrame(dict(x_sex=[-0.5, 0, 0.5], sex_id=[1, 3, 2]))
     original_order = with_ids_df.copy()
     # This "original index" guarantees that the order of the output dataset
     # and the index of the output dataset match that of with_ids_df, because
     # the merge reorders everything, including creation of a new index.
     original_order["original_index"] = original_order.index
-    merged = pd.merge(original_order, age_groups_df, on="age_group_id", sort=False)
+    aged = pd.merge(original_order, age_groups_df, on="age_group_id", sort=False)
+    merged = pd.merge(aged, sex_df, on="sex_id")
     if len(merged) != len(with_ids_df):
         # This is a fault in the input data.
         missing = set(with_ids_df.age_group_id.unique()) - set(age_groups_df.age_group_id.unique())
@@ -305,6 +291,9 @@ def fixed_effects_from_epiviz(model_context, configuration):
                 raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             rate.parent_smooth = make_smooth(configuration, rate_config)
+
+    covariate_column_id_func = assign_covariates(model_context, configuration)
+    create_covariate_multipliers(model_context, configuration, covariate_column_id_func)
 
 
 def random_effects_from_epiviz(model_context, configuration):
