@@ -26,9 +26,9 @@ then
 fi
 
 if [ "${DEBUG}" = 1 ]; then
-    RUNNER="dmmultistep"
+    RUNNER="dmcascade -v"
 else
-    RUNNER="dmdummy"
+    RUNNER="dmcascade"
 fi
 source "${EPI_DIR}/bin/activate"
 "${RUNNER}" --mvid "${MVID}" --epi-environment "${ENVIRONMENT_NAME}"

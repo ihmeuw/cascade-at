@@ -14,6 +14,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
+            ["dmcascade=cascade.executor.epiviz_runner:entry"],
             ["dmchat=cascade.executor.chatter:chatter"],
             ["dmdummy=cascade.executor.chatter:dismod_dummy"],
             ["dmcsv2db=cascade.executor.no_covariate_main:entry"],

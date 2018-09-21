@@ -135,7 +135,7 @@ def main():
         save_model_results(ec)
 
 
-if __name__ == "__main__":
+def entry():
     try:
         main()
     except SettingsError as e:
@@ -146,3 +146,7 @@ if __name__ == "__main__":
     except Exception:
         CODELOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
         raise
+
+
+if __name__ == "__main__":
+    entry()
