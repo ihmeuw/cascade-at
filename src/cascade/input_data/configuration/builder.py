@@ -76,11 +76,8 @@ def assign_covariates(model_context, configuration):
     """
     The EpiViz interface allows assigning a covariate with a transformation
     to a specific target (rate, measure value, measure standard deviation).
-    It is even the case, that the same covariate, say income, can be applied
-    without transformation to iota on one smoothing and applied without
-    transformation to chi with a *different smoothing*.
-    Therefore, there can be multiple covariate columns built from the same
-    covariate, one for each kind of transformation required.
+    There will be one Dismod-AT covariate for each (input covariate dataset,
+    transformation of that dataset).
 
     Args:
         model_context (ModelContext): model context that has age groups.
@@ -121,7 +118,7 @@ def assign_covariates(model_context, configuration):
         # transform or transform before we interpolate.
 
         # Decide how to take the given data and extend / subset / interpolate.
-        ccov_ranges_df = convert_age_year_ids_to_ranges(ccov_df, age_groups)
+        ccov_ranges_df = convert_gbd_ids_to_dismod_values(ccov_df, age_groups)
 
         column_for_measurements = [
             covariate_to_measurements_nearest_favoring_same_year(construct_column, ccov_ranges_df)
@@ -219,7 +216,7 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
     Returns:
         pd.Series: One row for every row in the measurements.
     """
-    # Rescaling the age by 120 means that the nearest age within the year
+    # Rescaling the age means that the nearest age within the year
     # will always be closer than the nearest time across a full year.
     tree = spatial.KDTree(list(zip(
         covariates[["age_lower", "age_upper"]].mean(axis=1) / 240,
@@ -234,12 +231,12 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
     return pd.Series(covariates.iloc[indices]["mean_value"].values, index=measurements.index)
 
 
-def convert_age_year_ids_to_ranges(with_ids_df, age_groups_df):
+def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
     """
     Converts ``age_group_id`` into ``age_lower`` and ``age_upper`` and
     ``year_id`` into ``time_lower`` and ``time_upper``. This treats the year
     as a range from start of year to start of the next year.
-    Also converts sex_id=[1, 2, 3] into x_sex=[-0.5, 0.5, 0].
+    Also converts sex_id=[1, 2, 3] into x_sex=[0.5, -0.5, 0].
 
     Args:
         with_ids_df (pd.DataFrame): Has ``age_group_id`` and ``year_id``.
@@ -250,8 +247,7 @@ def convert_age_year_ids_to_ranges(with_ids_df, age_groups_df):
         pd.DataFrame: New pd.DataFrame with four added columns and in the same
             order as the input dataset.
     """
-    # Is this mapping right? Is -0.5 men or women?
-    sex_df = pd.DataFrame(dict(x_sex=[-0.5, 0, 0.5], sex_id=[1, 3, 2]))
+    sex_df = pd.DataFrame(dict(x_sex=[-0.5, 0, 0.5], sex_id=[2, 3, 1]))
     original_order = with_ids_df.copy()
     # This "original index" guarantees that the order of the output dataset
     # and the index of the output dataset match that of with_ids_df, because

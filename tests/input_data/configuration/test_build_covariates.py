@@ -62,12 +62,12 @@ def test_convert_age_groups():
         "sex_id": [1, 1, 1, 2, 2, 2],
         "value": [0, 1, 2, 3, 4, 5],
     })
-    with_ranges = builder.convert_age_year_ids_to_ranges(by_id, age_groups)
+    with_ranges = builder.convert_gbd_ids_to_dismod_values(by_id, age_groups)
     for column in ["age_lower", "age_upper", "time_lower", "time_upper"]:
         assert column in with_ranges.columns
 
     assert np.allclose(with_ranges["age_lower"].values, [1/52, 0, 10, 1/52, 0, 10])
-    assert np.allclose(with_ranges["x_sex"].values, [-0.5, -0.5, -0.5, 0.5, 0.5, 0.5])
+    assert np.allclose(with_ranges["x_sex"].values, [0.5, 0.5, 0.5, -0.5, -0.5, -0.5])
 
 
 def test_convert_age_groups_failure():
@@ -83,4 +83,4 @@ def test_convert_age_groups_failure():
         "value": [0, 1, 2, 3, 4, 5],
     })
     with pytest.raises(RuntimeError):
-        builder.convert_age_year_ids_to_ranges(by_id, groups)
+        builder.convert_gbd_ids_to_dismod_values(by_id, groups)

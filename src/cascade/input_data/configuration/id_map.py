@@ -68,7 +68,7 @@ RATE_TO_INTEGRAND = dict(
     rho=IntegrandEnum.remission,
     chi=IntegrandEnum.mtexcess,
     omega=IntegrandEnum.mtother,
-    prevalence=IntegrandEnum.prevalence,
+    pini=IntegrandEnum.prevalence,
 )
 PRIMARY_INTEGRANDS_TO_RATES = {
     "prevalence": "pini",
