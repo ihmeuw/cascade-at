@@ -59,6 +59,7 @@ def constraints():
 @pytest.fixture
 def base_context(observations, constraints):
     context = ModelContext()
+    context.parameters.rate_case = "iota_pos_rho_zero"
 
     context.input_data.observations = observations
     context.input_data.constraints = constraints
@@ -229,7 +230,8 @@ def test_make_avgint_table(base_context):
     avgint_table = make_avgint_table(base_context, integrand_to_id)
 
     assert set(avgint_table.integrand_id) == {
-        integrand_to_id(integrand.name) for integrand in base_context.outputs.integrands
+        integrand_to_id(integrand.name)
+        for integrand in base_context.outputs.integrands
         if integrand.age_ranges is not None
     }
 
@@ -263,9 +265,7 @@ def test_make_rate_table(base_context):
 
 
 def test_make_covariate_table(base_context):
-    at_grid = AgeTimeGrid.uniform(
-        age_start=0, age_end=120, age_step=5,
-        time_start=1990, time_end=2018, time_step=1)
+    at_grid = AgeTimeGrid.uniform(age_start=0, age_end=120, age_step=5, time_start=1990, time_end=2018, time_step=1)
     value_priors = PriorGrid(at_grid)
     value_priors[:, :].prior = Gaussian(0, 0.8)
     at_priors = PriorGrid(at_grid)
@@ -308,4 +308,5 @@ def test_make_covariate_table(base_context):
 
     rate_table, rate_to_id = make_rate_table(base_context, smooth_id_func)
     columns_df, mulcov_df, columns_func = make_covariate_table(
-        base_context, smooth_id_func, rate_to_id, integrand_to_id)
+        base_context, smooth_id_func, rate_to_id, integrand_to_id
+    )

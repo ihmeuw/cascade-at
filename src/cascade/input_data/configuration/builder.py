@@ -17,6 +17,7 @@ from cascade.input_data.db.ccov import country_covariates
 from cascade.input_data.db.demographics import get_age_groups
 from cascade.core.context import ModelContext
 from cascade.dismod.serialize import make_avgint_table
+import cascade.model.priors as priors
 
 
 MATHLOG = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ def initial_context_from_epiviz(configuration):
     context.parameters.bundle_id = configuration.model.bundle_id
     context.parameters.gbd_round_id = configuration.gbd_round_id
     context.parameters.location_id = configuration.model.drill_location
+    context.parameters.rate_case = configuration.model.rate_case
 
     return context
 
@@ -269,7 +271,10 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
 def make_smooth(configuration, smooth_configuration):
     ages = smooth_configuration.age_grid
     if ages is None:
-        ages = configuration.model.default_age_grid
+        if smooth_configuration.rate == "pini":
+            ages = [0]
+        else:
+            ages = configuration.model.default_age_grid
     times = smooth_configuration.time_grid
     if times is None:
         times = configuration.model.default_time_grid
@@ -279,8 +284,14 @@ def make_smooth(configuration, smooth_configuration):
     d_age = PriorGrid(grid)
     value = PriorGrid(grid)
 
-    d_age[:, :].prior = smooth_configuration.default.dage.prior_object
-    d_time[:, :].prior = smooth_configuration.default.dtime.prior_object
+    if smooth_configuration.default.dage is None:
+        d_age[:, :].prior = priors.Uniform(float("-inf"), float("inf"), 0)
+    else:
+        d_age[:, :].prior = smooth_configuration.default.dage.prior_object
+    if smooth_configuration.default.dtime is None:
+        d_time[:, :].prior = priors.Uniform(float("-inf"), float("inf"), 0)
+    else:
+        d_time[:, :].prior = smooth_configuration.default.dtime.prior_object
     value[:, :].prior = smooth_configuration.default.value.prior_object
 
     if smooth_configuration.detail:

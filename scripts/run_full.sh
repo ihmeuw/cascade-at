@@ -26,9 +26,11 @@ then
 fi
 
 if [ "${DEBUG}" = 1 ]; then
-    RUNNER="dmmultistep"
+    RUNNER="dmcascade -v"
 else
-    RUNNER="dmdummy"
+    RUNNER="dmcascade"
 fi
+DB_DIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename $0).XXXXXXXXXXXX")
 source "${EPI_DIR}/bin/activate"
-"${RUNNER}" --mvid "${MVID}" --epi-environment "${ENVIRONMENT_NAME}"
+echo "${RUNNER}" "$DB_DIR/model.db" --mvid "${MVID}" --epi-environment "${ENVIRONMENT_NAME}"
+"${RUNNER}" "$DB_DIR/model.db" --mvid "${MVID}" --epi-environment "${ENVIRONMENT_NAME}"

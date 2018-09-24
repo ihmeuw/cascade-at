@@ -79,7 +79,7 @@ class Rate:
 
     @property
     def smoothings(self):
-        smoothings = list(self.child_smoothings)
+        smoothings = [s for _, s in self.child_smoothings]
         if self.parent_smooth:
             smoothings.append(self.parent_smooth)
         return smoothings

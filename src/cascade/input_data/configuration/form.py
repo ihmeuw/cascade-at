@@ -8,6 +8,8 @@ and must return in near real time.
 The Configuration class is the root of the form.
 
 """
+import numpy as np
+
 from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
 from cascade.model import priors
 
@@ -30,7 +32,7 @@ class SmoothingPrior(Form):
     nu = FloatField(nullable=True)
     eta = FloatField(nullable=True)
 
-    def _full_form_validation(self):
+    def _full_form_validation(self, root):
         errors = []
 
         if not self.is_field_unset("age_lower") and not self.is_field_unset("age_lower"):
@@ -41,20 +43,36 @@ class SmoothingPrior(Form):
                 errors.append("time_lower must be less than or equal to time_upper")
 
         try:
+            lower = self.min
+            upper = self.max
+            mean = self.mean
+            if mean is None:
+                if np.isinf(lower) or np.isinf(upper):
+                    mean = max(lower, 0)
+            std = self.std
+            nu = self.nu
+            if self.eta is None:
+                if not root.is_field_unset("eta"):
+                    eta = root.eta.priors
+                else:
+                    eta = None
+            else:
+                eta = self.eta
+
             if self.density == "uniform":
-                self.prior_object = priors.Uniform(self.min, self.max, self.mean)
+                self.prior_object = priors.Uniform(lower, upper, mean)
             elif self.density == "gaussian":
-                self.prior_object = priors.Gaussian(self.mean, self.std, self.min, self.max)
+                self.prior_object = priors.Gaussian(mean, std, lower, upper)
             elif self.density == "laplace":
-                self.prior_object = priors.Laplace(self.mean, self.std, self.min, self.max)
+                self.prior_object = priors.Laplace(mean, std, lower, upper)
             elif self.density == "students":
-                self.prior_object = priors.StudentsT(self.mean, self.std, self.nu, self.min, self.max, self.eta)
+                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper, eta)
             elif self.density == "log_gaussian":
-                self.prior_object = priors.LogGaussian(self.mean, self.std, self.eta, self.min, self.max)
+                self.prior_object = priors.LogGaussian(mean, std, eta, lower, upper)
             elif self.density == "log_laplace":
-                self.prior_object = priors.LogLaplace(self.mean, self.std, self.eta, self.min, self.max)
+                self.prior_object = priors.LogLaplace(mean, std, eta, lower, upper)
             elif self.density == "log_students":
-                self.prior_object = priors.LogStudentsT(self.mean, self.std, self.nu, self.eta, self.min, self.max)
+                self.prior_object = priors.LogStudentsT(mean, std, nu, eta, lower, upper)
             else:
                 errors.append(f"Unknown density '{self.density}'")
         except priors.PriorError as e:
@@ -64,8 +82,8 @@ class SmoothingPrior(Form):
 
 
 class SmoothingPriorGroup(Form):
-    dage = SmoothingPrior(name_field="prior_type")
-    dtime = SmoothingPrior(name_field="prior_type")
+    dage = SmoothingPrior(name_field="prior_type", nullable=True)
+    dtime = SmoothingPrior(name_field="prior_type", nullable=True)
     value = SmoothingPrior(name_field="prior_type")
 
 
@@ -130,6 +148,16 @@ class Model(Form):
     drill_sex = OptionField([1, 2], nullable=True)
     default_age_grid = StringListField(constructor=float)
     default_time_grid = StringListField(constructor=float)
+    rate_case = OptionField(
+        ["iota_zero_rho_pos", "iota_pos_rho_zero", "iota_zero_rho_zero", "iota_pos_rho_pos"],
+        nullable=True,
+        default="iota_pos_rho_zero",
+    )
+
+
+class Eta(Form):
+    priors = FloatField(nullable=True)
+    data = FloatField(nullable=True)
 
 
 class Configuration(Form):
@@ -153,6 +181,7 @@ class Configuration(Form):
     rate = FormList(Smoothing)
     study_covariate = FormList(StudyCovariate)
     country_covariate = FormList(CountryCovariate)
+    eta = Eta()
 
     csmr_cod_output_version_id = Dummy()
     csmr_mortality_output_version_id = Dummy()
@@ -167,7 +196,6 @@ class Configuration(Form):
     tolerance = Dummy()
     students_dof = Dummy()
     log_students_dof = Dummy()
-    eta = Dummy()
     data_eta_by_integrand = Dummy()
     data_density_by_integrand = Dummy()
     config_version = Dummy()
