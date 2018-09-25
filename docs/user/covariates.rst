@@ -125,6 +125,29 @@ Covariates are unique combinations of the covariate column,
 and the rate or measured value or standard deviation,
 so they can be accessed that way.
 
+Missing Values
+--------------
+
+Were a covariate value to be missing, Dismod-AT would assume it has
+the reference value. In this sense, *every measurement always has a covariate.*
+Therefore, the interface requires every measurement explicitly have every
+covariate.
+
+
+Handling of Country Covariates for EpiViz-AT
+--------------------------------------------
+The Country Covariate tab in EpiViz-AT lets you specify multiple
+Covariate Multipliers, each of which implies use of a covariate.
+The two functions that read the EpiViz-AT settings and construct
+data for Dismod-AT are ``assign_covariates`` and ``create_covariate_multipliers``.
+
+.. autofunction:: cascade.input_data.configuration.builder.assign_covariates
+
+.. autofunction:: cascade.input_data.configuration.builder.create_covariate_multipliers
+
+.. autofunction:: cascade.input_data.configuration.builder.covariate_to_measurements_nearest_favoring_same_year
+
+.. autofunction:: cascade.input_data.configuration.builder.reference_value_for_covariate_mean_all_values
 
 .. _predict the underlying rate:
     https://bradbell.github.io/dismod_at/doc/avg_integrand.htm#Rate%20Functions.Rate%20Covariate%20Multiplier,%20alpha_jk

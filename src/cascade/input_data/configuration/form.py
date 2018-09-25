@@ -100,6 +100,43 @@ class Smoothing(Form):
     custom_time_grid = Dummy()
 
 
+class StudyCovariate(Form):
+    # Haven't seen if this is a string or an ID for the column in the bundle.
+    study_covariate = StringListField(nullable=True)
+
+    measure_id = IntField()
+    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"])
+    transformation = IntField()
+    at_dependence = IntField()
+
+    age_grid = StringListField(constructor=float, nullable=True)
+    time_grid = StringListField(constructor=float, nullable=True)
+    default = SmoothingPriorGroup()
+    mulstd = SmoothingPriorGroup(nullable=True)
+    detail = FormList(SmoothingPrior, nullable=True)
+
+    custom_age_grid = Dummy()
+    custom_time_grid = Dummy()
+
+
+class CountryCovariate(Form):
+    country_covariate_id = IntField()
+
+    measure_id = IntField()
+    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"])
+    transformation = IntField()
+    at_dependence = IntField()
+
+    age_grid = StringListField(constructor=float, nullable=True)
+    time_grid = StringListField(constructor=float, nullable=True)
+    default = SmoothingPriorGroup()
+    mulstd = SmoothingPriorGroup(nullable=True)
+    detail = FormList(SmoothingPrior, nullable=True)
+
+    custom_age_grid = Dummy()
+    custom_time_grid = Dummy()
+
+
 class Model(Form):
     modelable_entity_id = IntField()
     model_version_id = IntField(nullable=True)
@@ -142,6 +179,8 @@ class Configuration(Form):
     gbd_round_id = IntField()
     random_effect = FormList(Smoothing, nullable=True)
     rate = FormList(Smoothing)
+    study_covariate = FormList(StudyCovariate)
+    country_covariate = FormList(CountryCovariate)
     eta = Eta()
 
     csmr_cod_output_version_id = Dummy()
@@ -150,8 +189,6 @@ class Configuration(Form):
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)
-    study_covariate = Dummy()
-    country_covariate = Dummy()
     derivative_test = Dummy()
     max_num_iter = Dummy()
     print_level = Dummy()

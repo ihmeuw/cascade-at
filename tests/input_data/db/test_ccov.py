@@ -13,18 +13,18 @@ def mock_get_covariate_estimates(mocker):
 @pytest.fixture
 def mock_ccov_estimates():
     mock_ccov_estimates = pd.DataFrame(columns=[
-        "covariate_id", "location_id", "age_group_id", "year_id",
+        "covariate_id", "covariate_name_short", "location_id", "age_group_id", "year_id",
         "sex_id", "mean_value"])
-    mock_ccov_estimates.loc[0] = [33, 101, 22, 1990, 1, 1000]
+    mock_ccov_estimates.loc[0] = [33, "phlegm", 101, 22, 1990, 1, 1000]
     return mock_ccov_estimates
 
 
 @pytest.fixture
 def expected_ccov():
     expected_ccov = pd.DataFrame(columns=[
-        "covariate_id", "location_id", "age_group_id", "year_id",
+        "covariate_id", "covariate_name_short", "location_id", "age_group_id", "year_id",
         "sex_id", "mean_value"])
-    expected_ccov.loc[0] = [33, 101, 22, 1990, 1, 1000]
+    expected_ccov.loc[0] = [33, "phlegm", 101, 22, 1990, 1, 1000]
 
     return expected_ccov
 
@@ -52,19 +52,20 @@ def demographics_default():
     return demographics_default
 
 
-@pytest.mark.skip
-def test_country_covariates_real(demographics_default):
+def test_country_covariates_real(ihme, demographics_default):
 
     country_covariate_id = 26
 
     ccov = country_covariates(country_covariate_id, demographics_default)
 
-    assert set(ccov.columns) == {"covariate_id", "location_id", "age_group_id",
-                                 "year_id", "sex_id", "mean_value"}
+    assert set(ccov.columns) == {
+        "covariate_id", "covariate_name_short", "location_id", "age_group_id", "year_id", "sex_id", "mean_value"}
 
+    assert len(ccov) == 1 * 1 * 2 * 23 * 38
     assert set(ccov["covariate_id"].unique()) == {26}
     assert set(ccov["location_id"].unique()) == {102}
     assert set(ccov["sex_id"].unique()) == {1, 2}
+    # These age groups are fewer than requested. 27 is missing.
     assert set(ccov["age_group_id"].unique()) == {
         2, 3, 4, 5, 6,
         7, 8, 9, 10, 11,
@@ -72,6 +73,7 @@ def test_country_covariates_real(demographics_default):
         17, 18, 19, 20, 30,
         31, 32, 235}
     assert set(ccov["sex_id"].unique()) == {1, 2}
+    # These years are 38 of the requested 68.
     assert set(ccov["year_id"].unique()) == {
         1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989,
         1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,

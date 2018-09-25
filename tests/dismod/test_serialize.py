@@ -20,7 +20,6 @@ from cascade.dismod.serialize import (
     make_smooth_and_smooth_grid_tables,
     make_node_table,
     make_data_table,
-    make_avgint_table,
     make_rate_table,
     make_covariate_table,
 )
@@ -224,22 +223,6 @@ def test_make_data_table(base_context):
 
     assert len(data_table) == len(base_context.input_data.observations) + len(base_context.input_data.constraints)
     assert len(data_table.query("hold_out==1")) == len(base_context.input_data.constraints)
-
-
-def test_make_avgint_table(base_context):
-    avgint_table = make_avgint_table(base_context, integrand_to_id)
-
-    assert set(avgint_table.integrand_id) == {
-        integrand_to_id(integrand.name)
-        for integrand in base_context.outputs.integrands
-        if integrand.age_ranges is not None
-    }
-
-    for integrand in base_context.outputs.integrands:
-        if integrand.age_ranges is not None:
-            integrand_id = integrand_to_id(integrand.name)  # noqa: F841
-            rows = avgint_table.query("integrand_id == @integrand_id")
-            assert len(rows) == len(integrand.age_ranges) * len(integrand.time_ranges)
 
 
 def test_make_rate_table(base_context):

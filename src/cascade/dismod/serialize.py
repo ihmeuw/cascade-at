@@ -90,8 +90,20 @@ def model_to_dismod_file(model):
     def integrand_id_func(name):
         return int(bundle_fit.integrand.query("integrand_name==@name").integrand_id)
 
-    # The avgint needs to be translated.
-    bundle_fit.avgint = make_avgint_table(model, integrand_id_func)
+    # Given average integrand cases by name, convert them to average integrand
+    # cases by ID and save. Any covariates have to exist at this point.
+    avgint_named = model.input_data.average_integrand_cases
+    if avgint_named:
+        bundle_fit.avgint = pd.concat(
+            [avgint_named.drop(columns=["integrand_name"]), avgint_named["integrand_name"].apply(integrand_id_func)],
+            axis=1,
+            sort=False
+        )
+    else:
+        covariate_names = [cov_obj.name for cov_obj in model.input_data.covariates]
+        all_avgint_columns = ["integrand_id", "age_lower", "age_upper",
+                       "time_lower", "time_upper", "weight_id", "node_id"] + covariate_names
+        bundle_fit.avgint = pd.DataFrame([], columns=all_avgint_columns)
 
     bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
 
@@ -294,21 +306,23 @@ def make_avgint_table(context, integrand_id_func):
         if integrand.age_ranges is not None and integrand.time_ranges is not None:
             for age_lower, age_upper in integrand.age_ranges:
                 for time_lower, time_upper in integrand.time_ranges:
-                    rows.append(
-                        {
-                            "integrand_id": integrand_id_func(integrand.name),
-                            "age_lower": age_lower,
-                            "age_upper": age_upper,
-                            "time_lower": time_lower,
-                            "time_upper": time_upper,
-                            # Assuming using the first set of weights, which is constant.
-                            "weight_id": 0,
-                            # Assumes one location_id.
-                            "node_id": 0,
-                        }
-                    )
+                    for sex in [-0.5, 0.5]:
+                        rows.append(
+                            {
+                                "integrand_id": integrand_id_func(integrand.name),
+                                "age_lower": age_lower,
+                                "age_upper": age_upper,
+                                "time_lower": time_lower,
+                                "time_upper": time_upper,
+                                # Assuming using the first set of weights, which is constant.
+                                "weight_id": 0,
+                                # Assumes one location_id.
+                                "node_id": 0,
+                                "x_sex": sex,
+                            }
+                        )
     return pd.DataFrame(
-        rows, columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id"]
+        rows, columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id", "x_sex"]
     )
 
 
