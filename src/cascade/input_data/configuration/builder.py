@@ -16,7 +16,6 @@ from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.ccov import country_covariates
 from cascade.input_data.db.demographics import get_age_groups
 from cascade.core.context import ModelContext
-from cascade.dismod.serialize import make_avgint_table
 import cascade.model.priors as priors
 
 
@@ -74,6 +73,36 @@ def unique_country_covariate_transform(configuration):
         yield cov_id, list(sorted(cov_transformations))
 
 
+def make_average_integrand_cases(context):
+    rows = []
+    for integrand in context.outputs.integrands:
+        if integrand.age_ranges is not None and integrand.time_ranges is not None:
+            for age_lower, age_upper in integrand.age_ranges:
+                for time_lower, time_upper in integrand.time_ranges:
+                    for sex in [-0.5, 0.5]:
+                        rows.append(
+                            {
+                                "integrand_name": integrand.name,
+                                "age_lower": age_lower,
+                                "age_upper": age_upper,
+                                "time_lower": time_lower,
+                                "time_upper": time_upper,
+                                # Assuming using the first set of weights, which is constant.
+                                "weight_id": 0,
+                                # Assumes one location_id.
+                                "node_id": 0,
+                                "x_sex": sex,
+                            }
+                        )
+        else:
+            MATHLOG.info(f"integrand {integrand.name} lacks age or time ranges "
+                         f"so it will not be included in output.")
+    return pd.DataFrame(
+        rows, columns=["integrand_name", "age_lower", "age_upper",
+                       "time_lower", "time_upper", "weight_id", "node_id", "x_sex"]
+    )
+
+
 def assign_covariates(model_context, configuration):
     """
     The EpiViz interface allows assigning a covariate with a transformation
@@ -100,7 +129,8 @@ def assign_covariates(model_context, configuration):
     :py:func:`reference_value_for_covariate_mean_all_values`.
     """
     covariate_map = {}  # to find the covariates for covariate multipliers.
-    avgint_table = make_avgint_table(model_context, lambda x: "BradBellRocks")
+    model_context.input_data.average_integrand_cases = make_average_integrand_cases(model_context)
+    avgint_table = model_context.input_data.average_integrand_cases
     age_groups = get_age_groups(model_context)
 
     # This walks through all unique combinations of covariates and their
@@ -143,7 +173,7 @@ def assign_covariates(model_context, configuration):
 
             # Now attach the column to the observations.
             model_context.input_data.observations[f"x_{name}"] = settings_transform(column_for_measurements[0])
-            model_context.input_data.avgint_covariates.append(settings_transform(column_for_measurements[1]))
+            avgint_table[f"x_{name}"] = settings_transform(column_for_measurements[1])
 
     def column_id_func(covariate_search_id, transformation_id):
         return covariate_map[(covariate_search_id, transformation_id)]

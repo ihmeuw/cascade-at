@@ -11,6 +11,7 @@ from cascade.input_data.configuration.builder import (
     make_smooth,
     assign_covariates,
     create_covariate_multipliers,
+    make_average_integrand_cases,
 )
 from cascade.model import priors
 
@@ -90,6 +91,17 @@ def test_initial_context_from_epiviz(base_config):
     assert mc.parameters.modelable_entity_id == 12345
     assert mc.parameters.gbd_round_id == 5
     assert mc.parameters.location_id == 123
+
+
+def test_make_avgint_table(base_config):
+    mc = initial_context_from_epiviz(base_config)
+    avgint_table = make_average_integrand_cases(mc)
+
+    for integrand in mc.outputs.integrands:
+        if integrand.age_ranges is not None:
+            rows = avgint_table.query("integrand_name == @integrand_name")
+            sex_cnt = 2
+            assert len(rows) == sex_cnt * len(integrand.age_ranges) * len(integrand.time_ranges)
 
 
 def test_make_smooth(base_config):

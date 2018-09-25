@@ -90,11 +90,20 @@ def model_to_dismod_file(model):
     def integrand_id_func(name):
         return int(bundle_fit.integrand.query("integrand_name==@name").integrand_id)
 
-    # The avgint needs to be translated.
-    avgint_no_covariates = make_avgint_table(model, integrand_id_func)
-    bundle_fit.avgint = pd.concat([avgint_no_covariates] + model.input_data.avgint_covariates, axis=1, sort=False)
-    if len(bundle_fit.avgint) != len(avgint_no_covariates):
-        raise RuntimeError("Covariates didn't line up for the avgint table.")
+    # Given average integrand cases by name, convert them to average integrand
+    # cases by ID and save. Any covariates have to exist at this point.
+    avgint_named = model.input_data.average_integrand_cases
+    if avgint_named:
+        bundle_fit.avgint = pd.concat(
+            [avgint_named.drop(columns=["integrand_name"]), avgint_named["integrand_name"].apply(integrand_id_func)],
+            axis=1,
+            sort=False
+        )
+    else:
+        covariate_names = [cov_obj.name for cov_obj in model.input_data.covariates]
+        all_avgint_columns = ["integrand_id", "age_lower", "age_upper",
+                       "time_lower", "time_upper", "weight_id", "node_id"] + covariate_names
+        bundle_fit.avgint = pd.DataFrame([], columns=all_avgint_columns)
 
     bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
 

@@ -14,7 +14,7 @@ class InputData:
         self.rates = Rates()
         self.observations = None
         self.constraints = None
-        self.avgint_covariates = []
+        self.average_integrand_cases = None
         self.covariates = []
 
     @property
