@@ -1,5 +1,6 @@
 """ Functions for creating internal model representations of settings from EpiViz
 """
+from itertools import product
 import logging
 from collections import defaultdict
 
@@ -73,30 +74,35 @@ def unique_country_covariate_transform(configuration):
         yield cov_id, list(sorted(cov_transformations))
 
 
+def exclude_integrands_without_extents(integrands):
+    for integrand in integrands:
+        if integrand.age_ranges is not None and integrand.time_ranges is not None:
+            yield integrand
+        else:
+            MATHLOG.info(
+                f"integrand {integrand.name} lacks age or time ranges "
+                f"so it will not be included in output.")
+
+
 def make_average_integrand_cases(context):
     rows = []
-    for integrand in context.outputs.integrands:
-        if integrand.age_ranges is not None and integrand.time_ranges is not None:
-            for age_lower, age_upper in integrand.age_ranges:
-                for time_lower, time_upper in integrand.time_ranges:
-                    for sex in [-0.5, 0.5]:
-                        rows.append(
-                            {
-                                "integrand_name": integrand.name,
-                                "age_lower": age_lower,
-                                "age_upper": age_upper,
-                                "time_lower": time_lower,
-                                "time_upper": time_upper,
-                                # Assuming using the first set of weights, which is constant.
-                                "weight_id": 0,
-                                # Assumes one location_id.
-                                "node_id": 0,
-                                "x_sex": sex,
-                            }
-                        )
-        else:
-            MATHLOG.info(f"integrand {integrand.name} lacks age or time ranges "
-                         f"so it will not be included in output.")
+    for integrand in exclude_integrands_without_extents(context.outputs.integrands):
+        for (age_lower, age_upper), (time_lower, time_upper), sex \
+                    in product(integrand.age_ranges, integrand.time_ranges, [-0.5, 0.5]):
+            rows.append(
+                {
+                    "integrand_name": integrand.name,
+                    "age_lower": age_lower,
+                    "age_upper": age_upper,
+                    "time_lower": time_lower,
+                    "time_upper": time_upper,
+                    # Assuming using the first set of weights, which is constant.
+                    "weight_id": 0,
+                    # Assumes one location_id.
+                    "node_id": 0,
+                    "x_sex": sex,
+                }
+            )
     return pd.DataFrame(
         rows, columns=["integrand_name", "age_lower", "age_upper",
                        "time_lower", "time_upper", "weight_id", "node_id", "x_sex"]
