@@ -85,9 +85,9 @@ def base_context(observations, constraints):
     smooth.d_time_priors = d_time
     context.rates.pini.parent_smooth = smooth
 
-    context.outputs.integrands.Sincidence.age_ranges = [(a, a + 5) for a in range(0, 95, 5)]
-    context.outputs.integrands.Sincidence.time_ranges = [(y, y + 5) for y in range(1990, 2015, 5)]
-
+    context.average_integrand_cases = pd.DataFrame([], columns=["integrand_name", "age_lower", "age_upper",
+                                                                "time_lower", "time_upper", "weight_id",
+                                                                "node_id", "x_sex"])
     return context
 
 
@@ -212,7 +212,7 @@ def test_make_smooth_and_smooth_grid_tables(base_context):
 
 
 def test_make_node_table(base_context):
-    node_table = make_node_table(base_context)
+    node_table, _ = make_node_table(base_context)
 
     assert all(node_table.node_name == "1")
     assert all(node_table.parent.isna())
@@ -273,8 +273,8 @@ def test_make_covariate_table(base_context):
     # There isn't much to test about the lists of covariate multipliers.
     # They are lists and would permit, for instance, adding the same one twice.
     base_context.rates.iota.covariate_multipliers.append(income_time_tight)
-    base_context.outputs.integrands.remission.value_covariate_multipliers.append(income_time_tight)
-    base_context.outputs.integrands.prevalence.std_covariate_multipliers.append(income_time_tight)
+    base_context.integrand_covariate_multipliers["remission"].value_covariate_multipliers.append(income_time_tight)
+    base_context.integrand_covariate_multipliers["prevalence"].std_covariate_multipliers.append(income_time_tight)
 
     for rate_adj in base_context.rates:
         rate_adj.covariate_multipliers.append(wash_cov)

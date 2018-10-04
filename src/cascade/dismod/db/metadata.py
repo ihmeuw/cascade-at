@@ -534,7 +534,14 @@ class Var(Base):
     covariate_id = Column(Integer(), nullable=False)
 
 
-_TYPE_MAP = {str: String, int: Integer, float: Float, np.dtype("int64"): Integer, np.dtype("float64"): Float}
+_TYPE_MAP = {
+    np.dtype("O"): String,
+    str: String,
+    int: Integer,
+    float: Float,
+    np.dtype("int64"): Integer,
+    np.dtype("float64"): Float
+}
 
 
 def add_columns_to_avgint_table(metadata, column_identifiers):

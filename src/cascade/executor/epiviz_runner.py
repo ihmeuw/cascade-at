@@ -5,7 +5,6 @@ from pprint import pformat
 import json
 
 from cascade.executor.argument_parser import DMArgumentParser
-from cascade.input_data.db.demographics import get_age_groups, get_years
 from cascade.dismod.db.wrapper import _get_engine
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import settings_for_model
@@ -14,6 +13,7 @@ from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.db.bundle import bundle_with_study_covariates, freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
+from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.saver.save_model_results import save_model_results
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.builder import (
@@ -65,19 +65,9 @@ def model_context_from_settings(execution_context, settings):
     )
     model_context.input_data.observations = bundle_to_observations(model_context.parameters, bundle)
 
-    integrand_grids_from_gbd(model_context, execution_context)
+    model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
 
     return model_context
-
-
-def integrand_grids_from_gbd(model_context, execution_context):
-    gbd_age_groups = get_age_groups(execution_context)
-    age_ranges = [(r.age_group_years_start, r.age_group_years_end) for _, r in gbd_age_groups.iterrows()]
-    time_ranges = [(y, y) for y in get_years(execution_context)]
-
-    for integrand in model_context.outputs.integrands:
-        integrand.age_ranges = age_ranges
-        integrand.time_ranges = time_ranges
 
 
 def write_dismod_file(mc, db_file_path):

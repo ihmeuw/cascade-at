@@ -49,7 +49,7 @@ def model_to_dismod_file(model):
 
     bundle_fit.log = make_log_table()
 
-    bundle_fit.node = make_node_table(model)
+    bundle_fit.node, location_to_node_func = make_node_table(model)
 
     non_zero_rates = [rate.name for rate in model.rates if rate.parent_smooth or rate.child_smoothings]
     if "iota" in non_zero_rates:
@@ -92,18 +92,7 @@ def model_to_dismod_file(model):
 
     # Given average integrand cases by name, convert them to average integrand
     # cases by ID and save. Any covariates have to exist at this point.
-    avgint_named = model.input_data.average_integrand_cases
-    if avgint_named:
-        bundle_fit.avgint = pd.concat(
-            [avgint_named.drop(columns=["integrand_name"]), avgint_named["integrand_name"].apply(integrand_id_func)],
-            axis=1,
-            sort=False
-        )
-    else:
-        covariate_names = [cov_obj.name for cov_obj in model.input_data.covariates]
-        all_avgint_columns = ["integrand_id", "age_lower", "age_upper",
-                       "time_lower", "time_upper", "weight_id", "node_id"] + covariate_names
-        bundle_fit.avgint = pd.DataFrame([], columns=all_avgint_columns)
+    bundle_fit.avgint = make_avgint_table(model, integrand_id_func, location_to_node_func)
 
     bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
 
@@ -157,7 +146,12 @@ def make_node_table(context):
         warnings.warn("No observations in model, falling back to location_id in parameters")
         unique_locations = np.array([context.parameters.location_id])
 
-    return pd.DataFrame({"node_name": unique_locations.astype(int).astype(str), "parent": np.array([np.NaN])})
+    table = pd.DataFrame({"node_name": unique_locations.astype(int).astype(str), "parent": np.array([np.NaN])})
+
+    def location_to_node_func(location_id):
+        return np.where(unique_locations == location_id)[0][0]
+
+    return table, location_to_node_func
 
 
 def make_data_table(context):
@@ -256,12 +250,11 @@ def collect_ages_or_times(context, to_collect="ages"):
                 value = smooth.grid.times
             values.extend(value)
 
-    for integrand in context.outputs.integrands:
-        if to_collect == "ages":
-            value = [age for ages in integrand.age_ranges or [] for age in ages]
-        else:
-            value = [time for times in integrand.time_ranges or [] for time in times]
-        values.extend(value)
+    if to_collect == "ages":
+        value = np.concatenate([context.average_integrand_cases.age_lower, context.average_integrand_cases.age_upper])
+    else:
+        value = np.concatenate([context.average_integrand_cases.time_lower, context.average_integrand_cases.time_upper])
+    values.extend(value)
 
     # Extreme values from the input data must also appear in the age/time table
     if to_collect == "ages" and context.input_data.ages:
@@ -300,30 +293,18 @@ def integrand_to_id(integrand):
     return IntegrandEnum[integrand].value
 
 
-def make_avgint_table(context, integrand_id_func):
-    rows = []
-    for integrand in context.outputs.integrands:
-        if integrand.age_ranges is not None and integrand.time_ranges is not None:
-            for age_lower, age_upper in integrand.age_ranges:
-                for time_lower, time_upper in integrand.time_ranges:
-                    for sex in [-0.5, 0.5]:
-                        rows.append(
-                            {
-                                "integrand_id": integrand_id_func(integrand.name),
-                                "age_lower": age_lower,
-                                "age_upper": age_upper,
-                                "time_lower": time_lower,
-                                "time_upper": time_upper,
-                                # Assuming using the first set of weights, which is constant.
-                                "weight_id": 0,
-                                # Assumes one location_id.
-                                "node_id": 0,
-                                "x_sex": sex,
-                            }
-                        )
-    return pd.DataFrame(
-        rows, columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id", "x_sex"]
-    )
+def make_avgint_table(context, integrand_id_func, location_to_node_func):
+    if context.average_integrand_cases is not None:
+        df = context.average_integrand_cases.copy()
+        df["integrand_id"] = df.integrand_name.apply(integrand_id_func)
+        df["node_id"] = df.node_id.apply(location_to_node_func)
+        return df.drop(columns=["integrand_name"])
+    else:
+        covariate_names = [cov_obj.name for cov_obj in context.input_data.covariates]
+        all_avgint_columns = ["integrand_id", "age_lower", "age_upper",
+                              "time_lower", "time_upper", "weight_id",
+                              "node_id"] + covariate_names
+        return pd.DataFrame([], columns=all_avgint_columns)
 
 
 def _prior_row(prior):
@@ -442,15 +423,13 @@ def covariate_multiplier_iter(context):
         for rate_mul in rate.covariate_multipliers:
             yield rate_mul, "rate_value", rate
 
-    # β
-    for val_integrand in context.outputs.integrands:
-        for val_mul in val_integrand.value_covariate_multipliers:
-            yield val_mul, "meas_value", val_integrand
-
-    # γ
-    for std_integrand in context.outputs.integrands:
-        for std_mul in std_integrand.std_covariate_multipliers:
-            yield std_mul, "meas_std", std_integrand
+    for integrand in context.integrand_covariate_multipliers.values():
+        # β
+        for val_mul in integrand.value_covariate_multipliers:
+            yield val_mul, "meas_value", integrand
+        # γ
+        for std_mul in integrand.std_covariate_multipliers:
+            yield std_mul, "meas_std", integrand
 
 
 def smooth_iter(context):

@@ -207,9 +207,21 @@ def internal_model(model, inputs):
     for rate in config.non_zero_rates:
         getattr(model.rates, rate).parent_smooth = default_smoothing
 
+    avgint_rows = []
     for rate in config.non_zero_rates + ["prevalence"]:
-        integrand = getattr(model.outputs.integrands, RATE_TO_INTEGRAND[rate].name)
-        integrand.grid = default_smoothing.grid
+        avgint_rows.extend([{
+            "integrand_name": rate,
+            "age_lower": age,
+            "age_upper": age,
+            "time_lower": time,
+            "time_upper": time,
+            "weight_id": 0,
+            "node_id": 0,
+            "x_sex": sex,
+        } for age in grid.ages for time in grid.times for sex in [-0.5, 0.5]])
+    model.average_integrand_cases = pd.DataFrame(avgint_rows, columns=["integrand_name", "age_lower", "age_upper",
+                                                                       "time_lower", "time_upper", "weight_id",
+                                                                       "node_id", "x_sex"])
 
     model.rates.omega.parent_smooth = build_constraint(model.input_data.constraints)
 
