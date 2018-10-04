@@ -23,23 +23,19 @@ import cascade.model.priors as priors
 MATHLOG = logging.getLogger(__name__)
 
 
-def identity(x): return x
+def identity(x):
+    return x
 
 
-def squared(x): return np.power(x, 2)
+def squared(x):
+    return np.power(x, 2)
 
 
-def scale1000(x): return x * 1000
+def scale1000(x):
+    return x * 1000
 
 
-COVARIATE_TRANSFORMS = {
-    0: identity,
-    1: np.log,
-    2: logit,
-    3: squared,
-    4: np.sqrt,
-    5: scale1000
-}
+COVARIATE_TRANSFORMS = {0: identity, 1: np.log, 2: logit, 3: squared, 4: np.sqrt, 5: scale1000}
 """
 These functions transform covariate data, as specified in EpiViz.
 """
@@ -56,6 +52,7 @@ def initial_context_from_epiviz(configuration):
     context.parameters.gbd_round_id = configuration.gbd_round_id
     context.parameters.location_id = configuration.model.drill_location
     context.parameters.rate_case = configuration.model.rate_case
+    context.parameters.minimum_meas_cv = configuration.model.minimum_meas_cv
 
     return context
 
@@ -80,15 +77,16 @@ def exclude_integrands_without_extents(integrands):
             yield integrand
         else:
             MATHLOG.info(
-                f"integrand {integrand.name} lacks age or time ranges "
-                f"so it will not be included in output.")
+                f"integrand {integrand.name} lacks age or time ranges " f"so it will not be included in output."
+            )
 
 
 def make_average_integrand_cases(context):
     rows = []
     for integrand in exclude_integrands_without_extents(context.outputs.integrands):
-        for (age_lower, age_upper), (time_lower, time_upper), sex \
-                    in product(integrand.age_ranges, integrand.time_ranges, [-0.5, 0.5]):
+        for (age_lower, age_upper), (time_lower, time_upper), sex in product(
+            integrand.age_ranges, integrand.time_ranges, [-0.5, 0.5]
+        ):
             rows.append(
                 {
                     "integrand_name": integrand.name,
@@ -104,8 +102,17 @@ def make_average_integrand_cases(context):
                 }
             )
     return pd.DataFrame(
-        rows, columns=["integrand_name", "age_lower", "age_upper",
-                       "time_lower", "time_upper", "weight_id", "node_id", "x_sex"]
+        rows,
+        columns=[
+            "integrand_name",
+            "age_lower",
+            "age_upper",
+            "time_lower",
+            "time_upper",
+            "weight_id",
+            "node_id",
+            "x_sex",
+        ],
     )
 
 
@@ -144,10 +151,7 @@ def assign_covariates(model_context, configuration):
     # rates, meas_values, meas_stds.
     for country_covariate_id, transforms in unique_country_covariate_transform(configuration):
         demographics = dict(
-            age_group_ids="all",
-            year_ids="all",
-            sex_ids="all",
-            location_ids=[model_context.parameters.location_id],
+            age_group_ids="all", year_ids="all", sex_ids="all", location_ids=[model_context.parameters.location_id]
         )
         ccov_df = country_covariates(country_covariate_id, demographics)
         covariate_name = ccov_df.loc[0]["covariate_name_short"]
@@ -211,8 +215,10 @@ def create_covariate_multipliers(context, configuration, column_id_func):
         target_dismod_name = gbd_to_dismod_integrand_enum[mul_cov_config.measure_id].name
         if mul_cov_config.mulcov_type == "rate_value":
             if target_dismod_name not in PRIMARY_INTEGRANDS_TO_RATES:
-                raise SettingsToModelError(f"Can only set a rate_value on a primary integrand. "
-                                           f"{mul_cov_config.measure_id} is not a primary integrand.")
+                raise SettingsToModelError(
+                    f"Can only set a rate_value on a primary integrand. "
+                    f"{mul_cov_config.measure_id} is not a primary integrand."
+                )
             add_to_rate = getattr(context.rates, PRIMARY_INTEGRANDS_TO_RATES[target_dismod_name])
             add_to_rate.covariate_multipliers.append(covariate_multiplier)
         else:
@@ -256,16 +262,24 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
     """
     # Rescaling the age means that the nearest age within the year
     # will always be closer than the nearest time across a full year.
-    tree = spatial.KDTree(list(zip(
-        covariates[["age_lower", "age_upper"]].mean(axis=1) / 240,
-        covariates[["time_lower", "time_upper"]].mean(axis=1),
-        covariates["x_sex"]
-    )))
-    _, indices = tree.query(list(zip(
-        measurements[["age_lower", "age_upper"]].mean(axis=1) / 240,
-        measurements[["time_lower", "time_upper"]].mean(axis=1),
-        measurements["x_sex"],
-    )))
+    tree = spatial.KDTree(
+        list(
+            zip(
+                covariates[["age_lower", "age_upper"]].mean(axis=1) / 240,
+                covariates[["time_lower", "time_upper"]].mean(axis=1),
+                covariates["x_sex"],
+            )
+        )
+    )
+    _, indices = tree.query(
+        list(
+            zip(
+                measurements[["age_lower", "age_upper"]].mean(axis=1) / 240,
+                measurements[["time_lower", "time_upper"]].mean(axis=1),
+                measurements["x_sex"],
+            )
+        )
+    )
     return pd.Series(covariates.iloc[indices]["mean_value"].values, index=measurements.index)
 
 

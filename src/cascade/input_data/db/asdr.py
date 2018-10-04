@@ -40,6 +40,7 @@ def _get_asdr_data(execution_context):
 
     asdr = db_queries.get_envelope(
         location_id=parent_loc,
+        year_id=-1,
         gbd_round_id=GBD_ROUND_ID,
         age_group_id=age_group_ids,
         sex_id=sex_ids,

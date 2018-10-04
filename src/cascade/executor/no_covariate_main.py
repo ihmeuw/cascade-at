@@ -188,7 +188,7 @@ def build_constraint(constraint):
     # TODO: change the PriorGrid API to handle this elegantly
     for _, row in constraint.iterrows():
         value_prior[row["age_start"], row["year_start"]].prior = Constant(row["mean"])
-    return Smooth(smoothing_prior, smoothing_prior, value_prior)
+    return Smooth(value_prior, smoothing_prior, smoothing_prior)
 
 
 def internal_model(model, inputs):
