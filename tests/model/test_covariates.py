@@ -32,8 +32,8 @@ def test_assign_covariates_to_iota():
     # There isn't much to test about the lists of covariate multipliers.
     # They are lists and would permit, for instance, adding the same one twice.
     model.rates.iota.covariate_multipliers.append(income_time_tight)
-    model.outputs.integrands.remission.value_covariate_multipliers.append(income_time_tight)
-    model.outputs.integrands.prevalence.std_covariate_multipliers.append(income_time_tight)
+    model.integrand_covariate_multipliers["remission"].value_covariate_multipliers.append(income_time_tight)
+    model.integrand_covariate_multipliers["prevalence"].std_covariate_multipliers.append(income_time_tight)
 
 
 @pytest.mark.parametrize("cov,ref,diff", [

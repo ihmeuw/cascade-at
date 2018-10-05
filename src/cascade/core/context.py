@@ -1,6 +1,7 @@
 from cascade.core.parameters import ParameterProperty
 from cascade.core.input_data import InputData
 from cascade.model.rates import Rate
+from cascade.dismod.db.metadata import IntegrandEnum
 
 
 class ExecutionContext:
@@ -36,51 +37,17 @@ class _Rates:
         return iter([self.pini, self.iota, self.rho, self.chi, self.omega])
 
 
-class _Outputs:
-    __slots__ = ["integrands"]
-
-    def __init__(self):
-        self.integrands = _Integrands()
-
-
-class _Integrand:
-    __slots__ = ["name", "age_ranges", "time_ranges", "value_covariate_multipliers", "std_covariate_multipliers"]
+class _IntegrandCovariateMultiplier:
+    __slots__ = ["name", "value_covariate_multipliers", "std_covariate_multipliers"]
 
     def __init__(self, name):
         self.name = name
-        self.age_ranges = None
-        self.time_ranges = None
         self.value_covariate_multipliers = []
         self.std_covariate_multipliers = []
 
 
-class _Integrands:
-    __slots__ = [
-        "Sincidence",
-        "remission",
-        "mtexcess",
-        "mtother",
-        "mtwith",
-        "susceptible",
-        "withC",
-        "prevalence",
-        "Tincidence",
-        "mtspecific",
-        "mtall",
-        "mtstandard",
-        "relrisk",
-    ]
-
-    def __init__(self):
-        for name in self.__slots__:
-            setattr(self, name, _Integrand(name))
-
-    def __iter__(self):
-        for name in self.__slots__:
-            yield getattr(self, name)
-
-
 class ModelContext:
+    __slots__ = ["parameters", "input_data", "rates", "average_integrand_cases", "integrand_covariate_multipliers"]
     """
     This is a container for all inputs, parametrization and data, necessary
     to run the model for a node in the hierarchy. It does not include any
@@ -92,4 +59,7 @@ class ModelContext:
         self.parameters = _ModelParameters()
         self.input_data = InputData()
         self.rates = _Rates()
-        self.outputs = _Outputs()
+        self.average_integrand_cases = None
+        self.integrand_covariate_multipliers = {
+            integrand.name: _IntegrandCovariateMultiplier(integrand.name) for integrand in IntegrandEnum
+        }

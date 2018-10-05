@@ -6,8 +6,8 @@ from cascade.input_data.db.ccov import country_covariates
 
 
 @pytest.fixture
-def mock_get_covariate_estimates(mocker):
-    return mocker.patch("cascade.input_data.db.ccov.get_covariate_estimates")
+def mock_db_queries(mocker):
+    return mocker.patch("cascade.input_data.db.ccov.db_queries")
 
 
 @pytest.fixture
@@ -82,10 +82,10 @@ def test_country_covariates_real(ihme, demographics_default):
 
 
 def test_country_covariates_mock(
-        demographics_default, mock_get_covariate_estimates,
+        demographics_default, mock_db_queries,
         mock_ccov_estimates, expected_ccov):
 
-    mock_get_covariate_estimates.return_value = mock_ccov_estimates
+    mock_db_queries.get_covariate_estimates.return_value = mock_ccov_estimates
 
     country_covariate_id = 33
 
