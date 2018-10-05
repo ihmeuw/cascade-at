@@ -26,8 +26,8 @@ def test_make_average_integrand_cases_from_gbd(mocker):
             for integrand in IntegrandEnum:
                 assert len(
                     average_integrand_cases.query(
-                        "age_lower == @age_lower and age_upper == @age_upper"
-                        "and time_lower == @time_lower and time_upper == @time_upper"
+                        "age_lower == @age_lower and age_upper == @age_upper "
+                        "and time_lower == @time_lower and time_upper == @time_upper "
                         "and integrand_name == @integrand.name"
                     )
                     == 1
