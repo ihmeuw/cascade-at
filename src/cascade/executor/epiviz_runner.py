@@ -130,8 +130,8 @@ def model_context_from_settings(execution_context, settings):
     return model_context
 
 
-def write_dismod_file(mc, db_file_path):
-    dismod_file = model_to_dismod_file(mc)
+def write_dismod_file(mc, ec, db_file_path):
+    dismod_file = model_to_dismod_file(mc, ec)
     dismod_file.engine = _get_engine(Path(db_file_path))
     dismod_file.flush()
     return dismod_file
@@ -171,7 +171,7 @@ def main(args):
     ec = execution_context_from_settings(settings)
     mc = model_context_from_settings(ec, settings)
 
-    ec.dismodfile = write_dismod_file(mc, args.db_file_path)
+    ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
 
     run_dismod(ec.dismodfile, has_random_effects(mc))
 
