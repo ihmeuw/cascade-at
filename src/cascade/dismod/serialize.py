@@ -50,7 +50,7 @@ def model_to_dismod_file(model, execution_context):
 
     bundle_fit.log = make_log_table()
 
-    bundle_fit.node, location_to_node_func = make_node_table(model)
+    bundle_fit.node, location_to_node_func = make_node_table(execution_context)
 
     non_zero_rates = [rate.name for rate in model.rates if rate.parent_smooth or rate.child_smoothings]
     if "iota" in non_zero_rates:
@@ -139,18 +139,23 @@ def make_log_table():
 
 def rec_build_nodes_table(node, parent):
     parent_id = parent.id if parent is not None else np.NaN
-    result = [{"node_name": str(node.id), "c_location_id": node.id, "parent": parent_id}]
+    result = [{"node_name": node.info["location_name_short"], "c_location_id": node.id, "parent": parent_id}]
     for child in node.level_n_descendants(1):
         result += rec_build_nodes_table(child, node)
     return result
 
 
-def make_node_table(context, execution_context):
+def make_node_table(execution_context):
     locations = get_location_hierarchy_from_gbd(execution_context)
     table = pd.DataFrame(rec_build_nodes_table(locations.root, None), columns=["node_name", "parent", "c_location_id"])
+    table["node_id"] = table.index
 
     def location_to_node_func(location_id):
+        if np.isnan(location_id):
+            return np.nan
         return np.where(table.c_location_id == location_id)[0][0]
+
+    table["parent"] = table.parent.apply(location_to_node_func)
 
     return table, location_to_node_func
 
@@ -158,18 +163,14 @@ def make_node_table(context, execution_context):
 def make_data_table(context, node_table):
     total_data = []
     if context.input_data.observations is not None:
-        total_data.append(observations_to_data(context.input_data.observations))
+        total_data.append(observations_to_data(context.input_data.observations, node_table))
     if context.input_data.constraints is not None:
-        total_data.append(observations_to_data(context.input_data.constraints, hold_out=1))
+        total_data.append(observations_to_data(context.input_data.constraints, node_table, hold_out=1))
 
     if total_data:
         total_data = pd.concat(total_data, ignore_index=True)
         # Why a unique string name?
         total_data["data_name"] = total_data.index.astype(str)
-        total_data["node_id"] = total_data.merge(node_table,
-                                                 left_on="location_id",
-                                                 right_on=node_table.node_name.astype(int)
-                                                 ).node_id
     else:
         total_data = pd.DataFrame(
             columns=[
@@ -199,14 +200,18 @@ def simplest_weight():
     return weight, weight_grid
 
 
-def observations_to_data(observations_df, hold_out=0):
+def observations_to_data(observations_df, node_table, hold_out=0):
     """Turn an internal format into a Dismod format."""
     # Don't make the data_name here because could convert multiple observations.
+    observations_df = observations_df.reset_index()
+    observations_df["node_id"] = observations_df.merge(node_table,
+                                                       left_on="node_id",
+                                                       right_on=node_table.c_location_id
+                                                       ).node_id
     return pd.DataFrame(
         {
             "integrand_id": observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
-            # Assumes one location_id.
-            "node_id": 0,
+            "node_id": observations_df.node_id,
             # Density is an Enum at this point.
             "density_id": observations_df["density"].apply(lambda x: x.value),
             # Translate weight from string

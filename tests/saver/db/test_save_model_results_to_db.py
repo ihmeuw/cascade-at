@@ -23,7 +23,9 @@ def execution_context():
     }
     execution_context = ExecutionContext()
     execution_context.dismodfile = DismodFile()
-    execution_context.dismodfile.node = pd.DataFrame([{"node_id": 0, "node_name": "102", "parent": None}])
+    execution_context.dismodfile.node = pd.DataFrame(
+        [{"node_id": 0, "c_location_id": 102, "node_name": "102", "parent": None}]
+    )
     execution_context.parameters = defaults
 
     return execution_context

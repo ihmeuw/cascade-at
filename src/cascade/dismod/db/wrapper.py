@@ -6,6 +6,7 @@ to create it and add tables.
 """
 import logging
 
+from textwrap import dedent
 from copy import deepcopy
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
@@ -17,7 +18,7 @@ from sqlalchemy.sql import select, text
 from sqlalchemy.exc import OperationalError, StatementError
 from sqlalchemy import Integer, String, Float, Enum
 
-from cascade.dismod.db.metadata import Base, add_columns_to_avgint_table, add_columns_to_data_table, DensityEnum
+from cascade.dismod.db.metadata import Base, add_columns_to_table, DensityEnum
 from cascade.dismod.db import DismodFileError
 
 
@@ -185,16 +186,23 @@ class DismodFile:
         new_columns = table.columns.difference(table_definition.c.keys())
         new_column_types = {c: table.dtypes[c] for c in new_columns}
 
-        bad_column_names = [c for c in new_columns if not c.startswith("x_")]
-        if bad_column_names:
-            raise ValueError(f"Covariate column names must start with 'x_'. Malformed names: {bad_column_names}")
+        allows_covariates = table_definition.name in ["avgint", "data"]
 
-        if table_definition.name == "avgint":
-            add_columns_to_avgint_table(self._metadata, new_column_types)
-        elif table_definition.name == "data":
-            add_columns_to_data_table(self._metadata, new_column_types)
-        else:
-            raise ValueError(f"Can't add columns to {table.name}")
+        good_prefixes = ["c_"]
+        if allows_covariates:
+            good_prefixes.append("x_")
+        bad_column_names = [c for c in new_columns if c[:2] not in good_prefixes]
+        if bad_column_names:
+            msg = f"""
+            Table '{table_definition.name}' has these columns {list(table_definition.c.keys())}.
+            It allows additional comment columns, which must start 'c_'."""
+            if allows_covariates:
+                msg += " In addition it allows covariate columns, which must start with 'x_'."
+            msg += f" You supplied columns that don't meet those requirements: {bad_column_names}"
+
+            raise ValueError(dedent(msg))
+
+        add_columns_to_table(table_definition, new_column_types)
 
     def refresh(self):
         """ Throw away any un-flushed changes and reread data from disk.

@@ -88,7 +88,7 @@ def _normalize_draws_df(draws_df, execution_context):
     draws = with_age_groups.drop(["age_group_years_start", "age_group_years_end", "age_lower", "age_upper"], "columns")
 
     node_table = execution_context.dismodfile.node
-    node_to_location = {r.node_id: int(r.node_name) for _, r in node_table.iterrows()}
+    node_to_location = {r.node_id: r.c_location_id for _, r in node_table.iterrows()}
 
     draws["location_id"] = draws.node_id.apply(lambda nid: node_to_location[nid])
 

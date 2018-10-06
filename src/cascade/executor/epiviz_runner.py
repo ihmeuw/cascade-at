@@ -15,11 +15,7 @@ from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import settings_for_model
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
-from cascade.input_data.db.mortality import (
-    get_cause_specific_mortality_data,
-    get_age_standardized_death_rate_data,
-)
-from cascade.model.integrands import integrand_grids_from_gbd
+from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.executor.no_covariate_main import bundle_to_observations, build_constraint
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.form import Configuration
@@ -82,6 +78,7 @@ def add_mortality_data(model_context, execution_context):
         age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
     )
     csmr["measure"] = "mtspecific"
+    csmr = csmr.rename(columns={"location_id": "node_id"})
     model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr])
 
 
@@ -90,6 +87,7 @@ def add_omega_constraint(model_context, execution_context):
         age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
     )
     asdr["measure"] = "mtall"
+    asdr = asdr.rename(columns={"location_id": "node_id"})
     min_time = np.min(list(model_context.input_data.times))  # noqa: F841
     max_time = np.max(list(model_context.input_data.times))  # noqa: F841
     asdr = asdr.query("year_start >= @min_time and year_end <= @max_time and year_start % 5 == 0")
@@ -103,8 +101,6 @@ def add_omega_constraint(model_context, execution_context):
 def model_context_from_settings(execution_context, settings):
     model_context = initial_context_from_epiviz(settings)
 
-    integrand_grids_from_gbd(model_context, execution_context)
-
     fixed_effects_from_epiviz(model_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
@@ -116,7 +112,10 @@ def model_context_from_settings(execution_context, settings):
         execution_context, bundle_id=model_context.parameters.bundle_id
     )
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
-    model_context.input_data.observations = bundle_to_observations(model_context.parameters, bundle)
+    observations = bundle_to_observations(model_context.parameters, bundle)
+    observations = observations.rename(columns={"location_id": "node_id"})
+    model_context.input_data.observations = observations
+
     mask = model_context.input_data.observations.standard_error > 0
     mask &= model_context.input_data.observations.measure != "relrisk"
     if mask.any():
@@ -150,6 +149,8 @@ def run_dismod(dismod_file, with_random_effects):
         raise DismodATException("DismodAt failed to complete 'init' command")
 
     random_or_fixed = "both" if with_random_effects else "fixed"
+    # FIXME: both doesn't work. Something about actually having parents in the node table
+    random_or_fixed = "fixed"
     run_and_watch(command_prefix + ["fit", random_or_fixed], False, 1)
     dismod_file.refresh()
     if "end fit" not in dismod_file.log.message.iloc[-1]:
