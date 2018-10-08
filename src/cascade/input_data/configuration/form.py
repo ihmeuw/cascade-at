@@ -140,6 +140,8 @@ class CountryCovariate(Form):
 class Model(Form):
     modelable_entity_id = IntField()
     model_version_id = IntField(nullable=True)
+    minimum_meas_cv = FloatField(nullable=True)
+    add_csmr_cause = IntField(nullable=True)
     title = StrField(nullable=True)
     description = StrField(nullable=True)
     bundle_id = IntField(nullable=True)

@@ -15,3 +15,9 @@ def get_years(execution_context):
     return db_queries.get_demographics(gbd_team="epi", gbd_round_id=execution_context.parameters.gbd_round_id)[
         "year_id"
     ]
+
+
+def age_groups_to_ranges(execution_context, data):
+    groups = get_age_groups(execution_context)
+    with_group = data.merge(groups, on="age_group_id").drop(columns="age_group_id")
+    return with_group.rename(columns={"age_group_years_start": "age_start", "age_group_years_end": "age_end"})

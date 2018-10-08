@@ -59,6 +59,7 @@ def constraints():
 def base_context(observations, constraints):
     context = ModelContext()
     context.parameters.rate_case = "iota_pos_rho_zero"
+    context.parameters.minimum_meas_cv = 0
 
     context.input_data.observations = observations
     context.input_data.constraints = constraints

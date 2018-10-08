@@ -37,6 +37,7 @@ def pre_normalized_draws_df():
     pre_normalized_draws_df["node_id"] = [0, 0, 0, 0, 0, 0, 0, 0]
     pre_normalized_draws_df["integrand_id"] = [2, 2, 7, 7, 2, 2, 7, 7]
     pre_normalized_draws_df["weight_id"] = [0, 0, 0, 0, 0, 0, 0, 0]
+    pre_normalized_draws_df["x_sex"] = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
     pre_normalized_draws_df["time_lower"] = [1990.0, 1990.0, 1995.0, 1995.0, 2000.0, 2005.0, 2010.0, 2017.0]
     pre_normalized_draws_df["time_upper"] = [1990.0, 1990.0, 1995.0, 1995.0, 2000.0, 2005.0, 2010.0, 2017.0]
     pre_normalized_draws_df["draw_0"] = [1, 2, 3, 4, 1.1, 2.1, 3.1, 4.1]
@@ -53,7 +54,7 @@ def draws_df():
     draws_df["age_group_id"] = [17, 17, 17, 17, 19, 19, 19, 19]
     draws_df["location_id"] = [102, 102, 102, 102, 102, 102, 102, 102]
     draws_df["measure_id"] = [9, 9, 5, 5, 9, 9, 5, 5]
-    draws_df["sex_id"] = [1, 2, 1, 2, 1, 2, 1, 2]
+    draws_df["sex_id"] = [1, 1, 1, 1, 1, 1, 1, 1]
     draws_df["year_id"] = [1990, 1990, 1995, 1995, 2000, 2005, 2010, 2017]
     draws_df["draw_0"] = [1, 2, 3, 4, 1.1, 2.1, 3.1, 4.1]
     draws_df["draw_1"] = [5, 6, 7, 8, 5.1, 6.1, 7.1, 8.1]
@@ -96,18 +97,7 @@ def mock_db_queries(mocker):
     }
     mock.get_age_metadata.return_value = pd.DataFrame(
         {
-            "age_group_id": {
-                9: 11,
-                10: 12,
-                11: 13,
-                12: 14,
-                13: 15,
-                14: 16,
-                15: 17,
-                16: 18,
-                17: 19,
-                22: 235,
-            },
+            "age_group_id": {9: 11, 10: 12, 11: 13, 12: 14, 13: 15, 14: 16, 15: 17, 16: 18, 17: 19, 22: 235},
             "age_group_years_start": {
                 9: 30.0,
                 10: 35.0,
@@ -155,14 +145,7 @@ def test_normalize_draws_df(pre_normalized_draws_df, draws_df, execution_context
 
     # ignoring the order of the rows and columns
 
-    # FIXME: hack for missing sex covariate
-    male_draws = draws_df.copy()
-    male_draws["sex_id"] = 1
-    female_draws = draws_df.copy()
-    female_draws["sex_id"] = 2
-    with_sex = pd.concat([male_draws, female_draws])
-
-    pd.testing.assert_frame_equal(with_sex, normalized_draws, check_like=True)
+    pd.testing.assert_frame_equal(draws_df, normalized_draws, check_like=True)
 
 
 def test_write_temp_draws_file_and_upload_model_results_no_hdf_no_sr_call(

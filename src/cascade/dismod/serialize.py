@@ -38,6 +38,7 @@ def model_to_dismod_file(model):
     # Standard integrand naming scheme.
     all_integrands = default_integrand_names()
     bundle_fit.integrand = all_integrands
+    bundle_fit.integrand["minimum_meas_cv"] = model.parameters.minimum_meas_cv
 
     bundle_fit.covariate = bundle_fit.empty_table("covariate")
     LOGGER.debug(f"Covariate types {bundle_fit.covariate.dtypes}")
@@ -93,16 +94,21 @@ def model_to_dismod_file(model):
     # Given average integrand cases by name, convert them to average integrand
     # cases by ID and save. Any covariates have to exist at this point.
     avgint_named = model.input_data.average_integrand_cases
-    if avgint_named:
-        bundle_fit.avgint = pd.concat(
-            [avgint_named.drop(columns=["integrand_name"]), avgint_named["integrand_name"].apply(integrand_id_func)],
-            axis=1,
-            sort=False
-        )
+    if avgint_named is not None and not avgint_named.empty:
+        names = avgint_named["integrand_name"].apply(integrand_id_func).astype(int)
+        names.name = "integrand_id"
+        bundle_fit.avgint = pd.concat([avgint_named.drop(columns=["integrand_name"]), names], axis=1, sort=False)
     else:
         covariate_names = [cov_obj.name for cov_obj in model.input_data.covariates]
-        all_avgint_columns = ["integrand_id", "age_lower", "age_upper",
-                       "time_lower", "time_upper", "weight_id", "node_id"] + covariate_names
+        all_avgint_columns = [
+            "integrand_id",
+            "age_lower",
+            "age_upper",
+            "time_lower",
+            "time_upper",
+            "weight_id",
+            "node_id",
+        ] + covariate_names
         bundle_fit.avgint = pd.DataFrame([], columns=all_avgint_columns)
 
     bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
@@ -322,7 +328,8 @@ def make_avgint_table(context, integrand_id_func):
                             }
                         )
     return pd.DataFrame(
-        rows, columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id", "x_sex"]
+        rows,
+        columns=["integrand_id", "age_lower", "age_upper", "time_lower", "time_upper", "weight_id", "node_id", "x_sex"],
     )
 
 
@@ -592,6 +599,12 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
 
 
 def make_option_table(context):
-    options = {"rate_case": context.parameters.rate_case, "parent_node_id": "0"}
+    options = {
+        "rate_case": context.parameters.rate_case,
+        "parent_node_id": "0",
+        "print_level_fixed": "5",
+        "ode_step_size": "1",
+        "quasi_fixed": "false",
+    }
 
     return pd.DataFrame([{"option_name": k, "option_value": v} for k, v in sorted(options.items())])
