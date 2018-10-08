@@ -25,6 +25,7 @@ from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.db.bundle import bundle_with_study_covariates, freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
+from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.saver.save_model_results import save_model_results
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.builder import (
@@ -122,6 +123,7 @@ def model_context_from_settings(execution_context, settings):
         MATHLOG.warning("removing rows from bundle where standard_error == 0.0")
         model_context.input_data.observations = model_context.input_data.observations[mask]
 
+    model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
     add_mortality_data(model_context, execution_context)
     add_omega_constraint(model_context, execution_context)
 

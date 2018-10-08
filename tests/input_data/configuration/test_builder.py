@@ -1,4 +1,3 @@
-from copy import deepcopy
 import pytest
 
 import pandas as pd
@@ -11,7 +10,6 @@ from cascade.input_data.configuration.builder import (
     make_smooth,
     assign_covariates,
     create_covariate_multipliers,
-    make_average_integrand_cases,
 )
 from cascade.model import priors
 
@@ -93,17 +91,6 @@ def test_initial_context_from_epiviz(base_config):
     assert mc.parameters.location_id == 123
 
 
-def test_make_avgint_table(base_config):
-    mc = initial_context_from_epiviz(base_config)
-    avgint_table = make_average_integrand_cases(mc)
-
-    for integrand in mc.outputs.integrands:
-        if integrand.age_ranges is not None:
-            rows = avgint_table.query("integrand_name == @integrand_name")
-            sex_cnt = 2
-            assert len(rows) == sex_cnt * len(integrand.age_ranges) * len(integrand.time_ranges)
-
-
 def test_make_smooth(base_config):
     smooth = make_smooth(base_config, base_config.rate[0])
 
@@ -165,7 +152,7 @@ def test_covariates_from_settings_logic(base_config, ihme):
     start = {
         "country_covariate_id": 26,
         "transformation": 0,
-        "measure_id": 41, # Sincidence
+        "measure_id": 41,  # Sincidence
         "mulcov_type": "rate_value",
         "age_grid": [0, 20, 40, 60, 80],
         "default": {

@@ -3,15 +3,7 @@
 
 import logging
 
-try:
-    from db_queries import get_covariate_estimates
-except ImportError:
-
-    class DummyGetCovariateEstimates:
-        def __getattr__(self, name):
-            raise ImportError(f"Required package db_queries not found")
-
-    get_covariate_estimates = DummyGetCovariateEstimates()
+from cascade.core.db import db_queries
 
 
 CODELOG = logging.getLogger(__name__)
@@ -36,7 +28,7 @@ def country_covariates(covariate_id, demographics):
 
     """
 
-    covariates_df = get_covariate_estimates(
+    covariates_df = db_queries.get_covariate_estimates(
         covariate_id,
         location_id=demographics["location_ids"],
         age_group_id=demographics["age_group_ids"],
