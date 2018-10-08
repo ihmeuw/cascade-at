@@ -14,7 +14,7 @@ modify the value as ``module_proxy.BLOCK_SHARED_FUNCTION_ACCESS``.
 """
 
 
-class SandboxViolation(Exception):
+class DatabaseSandboxViolation(Exception):
     """Attempted to call a module that is intentionally restricted in the current environment."""
 
 
@@ -35,7 +35,7 @@ class ModuleProxy:
 
     def __getattr__(self, name):
         if BLOCK_SHARED_FUNCTION_ACCESS:
-            raise SandboxViolation(
+            raise DatabaseSandboxViolation(
                 f"Illegal access to module {self.name}. Are you trying to use "
                 f"the shared functions in a unit test?")
 

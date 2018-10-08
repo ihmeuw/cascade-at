@@ -163,8 +163,12 @@ def make_node_table(execution_context):
 def make_data_table(context, node_table):
     total_data = []
     if context.input_data.observations is not None:
+        # It's OK for observations to be None if we are running a prediction.
         total_data.append(observations_to_data(context.input_data.observations, node_table))
     if context.input_data.constraints is not None:
+        # While constraints are defined as smoothings on rates, these same
+        # data values are put into measurement data as hold-outs so that they
+        # can be visualized with the data and residuals.
         total_data.append(observations_to_data(context.input_data.constraints, node_table, hold_out=1))
 
     if total_data:

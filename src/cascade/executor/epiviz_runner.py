@@ -65,6 +65,19 @@ def execution_context_from_settings(settings):
 
 
 def meas_bounds_to_stdev(df):
+    """
+    Given data that includes a measurement upper bound and measurement lower
+    bound, assume those are 95% confidence intervals. Convert them to
+    standard error using:
+
+    .. math::
+
+        \mbox{stderr} = \frac{\mbox{upper} - \mbox{lower}}{2 1.96}
+
+    Standard errors become Gaussian densities.
+    Replace any zero values with :math:`10^{-9}`.
+    """
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
     df["standard_error"] = (df.meas_upper - df.meas_lower) / (2 * 1.96)
     df["standard_error"] = df.standard_error.replace({0: 1e-9})
     df = df.rename(columns={"meas_value": "mean"})
@@ -74,6 +87,12 @@ def meas_bounds_to_stdev(df):
 
 
 def add_mortality_data(model_context, execution_context):
+    """
+    Gets cause-specific mortality rate and adds that data as an ``mtspecific``
+    measurement by appending it to the bundle. Uses ranges for ages and years.
+    This doesn't determine point-data values.
+    """
+    MATHLOG.debug(f"Creating a set of mtspecific observations from IHME CSMR database.")
     csmr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
     )
@@ -83,6 +102,10 @@ def add_mortality_data(model_context, execution_context):
 
 
 def add_omega_constraint(model_context, execution_context):
+    """
+    Adds a constraint to other-cause mortality rate. Removes mtother,
+    mtall, and mtspecific from observation data.
+    """
     asdr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
     )

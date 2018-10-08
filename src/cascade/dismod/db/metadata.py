@@ -540,7 +540,7 @@ _TYPE_MAP = {
     int: Integer,
     float: Float,
     np.dtype("int64"): Integer,
-    np.dtype("float64"): Float
+    np.dtype("float64"): Float,
 }
 
 
