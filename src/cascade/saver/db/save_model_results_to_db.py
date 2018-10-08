@@ -92,14 +92,8 @@ def _normalize_draws_df(draws_df, execution_context):
 
     draws["location_id"] = draws.node_id.apply(lambda nid: node_to_location[nid])
 
-    # FIXME This is a placeholder because we don't have covariates yet and can't actually predict sex differences
-    male_draws = draws.copy()
-    male_draws["sex_id"] = 1
-    female_draws = draws.copy()
-    female_draws["sex_id"] = 2
-    draws = pd.concat([male_draws, female_draws])
-
-    return draws.drop(["node_id", "weight_id"], "columns")
+    draws["sex_id"] = draws.x_sex.apply(lambda x: {-0.5: 2, 0.5: 1}[x])
+    return draws.drop(["node_id", "weight_id", "x_sex"], "columns")
 
 
 def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context):

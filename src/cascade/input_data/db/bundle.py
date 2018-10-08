@@ -13,7 +13,16 @@ from cascade.core.db import cursor, connection
 CODELOG = logging.getLogger(__name__)
 
 # FIXME: There is a shared function that get's the official mapping, I think. Or an sql query at least.
-MEASURES = {6: "incidence", 9: "mtexcess", 5: "prevalence"}
+MEASURES = {
+    6: "incidence",
+    9: "mtexcess",
+    5: "prevalence",
+    11: "relrisk",
+    13: "mtwith",
+    15: "mtspecific",
+    14: "mtall",
+    16: "mtother",
+}
 
 
 def _bundle_is_frozen(execution_context):
@@ -222,7 +231,7 @@ def _upload_study_covariates_to_tier_3(cursor, model_version_id, covariate_data)
     CODELOG.debug(f"uploaded {len(covariate_data)} lines of covariate")
 
 
-def freeze_bundle(execution_context) -> bool:
+def freeze_bundle(execution_context, bundle_id=None) -> bool:
     """Freezes the bundle data attached to the current model_version_id if necessary.
 
     The freezing process works as follows:
@@ -244,7 +253,8 @@ def freeze_bundle(execution_context) -> bool:
         return False
     else:
         CODELOG.info(f"Freezing bundle data for model_version_id {model_version_id} on '{database}'")
-        bundle_id = _get_bundle_id(execution_context)
+        if bundle_id is None:
+            bundle_id = _get_bundle_id(execution_context)
         bundle_data = _get_bundle_data(execution_context, bundle_id, tier=2)
         covariate_data = _get_study_covariates(execution_context, bundle_id, tier=2)
         with cursor(execution_context) as c:
@@ -277,7 +287,7 @@ def _normalize_bundle_data(data):
 
     data = data.set_index("seq")
 
-    cols = ["measure", "mean", "sex", "standard_error", "age_start", "age_end", "year_start", "year_end"]
+    cols = ["measure", "mean", "sex", "standard_error", "age_start", "age_end", "year_start", "year_end", "location_id"]
 
     return data[cols]
 

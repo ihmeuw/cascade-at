@@ -38,6 +38,7 @@ def model_to_dismod_file(model):
     # Standard integrand naming scheme.
     all_integrands = default_integrand_names()
     bundle_fit.integrand = all_integrands
+    bundle_fit.integrand["minimum_meas_cv"] = model.parameters.minimum_meas_cv
 
     bundle_fit.covariate = bundle_fit.empty_table("covariate")
     LOGGER.debug(f"Covariate types {bundle_fit.covariate.dtypes}")
@@ -571,6 +572,12 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
 
 
 def make_option_table(context):
-    options = {"rate_case": context.parameters.rate_case, "parent_node_id": "0"}
+    options = {
+        "rate_case": context.parameters.rate_case,
+        "parent_node_id": "0",
+        "print_level_fixed": "5",
+        "ode_step_size": "1",
+        "quasi_fixed": "false",
+    }
 
     return pd.DataFrame([{"option_name": k, "option_value": v} for k, v in sorted(options.items())])
