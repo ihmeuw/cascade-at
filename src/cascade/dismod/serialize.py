@@ -5,7 +5,6 @@ import logging
 from numbers import Real
 import time
 import sys
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -14,12 +13,13 @@ from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
 from cascade.model.priors import Constant
 from cascade.model.grids import unique_floats
+from cascade.input_data.db.locations import get_location_hierarchy_from_gbd
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-def model_to_dismod_file(model):
+def model_to_dismod_file(model, execution_context):
     """
     This is a one-way translation from a model context to a new Dismod file.
     It assumes a lot. One location, no covariates, and more.
@@ -50,7 +50,7 @@ def model_to_dismod_file(model):
 
     bundle_fit.log = make_log_table()
 
-    bundle_fit.node, location_to_node_func = make_node_table(model)
+    bundle_fit.node, location_to_node_func = make_node_table(execution_context)
 
     non_zero_rates = [rate.name for rate in model.rates if rate.parent_smooth or rate.child_smoothings]
     if "iota" in non_zero_rates:
@@ -70,7 +70,7 @@ def model_to_dismod_file(model):
         }
     )
 
-    bundle_fit.data = make_data_table(model)
+    bundle_fit.data = make_data_table(model, bundle_fit.node)
 
     # Include all data in the data_subset.
     bundle_fit.data_subset = pd.DataFrame({"data_id": np.arange(len(bundle_fit.data))})
@@ -137,30 +137,39 @@ def make_log_table():
     )
 
 
-def make_node_table(context):
-    # Assume we have one location, so no parents.
-    # If we had a hierarchy, that would be used to determine parents.
-    if context.input_data.observations is not None and not context.input_data.observations.empty:
-        unique_locations = context.input_data.observations["location_id"].unique()
-        assert len(unique_locations) == 1
-    else:
-        warnings.warn("No observations in model, falling back to location_id in parameters")
-        unique_locations = np.array([context.parameters.location_id])
+def rec_build_nodes_table(node, parent):
+    parent_id = parent.id if parent is not None else np.NaN
+    result = [{"node_name": node.info["location_name_short"], "c_location_id": node.id, "parent": parent_id}]
+    for child in node.level_n_descendants(1):
+        result += rec_build_nodes_table(child, node)
+    return result
 
-    table = pd.DataFrame({"node_name": unique_locations.astype(int).astype(str), "parent": np.array([np.NaN])})
+
+def make_node_table(execution_context):
+    locations = get_location_hierarchy_from_gbd(execution_context)
+    table = pd.DataFrame(rec_build_nodes_table(locations.root, None), columns=["node_name", "parent", "c_location_id"])
+    table["node_id"] = table.index
 
     def location_to_node_func(location_id):
-        return np.where(unique_locations == location_id)[0][0]
+        if np.isnan(location_id):
+            return np.nan
+        return np.where(table.c_location_id == location_id)[0][0]
+
+    table["parent"] = table.parent.apply(location_to_node_func)
 
     return table, location_to_node_func
 
 
-def make_data_table(context):
+def make_data_table(context, node_table):
     total_data = []
     if context.input_data.observations is not None:
-        total_data.append(observations_to_data(context.input_data.observations))
+        # It's OK for observations to be None if we are running a prediction.
+        total_data.append(observations_to_data(context.input_data.observations, node_table))
     if context.input_data.constraints is not None:
-        total_data.append(observations_to_data(context.input_data.constraints, hold_out=1))
+        # While constraints are defined as smoothings on rates, these same
+        # data values are put into measurement data as hold-outs so that they
+        # can be visualized with the data and residuals.
+        total_data.append(observations_to_data(context.input_data.constraints, node_table, hold_out=1))
 
     if total_data:
         total_data = pd.concat(total_data, ignore_index=True)
@@ -195,14 +204,18 @@ def simplest_weight():
     return weight, weight_grid
 
 
-def observations_to_data(observations_df, hold_out=0):
+def observations_to_data(observations_df, node_table, hold_out=0):
     """Turn an internal format into a Dismod format."""
     # Don't make the data_name here because could convert multiple observations.
+    observations_df = observations_df.reset_index()
+    observations_df["node_id"] = observations_df.merge(node_table,
+                                                       left_on="node_id",
+                                                       right_on=node_table.c_location_id
+                                                       ).node_id
     return pd.DataFrame(
         {
             "integrand_id": observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
-            # Assumes one location_id.
-            "node_id": 0,
+            "node_id": observations_df.node_id,
             # Density is an Enum at this point.
             "density_id": observations_df["density"].apply(lambda x: x.value),
             # Translate weight from string

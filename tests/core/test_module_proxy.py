@@ -1,5 +1,5 @@
 import cascade.core.db
-from cascade.core.db import ModuleProxy, SandboxViolation
+from cascade.core.db import ModuleProxy, DatabaseSandboxViolation
 
 import pytest
 
@@ -24,13 +24,13 @@ def test_disable_proxy(save_access):
     m = ModuleProxy("pathlib")
     m.Path("/ihme/somewhere")
     cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
-    with pytest.raises(SandboxViolation):
+    with pytest.raises(DatabaseSandboxViolation):
         m.Path("/ihme/code")
 
 
 def test_disable_all(save_access):
     cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
-    with pytest.raises(SandboxViolation):
+    with pytest.raises(DatabaseSandboxViolation):
         cascade.core.db.db_queries.get_cause_metadata("the values", "don't matter")
 
 

@@ -15,11 +15,7 @@ from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import settings_for_model
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
-from cascade.input_data.db.mortality import (
-    get_cause_specific_mortality_data,
-    get_age_standardized_death_rate_data,
-)
-from cascade.model.integrands import integrand_grids_from_gbd
+from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.executor.no_covariate_main import bundle_to_observations, build_constraint
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.form import Configuration
@@ -69,6 +65,19 @@ def execution_context_from_settings(settings):
 
 
 def meas_bounds_to_stdev(df):
+    """
+    Given data that includes a measurement upper bound and measurement lower
+    bound, assume those are 95% confidence intervals. Convert them to
+    standard error using:
+
+    .. math::
+
+        \mbox{stderr} = \frac{\mbox{upper} - \mbox{lower}}{2 1.96}
+
+    Standard errors become Gaussian densities.
+    Replace any zero values with :math:`10^{-9}`.
+    """
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
     df["standard_error"] = (df.meas_upper - df.meas_lower) / (2 * 1.96)
     df["standard_error"] = df.standard_error.replace({0: 1e-9})
     df = df.rename(columns={"meas_value": "mean"})
@@ -78,18 +87,30 @@ def meas_bounds_to_stdev(df):
 
 
 def add_mortality_data(model_context, execution_context):
+    """
+    Gets cause-specific mortality rate and adds that data as an ``mtspecific``
+    measurement by appending it to the bundle. Uses ranges for ages and years.
+    This doesn't determine point-data values.
+    """
+    MATHLOG.debug(f"Creating a set of mtspecific observations from IHME CSMR database.")
     csmr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
     )
     csmr["measure"] = "mtspecific"
+    csmr = csmr.rename(columns={"location_id": "node_id"})
     model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr])
 
 
 def add_omega_constraint(model_context, execution_context):
+    """
+    Adds a constraint to other-cause mortality rate. Removes mtother,
+    mtall, and mtspecific from observation data.
+    """
     asdr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
     )
     asdr["measure"] = "mtall"
+    asdr = asdr.rename(columns={"location_id": "node_id"})
     min_time = np.min(list(model_context.input_data.times))  # noqa: F841
     max_time = np.max(list(model_context.input_data.times))  # noqa: F841
     asdr = asdr.query("year_start >= @min_time and year_end <= @max_time and year_start % 5 == 0")
@@ -103,8 +124,6 @@ def add_omega_constraint(model_context, execution_context):
 def model_context_from_settings(execution_context, settings):
     model_context = initial_context_from_epiviz(settings)
 
-    integrand_grids_from_gbd(model_context, execution_context)
-
     fixed_effects_from_epiviz(model_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
@@ -116,22 +135,25 @@ def model_context_from_settings(execution_context, settings):
         execution_context, bundle_id=model_context.parameters.bundle_id
     )
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
-    model_context.input_data.observations = bundle_to_observations(model_context.parameters, bundle)
+    observations = bundle_to_observations(model_context.parameters, bundle)
+    observations = observations.rename(columns={"location_id": "node_id"})
+    model_context.input_data.observations = observations
+
     mask = model_context.input_data.observations.standard_error > 0
     mask &= model_context.input_data.observations.measure != "relrisk"
     if mask.any():
         MATHLOG.warning("removing rows from bundle where standard_error == 0.0")
         model_context.input_data.observations = model_context.input_data.observations[mask]
 
-    model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
     add_mortality_data(model_context, execution_context)
     add_omega_constraint(model_context, execution_context)
+    model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
 
     return model_context
 
 
-def write_dismod_file(mc, db_file_path):
-    dismod_file = model_to_dismod_file(mc)
+def write_dismod_file(mc, ec, db_file_path):
+    dismod_file = model_to_dismod_file(mc, ec)
     dismod_file.engine = _get_engine(Path(db_file_path))
     dismod_file.flush()
     return dismod_file
@@ -150,6 +172,8 @@ def run_dismod(dismod_file, with_random_effects):
         raise DismodATException("DismodAt failed to complete 'init' command")
 
     random_or_fixed = "both" if with_random_effects else "fixed"
+    # FIXME: both doesn't work. Something about actually having parents in the node table
+    random_or_fixed = "fixed"
     run_and_watch(command_prefix + ["fit", random_or_fixed], False, 1)
     dismod_file.refresh()
     if "end fit" not in dismod_file.log.message.iloc[-1]:
@@ -171,7 +195,7 @@ def main(args):
     ec = execution_context_from_settings(settings)
     mc = model_context_from_settings(ec, settings)
 
-    ec.dismodfile = write_dismod_file(mc, args.db_file_path)
+    ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
 
     run_dismod(ec.dismodfile, has_random_effects(mc))
 

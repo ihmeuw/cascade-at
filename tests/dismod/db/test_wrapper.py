@@ -280,7 +280,7 @@ def test_write_covariate_column__bad_name(base_file, dummy_data_row):
     base_file.data = dummy_data_row
     with pytest.raises(ValueError) as excinfo:
         base_file.flush()
-    assert "Covariate column names must start with 'x_'. Malformed names: ['not_x_sex']" == str(excinfo.value)
+    assert "not_x_sex" in str(excinfo.value)
 
 
 def test_write_covariate_column__schema_changes_are_isolated(dummy_data_row):

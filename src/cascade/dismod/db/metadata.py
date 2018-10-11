@@ -540,27 +540,16 @@ _TYPE_MAP = {
     int: Integer,
     float: Float,
     np.dtype("int64"): Integer,
-    np.dtype("float64"): Float
+    np.dtype("float64"): Float,
 }
 
 
-def add_columns_to_avgint_table(metadata, column_identifiers):
+def add_columns_to_table(table, column_identifiers):
     """
     Args:
         column_identifiers: dict(name -> type) where type
             is one of int, float, str
     """
-    LOGGER.debug("Adding columns to avgint table {}".format(list(column_identifiers.keys())))
+    LOGGER.debug(f"Adding columns to {table.name} table {list(column_identifiers.keys())}")
     for name, python_type in column_identifiers.items():
-        metadata.tables["avgint"].append_column(Column(name, _TYPE_MAP[python_type]()))
-
-
-def add_columns_to_data_table(metadata, column_identifiers):
-    """
-    Args:
-        column_identifiers: dict(name -> type) where type
-            is one of int, float, str
-    """
-    LOGGER.debug("Adding columns to data table {}".format(list(column_identifiers.keys())))
-    for name, python_type in column_identifiers.items():
-        metadata.tables["data"].append_column(Column(name, _TYPE_MAP[python_type]()))
+        table.append_column(Column(name, _TYPE_MAP[python_type]()))

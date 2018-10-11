@@ -115,10 +115,16 @@ def assign_covariates(model_context, configuration):
         # Decide how to take the given data and extend / subset / interpolate.
         ccov_ranges_df = convert_gbd_ids_to_dismod_values(ccov_df, age_groups)
 
-        column_for_measurements = [
-            covariate_to_measurements_nearest_favoring_same_year(construct_column, ccov_ranges_df)
-            for construct_column in [model_context.input_data.observations, avgint_table]
-        ]
+        if model_context.input_data.observations is not None:
+            observations_column = covariate_to_measurements_nearest_favoring_same_year(
+                model_context.input_data.observations, ccov_ranges_df)
+        else:
+            observations_column = None
+        if avgint_table is not None:
+            avgint_column = covariate_to_measurements_nearest_favoring_same_year(
+                avgint_table, ccov_ranges_df)
+        else:
+            avgint_column = None
 
         for transform in transforms:
             # This happens per application to integrand.
@@ -135,8 +141,10 @@ def assign_covariates(model_context, configuration):
             covariate_map[(country_covariate_id, transform)] = covariate_obj
 
             # Now attach the column to the observations.
-            model_context.input_data.observations[f"x_{name}"] = settings_transform(column_for_measurements[0])
-            avgint_table[f"x_{name}"] = settings_transform(column_for_measurements[1])
+            if observations_column is not None:
+                model_context.input_data.observations[f"x_{name}"] = settings_transform(observations_column)
+            if avgint_column is not None:
+                avgint_table[f"x_{name}"] = settings_transform(avgint_column)
 
     def column_id_func(covariate_search_id, transformation_id):
         return covariate_map[(covariate_search_id, transformation_id)]
@@ -213,6 +221,7 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
     Returns:
         pd.Series: One row for every row in the measurements.
     """
+    if measurements is None: return
     # Rescaling the age means that the nearest age within the year
     # will always be closer than the nearest time across a full year.
     tree = spatial.KDTree(
