@@ -136,10 +136,6 @@ def test_covariates_from_settings_logic(base_config, ihme):
     # Can get rid of ihme by stubbing retrieval of covariates.
     mc = initial_context_from_epiviz(base_config)
 
-    # These are enough to populate the avgint table.
-    mc.outputs.integrands.Sincidence.age_ranges = [(a, a + 5) for a in range(0, 95, 5)]
-    mc.outputs.integrands.Sincidence.time_ranges = [(y, y + 5) for y in range(1990, 2015, 5)]
-
     mc.input_data.observations = pd.DataFrame(dict(
         age_lower=[0, 10, 20, 50, 100],
         age_upper=[10, 20, 40, 70, 120],
