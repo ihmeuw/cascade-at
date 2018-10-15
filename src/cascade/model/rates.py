@@ -27,6 +27,17 @@ class Smooth:
             if not all([grids[0] == g for g in grids]):
                 raise ValueError("Smooth cannot contain priors on heterogeneous grids")
 
+    def write(self, out_stream, assigned_name=None):
+        name = assigned_name if assigned_name else self.name
+        # These write the priors, themselves, not the entries in the Smooth table.
+        value_map = self._value_priors.write(out_stream, f"{name}_value")
+        d_age_map = self._d_age_priors.write(out_stream, f"{name}_dage")
+        d_time_map = self._d_time_priors.write(out_stream, f"{name}_dtime")
+
+        rows = []
+
+
+
     @property
     def value_priors(self):
         return self._value_priors
