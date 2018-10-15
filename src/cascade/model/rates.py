@@ -29,12 +29,17 @@ class Smooth:
 
     def write(self, out_stream, assigned_name=None):
         name = assigned_name if assigned_name else self.name
-        # These write the priors, themselves, not the entries in the Smooth table.
-        value_map = self._value_priors.write(out_stream, f"{name}_value")
-        d_age_map = self._d_age_priors.write(out_stream, f"{name}_dage")
-        d_time_map = self._d_time_priors.write(out_stream, f"{name}_dtime")
+        my_id = out_stream.append("smooth", [name, n_age, n_time, mul_std])
 
-        rows = []
+        # This is the age-time grid
+        for grid_point in self.grid:
+            age_id = out_stream
+            value_id = grid_point.write("prior", value_prior(grid_point))
+            age_id = grid_point.append("prior", age_prior(grid_point))
+            time_id = grid_point.append("prior", time_prior(grid_point))
+            out_stream.append(
+                "smooth_grid",
+                [my_id, grid_point.age, grid_point.time, value_id, age_id, time_id])
 
 
 
