@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy import Table, Column, Float, Integer, String, MetaData, ForeignKey
-from sqlalchemy.sql import select, update, join, bindparam
+from sqlalchemy.sql import select, update, join, bindparam, func
 
 from cascade.testing_utilities import make_execution_context
 from cascade.model.grids import AgeTimeGrid, PriorGrid
@@ -63,6 +63,41 @@ age_translation = Table("age_translation", metadata,
   Column("old_id", Integer, primary_key=True),
   Column("new_id", Integer)
 )
+
+
+def test_pandas_append():
+
+    def new_age_df(ages):
+        make_age = pd.DataFrame({
+            "age_id": np.array(list(range(len(ages))), dtype=np.int),
+            "age": np.array(ages, dtype=np.double),
+        })
+        make_age = make_age.set_index("age_id")
+        make_age.index.name = "none"
+        return make_age
+
+    mem = True
+    engine_loc = ":memory:" if mem else "zz.db"
+    if not mem and os.path.exists(engine_loc):
+        os.unlink(engine_loc)
+
+    engine = create_engine(f"sqlite:///{engine_loc}", echo=False)
+    metadata.bind = engine
+    metadata.create_all()
+    with engine.connect() as conn:
+        df1 = new_age_df([0.0, 0.19, 0.1, 7.5])
+        ret1 = df1.to_sql("age", conn, index_label=f"age_id", if_exists="append")
+        assert ret1 is None
+        largest_id = conn.execute(
+            select([
+                func.max(age_table.c.age_id, type_=Integer).label("max_id")
+            ])
+        ).scalar()
+        assert largest_id == 3
+
+        df2 = new_age_df([0.0, 5.0])
+        df2.index = df2.index.values + largest_id + 1
+        ret2 = df2.to_sql("age", conn, index_label=f"age_id", if_exists="append")
 
 
 def test_fix_ages_times_additive():
@@ -165,4 +200,4 @@ def test_fix_ages_times_by_value():
 
 
 if __name__ == "__main__":
-    test_fix_ages_times_additive()
+    test_pandas_append()
