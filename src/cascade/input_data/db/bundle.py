@@ -164,7 +164,7 @@ def _get_study_covariates(execution_context, bundle_id, tier=3):
 def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
     """Uploads bundle data to tier 3 attached to the current model_version_id.
     """
-
+    CODELOG.debug(f"Upload to tier3 {len(bundle_data)} lines to {model_version_id} mvid")
     insert_query = f"""
     INSERT INTO epi.t3_model_version_dismod (
         model_version_id,

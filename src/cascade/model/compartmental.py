@@ -122,7 +122,7 @@ from scipy.integrate import quad, solve_ivp
 
 
 def build_derivative_prevalence(iota, rho, chi):
-    """
+    r"""
     Given three functions for the basic rates, this creates a function
     that lets the ODE solver integrate the prevalence-only differential
     equation.
@@ -144,7 +144,7 @@ def build_derivative_prevalence(iota, rho, chi):
 
 
 def build_derivative_total(mu):
-    """
+    r"""
     Turns a mortality rate into an argument for the ODE solver.
 
     Args:
@@ -162,7 +162,7 @@ def build_derivative_total(mu):
 
 
 def build_derivative_full(iota, rho, chi, omega):
-    """
+    r"""
     The Dismod-AT ODE
 
     Args:
@@ -185,7 +185,7 @@ def build_derivative_full(iota, rho, chi, omega):
 
 
 def omega_from_mu(mu, chi, P):
-    """
+    r"""
     Given functions for :math:`(\mu, \chi, P)`, return a function for
     :math:`\omega`.
 
@@ -205,7 +205,7 @@ def omega_from_mu(mu, chi, P):
 
 
 def mu_from_omega(omega, chi, P):
-    """
+    r"""
     Given :math:`(\omega, \chi, P)`, return a function for total
     mortality, :math:`\mu`.
 
@@ -225,7 +225,7 @@ def mu_from_omega(omega, chi, P):
 
 
 def solve_differential_equation(f_derivatives, initial, oldest=120):
-    """
+    r"""
     Solve differential equations between ages 0 and oldest.
     Uses ``numpy.integrate.solve_ivp`` underneath.
 
@@ -248,7 +248,7 @@ SILER_CONSTANTS = [0, 0.2, 0.0002, 0.003, 1, 0.1, 0.015, 0.01]
 
 
 def siler_default():
-    """
+    r"""
     Construct a total mortality rate using the Siler distribution
     and default constants.
     """
@@ -256,7 +256,7 @@ def siler_default():
 
 
 def siler_time_dependent_hazard(constants):
-    """
+    r"""
     This Siler distribution is a good approximation to what a real total
     mortality rate looks like. Both the equations and the parameters come
     from a paper [1] where they were fit to a Scandinavian country.
@@ -284,7 +284,7 @@ def siler_time_dependent_hazard(constants):
 
 
 def total_mortality_solution(mu):
-    """Given a total mortality rate, as a function, return :math:`N=l(x)`."""
+    r"""Given a total mortality rate, as a function, return :math:`N=l(x)`."""
     n_array = solve_differential_equation(build_derivative_total(mu), initial=np.array([1.0], dtype=float))
 
     def total_pop(t):
@@ -299,7 +299,7 @@ def total_mortality_solution(mu):
 
 
 def prevalence_solution(iota, rho, chi, mu):
-    """This uses the single, prevalence-based equation."""
+    r"""This uses the single, prevalence-based equation."""
     N = total_mortality_solution(mu)
     f_b = build_derivative_prevalence(iota, rho, chi)
     bunch = solve_differential_equation(f_b, initial=np.array([1e-6]))
@@ -311,7 +311,7 @@ def prevalence_solution(iota, rho, chi, mu):
 
 
 def dismod_solution(iota, rho, chi, omega):
-    """This solves the Dismod-AT equations."""
+    r"""This solves the Dismod-AT equations."""
     f_b = build_derivative_full(iota, rho, chi, omega)
     bunch = solve_differential_equation(f_b, initial=np.array([1.0 - 1e-6, 1e-6], dtype=np.float))
     S = lambda t: bunch(t)[0]
@@ -320,7 +320,7 @@ def dismod_solution(iota, rho, chi, omega):
 
 
 def average_over_interval(raw_rate, weight_function, intervals):
-    """
+    r"""
     Construct demographic observations from a raw rate function.
     This is a one-dimensional function, presumably along the cohort time.
     It doesn't integrate over ages and years.
@@ -350,7 +350,7 @@ def average_over_interval(raw_rate, weight_function, intervals):
 
 
 def integrand_normalization(weight_function, intervals):
-    """
+    r"""
     Make the denominator for integrands.
     This is a one-dimensional function, presumably along the cohort time.
     It doesn't integrate over ages and years.
@@ -370,7 +370,7 @@ def integrand_normalization(weight_function, intervals):
 
 
 def integrands_from_function(rates, weight_function, intervals):
-    """
+    r"""
     Given a list of rate functions and a weight function, return
     their integrands on intervals.
 

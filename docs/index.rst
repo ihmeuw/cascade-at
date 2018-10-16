@@ -14,6 +14,7 @@ from the sum of all available disease and death observations in all countries.
    :maxdepth: 1
 
    user/user
+   epiviz/index
    refmanual/refmanual
    dev/dev
 

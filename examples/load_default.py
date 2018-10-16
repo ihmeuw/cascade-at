@@ -2,6 +2,7 @@ import os
 import logging
 from pathlib import Path
 from pprint import pformat
+import json
 
 import pandas as pd
 import numpy as np
@@ -11,12 +12,13 @@ from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.dismod.db.wrapper import _get_engine
 from cascade.dismod.db.metadata import DensityEnum
 from cascade.testing_utilities import make_execution_context
-from cascade.input_data.db.configuration import load_settings
+from cascade.input_data.db.configuration import settings_for_model
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.executor.no_covariate_main import bundle_to_observations, build_constraint
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
+from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.db.bundle import bundle_with_study_covariates, freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
@@ -43,9 +45,21 @@ def execution_context_from_settings(settings):
         location_id=settings.model.drill_location,
     )
 
+def model_context_from_settings(execution_context, settings):
+    model_context = initial_context_from_epiviz(settings)
+
+    fixed_effects_from_epiviz(model_context, settings)
+    random_effects_from_epiviz(model_context, settings)
+
+    add_mortality_data(model_context, execution_context)
+    add_omega_constraint(model_context, execution_context)
+    model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
+
+    return model_context
+
 
 def meas_bounds_to_stdev(df):
-    r"""
+    """
     Given data that includes a measurement upper bound and measurement lower
     bound, assume those are 95% confidence intervals. Convert them to
     standard error using:
@@ -100,116 +114,15 @@ def add_omega_constraint(model_context, execution_context):
     model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr])
     model_context.input_data.observations = model_context.input_data.observations[~mask]
 
-
-def model_context_from_settings(execution_context, settings):
-    model_context = initial_context_from_epiviz(settings)
-
-    fixed_effects_from_epiviz(model_context, settings)
-    random_effects_from_epiviz(model_context, settings)
-
-    freeze_bundle(execution_context, execution_context.parameters.bundle_id)
-    load_csmr_to_t3(execution_context)
-    load_asdr_to_t3(execution_context)
-
-    bundle, study_covariates = bundle_with_study_covariates(
-        execution_context, bundle_id=model_context.parameters.bundle_id
-    )
-    bundle = bundle.query("location_id == @execution_context.parameters.location_id")
-    observations = bundle_to_observations(model_context.parameters, bundle)
-    observations = observations.rename(columns={"location_id": "node_id"})
-    model_context.input_data.observations = observations
-
-    mask = model_context.input_data.observations.standard_error > 0
-    mask &= model_context.input_data.observations.measure != "relrisk"
-    if mask.any():
-        MATHLOG.warning("removing rows from bundle where standard_error == 0.0")
-        model_context.input_data.observations = model_context.input_data.observations[mask]
-
-    add_mortality_data(model_context, execution_context)
-    add_omega_constraint(model_context, execution_context)
-    model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
-
-    return model_context
-
-
-def write_dismod_file(mc, ec, db_file_path):
-    dismod_file = model_to_dismod_file(mc, ec)
-    dismod_file.engine = _get_engine(Path(db_file_path))
-    dismod_file.flush()
-    return dismod_file
-
-
-def run_dismod(dismod_file, with_random_effects):
-    dm_file_path = dismod_file.engine.url.database
-    if dm_file_path == ":memory:":
-        raise ValueError("Cannot run dismodat on an in-memory database")
-
-    command_prefix = ["dmdismod", dm_file_path]
-
-    run_and_watch(command_prefix + ["init"], False, 1)
-    dismod_file.refresh()
-    if "end init" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'init' command")
-
-    random_or_fixed = "both" if with_random_effects else "fixed"
-    # FIXME: both doesn't work. Something about actually having parents in the node table
-    random_or_fixed = "fixed"
-    run_and_watch(command_prefix + ["fit", random_or_fixed], False, 1)
-    dismod_file.refresh()
-    if "end fit" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'fit' command")
-
-    run_and_watch(command_prefix + ["predict", "fit_var"], False, 1)
-    dismod_file.refresh()
-    if "end predict" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'predict' command")
-
-
-def has_random_effects(model):
-    return any([bool(r.child_smoothings) for r in model.rates])
-
-
-def main(args):
-    settings = load_settings(args.meid, args.mvid, args.settings_file)
+def go():
+    settings = Configuration(json.load(Path("1989.json").open()))
+    errors = settings.validate_and_normalize()
+    if errors:
+        print(errors)
 
     ec = execution_context_from_settings(settings)
     mc = model_context_from_settings(ec, settings)
 
-    ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
-
-    run_dismod(ec.dismodfile, has_random_effects(mc))
-
-    if not args.no_upload:
-        save_model_results(ec)
-
-
-def entry():
-    parser = DMArgumentParser("Run DismodAT from Epiviz")
-    parser.add_argument("db_file_path")
-    parser.add_argument("--settings-file")
-    parser.add_argument("--no-upload", action="store_true")
-    parser.add_argument("--pdb", action="store_true")
-    args, _ = parser.parse_known_args()
-
-    CODELOG.debug(args)
-    try:
-        main(args)
-    except SettingsError as e:
-        MATHLOG.error(str(e))
-        MATHLOG.error(f"Form data: {pformat(e.form_data)}")
-        MATHLOG.error(f"Form validation errors: {pformat(e.form_errors)}")
-        exit(1)
-    except Exception:
-        if args.pdb:
-            import pdb
-            import traceback
-
-            traceback.print_exc()
-            pdb.post_mortem()
-        else:
-            CODELOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
-            raise
-
 
 if __name__ == "__main__":
-    entry()
+    go()

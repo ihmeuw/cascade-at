@@ -118,4 +118,9 @@ def latest_model_version(execution_context):
 
     with cursor(execution_context) as c:
         c.execute(query, args={"modelable_entity_id": model_id})
-        return c.fetchone()[0]
+        result = c.fetchone()
+        if result is not None:
+            return result[0]
+        else:
+            raise RuntimeError(
+                f"No model version for modelable entity id {model_id} in database.")
