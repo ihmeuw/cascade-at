@@ -76,7 +76,7 @@ def test_load_settings_mvid_str(ihme):
     assert isinstance(mvid, str)
 
 
-def test_load_settings_file(tmpdir):
+def test_load_settings_file(tmpdir, ihme):
     f = os.path.join(tmpdir, "unit_test.json")
     with open(f, "w") as test_json:
         test_json.write('{"model": {"modelable_entity_id": 1989}}')

@@ -20,6 +20,7 @@ def base_config():
         {
             "model": {
                 "modelable_entity_id": 12345,
+                "model_version_id": 0xdeadbeef,
                 "title": "Test Model",
                 "description": "Test Model Description",
                 "drill": "drill",
