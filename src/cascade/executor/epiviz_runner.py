@@ -197,10 +197,11 @@ def main(args):
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
 
-    run_dismod(ec.dismodfile, has_random_effects(mc))
+    if not args.db_only:
+        run_dismod(ec.dismodfile, has_random_effects(mc))
 
-    if not args.no_upload:
-        save_model_results(ec)
+        if not args.no_upload:
+            save_model_results(ec)
 
 
 def entry():
@@ -208,6 +209,7 @@ def entry():
     parser.add_argument("db_file_path")
     parser.add_argument("--settings_file")
     parser.add_argument("--no-upload", action="store_true")
+    parser.add_argument("--db-only", action="store_true")
     parser.add_argument("--pdb", action="store_true")
     args, _ = parser.parse_known_args()
 
