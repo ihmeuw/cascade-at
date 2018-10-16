@@ -8,4 +8,3 @@ Developer Manual
    dbsync
    meid_quota
    testing
-   model_to_db
