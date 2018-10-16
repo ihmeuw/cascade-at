@@ -27,22 +27,6 @@ class Smooth:
             if not all([grids[0] == g for g in grids]):
                 raise ValueError("Smooth cannot contain priors on heterogeneous grids")
 
-    def write(self, out_stream, assigned_name=None):
-        name = assigned_name if assigned_name else self.name
-        my_id = out_stream.append("smooth", [name, n_age, n_time, mul_std])
-
-        # This is the age-time grid
-        for grid_point in self.grid:
-            age_id = out_stream
-            value_id = grid_point.write("prior", value_prior(grid_point))
-            age_id = grid_point.append("prior", age_prior(grid_point))
-            time_id = grid_point.append("prior", time_prior(grid_point))
-            out_stream.append(
-                "smooth_grid",
-                [my_id, grid_point.age, grid_point.time, value_id, age_id, time_id])
-
-
-
     @property
     def value_priors(self):
         return self._value_priors
