@@ -104,7 +104,7 @@ def add_omega_constraint(model_context, execution_context):
 def model_context_from_settings(execution_context, settings):
     model_context = initial_context_from_epiviz(settings)
 
-    fixed_effects_from_epiviz(model_context, settings)
+    fixed_effects_from_epiviz(model_context, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
     freeze_bundle(execution_context, execution_context.parameters.bundle_id)
