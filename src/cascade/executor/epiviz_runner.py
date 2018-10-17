@@ -193,7 +193,7 @@ def entry():
     parser.add_argument("--no-upload", action="store_true")
     parser.add_argument("--db-only", action="store_true")
     parser.add_argument("--pdb", action="store_true")
-    args, _ = parser.parse_known_args()
+    args = parser.parse_args()
 
     CODELOG.debug(args)
     try:
