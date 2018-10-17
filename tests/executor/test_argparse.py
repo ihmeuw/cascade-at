@@ -10,20 +10,20 @@ from cascade.executor.argument_parser import DMArgumentParser, ArgumentException
 
 def test_argparse_happy():
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["-v", "importer"])
+    args = parser.parse_args(["-v", "importer"])
     assert args.verbose == 1
     assert args.stage == "importer"
 
 
 def test_argparse_functions():
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args([])
+    args = parser.parse_args([])
     assert args.stage is None
 
 
 def test_argparse_quiet():
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["-q"])
+    args = parser.parse_args(["-q"])
     assert args.verbose == 0
     assert args.quiet == 1
     assert args.stage is None
@@ -32,7 +32,7 @@ def test_argparse_quiet():
 def test_argparse_fail():
     parser = DMArgumentParser()
     with pytest.raises(ArgumentException):
-        args, _ = parser.parse_known_args(["--hiya", "there", "--logmod"])
+        parser.parse_args(["--hiya", "there", "--logmod"])
 
 
 def close_all_handlers():
@@ -48,7 +48,7 @@ def test_math_log(tmpdir):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
     # The math log will ignore the -v here, which sets others to DEBUG level.
-    args, _ = parser.parse_known_args(["-v", "--mvid", "2347"])
+    args = parser.parse_args(["-v", "--mvid", "2347"])
     parser._logging_config(args, epiviz_log_dir=tmp_dir, code_log_dir=tmp_dir)
 
     mathlog = logging.getLogger("cascade_at.math.complicated")
@@ -69,7 +69,7 @@ def test_math_log(tmpdir):
 def test_code_log(tmpdir):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["-v", "--mvid", "2347"])
+    args = parser.parse_args(["-v", "--mvid", "2347"])
     parser._logging_config(args, epiviz_log_dir=tmp_dir, code_log_dir=tmp_dir)
 
     codelog = logging.getLogger("cascade_at.whatever.complicated")
@@ -90,7 +90,7 @@ def test_code_log(tmpdir):
 def test_reduced_code_log(tmpdir):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["-q", "--mvid", "2347"])
+    args = parser.parse_args(["-q", "--mvid", "2347"])
     parser._logging_config(args, epiviz_log_dir=tmp_dir, code_log_dir=tmp_dir)
 
     codelog = logging.getLogger("cascade_at.whatever.complicated")
