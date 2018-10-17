@@ -264,12 +264,8 @@ def _normalize_measures(data):
     try:
         data["measure"] = data.measure_id.apply(lambda k: gbd_measure_id_to_integrand[k].name)
     except KeyError as ke:
-        if hasattr(data, "name"):
-            name = data.name
-        else:
-            name = ""
         raise RuntimeError(
-            f"The data {name} uses measure {str(ke)} which doesn't map "
+            f"The bundle data uses measure {str(ke)} which doesn't map "
             f"to an integrand. The map is {gbd_measure_id_to_integrand}."
         )
     return data

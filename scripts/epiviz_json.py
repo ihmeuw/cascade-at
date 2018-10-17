@@ -1,7 +1,8 @@
 import argparse
 import json
 
-from cascade.input_data.db.configuration import load_settings_mvid, load_settings_meid
+from cascade.input_data.db.configuration import load_raw_settings_mvid, load_raw_settings_meid
+from cascade.testing_utilities import make_execution_context
 
 
 def main():
@@ -11,10 +12,11 @@ def main():
     parser.add_argument("--mvid", type=int)
     args = parser.parse_args()
 
+    ec = make_execution_context()
     if args.mvid:
-        raw_settings, found_mvid = load_settings_mvid(args.mvid)
+        raw_settings, found_mvid = load_raw_settings_mvid(ec, args.mvid)
     elif args.meid:
-        raw_settings, found_mvid = load_settings_meid(args.meid)
+        raw_settings, found_mvid = load_raw_settings_meid(ec, args.meid)
     else:
         print("Need either an meid or an mvid to retrieve settings.")
         exit()

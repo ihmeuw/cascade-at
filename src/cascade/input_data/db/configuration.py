@@ -11,24 +11,24 @@ CODELOG = logging.getLogger(__name__)
 MATHLOG = logging.getLogger(__name__)
 
 
-def load_settings(meid=None, mvid=None, settings_file=None):
+def load_settings(ec, meid=None, mvid=None, settings_file=None):
     CODELOG.debug(f"meid {meid} mvid {mvid} settings {settings_file}")
     if len([c for c in [meid, mvid, settings_file] if c is not None]) != 1:
         raise ValueError(
             "Must supply exactly one of mvid, meid or settings_file")
     if meid:
-        raw_settings, found_mvid = load_raw_settings_meid(meid)
+        raw_settings, found_mvid = load_raw_settings_meid(ec, meid)
     elif mvid:
-        raw_settings, found_mvid = load_raw_settings_mvid(mvid)
+        raw_settings, found_mvid = load_raw_settings_mvid(ec, mvid)
     elif settings_file:
-        raw_settings, found_mvid = load_raw_settings_file(settings_file)
+        raw_settings, found_mvid = load_raw_settings_file(ec, settings_file)
     else:
         raise RuntimeError(f"Either meid, mvid, or file must be specified.")
 
     return json_settings_to_frozen_settings(raw_settings, found_mvid)
 
 
-def load_raw_settings_meid(modelable_entity_id):
+def load_raw_settings_meid(ec, modelable_entity_id):
     """
     Given a meid, get settings for the latest corresponding mvid.
 
@@ -38,7 +38,7 @@ def load_raw_settings_meid(modelable_entity_id):
         dict: Settings as a JSON dictionary of dictionaries.
         int: Model version ID that is the latest one associated with this meid.
     """
-    ec = make_execution_context(modelable_entity_id=modelable_entity_id)
+    ec.parameters.modelable_entity_id = modelable_entity_id
     mvid = latest_model_version(ec)
     MATHLOG.info(
         f"No model version specified so using the latest version for "
@@ -48,7 +48,7 @@ def load_raw_settings_meid(modelable_entity_id):
     return raw_settings, mvid
 
 
-def load_raw_settings_mvid(mvid):
+def load_raw_settings_mvid(ec, mvid):
     """Given an mvid, get its settings.
 
     Args:
@@ -57,12 +57,12 @@ def load_raw_settings_mvid(mvid):
         dict: Settings as a JSON dictionary of dictionaries.
         int: Model version ID that was passed in.
     """
-    ec = make_execution_context(model_version_id=mvid)
+    ec.parameters.model_version_id = mvid
     raw_settings = settings_json_from_epiviz(ec)
     return raw_settings, mvid
 
 
-def load_raw_settings_file(settings_file):
+def load_raw_settings_file(ec, settings_file):
     """Given a settings file, get the latest mvid for its meid.
 
     Args:
@@ -74,7 +74,7 @@ def load_raw_settings_file(settings_file):
     with open(str(settings_file), "r") as f:
         raw_settings = json.load(f)
     if "model" in raw_settings and "modelable_entity_id" in raw_settings["model"]:
-        ec = make_execution_context(modelable_entity_id=raw_settings["model"]["modelable_entity_id"])
+        ec.parameters.modelable_entity_id=raw_settings["model"]["modelable_entity_id"]
     else:
         raise SettingsError(
             f"The settings file should have a modelable_entity_id in it. "

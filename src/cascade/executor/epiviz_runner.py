@@ -32,8 +32,8 @@ CODELOG = logging.getLogger(__name__)
 MATHLOG = logging.getLogger("cascade_a.math.runner")
 
 
-def execution_context_from_settings(settings):
-    return make_execution_context(
+def add_settings_to_execution_context(ec, settings):
+    to_append = dict(
         modelable_entity_id=settings.model.modelable_entity_id,
         model_version_id=settings.model.model_version_id,
         model_title=settings.model.title,
@@ -42,6 +42,8 @@ def execution_context_from_settings(settings):
         add_csmr_cause=settings.model.add_csmr_cause,
         location_id=settings.model.drill_location,
     )
+    for param, value in to_append.items():
+        setattr(ec.parameters, param, value)
 
 
 def meas_bounds_to_stdev(df):
@@ -170,9 +172,9 @@ def has_random_effects(model):
 
 
 def main(args):
-    settings = load_settings(args.meid, args.mvid, args.settings_file)
-
-    ec = execution_context_from_settings(settings)
+    ec = make_execution_context()
+    settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+    add_settings_to_execution_context(ec, settings)
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
