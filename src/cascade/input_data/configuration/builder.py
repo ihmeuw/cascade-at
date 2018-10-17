@@ -70,7 +70,7 @@ def unique_country_covariate_transform(configuration):
         yield cov_id, list(sorted(cov_transformations))
 
 
-def assign_covariates(model_context, configuration):
+def assign_covariates(model_context, execution_context, configuration):
     """
     The EpiViz interface allows assigning a covariate with a transformation
     to a specific target (rate, measure value, measure standard deviation).
@@ -82,6 +82,7 @@ def assign_covariates(model_context, configuration):
             The context is modified by this function. Covariate columns are
             added to input data and covariates are added to the list of
             covariates.
+        execution_context: For the gbd_round_id.
         configuration (Configuration): Holds settings from EpiViz form.
 
     Returns:
@@ -106,7 +107,7 @@ def assign_covariates(model_context, configuration):
         demographics = dict(
             age_group_ids="all", year_ids="all", sex_ids="all", location_ids=[model_context.parameters.location_id]
         )
-        ccov_df = country_covariates(country_covariate_id, demographics)
+        ccov_df = country_covariates(country_covariate_id, demographics, execution_context.parameters.gbd_round_id)
         covariate_name = ccov_df.loc[0]["covariate_name_short"]
 
         # There is an order dependency from whether we interpolate before we
@@ -320,7 +321,7 @@ def make_smooth(configuration, smooth_configuration):
     return Smooth(value, d_age, d_time)
 
 
-def fixed_effects_from_epiviz(model_context, configuration):
+def fixed_effects_from_epiviz(model_context, execution_context, configuration):
     if configuration.rate:
         for rate_config in configuration.rate:
             rate_name = rate_config.rate
@@ -329,7 +330,7 @@ def fixed_effects_from_epiviz(model_context, configuration):
             rate = getattr(model_context.rates, rate_name)
             rate.parent_smooth = make_smooth(configuration, rate_config)
 
-    covariate_column_id_func = assign_covariates(model_context, configuration)
+    covariate_column_id_func = assign_covariates(model_context, execution_context, configuration)
     create_covariate_multipliers(model_context, configuration, covariate_column_id_func)
 
 
