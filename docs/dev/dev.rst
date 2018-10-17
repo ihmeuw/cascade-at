@@ -8,3 +8,4 @@ Developer Manual
    dbsync
    meid_quota
    testing
+   logging
