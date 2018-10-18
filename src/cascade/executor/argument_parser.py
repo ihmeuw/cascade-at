@@ -107,14 +107,14 @@ class BaseArgumentParser(ArgumentParser):
         """Configures logging. Command-line arguments ``-v`` and ``-q``
         set both the code log file and what streams to stdout. The ``-v``
         flag turns on debug level, and ``-q`` sets it to info level.
-        The math logger will always be set to info level.
+        The math logger will always be set to debug level.
 
         Arguments:
             args (argparse.Namespace): the arguments parsed by self. This
                 must have members ``verbose``, ``quiet``, ``code_log``,
                 ``mvid``, ``epiviz_log``, ``logmod``, and ``modlevel``.
         """
-        # Any handlers from from a basicConfig, which we will reconfigure.
+        # Any handlers from a basicConfig, which we will reconfigure.
         for handler in logging.root.handlers:
             logging.root.removeHandler(handler)
 
@@ -131,7 +131,7 @@ class BaseArgumentParser(ArgumentParser):
         code_log = BaseArgumentParser._logging_configure_root_log(args.code_log, level)
         BaseArgumentParser._logging_configure_mathlog(args.mvid, args.epiviz_log)
         BaseArgumentParser._logging_individual_modules(args.logmod, args.modlevel)
-        if code_log:
+        if code_log:  # Tell the math log people where the code log is located.
             logging.getLogger("cascade.math").info(f"Code log is at {code_log}")
 
     @staticmethod
