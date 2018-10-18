@@ -110,9 +110,9 @@ class BaseArgumentParser(ArgumentParser):
         The math logger will always be set to info level.
 
         Arguments:
-            args (argparse.Namespace): the arguments parsed by self.
-            epiviz_log_dir (Path): Directory into which to put the math log.
-            code_log_dir (Path): Directory into which to put the code log.
+            args (argparse.Namespace): the arguments parsed by self. This
+                must have members ``verbose``, ``quiet``, ``code_log``,
+                ``mvid``, ``epiviz_log``, ``logmod``, and ``modlevel``.
         """
         # Any handlers from from a basicConfig, which we will reconfigure.
         for handler in logging.root.handlers:
