@@ -3,10 +3,8 @@ Generate draws by getting data from the predict table and adding it to data
 from the avgint table.
 """
 
-import logging
-
-CODELOG = logging.getLogger(__name__)
-MATHLOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def generate_draws_table(dm_file):

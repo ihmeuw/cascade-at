@@ -16,6 +16,9 @@ from cascade.model.compartmental import (
 )
 from cascade.model.demography import DemographicInterval
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 __all__ = [
     "build_derivative_prevalence",
     "build_derivative_total",

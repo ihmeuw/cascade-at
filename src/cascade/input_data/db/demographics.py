@@ -1,5 +1,8 @@
 from cascade.core.db import db_queries
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 # FIXME: This should come from central comp tools but I don't see a spot...
 EPI_AGE_GROUP_SET_ID = 12
 

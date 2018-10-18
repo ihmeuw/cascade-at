@@ -7,6 +7,9 @@ import random
 import sys
 import time
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 def chatter():
     """

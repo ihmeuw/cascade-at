@@ -21,9 +21,8 @@ diabetes, and sends that data to DismodAT.
 This example works in cohort time, so that rates don't change over
 years.
 """
-from argparse import Namespace, ArgumentParser
+from argparse import Namespace
 import itertools as it
-import logging
 from pathlib import Path
 import pickle
 from timeit import default_timer as timer
@@ -31,6 +30,7 @@ from timeit import default_timer as timer
 import numpy as np
 import pandas as pd
 
+from cascade.executor.argument_parser import DMArgumentParser
 import cascade.input_data.db.bundle
 from cascade.testing_utilities import make_execution_context
 from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
@@ -41,8 +41,9 @@ from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.priors import Uniform, Constant, NO_PRIOR
 from cascade.model.rates import Smooth
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
-LOGGER = logging.getLogger("fit_no_covariates")
 RATE_TO_INTEGRAND = dict(
     iota=IntegrandEnum.Sincidence,
     rho=IntegrandEnum.remission,
@@ -55,20 +56,20 @@ RATE_TO_INTEGRAND = dict(
 def cached_bundle_load(context, bundle_id, tier_idx):
     cache_bundle = Path(f"{bundle_id}.pkl")
     if cache_bundle.exists():
-        LOGGER.info(f"Reading bundle from {cache_bundle}. " f"If you want to get a fresh copy, delete this file.")
+        CODELOG.info(f"Reading bundle from {cache_bundle}. " f"If you want to get a fresh copy, delete this file.")
         return pickle.load(cache_bundle.open("rb"))
 
-    LOGGER.debug(f"Begin getting bundle and study covariates {bundle_id}")
+    CODELOG.debug(f"Begin getting bundle and study covariates {bundle_id}")
     bundle_begin = timer()
     bundle, covariate = cascade.input_data.db.bundle.bundle_with_study_covariates(context, bundle_id, tier_idx)
-    LOGGER.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
+    CODELOG.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
 
     pickle.dump((bundle, covariate), cache_bundle.open("wb"), pickle.HIGHEST_PROTOCOL)
     return bundle, covariate
 
 
 def choose_constraints(bundle, measure):
-    LOGGER.debug(f"measures in bundle {bundle['measure'].unique()}")
+    CODELOG.debug(f"measures in bundle {bundle['measure'].unique()}")
     observations = pd.DataFrame(bundle[bundle["measure"] != measure])
     constraints = pd.DataFrame(bundle[bundle["measure"] == measure])
     return observations, constraints
@@ -96,7 +97,7 @@ def retrieve_external_data(config):
     context = make_execution_context()
     bundle, covariate = cached_bundle_load(context, config.bundle_id, config.tier_idx)
     with_mtother = pd.concat([bundle, fake_mtother()], ignore_index=True)
-    LOGGER.debug(f"Data now {with_mtother}")
+    CODELOG.debug(f"Data now {with_mtother}")
 
     # Split the input data into observations and constraints.
     bundle_observations, bundle_constraints = choose_constraints(with_mtother, "mtother")
@@ -125,7 +126,7 @@ def data_from_csv(data_path):
 def bundle_to_observations(config, bundle_df):
     """Convert bundle into an internal format."""
     if "incidence" in bundle_df["measure"].values:
-        LOGGER.info("Bundle has incidence. Replacing with Sincidence. Is this correct?")
+        CODELOG.info("Bundle has incidence. Replacing with Sincidence. Is this correct?")
         bundle_df["measure"] = bundle_df["measure"].replace("incidence", "Sincidence")
 
     for check_measure in bundle_df["measure"].unique():
@@ -169,7 +170,7 @@ def age_year_from_data(df):
         values = list(set(values))
         values.sort()
         results[topic] = pd.DataFrame({topic: values})
-        LOGGER.debug(f"{topic}: {values}")
+        CODELOG.debug(f"{topic}: {values}")
     return AgeTimeGrid(results["age"].age, results["year"].year)
 
 
@@ -240,17 +241,17 @@ def construct_database(input_path, output_path, non_zero_rates):
     raw_inputs = data_from_csv(Path(input_path))
     internal_model(model_context, raw_inputs)
 
-    LOGGER.info(f"Creating file {output_path}")
+    CODELOG.info(f"Creating file {output_path}")
     dismod_file = model_to_dismod_file(model_context)
     flush_begin = timer()
     dismod_file.engine = _get_engine(Path(output_path))
     dismod_file.flush()
-    LOGGER.debug(f"Flush db {timer() - flush_begin}")
+    CODELOG.debug(f"Flush db {timer() - flush_begin}")
 
 
 def entry():
     """This is the entry that setuptools turns into an installed program."""
-    parser = ArgumentParser("Reads csv for a run without covariates.")
+    parser = DMArgumentParser("Reads csv for a run without covariates.")
     parser.add_argument("input_path", help="Path to the csv file to load")
     parser.add_argument("output_path", help="Path to the dismod database file to create")
     parser.add_argument(
@@ -260,13 +261,7 @@ def entry():
         nargs="*",
         help="Rates to estimate, all others will be zero",
     )
-    parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
     args, _ = parser.parse_known_args()
-    if args.v:
-        log_level = logging.DEBUG
-    else:
-        log_level = logging.INFO
-    logging.basicConfig(level=log_level)
     if args.non_zero_rates:
         non_zero_rates = args.non_zero_rates
     else:

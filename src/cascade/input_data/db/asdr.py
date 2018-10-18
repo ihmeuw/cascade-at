@@ -1,14 +1,13 @@
 """Upload asdr data to t3 table so EpiViz can access it for plotting."""
 
-import logging
-
 import pandas as pd
 
 from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import AGE_GROUP_SET_ID, GBD_ROUND_ID
 
 
-CODELOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def _asdr_in_t3(execution_context):

@@ -3,6 +3,9 @@ import pandas as pd
 from cascade.input_data.db.demographics import get_age_groups, get_years
 from cascade.dismod.db.metadata import IntegrandEnum
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 def make_average_integrand_cases_from_gbd(execution_context):
     gbd_age_groups = get_age_groups(execution_context)

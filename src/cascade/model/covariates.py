@@ -1,12 +1,10 @@
 """
 Represents covariates in the model.
 """
-import logging
 from cascade.model.rates import Smooth
 
-
-CODELOG = logging.getLogger(__name__)
-MATHLOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class Covariate:

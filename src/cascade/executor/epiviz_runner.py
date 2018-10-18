@@ -1,5 +1,4 @@
 import os
-import logging
 from pathlib import Path
 from pprint import pformat
 
@@ -28,8 +27,8 @@ from cascade.input_data.configuration.builder import (
     random_effects_from_epiviz,
 )
 
-CODELOG = logging.getLogger(__name__)
-MATHLOG = logging.getLogger("cascade_a.math.runner")
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def add_settings_to_execution_context(ec, settings):

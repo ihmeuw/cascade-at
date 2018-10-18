@@ -1,6 +1,9 @@
+from functools import total_ordering
+
 import numpy as np
 
-from functools import total_ordering
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 # TODO: Several of these prior types accept eta as a parameter and the others
 # don't use it as a parameter but use it as an offset in the optimization

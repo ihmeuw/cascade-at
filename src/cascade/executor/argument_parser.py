@@ -4,7 +4,6 @@ Parse command-line arguments.
 from argparse import ArgumentParser
 import datetime
 from getpass import getuser
-import logging
 import logging.handlers
 import os
 from pathlib import Path
@@ -14,8 +13,9 @@ import tempfile
 
 import pkg_resources
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
-CODELOG = logging.getLogger(__name__)
 EPIVIZ_LOG_DIR = Path("/ihme/epi/dismod_at/logs")
 CODE_LOG_DIR = Path("/ihme/temp/sgeoutput")
 
@@ -197,7 +197,7 @@ class BaseArgumentParser(ArgumentParser):
                 math_log_dir.mkdir()
         except (OSError, PermissionError) as ose:
             logging.warning(f"Could not make mathlog directory {math_log_dir} "
-                         f"even though epiviz log dir {epiviz_log_dir} exists: {ose}")
+                            f"even though epiviz log dir {epiviz_log_dir} exists: {ose}")
             return
 
         log_file = math_log_dir / "log.log"
@@ -206,7 +206,7 @@ class BaseArgumentParser(ArgumentParser):
             math_handler = logging.FileHandler(str(log_file), append_to_math_log)
         except (OSError, PermissionError) as mhe:
             logging.warning(f"Could not write to math log at {log_file} even though "
-                         f"directory {math_log_dir} exists: {mhe}")
+                            f"directory {math_log_dir} exists: {mhe}")
             return
         fmt = "%(levelname)s %(asctime)s %(funcName)s: %(message)s"
         datefmt = "%y-%m-%d %H:%M:%S"

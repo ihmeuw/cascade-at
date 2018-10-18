@@ -120,6 +120,9 @@ which indicates that :math:`\mu = \omega + \chi P`.
 import numpy as np
 from scipy.integrate import quad, solve_ivp
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 def build_derivative_prevalence(iota, rho, chi):
     r"""

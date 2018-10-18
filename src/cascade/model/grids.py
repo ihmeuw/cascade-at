@@ -4,6 +4,9 @@ from math import isclose, isinf
 
 import numpy as np
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 GRID_SNAP_DISTANCE = 2e-16
 
 

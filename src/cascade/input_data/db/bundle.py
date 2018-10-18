@@ -4,16 +4,13 @@ databases directly should live outside the db package and use the functions here
 form.
 """
 
-import logging
-
 import pandas as pd
 
 from cascade.core.db import cursor, connection
-from cascade.input_data.configuration.id_map import make_integrand_map, INTEGRAND_ENCODED
+from cascade.input_data.configuration.id_map import make_integrand_map
 
-
-CODELOG = logging.getLogger(__name__)
-MATHLOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def _bundle_is_frozen(execution_context):

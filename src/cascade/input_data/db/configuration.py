@@ -1,5 +1,4 @@
 import json
-import logging
 
 from cascade.core.db import cursor
 from cascade.input_data.configuration import SettingsError
@@ -7,8 +6,8 @@ from cascade.input_data.configuration.form import Configuration
 from cascade.testing_utilities import make_execution_context
 from cascade.core.db import latest_model_version
 
-CODELOG = logging.getLogger(__name__)
-MATHLOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def load_settings(ec, meid=None, mvid=None, settings_file=None):
@@ -74,7 +73,7 @@ def load_raw_settings_file(ec, settings_file):
     with open(str(settings_file), "r") as f:
         raw_settings = json.load(f)
     if "model" in raw_settings and "modelable_entity_id" in raw_settings["model"]:
-        ec.parameters.modelable_entity_id=raw_settings["model"]["modelable_entity_id"]
+        ec.parameters.modelable_entity_id = raw_settings["model"]["modelable_entity_id"]
     else:
         raise SettingsError(
             f"The settings file should have a modelable_entity_id in it. "
@@ -97,8 +96,7 @@ def json_settings_to_frozen_settings(raw_settings, mvid=None):
         raw_settings (dict): Dict of dicts, representing the JSON settings.
         mvid (int,optional): Model version ID to put into the settings.
     """
-    if "model_version_id" not in raw_settings["model"] or not \
-    raw_settings["model"]["model_version_id"]:
+    if "model_version_id" not in raw_settings["model"] or not raw_settings["model"]["model_version_id"]:
         raw_settings["model"]["model_version_id"] = mvid
 
     settings = Configuration(raw_settings)

@@ -3,6 +3,9 @@ from cascade.core.input_data import InputData
 from cascade.model.rates import Rate
 from cascade.dismod.db.metadata import IntegrandEnum
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 class ExecutionContext:
     """
