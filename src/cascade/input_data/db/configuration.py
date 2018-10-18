@@ -2,30 +2,111 @@ import json
 import logging
 
 from cascade.core.db import cursor
+from cascade.input_data.configuration import SettingsError
+from cascade.input_data.configuration.form import Configuration
 from cascade.testing_utilities import make_execution_context
 from cascade.core.db import latest_model_version
 
 CODELOG = logging.getLogger(__name__)
+MATHLOG = logging.getLogger(__name__)
 
 
-def settings_for_model(meid=None, mvid=None):
-    if len([c for c in [meid, mvid] if c is not None]) != 1:
-        raise ValueError("Must supply either mvid or meid")
-
-    if mvid is not None:
-        mvid = mvid
+def load_settings(ec, meid=None, mvid=None, settings_file=None):
+    CODELOG.debug(f"meid {meid} mvid {mvid} settings {settings_file}")
+    if len([c for c in [meid, mvid, settings_file] if c is not None]) != 1:
+        raise ValueError(
+            "Must supply exactly one of mvid, meid or settings_file")
+    if meid:
+        raw_settings, found_mvid = load_raw_settings_meid(ec, meid)
+    elif mvid:
+        raw_settings, found_mvid = load_raw_settings_mvid(ec, mvid)
+    elif settings_file:
+        raw_settings, found_mvid = load_raw_settings_file(ec, settings_file)
     else:
-        modelable_entity_id = meid
-        ec = make_execution_context(modelable_entity_id=modelable_entity_id)
-        mvid = latest_model_version(ec)
-        CODELOG.info(f"No model version specified so using the latest version for model {meid} which is {mvid}")
+        raise RuntimeError(f"Either meid, mvid, or file must be specified.")
+
+    return json_settings_to_frozen_settings(raw_settings, found_mvid)
+
+
+def load_raw_settings_meid(ec, modelable_entity_id):
+    """
+    Given a meid, get settings for the latest corresponding mvid.
+
+    Args:
+        modelable_entity_id (int,str): The MEID.
+    Returns:
+        dict: Settings as a JSON dictionary of dictionaries.
+        int: Model version ID that is the latest one associated with this meid.
+    """
+    ec.parameters.modelable_entity_id = modelable_entity_id
+    mvid = latest_model_version(ec)
+    MATHLOG.info(
+        f"No model version specified so using the latest version for "
+        f"model {modelable_entity_id} which is {mvid}")
     ec = make_execution_context(model_version_id=mvid)
     raw_settings = settings_json_from_epiviz(ec)
+    return raw_settings, mvid
 
-    if "model_version_id" not in raw_settings["model"] or not raw_settings["model"]["model_version_id"]:
+
+def load_raw_settings_mvid(ec, mvid):
+    """Given an mvid, get its settings.
+
+    Args:
+        mvid (int,str): Model version ID.
+    Returns:
+        dict: Settings as a JSON dictionary of dictionaries.
+        int: Model version ID that was passed in.
+    """
+    ec.parameters.model_version_id = mvid
+    raw_settings = settings_json_from_epiviz(ec)
+    return raw_settings, mvid
+
+
+def load_raw_settings_file(ec, settings_file):
+    """Given a settings file, get the latest mvid for its meid.
+
+    Args:
+        settings_file (str): Model version ID.
+    Returns:
+        dict: Settings as a JSON dictionary of dictionaries.
+        int: Model version ID, either found in file or latest from meid.
+    """
+    with open(str(settings_file), "r") as f:
+        raw_settings = json.load(f)
+    if "model" in raw_settings and "modelable_entity_id" in raw_settings["model"]:
+        ec.parameters.modelable_entity_id=raw_settings["model"]["modelable_entity_id"]
+    else:
+        raise SettingsError(
+            f"The settings file should have a modelable_entity_id in it. "
+            f"It would be under model and then modelable_entity_id.")
+    if "model_version_id" in raw_settings["model"]:
+        mvid = raw_settings["model"]["model_version_id"]
+        MATHLOG.info(f"Using mvid {mvid} from the settings file.")
+    else:
+        mvid = latest_model_version(ec)
+        MATHLOG.info(f"Using mvid {mvid} from latest model version.")
+    return raw_settings, mvid
+
+
+def json_settings_to_frozen_settings(raw_settings, mvid=None):
+    """Converts a settings file in the form of a dict (from JSON usually)
+    into a Configuration object. If that conversion fails, report errors
+    with an exception.
+
+    Args:
+        raw_settings (dict): Dict of dicts, representing the JSON settings.
+        mvid (int,optional): Model version ID to put into the settings.
+    """
+    if "model_version_id" not in raw_settings["model"] or not \
+    raw_settings["model"]["model_version_id"]:
         raw_settings["model"]["model_version_id"] = mvid
 
-    return raw_settings
+    settings = Configuration(raw_settings)
+    errors = settings.validate_and_normalize()
+    if errors:
+        raise SettingsError("Configuration does not validate", errors,
+                            raw_settings)
+    return settings
 
 
 def settings_json_from_epiviz(execution_context):

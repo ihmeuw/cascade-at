@@ -11,10 +11,8 @@ class InputData:
     """
 
     def __init__(self):
-        self.rates = Rates()
         self.observations = None
         self.constraints = None
-        self.average_integrand_cases = None
         self.covariates = []
 
     @property

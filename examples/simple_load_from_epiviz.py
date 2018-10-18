@@ -28,7 +28,7 @@ def model_context_from_epiviz(execution_context):
 
     model_context = initial_context_from_epiviz(configuration)
 
-    fixed_effects_from_epiviz(model_context, configuration)
+    fixed_effects_from_epiviz(model_context, execution_context, configuration)
 
     freeze_bundle(execution_context)
 

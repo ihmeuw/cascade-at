@@ -9,20 +9,11 @@ import logging
 import pandas as pd
 
 from cascade.core.db import cursor, connection
+from cascade.input_data.configuration.id_map import make_integrand_map, INTEGRAND_ENCODED
+
 
 CODELOG = logging.getLogger(__name__)
-
-# FIXME: There is a shared function that get's the official mapping, I think. Or an sql query at least.
-MEASURES = {
-    6: "incidence",
-    9: "mtexcess",
-    5: "prevalence",
-    11: "relrisk",
-    13: "mtwith",
-    15: "mtspecific",
-    14: "mtall",
-    16: "mtother",
-}
+MATHLOG = logging.getLogger(__name__)
 
 
 def _bundle_is_frozen(execution_context):
@@ -164,7 +155,7 @@ def _get_study_covariates(execution_context, bundle_id, tier=3):
 def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
     """Uploads bundle data to tier 3 attached to the current model_version_id.
     """
-
+    CODELOG.debug(f"Upload to tier3 {len(bundle_data)} lines to {model_version_id} mvid")
     insert_query = f"""
     INSERT INTO epi.t3_model_version_dismod (
         model_version_id,
@@ -267,7 +258,16 @@ def _normalize_measures(data):
     """Transform measure_ids into canonical measure names
     """
     data = data.copy()
-    data["measure"] = data.measure_id.apply(lambda k: MEASURES[k])
+    gbd_measure_id_to_integrand = make_integrand_map()
+    if any(data.measure_id == 6):
+        MATHLOG.warn(f"Found incidence in data. Should be Tincidence or Sincidence.")
+    try:
+        data["measure"] = data.measure_id.apply(lambda k: gbd_measure_id_to_integrand[k].name)
+    except KeyError as ke:
+        raise RuntimeError(
+            f"The bundle data uses measure {str(ke)} which doesn't map "
+            f"to an integrand. The map is {gbd_measure_id_to_integrand}."
+        )
     return data
 
 

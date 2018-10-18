@@ -71,25 +71,25 @@ def predict_df_ragged(predict_df):
 
 @pytest.fixture(scope="module")
 def expected_draws_df():
-    expected_draws_df = pd.DataFrame()
-    expected_draws_df["age_group_id"] = [7, 7, 7, 7]
-    expected_draws_df["location_id"] = [102, 102, 102, 102]
-    expected_draws_df["integrand_id"] = [2, 2, 7, 7]
-    expected_draws_df["sex_id"] = [1, 2, 1, 2]
-    expected_draws_df["year_id"] = [1990, 1990, 1990, 1990]
-    expected_draws_df["draw_0"] = [1, 2, 3, 4]
-    expected_draws_df["draw_1"] = [5, 6, 7, 8]
-    expected_draws_df["draw_2"] = [9, 10, 11, 12]
-    expected_draws_df["draw_3"] = [13, 14, 15, 16]
+    draws_df = pd.DataFrame()
+    draws_df["age_group_id"] = [7, 7, 7, 7]
+    draws_df["location_id"] = [102, 102, 102, 102]
+    draws_df["integrand_id"] = [2, 2, 7, 7]
+    draws_df["sex_id"] = [1, 2, 1, 2]
+    draws_df["year_id"] = [1990, 1990, 1990, 1990]
+    draws_df["draw_0"] = [1, 2, 3, 4]
+    draws_df["draw_1"] = [5, 6, 7, 8]
+    draws_df["draw_2"] = [9, 10, 11, 12]
+    draws_df["draw_3"] = [13, 14, 15, 16]
 
-    return expected_draws_df
+    return draws_df
 
 
-def test_generate_draws_table(dismod_file):
+def test_generate_draws_table(dismod_file, expected_draws_df):
 
     draws_df = generate_draws_table(dismod_file)
 
-    pd.testing.assert_frame_equal(draws_df, expected_draws_df(), check_like=True)
+    pd.testing.assert_frame_equal(draws_df, expected_draws_df, check_like=True)
 
 
 def test_generate_draws_empty_avgint(dismod_file_avgint_df_empty):

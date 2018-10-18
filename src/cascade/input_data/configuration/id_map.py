@@ -5,6 +5,8 @@ from cascade.dismod.db.metadata import IntegrandEnum
 #    from db_queries import get_ids
 #    get_ids("measure")
 # We do it this way to make it as easy as possible to check.
+# This maps Incidence to Tincidence because the decision to forbid it
+# happens when decoding the data, not here.
 INTEGRAND_ENCODED = """
 idx measure_id                                     measure_name
 0            1                                           Deaths
@@ -12,7 +14,7 @@ idx measure_id                                     measure_name
 2            3               YLDs (Years Lived with Disability)
 3            4                        YLLs (Years of Life Lost)
 4            5                                       Prevalence prevalence
-5            6                                        Incidence
+5            6                                        Incidence Tincidence
 6            7                                        Remission remission
 7            8                                         Duration
 8            9                            Excess mortality rate mtexcess

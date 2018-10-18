@@ -10,7 +10,7 @@ CODELOG = logging.getLogger(__name__)
 MATHLOG = logging.getLogger(__name__)
 
 
-def country_covariates(covariate_id, demographics):
+def country_covariates(covariate_id, demographics, gbd_round_id):
     """Retrieve country covariates from the database. Covariates can have a
     lower value and an upper value, in addition to their mean. This returns
     only the mean of the covariate on each demographic interval.
@@ -20,6 +20,8 @@ def country_covariates(covariate_id, demographics):
         demographics (Dictionary): demographic ids needed to select the data;
             for example, keys for location_ids, age_group_ids, year_ids, and
             sex_ids.  The values can be int or list of ints.
+        gbd_round_id (int): The number indicating which version of
+            the GBD for which to retrieve these covariates.
 
     Returns:
         pd.DataFrame: Columns are `covariate_id`, `covariate_name_short`,
@@ -33,7 +35,9 @@ def country_covariates(covariate_id, demographics):
         location_id=demographics["location_ids"],
         age_group_id=demographics["age_group_ids"],
         year_id=demographics["year_ids"],
-        sex_id=demographics["sex_ids"])[[
+        sex_id=demographics["sex_ids"],
+        gbd_round_id=gbd_round_id
+    )[[
             "covariate_id", "covariate_name_short", "location_id", "age_group_id",
             "year_id", "sex_id", "mean_value"]]
 

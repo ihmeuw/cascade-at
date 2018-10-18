@@ -12,6 +12,7 @@ from cascade.input_data.configuration.builder import (
     create_covariate_multipliers,
 )
 from cascade.model import priors
+from cascade.testing_utilities import make_execution_context
 
 
 @pytest.fixture
@@ -20,6 +21,7 @@ def base_config():
         {
             "model": {
                 "modelable_entity_id": 12345,
+                "model_version_id": 0xdeadbeef,
                 "title": "Test Model",
                 "description": "Test Model Description",
                 "drill": "drill",
@@ -112,8 +114,9 @@ def test_make_smooth(base_config):
 
 
 def test_fixed_effects_from_epiviz(base_config, ihme):
+    ec = make_execution_context(gbd_round_id=5)
     mc = initial_context_from_epiviz(base_config)
-    fixed_effects_from_epiviz(mc, base_config)
+    fixed_effects_from_epiviz(mc, ec, base_config)
     assert all([r.parent_smooth is None for r in [mc.rates.rho, mc.rates.pini, mc.rates.chi, mc.rates.omega]])
     assert mc.rates.iota.parent_smooth == make_smooth(base_config, base_config.rate[0])
 
@@ -172,6 +175,7 @@ def test_covariates_from_settings_logic(base_config, ihme):
     }
     configuration.country_covariate = [start]
     assert configuration.model.default_time_grid
-
-    column_id_func = assign_covariates(mc, configuration)
+    ec = make_execution_context(gbd_round_id=5)
+    assert ec.parameters.gbd_round_id == 5
+    column_id_func = assign_covariates(mc, ec, configuration)
     create_covariate_multipliers(mc, configuration, column_id_func)
