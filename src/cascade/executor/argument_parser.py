@@ -128,9 +128,11 @@ class BaseArgumentParser(ArgumentParser):
         logging.root.addHandler(root_handler)
         logging.root.setLevel(level)
 
-        BaseArgumentParser._logging_configure_root_log(args.code_log, level)
+        code_log = BaseArgumentParser._logging_configure_root_log(args.code_log, level)
         BaseArgumentParser._logging_configure_mathlog(args.mvid, args.epiviz_log)
         BaseArgumentParser._logging_individual_modules(args.logmod, args.modlevel)
+        if code_log:
+            logging.getLogger("cascade.math").info(f"Code log is at {code_log}")
 
     @staticmethod
     def _logging_configure_root_log(code_log_dir, level):
@@ -172,6 +174,7 @@ class BaseArgumentParser(ArgumentParser):
                                                        target=code_handler)
         outer_handler.setLevel(level)
         logging.root.addHandler(outer_handler)
+        return code_log_path
 
     @staticmethod
     def _logging_configure_mathlog(mvid, epiviz_log_dir):
@@ -199,7 +202,8 @@ class BaseArgumentParser(ArgumentParser):
 
         log_file = math_log_dir / "log.log"
         try:
-            math_handler = logging.FileHandler(str(log_file))
+            append_to_math_log = "a"
+            math_handler = logging.FileHandler(str(log_file), append_to_math_log)
         except (OSError, PermissionError) as mhe:
             logging.warning(f"Could not write to math log at {log_file} even though "
                          f"directory {math_log_dir} exists: {mhe}")
@@ -211,6 +215,7 @@ class BaseArgumentParser(ArgumentParser):
         math_logger = logging.getLogger(f"{__name__.split('.')[0]}.math")
         math_logger.addHandler(math_handler)
         math_logger.setLevel(logging.DEBUG)
+        logging.getLogger("cascade.math").info(f"EpiViz log is at {log_file}")
 
     @staticmethod
     def _logging_individual_modules(logmod, modlevel):
