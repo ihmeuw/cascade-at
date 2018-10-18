@@ -261,7 +261,7 @@ def entry():
         help="Rates to estimate, all others will be zero",
     )
     parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
-    args, _ = parser.parse_known_args()
+    args, _ = parser.parse_args()
     if args.v:
         log_level = logging.DEBUG
     else:

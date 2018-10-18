@@ -77,17 +77,17 @@ class BaseArgumentParser(ArgumentParser):
                     f"--{arg_name}", type=arg_types[base["type"]], default=base["default"], help=base["help"]
                 )
 
-    def parse_known_args(self, args=None, namespace=None):
+    def parse_args(self, args=None, namespace=None):
         """Parses command line arguments. Use this instead of
-        `parse_args` because it's less likely to fail unexpectedly.
+        `parse_known_args` because it won't fail silently.
 
         Before doing what ArgumentParser.parse_args normally does, we gotta do
         the provenance.
         """
-        _args, _argv = super().parse_known_args(args, namespace)
+        _args = super().parse_args(args, namespace)
 
         self._logging_config(_args)
-        return _args, _argv
+        return _args
 
     def exit(self, status=0, message=None):
         """

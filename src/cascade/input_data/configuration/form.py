@@ -147,7 +147,7 @@ class Model(Form):
     bundle_id = IntField(nullable=True)
     drill = OptionField(["cascade", "drill"])
     drill_location = IntField()
-    drill_sex = OptionField([1, 2], nullable=True)
+    drill_sex = OptionField([1, 2], constructor=int, nullable=True)
     default_age_grid = StringListField(constructor=float)
     default_time_grid = StringListField(constructor=float)
     rate_case = OptionField(

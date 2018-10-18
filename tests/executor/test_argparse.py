@@ -11,20 +11,20 @@ from cascade.executor.argument_parser import DMArgumentParser, ArgumentException
 
 def test_argparse_happy():
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["-v", "importer"])
+    args = parser.parse_args(["-v", "importer"])
     assert args.verbose == 1
     assert args.stage == "importer"
 
 
 def test_argparse_functions():
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args([])
+    args = parser.parse_args([])
     assert args.stage is None
 
 
 def test_argparse_quiet():
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["-q"])
+    args = parser.parse_args(["-q"])
     assert args.verbose == 0
     assert args.quiet == 1
     assert args.stage is None
@@ -33,7 +33,7 @@ def test_argparse_quiet():
 def test_argparse_fail():
     parser = DMArgumentParser()
     with pytest.raises(ArgumentException):
-        args, _ = parser.parse_known_args(["--hiya", "there", "--logmod"])
+        parser.parse_args(["--hiya", "there", "--logmod"])
 
 
 def close_all_handlers():
