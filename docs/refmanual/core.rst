@@ -20,3 +20,6 @@ Core Functionality
 
     .. autoclass:: ParameterProperty
         :members:
+
+.. automodule:: cascade.core.log
+    :members:
