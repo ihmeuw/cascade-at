@@ -15,12 +15,13 @@ def test_SmoothingPrior__full_form_validation__success():
 def test_SmoothingPrior__full_form_validation__fail():
     f = SmoothingPrior({"prior_type": "value", "density": "uniform", "min": 10, "max": 0})
     assert f.validate_and_normalize() == [
-        ("", "Parameters incompatible with density 'uniform': Bounds are inconsistent: lower=10.0 mean=5.0 upper=0.0")
+        ("", "", "Parameters incompatible with density 'uniform': Bounds are inconsistent: lower=10.0 mean=5.0 upper=0.0")
     ]
 
     f = SmoothingPrior({"prior_type": "value", "density": "gaussian", "mean": 0, "std": -1})
     assert f.validate_and_normalize() == [
         (
+            "",
             "",
             "Parameters incompatible with density 'gaussian':"
             " Standard deviation must be positive: standard deviation=-1.0",

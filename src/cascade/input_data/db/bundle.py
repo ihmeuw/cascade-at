@@ -257,7 +257,7 @@ def _normalize_measures(data):
     data = data.copy()
     gbd_measure_id_to_integrand = make_integrand_map()
     if any(data.measure_id == 6):
-        MATHLOG.warn(f"Found incidence in data. Should be Tincidence or Sincidence.")
+        MATHLOG.warn(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
     try:
         data["measure"] = data.measure_id.apply(lambda k: gbd_measure_id_to_integrand[k].name)
     except KeyError as ke:
@@ -306,6 +306,8 @@ def _covariate_ids_to_names(execution_context, study_covariates):
             covariate_mapping = dict(list(c))
 
         study_covariates["name"] = study_covariates.name.apply(covariate_mapping.get)
+    else:
+        MATHLOG.info(f"Found no study covariates to add to bundle.")
 
     return study_covariates
 

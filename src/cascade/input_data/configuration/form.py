@@ -23,15 +23,15 @@ class SmoothingPrior(Form):
         self.prior_object = None
 
     prior_type = OptionField(["dage", "dtime", "value"])
-    age_lower = FloatField(nullable=True)
-    age_upper = FloatField(nullable=True)
-    time_lower = FloatField(nullable=True)
-    time_upper = FloatField(nullable=True)
-    density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"])
-    min = FloatField(nullable=True, default=float("-inf"))
-    mean = FloatField(nullable=True)
-    max = FloatField(nullable=True, default=float("inf"))
-    std = FloatField(nullable=True)
+    age_lower = FloatField(nullable=True, display="Age lower")
+    age_upper = FloatField(nullable=True, display="Age upper")
+    time_lower = FloatField(nullable=True, display="Time lower")
+    time_upper = FloatField(nullable=True, display="Time upper")
+    density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density")
+    min = FloatField(nullable=True, default=float("-inf"), display="Min")
+    mean = FloatField(nullable=True, display="Mean")
+    max = FloatField(nullable=True, default=float("inf"), display="Max")
+    std = FloatField(nullable=True, display="Std")
     nu = FloatField(nullable=True)
     eta = FloatField(nullable=True)
 
@@ -85,19 +85,19 @@ class SmoothingPrior(Form):
 
 
 class SmoothingPriorGroup(Form):
-    dage = SmoothingPrior(name_field="prior_type", nullable=True)
-    dtime = SmoothingPrior(name_field="prior_type", nullable=True)
-    value = SmoothingPrior(name_field="prior_type")
+    dage = SmoothingPrior(name_field="prior_type", nullable=True, display="Age diff")
+    dtime = SmoothingPrior(name_field="prior_type", nullable=True, display="Time diff")
+    value = SmoothingPrior(name_field="prior_type", display="Values")
 
 
 class Smoothing(Form):
-    rate = OptionField(["pini", "iota", "rho", "chi", "omega"])
+    rate = OptionField(["pini", "iota", "rho", "chi", "omega"], "Rate")
     location = IntField(nullable=True)
-    age_grid = StringListField(constructor=float, nullable=True)
-    time_grid = StringListField(constructor=float, nullable=True)
-    default = SmoothingPriorGroup()
-    mulstd = SmoothingPriorGroup(nullable=True)
-    detail = FormList(SmoothingPrior, nullable=True)
+    age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
+    time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
+    default = SmoothingPriorGroup(display="Defaults")
+    mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
+    detail = FormList(SmoothingPrior, nullable=True, display="Detail")
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
@@ -105,36 +105,36 @@ class Smoothing(Form):
 
 class StudyCovariate(Form):
     # Haven't seen if this is a string or an ID for the column in the bundle.
-    study_covariate = StringListField(nullable=True)
+    study_covariate = StringListField(nullable=True, display="Study covariates")
 
-    measure_id = IntField()
-    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"])
-    transformation = IntField()
-    at_dependence = IntField()
+    measure_id = IntField(display="Measure")
+    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
+    transformation = IntField(display="Transformation")
+    at_dependence = IntField(display="AT dependence")
 
-    age_grid = StringListField(constructor=float, nullable=True)
-    time_grid = StringListField(constructor=float, nullable=True)
-    default = SmoothingPriorGroup()
-    mulstd = SmoothingPriorGroup(nullable=True)
-    detail = FormList(SmoothingPrior, nullable=True)
+    age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
+    time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
+    default = SmoothingPriorGroup(display="Defaults")
+    mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
+    detail = FormList(SmoothingPrior, nullable=True, display="Detail")
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
 
 
 class CountryCovariate(Form):
-    country_covariate_id = IntField()
+    country_covariate_id = IntField(display="Covariate")
 
-    measure_id = IntField()
-    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"])
-    transformation = IntField()
-    at_dependence = IntField()
+    measure_id = IntField(display="Measure")
+    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
+    transformation = IntField(display="Transformation")
+    at_dependence = IntField(display="AT dependence")
 
-    age_grid = StringListField(constructor=float, nullable=True)
-    time_grid = StringListField(constructor=float, nullable=True)
-    default = SmoothingPriorGroup()
-    mulstd = SmoothingPriorGroup(nullable=True)
-    detail = FormList(SmoothingPrior, nullable=True)
+    age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
+    time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
+    default = SmoothingPriorGroup(display="Defaults")
+    mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
+    detail = FormList(SmoothingPrior, nullable=True, display="Detail")
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
@@ -144,19 +144,20 @@ class Model(Form):
     modelable_entity_id = IntField()
     model_version_id = IntField(nullable=True)
     minimum_meas_cv = FloatField(nullable=True)
-    add_csmr_cause = IntField(nullable=True)
-    title = StrField(nullable=True)
-    description = StrField(nullable=True)
-    bundle_id = IntField(nullable=True)
-    drill = OptionField(["cascade", "drill"])
-    drill_location = IntField()
-    drill_sex = OptionField([1, 2], constructor=int, nullable=True)
-    default_age_grid = StringListField(constructor=float)
-    default_time_grid = StringListField(constructor=float)
+    add_csmr_cause = IntField(nullable=True, display="CSMR cause")
+    title = StrField(nullable=True, display="Title")
+    description = StrField(nullable=True, display="Description")
+    bundle_id = IntField(nullable=True, display="Data bundle")
+    drill = OptionField(["cascade", "drill"], display="Drill")
+    drill_location = IntField(display="Drill location")
+    drill_sex = OptionField([1, 2], constructor=int, nullable=True, display="Drill sex")
+    default_age_grid = StringListField(constructor=float, display="(Cascade) Age grid")
+    default_time_grid = StringListField(constructor=float, display="(Cascade) Time grid")
     rate_case = OptionField(
         ["iota_zero_rho_pos", "iota_pos_rho_zero", "iota_zero_rho_zero", "iota_pos_rho_pos"],
         nullable=True,
         default="iota_pos_rho_zero",
+        display="(Advanced) Rate case",
     )
 
 
@@ -179,13 +180,12 @@ class Configuration(Form):
                 print(f"Ready to configure a model for {form.model.modelable_entity_id}")
 
     """
-
-    model = Model()
-    gbd_round_id = IntField()
-    random_effect = FormList(Smoothing, nullable=True)
-    rate = FormList(Smoothing)
-    study_covariate = FormList(StudyCovariate)
-    country_covariate = FormList(CountryCovariate)
+    model = Model(display="Model")
+    gbd_round_id = IntField(display="GBD Round ID")
+    random_effect = FormList(Smoothing, nullable=True, display="Random effects")
+    rate = FormList(Smoothing, display="Rates")
+    study_covariate = FormList(StudyCovariate, display="Study covariates")
+    country_covariate = FormList(CountryCovariate, display="Country covariates")
     eta = Eta()
 
     csmr_cod_output_version_id = Dummy()

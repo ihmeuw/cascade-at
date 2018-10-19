@@ -117,6 +117,8 @@ def assign_covariates(model_context, execution_context, configuration):
         ccov_ranges_df = convert_gbd_ids_to_dismod_values(ccov_df, age_groups)
 
         if model_context.input_data.observations is not None:
+            MATHLOG.info(f"Adding {country_covariate_id} using "
+                         f"covariate_to_measurements_nearest_favoring_same_year()")
             observations_column = covariate_to_measurements_nearest_favoring_same_year(
                 model_context.input_data.observations, ccov_ranges_df)
         else:
@@ -183,7 +185,10 @@ def create_covariate_multipliers(context, configuration, column_id_func):
                     f"{mul_cov_config.measure_id} name {target_dismod_name} is not a primary integrand. "
                     f"Primary integrands are {', '.join(list(sorted(PRIMARY_INTEGRANDS_TO_RATES.keys())))}"
                 )
-            add_to_rate = getattr(context.rates, PRIMARY_INTEGRANDS_TO_RATES[target_dismod_name])
+            target_rate = PRIMARY_INTEGRANDS_TO_RATES[target_dismod_name]
+            MATHLOG.info(f"Covariate multiplier for measure_id {mul_cov_config.measure_id} applied to rate {target_rate} "
+                         f"It was set to primary integrand {target_dismod_name} in EpiViz.")
+            add_to_rate = getattr(context.rates, target_rate)
             add_to_rate.covariate_multipliers.append(covariate_multiplier)
         else:
             add_to_integrand = context.integrand_covariate_multipliers[target_dismod_name]

@@ -60,14 +60,16 @@ class FormComponent:
         nullable (bool): If False then missing data for this node is considered
           an error. Defaults to False.
         default: Default value to return if unset
+        name (str): The name used in the EpiViz interface.
     """
 
     _children = None
 
-    def __init__(self, nullable=False, default=None):
+    def __init__(self, nullable=False, default=None, display=None):
         self._nullable = nullable
         self._default = default
         self._name = None
+        self._display_name = display
         if self._children:
             self._child_instances = {c: NO_VALUE for c in self._children}
         else:
@@ -81,6 +83,10 @@ class FormComponent:
             return value
         else:
             return None
+
+    @property
+    def display_name(self):
+        return self._display_name if self._display_name else self._name
 
     def is_unset(self, instance):
         value = instance._child_instances[self]
@@ -128,19 +134,19 @@ class Field(FormComponent):
                              should be validated.
 
         Returns:
-            [(str, str)]: a list of error messages with path strings
-                          showing where in this object they occured. For most
+            [(str, str, str)]: a list of error messages with path strings
+                          showing where in this object they occurred. For most
                           fields the path will always be empty.
         """
         if self.is_unset(instance):
             if not self._nullable:
-                return [("", "Missing data")]
+                return [("", "", "Missing data")]
             return []
 
         value = self.__get__(instance, type(instance))
         new_value, error = self._validate_and_normalize(instance, value)
         if error is not None:
-            return [("", error)]
+            return [("", "", error)]
         self.__set__(instance, new_value)
         return []
 
@@ -155,7 +161,7 @@ class Field(FormComponent):
 
         Returns:
             [(str, str)]: a list of error messages with path strings
-                          showing where in this object they occured. For most
+                          showing where in this object they occurred. For most
                           fields the path will always be empty.
         """
         return value, None
@@ -221,8 +227,8 @@ class Form(FormComponent):
                           the field had in the input data.
     """
 
-    def __init__(self, source=None, name_field=None, nullable=False):
-        super().__init__(nullable=nullable)
+    def __init__(self, source=None, name_field=None, nullable=False, display=None):
+        super().__init__(nullable=nullable, display=display)
         self._args = []
         self._kwargs = {"name_field": name_field, "nullable": nullable}
         self._name_field = name_field
@@ -233,6 +239,7 @@ class Form(FormComponent):
         if isinstance(instance, FormComponent):
             form = self.new_instance()
             form._name = self._name
+            form._display_name = self._display_name
             form.process_source(value)
             instance._child_instances[self] = form
 
@@ -284,12 +291,17 @@ class Form(FormComponent):
                     # not thinking clearly about how these error paths
                     # get constructed.
                     errors.extend(
-                        [((f"{child._name}." + p).replace(".[", "[") if p else child._name, e) for p, e in c_errors]
+                        [(
+                            (f"{child._name}." + p).replace(".[", "[") if p else child._name,
+                            (f"{child.display_name}." + h).replace(".[", "[") if h else child.display_name,
+                            e
+                        )
+                            for p, h, e in c_errors]
                     )
                 else:
                     errors.extend(c_errors)
         if not errors:
-            errors = [("", e) for e in self._full_form_validation(root)]
+            errors = [("", "", e) for e in self._full_form_validation(root)]
 
         return errors
 
