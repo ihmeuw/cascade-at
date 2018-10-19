@@ -123,7 +123,8 @@ def model_context_from_settings(execution_context, settings):
     mask = model_context.input_data.observations.standard_error > 0
     mask &= model_context.input_data.observations.measure != "relrisk"
     if mask.any():
-        MATHLOG.warning("removing rows from bundle where standard_error == 0.0")
+        remove_cnt = mask.sum()
+        MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
         model_context.input_data.observations = model_context.input_data.observations[mask]
 
     add_mortality_data(model_context, execution_context)
