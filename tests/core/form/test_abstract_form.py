@@ -28,13 +28,14 @@ def test_development_target():
 
     f = MyForm({"my_field": "10", "my_inner_form": {"my_inner_field": "eaoeao"}})
     errors = f.validate_and_normalize()
-    assert set(errors) == {("my_inner_form.my_inner_field", "Invalid integer value 'eaoeao'")}
+    assert set(errors) == {("my_inner_form.my_inner_field", "my_inner_form.my_inner_field",
+                            "Invalid integer value 'eaoeao'")}
 
     f = MyForm({"my_field": None, "my_inner_form": {}})
     errors = f.validate_and_normalize()
     assert set(errors) == {
-        ("my_field", "Invalid integer value 'None'"),
-        ("my_inner_form.my_inner_field", "Missing data"),
+        ("my_field", "my_field", "Invalid integer value 'None'"),
+        ("my_inner_form.my_inner_field", "my_inner_form.my_inner_field", "Missing data"),
     }
 
 
@@ -133,8 +134,8 @@ def test_SimpleTypeField__validation():
     f = MyForm({"my_int_field": "oueou", "my_float_field": "blaa"})
     errors = f.validate_and_normalize()
     assert set(errors) == {
-        ("my_int_field", "Invalid int value 'oueou'"),
-        ("my_float_field", "Invalid float value 'blaa'"),
+        ("my_int_field", "my_int_field", "Invalid int value 'oueou'"),
+        ("my_float_field", "my_float_field", "Invalid float value 'blaa'"),
     }
 
 
@@ -171,11 +172,11 @@ def test_full_form_validation__successful(form_with_validation):
 
 def test_full_form_validation__failure_due_to_form_validation(form_with_validation):
     f = form_with_validation({"a": "1", "b": 8, "c": 1})
-    assert f.validate_and_normalize() == [("", "a must be >= b")]
+    assert f.validate_and_normalize() == [("", "", "a must be >= b")]
 
 
 def test_full_form_validation__failure_due_to_inconsistent_state(form_with_validation):
     f = form_with_validation({"a": "1", "b": 8, "c": "ooeueou"})
     errors = f.validate_and_normalize()
     assert errors
-    assert ("", "a must be >= b") not in errors
+    assert ("", "", "a must be >= b") not in errors

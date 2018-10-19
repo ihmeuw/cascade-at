@@ -78,6 +78,8 @@ RATE_TO_INTEGRAND = dict(
 PRIMARY_INTEGRANDS_TO_RATES = {
     "prevalence": "pini",
     "Sincidence": "iota",
+    "Tincidence": "iota",
+    "incidence": "iota",
     "remission": "rho",
     "mtexcess": "chi",
     "mtother": "omega",

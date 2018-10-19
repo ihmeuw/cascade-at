@@ -48,7 +48,7 @@ class FormList(Form):
 
     def validate_and_normalize(self, instance=None, root=None):
         return [
-            (f"[{i}].{p}", e) for i, form in enumerate(self) for (p, e) in form.validate_and_normalize(self, root=root)
+            (f"[{i}].{p}", f"[{i}].{h}", e) for i, form in enumerate(self) for (p, h, e) in form.validate_and_normalize(self, root=root)
         ]
 
     def __get__(self, instance, owner):

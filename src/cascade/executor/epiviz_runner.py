@@ -203,8 +203,12 @@ def entry():
         MATHLOG.error(str(e))
         MATHLOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
         error_lines = list()
-        for error_spot, error_message in e.form_errors:
-            error_lines.append(f"\t{error_spot}: {error_message}")
+        for error_spot, human_spot, error_message in e.form_errors:
+            if args.settings_file is not None:
+                error_location = error_spot
+            else:
+                error_location = human_spot
+            error_lines.append(f"\t{error_location}: {error_message}")
         MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
         exit(1)
     except Exception:
