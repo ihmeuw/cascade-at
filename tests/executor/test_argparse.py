@@ -33,7 +33,7 @@ def test_argparse_quiet():
 def test_argparse_fail():
     parser = DMArgumentParser()
     with pytest.raises(ArgumentException):
-        parser.parse_args(["--hiya", "there", "--logmod"])
+        args = parser.parse_args(["--hiya", "there", "--logmod"])
 
 
 def close_all_handlers():
@@ -49,7 +49,7 @@ def test_math_log(tmpdir):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
     # The math log will ignore the -v here, which sets others to DEBUG level.
-    args, _ = parser.parse_known_args([
+    args = parser.parse_args([
         "-v", "--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
 
     mathlog = logging.getLogger("cascade.math.complicated")
@@ -70,7 +70,7 @@ def test_math_log(tmpdir):
 def test_code_log(tmpdir):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
 
     codelog = logging.getLogger("cascade.whatever.complicated")
     codelog.debug("debugfil")
@@ -92,7 +92,7 @@ def test_code_log(tmpdir):
 def test_reduced_code_log(tmpdir):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(
+    args = parser.parse_args(
         ["-q", "--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
 
     codelog = logging.getLogger("cascade.whatever.complicated")
@@ -113,7 +113,7 @@ def test_reduced_code_log(tmpdir):
 def test_math_log_fail_bad_dir(tmpdir, capsys):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["--mvid", "2347", "--epiviz-log", "bogus", "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", "bogus", "--code-log", str(tmp_dir)])
     close_all_handlers()
 
     codelog = logging.getLogger("cascade.whatever.complicated")
@@ -123,7 +123,7 @@ def test_math_log_fail_bad_dir(tmpdir, capsys):
 def test_math_log_fail_no_mvid(tmpdir, capsys):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
 
     codelog = logging.getLogger("cascade.whatever.complicated")
     assert "no mvid" in capsys.readouterr().err
@@ -134,7 +134,7 @@ def test_math_log_fail_subdir_fail(tmpdir, capsys):
     ez_log = tmp_dir / "ezlog"
     ez_log.mkdir(mode=stat.S_IWUSR)  # This should be a creative failure.
     parser = DMArgumentParser()
-    args, _ = parser.parse_known_args(["--mvid", "2347", "--epiviz-log", str(ez_log), "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", str(ez_log), "--code-log", str(tmp_dir)])
 
     codelog = logging.getLogger("cascade.whatever.complicated")
     assert "Could not make" in capsys.readouterr().err

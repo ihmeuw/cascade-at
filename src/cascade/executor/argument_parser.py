@@ -35,7 +35,7 @@ class BaseArgumentParser(ArgumentParser):
       error level, and three ``-q`` turns off exception logging.
 
     * ``--logmod module_name`` This turns on debug logging for one module.
-      For example, ``--logmod cascade_at.db`` turns on database logging.
+      For example, ``--logmod cascade.db`` turns on database logging.
       This can be used for several modules.
 
     * ``--modlevel level_str`` One of debug, info, warning, error, exception.
