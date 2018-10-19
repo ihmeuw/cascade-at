@@ -134,7 +134,7 @@ class Field(FormComponent):
                              should be validated.
 
         Returns:
-            [(str, str)]: a list of error messages with path strings
+            [(str, str, str)]: a list of error messages with path strings
                           showing where in this object they occurred. For most
                           fields the path will always be empty.
         """
