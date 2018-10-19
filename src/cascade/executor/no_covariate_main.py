@@ -261,7 +261,8 @@ def entry():
         nargs="*",
         help="Rates to estimate, all others will be zero",
     )
-    args, _ = parser.parse_known_args()
+
+    args = parser.parse_args()
     if args.non_zero_rates:
         non_zero_rates = args.non_zero_rates
     else:

@@ -1,6 +1,6 @@
 .. _error-handling-plans:
 
-Error-handling Plans
+Error-Handling Plans
 ====================
 
 .. _exception-handling-plans:
@@ -14,7 +14,7 @@ ways between and within the layers.
 *  EpiViz is one version of the top of this chain.
 *  At the top, catch all exceptions and return as strings to EpiViz on initial call.
 *  Within processing the settings, any settings that don't
-   make sense are returned as a list of errors, not through exception-hanlding.
+   make sense are returned as a list of errors, not through exception-handling.
 *  Below this, assume we are working inside of a UGE job.
    Failure of one job does not kill all jobs b/c people can
    use whatever data they get, often times.

@@ -35,7 +35,7 @@ class BaseArgumentParser(ArgumentParser):
       error level, and three ``-q`` turns off exception logging.
 
     * ``--logmod module_name`` This turns on debug logging for one module.
-      For example, ``--logmod cascade_at.db`` turns on database logging.
+      For example, ``--logmod cascade.db`` turns on database logging.
       This can be used for several modules.
 
     * ``--modlevel level_str`` One of debug, info, warning, error, exception.
@@ -77,17 +77,17 @@ class BaseArgumentParser(ArgumentParser):
                     f"--{arg_name}", type=arg_types[base["type"]], default=base["default"], help=base["help"]
                 )
 
-    def parse_known_args(self, args=None, namespace=None):
+    def parse_args(self, args=None, namespace=None):
         """Parses command line arguments. Use this instead of
-        `parse_args` because it's less likely to fail unexpectedly.
+        `parse_known_args` because it won't fail silently.
 
         Before doing what ArgumentParser.parse_args normally does, we gotta do
         the provenance.
         """
-        _args, _argv = super().parse_known_args(args, namespace)
+        _args = super().parse_args(args, namespace)
 
         self._logging_config(_args)
-        return _args, _argv
+        return _args
 
     def exit(self, status=0, message=None):
         """
@@ -107,14 +107,14 @@ class BaseArgumentParser(ArgumentParser):
         """Configures logging. Command-line arguments ``-v`` and ``-q``
         set both the code log file and what streams to stdout. The ``-v``
         flag turns on debug level, and ``-q`` sets it to info level.
-        The math logger will always be set to info level.
+        The math logger will always be set to debug level.
 
         Arguments:
             args (argparse.Namespace): the arguments parsed by self. This
                 must have members ``verbose``, ``quiet``, ``code_log``,
                 ``mvid``, ``epiviz_log``, ``logmod``, and ``modlevel``.
         """
-        # Any handlers from from a basicConfig, which we will reconfigure.
+        # Any handlers from a basicConfig, which we will reconfigure.
         for handler in logging.root.handlers:
             logging.root.removeHandler(handler)
 
@@ -131,7 +131,7 @@ class BaseArgumentParser(ArgumentParser):
         code_log = BaseArgumentParser._logging_configure_root_log(args.code_log, level)
         BaseArgumentParser._logging_configure_mathlog(args.mvid, args.epiviz_log)
         BaseArgumentParser._logging_individual_modules(args.logmod, args.modlevel)
-        if code_log:
+        if code_log:  # Tell the math log people where the code log is located.
             logging.getLogger("cascade.math").info(f"Code log is at {code_log}")
 
     @staticmethod

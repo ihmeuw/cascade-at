@@ -97,7 +97,7 @@ def add_omega_constraint(model_context, execution_context):
     asdr = asdr.query("year_start >= @min_time and year_end <= @max_time and year_start % 5 == 0")
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
 
-    mask = model_context.input_data.observations.measure.isin(["mtall", "mtother", "mtspecific"])
+    mask = model_context.input_data.observations.measure == "mtall"
     model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr])
     model_context.input_data.observations = model_context.input_data.observations[~mask]
 
@@ -192,7 +192,7 @@ def entry():
     parser.add_argument("--no-upload", action="store_true")
     parser.add_argument("--db-only", action="store_true")
     parser.add_argument("--pdb", action="store_true")
-    args, _ = parser.parse_known_args()
+    args = parser.parse_args()
 
     CODELOG.debug(args)
     try:
