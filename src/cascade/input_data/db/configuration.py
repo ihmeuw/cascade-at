@@ -71,7 +71,12 @@ def load_raw_settings_file(ec, settings_file):
         int: Model version ID, either found in file or latest from meid.
     """
     with open(str(settings_file), "r") as f:
-        raw_settings = json.load(f)
+        try:
+            raw_settings = json.load(f)
+        except json.decoder.JSONDecodeError as jde:
+            MATHLOG.error(
+                f"The format of the JSON in {settings_file} has an error. {jde}")
+            raise
     if "model" in raw_settings and "modelable_entity_id" in raw_settings["model"]:
         ec.parameters.modelable_entity_id = raw_settings["model"]["modelable_entity_id"]
     else:

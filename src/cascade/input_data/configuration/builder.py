@@ -116,6 +116,8 @@ def assign_covariates(model_context, execution_context, configuration):
         ccov_ranges_df = convert_gbd_ids_to_dismod_values(ccov_df, age_groups)
 
         if model_context.input_data.observations is not None:
+            MATHLOG.info(f"Adding {country_covariate_id} using "
+                         f"covariate_to_measurements_nearest_favoring_same_year()")
             observations_column = covariate_to_measurements_nearest_favoring_same_year(
                 model_context.input_data.observations, ccov_ranges_df)
         else:

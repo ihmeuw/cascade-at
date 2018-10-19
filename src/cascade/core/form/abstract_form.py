@@ -60,14 +60,16 @@ class FormComponent:
         nullable (bool): If False then missing data for this node is considered
           an error. Defaults to False.
         default: Default value to return if unset
+        name (str): The name used in the EpiViz interface.
     """
 
     _children = None
 
-    def __init__(self, nullable=False, default=None):
+    def __init__(self, nullable=False, default=None, name=None):
         self._nullable = nullable
         self._default = default
         self._name = None
+        self._screen_name = name
         if self._children:
             self._child_instances = {c: NO_VALUE for c in self._children}
         else:
@@ -81,6 +83,10 @@ class FormComponent:
             return value
         else:
             return None
+
+    @property
+    def screen_name(self):
+        return self._screen_name if self._screen_name else self._name
 
     def is_unset(self, instance):
         value = instance._child_instances[self]
@@ -129,7 +135,7 @@ class Field(FormComponent):
 
         Returns:
             [(str, str)]: a list of error messages with path strings
-                          showing where in this object they occured. For most
+                          showing where in this object they occurred. For most
                           fields the path will always be empty.
         """
         if self.is_unset(instance):
@@ -155,7 +161,7 @@ class Field(FormComponent):
 
         Returns:
             [(str, str)]: a list of error messages with path strings
-                          showing where in this object they occured. For most
+                          showing where in this object they occurred. For most
                           fields the path will always be empty.
         """
         return value, None
@@ -221,8 +227,8 @@ class Form(FormComponent):
                           the field had in the input data.
     """
 
-    def __init__(self, source=None, name_field=None, nullable=False):
-        super().__init__(nullable=nullable)
+    def __init__(self, source=None, name_field=None, nullable=False, name=None):
+        super().__init__(nullable=nullable, name=name)
         self._args = []
         self._kwargs = {"name_field": name_field, "nullable": nullable}
         self._name_field = name_field
@@ -284,7 +290,7 @@ class Form(FormComponent):
                     # not thinking clearly about how these error paths
                     # get constructed.
                     errors.extend(
-                        [((f"{child._name}." + p).replace(".[", "[") if p else child._name, e) for p, e in c_errors]
+                        [((f"{child.screen_name}." + p).replace(".[", "[") if p else child.screen_name, e) for p, e in c_errors]
                     )
                 else:
                     errors.extend(c_errors)

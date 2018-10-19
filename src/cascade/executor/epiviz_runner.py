@@ -87,6 +87,7 @@ def add_omega_constraint(model_context, execution_context):
     Adds a constraint to other-cause mortality rate. Removes mtother,
     mtall, and mtspecific from observation data.
     """
+    MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
     asdr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
     )
@@ -199,8 +200,11 @@ def entry():
         main(args)
     except SettingsError as e:
         MATHLOG.error(str(e))
-        MATHLOG.error(f"Form data: {pformat(e.form_data)}")
-        MATHLOG.error(f"Form validation errors: {pformat(e.form_errors)}")
+        MATHLOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
+        error_lines = list()
+        for error_spot, error_message in e.form_errors:
+            error_lines.append(f"\t{error_spot}: {error_message}")
+        MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
         exit(1)
     except Exception:
         if args.pdb:
