@@ -13,25 +13,25 @@ or if no ``model_version_id`` is provided, an empty dataframe will be retrieved 
 a csv file with no rows of data will be written.  
 
 The output is a csv file for an AT model and a csv file for an ODE model.
-These files have the names: at_<mvid> and ode_<mvid>, where <mvid> stands for the 
-model_version_id provided for each model type.
+These files have the names: ``at_<mvid>.csv`` and ``ode_<mvid>.csv``, where <mvid> 
+stands for the model_version_id provided for each model type.
 
-To run the script on the cluster::
+To run the script on the cluster:
 
-1. Activate the current cascade environment
+1. Activate the current cascade environment::
 
-cluster> source /ihme/code/dismod_at/env/current/bin/activate
+    cluster> source /ihme/code/dismod_at/env/current/bin/activate
 
-2. Run the script and supply values for <x>, <y>, and <d> 
+2. Run the script and supply values for <x>, <y>, and <d>:: 
 
-cluster> dmsr2csv --at_mvid=<x> --ode_mvid=<y> --output_dir=<d>     
+    cluster> dmsr2csv --at_mvid=<x> --ode_mvid=<y> --output_dir=<d>     
 
 
 An example call to ``dmsr2csv`` is::
 
     dmsr2csv --at_mvid=265844 --ode_mvid=102680 --output_dir=/ihme/code/someusername/somedir
 
-Two csv files will be written to /ihme/code/someusername/somedir::
+Two csv files will be written to ``/ihme/code/someusername/somedir``::
 
     at_265844.csv and ode_102680.csv
 

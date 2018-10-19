@@ -9,3 +9,4 @@ User Manual
    dmcsv2db
    dismodat
    covariates
+   dmsr2csv
