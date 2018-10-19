@@ -290,7 +290,7 @@ class Form(FormComponent):
                     # not thinking clearly about how these error paths
                     # get constructed.
                     errors.extend(
-                        [((f"{child.screen_name}." + p).replace(".[", "[") if p else child.screen_name, e) for p, e in c_errors]
+                        [((f"{child._name}." + p).replace(".[", "[") if p else child._name, e) for p, e in c_errors]
                     )
                 else:
                     errors.extend(c_errors)
