@@ -1,8 +1,10 @@
-"""This module contributes to being able to compare results from Dismod ODE and Dismod AT.
+"""This module aids in comparing results from Dismod AT and Dismod ODE.
 """
 from argparse import ArgumentParser
 import logging
+import os
 from pathlib import Path
+import sys
 
 import pandas as pd
 
@@ -13,7 +15,10 @@ CODELOG = logging.getLogger(__name__)
 
 
 def _get_model_results(model_version_id, model_type):
-    """Downloads the model results data for a Dismod model of type ODE or AT.
+    """Downloads the model results data for a Dismod model of type AT or ODE.
+    The data lives in the epi.model_estimate_fit table which has columns:
+    model_version_id, year_id, location_id, sex_id, age_group_id, measure_id,
+    mean, upper, lower
 
     If saves_results data does not exist for model_version_id, an empty dataframe
     is returned.  This includes the case of a user supplying text, such as 'three',
@@ -32,7 +37,7 @@ def _get_model_results(model_version_id, model_type):
     elif model_type.upper() == "ODE":
         database = "epi"
     else:
-        raise ValueError(f"model must be of type 'ODE' or 'AT', not {model_type}")
+        raise ValueError(f"model must be of type 'AT' or 'ODE', not {model_type}")
 
     table = "epi.model_estimate_fit"
 
@@ -54,7 +59,7 @@ def _write_model_results(model_results, model_version_id, model_type, output_dir
     """ Writes the model_results dataframe as a csv file to the output dir.
     """
     file_name = Path(output_dir) / f"{model_type.lower()}_{model_version_id}.csv"
-    model_results.to_csv(file_name)
+    model_results.to_csv(file_name, index=False)
 
 
 def entry():
@@ -63,7 +68,7 @@ def entry():
     If the user does not provide an at_mvid, an empty dataframe is written as at_None.csv;
     similarly if no ode_mvid is provided, an empty ode_None.csv is written.
     """
-    parser = ArgumentParser("Writes two csv files, one for dismod AT results and one for dismod ODE results.")
+    parser = ArgumentParser("Writes two csv files, one for Dismod AT results and one for Dismod ODE results.")
     parser.add_argument("--at_mvid", help="model_version_id for AT results")
     parser.add_argument("--ode_mvid", help="model_version_id for ODE results")
     parser.add_argument("--output_dir", default=".", help="output directory for csv files")
@@ -74,6 +79,11 @@ def entry():
     else:
         log_level = logging.INFO
     logging.basicConfig(level=log_level)
+
+    # check if output_directory exists
+    if not os.path.isdir(args.output_dir):
+        sys.exit(f"""Error: Directory provided: {args.output_dir} does not exist.
+                            Please create first, or check the spelling.""")
 
     at_results = _get_model_results(args.at_mvid, "AT")
     ode_results = _get_model_results(args.ode_mvid, "ODE")
