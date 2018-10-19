@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.input_data.configuration import builder
+from cascade.input_data import InputDataError
 
 
 @pytest.fixture
@@ -82,5 +83,5 @@ def test_convert_age_groups_failure():
         "sex_id": [1, 1, 1, 2, 2, 2],
         "value": [0, 1, 2, 3, 4, 5],
     })
-    with pytest.raises(RuntimeError):
+    with pytest.raises(InputDataError):
         builder.convert_gbd_ids_to_dismod_values(by_id, groups)

@@ -13,9 +13,10 @@ from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.rates import Smooth
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.ccov import country_covariates
-from cascade.input_data.db.demographics import get_age_groups
+from cascade.input_data.db.demographics import get_all_age_spans
 from cascade.core.context import ModelContext
 import cascade.model.priors as priors
+from cascade.input_data import InputDataError
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -39,7 +40,7 @@ These functions transform covariate data, as specified in EpiViz.
 """
 
 
-class SettingsToModelError(Exception):
+class SettingsToModelError(InputDataError):
     """Error creating a model from the settings"""
 
 
@@ -97,7 +98,7 @@ def assign_covariates(model_context, execution_context, configuration):
     """
     covariate_map = {}  # to find the covariates for covariate multipliers.
     avgint_table = model_context.average_integrand_cases
-    age_groups = get_age_groups(model_context)
+    age_groups = get_all_age_spans(model_context)
 
     # This walks through all unique combinations of covariates and their
     # transformations. Then, later, we apply them to particular target
@@ -179,13 +180,15 @@ def create_covariate_multipliers(context, configuration, column_id_func):
         if mul_cov_config.mulcov_type == "rate_value":
             if target_dismod_name not in PRIMARY_INTEGRANDS_TO_RATES:
                 raise SettingsToModelError(
-                    f"Can only set a rate_value on a primary integrand. "
-                    f"{mul_cov_config.measure_id} is not a primary integrand."
+                    f"Multiplier type for covariate {mul_cov_config.country_covariate_id} is on the rate value. "
+                    f"Can only set a rate value on a primary integrand. Measure id "
+                    f"{mul_cov_config.measure_id} name {target_dismod_name} is not a primary integrand. "
+                    f"Primary integrands are {', '.join(list(sorted(PRIMARY_INTEGRANDS_TO_RATES.keys())))}"
                 )
             add_to_rate = getattr(context.rates, PRIMARY_INTEGRANDS_TO_RATES[target_dismod_name])
             add_to_rate.covariate_multipliers.append(covariate_multiplier)
         else:
-            add_to_integrand = context.outputs.integrand_covariate_multipliers[target_dismod_name]
+            add_to_integrand = context.integrand_covariate_multipliers[target_dismod_name]
             if mul_cov_config.mulcov_type == "meas_value":
                 add_to_integrand.value_covariate_multipliers.append(covariate_multiplier)
             elif mul_cov_config.mulcov_type == "meas_std":
@@ -273,10 +276,15 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
     merged = pd.merge(aged, sex_df, on="sex_id")
     if len(merged) != len(with_ids_df):
         # This is a fault in the input data.
-        missing = set(with_ids_df.age_group_id.unique()) - set(age_groups_df.age_group_id.unique())
-        raise RuntimeError(f"Not all age group ids from observations are found in the age group list {missing}")
+        incoming_age_group_ids = set(with_ids_df.age_group_id.unique())
+        missing = incoming_age_group_ids - set(age_groups_df.age_group_id.unique())
+        raise InputDataError(f"Not all age group ids from observations are found in the age group list "
+                           f"missing age groups {missing} other age ids in bundle {list(sorted(incoming_age_group_ids))} "
+                           f"Of the original {len(with_ids_df)} records, {len(merged)} had known ids.")
     reordered = merged.sort_values(by="original_index").reset_index()
     reordered["time_lower"] = reordered["year_id"]
+    MATHLOG.info(f"Conversion of bundle assumes demographic notation for years, "
+                 f"so it adds a year to time_upper.")
     reordered["time_upper"] = reordered["year_id"] + 1
     dropped = reordered.drop(columns=["age_group_id", "year_id", "original_index"])
     return dropped.rename(columns={"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"})
@@ -285,7 +293,7 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
 def make_smooth(configuration, smooth_configuration):
     ages = smooth_configuration.age_grid
     if ages is None:
-        if smooth_configuration.rate == "pini":
+        if getattr(smooth_configuration, "rate", None) == "pini":
             ages = [0]
         else:
             ages = configuration.model.default_age_grid
