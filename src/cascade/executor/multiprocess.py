@@ -3,14 +3,13 @@ This module is responsible for running subprocesses according to a plan
 that says which must either start or complete before the next can start.
 It is a layer over the Python subprocess module.
 """
-import logging
 import os
 import subprocess
 import time
 from types import FunctionType as function
 
-
-CODELOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class NotEnoughResources(Exception):

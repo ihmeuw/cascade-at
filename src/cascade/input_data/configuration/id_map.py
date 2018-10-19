@@ -1,5 +1,8 @@
 from cascade.dismod.db.metadata import IntegrandEnum
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 # Generated with
 #    from db_queries import get_ids

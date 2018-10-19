@@ -1,3 +1,7 @@
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
+
 class SettingsError(Exception):
     def __init__(self, message, form_errors=[], form_data=None):
         super().__init__(message)

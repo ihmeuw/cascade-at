@@ -1,3 +1,7 @@
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
+
 class Rates:
     def __init__(self):
         self.incidence = None

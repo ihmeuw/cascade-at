@@ -1,13 +1,10 @@
 """This module retrieves country covariates from the database.
 """
 
-import logging
-
 from cascade.core.db import db_queries
 
-
-CODELOG = logging.getLogger(__name__)
-MATHLOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def country_covariates(covariate_id, demographics, gbd_round_id):
@@ -38,8 +35,9 @@ def country_covariates(covariate_id, demographics, gbd_round_id):
         sex_id=demographics["sex_ids"],
         gbd_round_id=gbd_round_id
     )[[
-            "covariate_id", "covariate_name_short", "location_id", "age_group_id",
-            "year_id", "sex_id", "mean_value"]]
+        "covariate_id", "covariate_name_short", "location_id", "age_group_id",
+        "year_id", "sex_id", "mean_value"
+    ]]
 
     CODELOG.debug(
         f"Downloaded {len(covariates_df)} lines of country covariates data")

@@ -34,13 +34,11 @@ That gives enough freedom to specify the command list when
 defining the :class:`cascade_at.sequential_batch.Batch`.
 """
 import functools
-import logging
 import os
 import asyncio
 
-
-CODELOG = logging.getLogger(__name__)
-MATHLOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class DismodATException(Exception):

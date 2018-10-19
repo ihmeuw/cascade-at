@@ -1,3 +1,7 @@
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
+
 class Smooth:
     __slots__ = ["_value_priors", "_d_age_priors", "_d_time_priors", "name"]
 

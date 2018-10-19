@@ -2,7 +2,6 @@
 This describes the tables in the sqlite file that Dismod reads.
 """
 import enum
-import logging
 
 import numpy as np
 
@@ -11,8 +10,8 @@ from sqlalchemy import Column, Integer, String, Float, Enum, ForeignKey
 from sqlalchemy import BigInteger
 from sqlalchemy.ext.compiler import compiles
 
-
-LOGGER = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 # Sqlite matches names to types. Brad checks exact names against a set
@@ -550,6 +549,6 @@ def add_columns_to_table(table, column_identifiers):
         column_identifiers: dict(name -> type) where type
             is one of int, float, str
     """
-    LOGGER.debug(f"Adding columns to {table.name} table {list(column_identifiers.keys())}")
+    CODELOG.debug(f"Adding columns to {table.name} table {list(column_identifiers.keys())}")
     for name, python_type in column_identifiers.items():
         table.append_column(Column(name, _TYPE_MAP[python_type]()))

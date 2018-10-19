@@ -1,6 +1,5 @@
 """ Functions for creating internal model representations of settings from EpiViz
 """
-import logging
 from collections import defaultdict
 
 import numpy as np
@@ -18,8 +17,8 @@ from cascade.input_data.db.demographics import get_age_groups
 from cascade.core.context import ModelContext
 import cascade.model.priors as priors
 
-
-MATHLOG = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def identity(x):

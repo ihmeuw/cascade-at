@@ -29,6 +29,9 @@ Example:
     "Some Text"
 """
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 class NoValue:
     """Represents an unset value, which is distinct from None because None may

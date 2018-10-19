@@ -3,6 +3,9 @@ mostly useful field types.
 """
 from cascade.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 class IntField(SimpleTypeField):
     def __init__(self, *args, **kwargs):

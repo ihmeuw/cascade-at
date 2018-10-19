@@ -2,6 +2,9 @@ import pandas as pd
 
 from cascade.core.db import connection
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 def get_excess_mortality_data(execution_context):
     model_version_id = execution_context.parameters.model_version_id

@@ -6,6 +6,9 @@ have consistency and a single chokepoint for that access.
 import importlib
 from contextlib import contextmanager
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 BLOCK_SHARED_FUNCTION_ACCESS = False
 """
 Used to control access to the testing environment. You can't load this

@@ -13,6 +13,9 @@ import numpy as np
 from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
 from cascade.model import priors
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 class SmoothingPrior(Form):
     def __init__(self, *args, **kwargs):

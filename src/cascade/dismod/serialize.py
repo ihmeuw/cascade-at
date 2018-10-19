@@ -1,7 +1,6 @@
 """
 Converts the internal representation to a Dismod File.
 """
-import logging
 from numbers import Real
 import time
 import sys
@@ -15,8 +14,8 @@ from cascade.model.priors import Constant
 from cascade.model.grids import unique_floats
 from cascade.input_data.db.locations import get_location_hierarchy_from_gbd
 
-
-LOGGER = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def model_to_dismod_file(model, execution_context):
@@ -41,7 +40,7 @@ def model_to_dismod_file(model, execution_context):
     bundle_fit.integrand["minimum_meas_cv"] = model.parameters.minimum_meas_cv
 
     bundle_fit.covariate = bundle_fit.empty_table("covariate")
-    LOGGER.debug(f"Covariate types {bundle_fit.covariate.dtypes}")
+    CODELOG.debug(f"Covariate types {bundle_fit.covariate.dtypes}")
 
     # Defaults, empty, b/c Brad makes them empty.
     bundle_fit.nslist = bundle_fit.empty_table("nslist")

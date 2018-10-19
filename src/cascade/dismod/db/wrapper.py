@@ -4,12 +4,11 @@ Creates a file for Dismod-AT to read.
 The file format is sqlite3. This uses a local mapping of database tables
 to create it and add tables.
 """
-import logging
-
 from textwrap import dedent
 from copy import deepcopy
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
+
 import pandas as pd
 import numpy as np
 
@@ -21,8 +20,8 @@ from sqlalchemy import Integer, String, Float, Enum
 from cascade.dismod.db.metadata import Base, add_columns_to_table, DensityEnum
 from cascade.dismod.db import DismodFileError
 
-
-LOGGER = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def _get_engine(file_path):
@@ -160,13 +159,13 @@ class DismodFile:
         self._table_definitions = self._metadata.tables
         self._table_data = {}
         self._table_hash = {}
-        LOGGER.debug(f"dmfile tables {self._table_definitions.keys()}")
+        CODELOG.debug(f"dmfile tables {self._table_definitions.keys()}")
 
     def create_tables(self, tables=None):
         """
         Make all of the tables in the metadata.
         """
-        LOGGER.debug(f"Creating table subset {tables}")
+        CODELOG.debug(f"Creating table subset {tables}")
         Base.metadata.create_all(self.engine, tables, checkfirst=False)
 
     def make_densities(self):
@@ -300,7 +299,7 @@ class DismodFile:
                         table.index = table.index.astype(np.int64)
                     try:
                         dtypes = {k: v.type for k, v in table_definition.c.items()}
-                        LOGGER.debug(f"table {table_name} types {dtypes}")
+                        CODELOG.debug(f"table {table_name} types {dtypes}")
                         table.index.name = None
                         table.to_sql(
                             table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
@@ -346,7 +345,7 @@ class DismodFile:
                         if type(column_object.type) != type(expect[column_type]):  # noqa: E721
                             raise RuntimeError(f"{table_name}.{column_name} got wrong type {column_type}")
 
-                    LOGGER.debug(f"Table integrand {table_info}")
+                    CODELOG.debug(f"Table integrand {table_info}")
 
     def diagnostic_print(self):
         """

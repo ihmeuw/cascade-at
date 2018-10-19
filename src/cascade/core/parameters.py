@@ -1,3 +1,7 @@
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
+
 class _ParameterHierarchy:
     """An immutable store which gives dot notation access to hierarchical key-value data
     """

@@ -1,12 +1,10 @@
 """
 Defines demography functions.
 """
-import logging
-
 import numpy as np
 
-
-LOGGER = logging.getLogger(__name__)
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class DemographicInterval:
@@ -37,7 +35,7 @@ class DemographicInterval:
             begin (float): Starting age, defaults to 0.
         """
         nx = np.array(nx, dtype=np.double)
-        LOGGER.debug(f"di nx {nx} begin {begin} {nx.cumsum()}")
+        CODELOG.debug(f"di nx {nx} begin {begin} {nx.cumsum()}")
         self.bound = np.hstack([[begin], begin + nx.cumsum()])
         self.nx = nx
 
@@ -60,7 +58,7 @@ class DemographicInterval:
             b = key.stop or len(self.nx)
         else:
             a, b = key, key + 1
-        LOGGER.debug(f"di getitem keystart {a} {b}")
+        CODELOG.debug(f"di getitem keystart {a} {b}")
         return DemographicInterval(self.nx[a:b], begin=self.bound[a])
 
     def overlaps_with(self, other):

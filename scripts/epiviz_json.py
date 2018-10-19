@@ -4,6 +4,9 @@ import json
 from cascade.input_data.db.configuration import load_raw_settings_mvid, load_raw_settings_meid
 from cascade.testing_utilities import make_execution_context
 
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
+
 
 def main():
     parser = argparse.ArgumentParser("Download the JSON settings for an epiviz model")

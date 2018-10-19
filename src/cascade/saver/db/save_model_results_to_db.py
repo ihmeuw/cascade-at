@@ -1,7 +1,6 @@
 """
 Saves results from a model fit to a database which the EpiViz can access.
 """
-import logging
 from pathlib import Path
 import tempfile
 
@@ -20,6 +19,9 @@ except ImportError:
             raise ImportError(f"Required package save_results not found")
 
     save_results_at = DummySaveResults()
+
+from cascade.core.log import getLoggers
+CODELOG, MATHLOG = getLoggers(__name__)
 
 DRAWS_INPUT_FILE_PATTERN = "all_draws.h5"
 
@@ -41,9 +43,6 @@ INTEGRAND_ID_TO_MEASURE_ID_DF = pd.DataFrame(
     ],
     columns=["integrand_id", "measure_id"],
 )
-
-CODELOG = logging.getLogger(__name__)
-MATHLOG = logging.getLogger(__name__)
 
 
 def _normalize_draws_df(draws_df, execution_context):
