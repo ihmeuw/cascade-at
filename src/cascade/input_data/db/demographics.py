@@ -1,5 +1,5 @@
 from cascade.core.db import db_queries
-from db_queries.get_age_metadata import get_age_spans
+from cascade.core.db import age_spans
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -46,4 +46,4 @@ def get_all_age_spans(execution_context):
         pd.DataFrame: with columns ["age_group_id", "age_group_years_start",
             "age_group_years_end"]
     """
-    return get_age_spans()
+    return age_spans.get_age_spans()
