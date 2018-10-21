@@ -8,6 +8,7 @@ import pandas as pd
 
 from cascade.core.db import cursor, connection
 from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.input_data import InputDataError
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -201,6 +202,8 @@ def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
 
 def _upload_study_covariates_to_tier_3(cursor, model_version_id, covariate_data):
     """Uploads study covariate mappings to tier 3 attached to the current model_version_id.
+    This isn't doing what it has to do. See
+    https://stash.ihme.washington.edu/users/joewag/repos/cascade_ode/browse/cascade_ode/importer.py#13,170,259-260
     """
 
     insert_query = f"""
@@ -252,7 +255,8 @@ def freeze_bundle(execution_context, bundle_id=None) -> bool:
 
 
 def _normalize_measures(data):
-    """Transform measure_ids into canonical measure names
+    """Transform measure_ids into canonical measure names, for instance,
+    GBD measure 38 for birth prevalence becomes pini.
     """
     data = data.copy()
     gbd_measure_id_to_integrand = make_integrand_map()
@@ -269,10 +273,13 @@ def _normalize_measures(data):
 
 
 def _normalize_sex(data):
-    """Transform sex_ids into strings
+    """Transform sex_ids from 1, 2, 3 to male, female, both.
     """
     data = data.copy()
-    data["sex"] = data.sex_id.apply({1: "Male", 2: "Female", 3: "Both"}.get)
+    try:
+        data["sex"] = data.sex_id.apply({1: "Male", 2: "Female", 3: "Both", 4: "Unspecified"}.get)
+    except KeyError as ke:
+        raise InputDataError(f"Unrecognized sex id") from ke
     return data
 
 

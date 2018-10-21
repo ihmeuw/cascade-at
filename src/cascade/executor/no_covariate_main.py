@@ -126,7 +126,7 @@ def data_from_csv(data_path):
 def bundle_to_observations(config, bundle_df):
     """Convert bundle into an internal format."""
     if "incidence" in bundle_df["measure"].values:
-        CODELOG.info("Bundle has incidence. Replacing with Sincidence. Is this correct?")
+        CODELOG.warning("Bundle has incidence. Replacing with Sincidence. Is this correct?")
         bundle_df["measure"] = bundle_df["measure"].replace("incidence", "Sincidence")
 
     for check_measure in bundle_df["measure"].unique():
@@ -140,7 +140,11 @@ def bundle_to_observations(config, bundle_df):
 
     # assume using demographic notation because this bundle uses it.
     demographic_interval_specification = 0
+    MATHLOG.info(f"Does this bundle assume demographic notation? {demographic_interval_specification}. "
+                 f"A 1 means that 1 year is added to both end ages and end times. A 0 means nothing is added.")
 
+    weight_method = "constant"
+    MATHLOG.info(f"The set of weights for this bundle is {weight_method}.")
     # Stick with year_start instead of time_start because that's what's in the
     # bundle, so it's probably what modelers use. Would be nice to pair
     # start with finish or begin with end.
@@ -149,7 +153,7 @@ def bundle_to_observations(config, bundle_df):
             "measure": bundle_df["measure"],
             "location_id": location_id,
             "density": DensityEnum.gaussian,
-            "weight": "constant",
+            "weight": weight_method,
             "sex": bundle_df["sex"],
             "age_start": bundle_df["age_start"],
             "age_end": bundle_df["age_end"] + demographic_interval_specification,

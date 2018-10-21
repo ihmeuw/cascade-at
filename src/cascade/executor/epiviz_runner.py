@@ -104,10 +104,36 @@ def add_omega_constraint(model_context, execution_context):
 
 
 def model_context_from_settings(execution_context, settings):
-    model_context = initial_context_from_epiviz(settings)
+    """
+     1. Freeze the measurement bundle, which means that we make a copy of the
+        input measurement data and study covariates for safe-keeping
+        in case there is later question about what data was used.
 
-    fixed_effects_from_epiviz(model_context, execution_context, settings)
-    random_effects_from_epiviz(model_context, settings)
+     2. Retrieve the measurement bundle and its study covariates
+        and convert it into data on the model, as described in
+        :ref:`convert-bundle-to-measurement-data`.
+
+     3. Add mortality data. This is cause-specific mortality
+        data, and it is added as "mtspecific" in the Dismod-AT measurements.
+        This data has a "measurement upper" and "measurement lower"
+        which are converted into a standard error with a Gaussian
+        prior.
+
+     4. Add other-cause mortality as a constraint on the system, meaning
+        the age-standardized death rate is used to construct both
+        measurement data for mtall, with priors determined from
+        "measurement upper" and "measurement lower", but also a constraint
+        on omega, the underlying rate for other-cause mortality, so that
+        Dismod-AT will accept this as a given in the problem.
+
+     5. Create Average Integrand Cases, which are the list of
+        desired outputs from Dismod-AT to show in graphs in EpiViz-AT.
+
+     6. Construct all Fixed Effects.
+
+     7. Construct all Random Effects.
+    """
+    model_context = initial_context_from_epiviz(settings)
 
     freeze_bundle(execution_context, execution_context.parameters.bundle_id)
     load_csmr_to_t3(execution_context)
@@ -131,6 +157,9 @@ def model_context_from_settings(execution_context, settings):
     add_mortality_data(model_context, execution_context)
     add_omega_constraint(model_context, execution_context)
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
+
+    fixed_effects_from_epiviz(model_context, execution_context, settings)
+    random_effects_from_epiviz(model_context, settings)
 
     return model_context
 
@@ -173,6 +202,21 @@ def has_random_effects(model):
 
 
 def main(args):
+    """
+     1. Parse arguments to the command line. The GUI calls a shell script
+        which passes the model version ID to the EpiViz Runner.
+
+     2. Construct an Execution Context, which tells EpiViz Runner where it can find
+        directories, files, and databases on the cluster.
+
+     3. Load Settings, which are the values you entered into EpiViz-AT on the web page.
+
+     4. Using the Settings and the Execution Context, fill out the data and
+        any parameters for Dismod-AT, as described in
+        :ref:`build-model-from-epiviz-settings`.
+
+     5. Put that data into a file and run Dismod-AT on that file.
+    """
     ec = make_execution_context()
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
     add_settings_to_execution_context(ec, settings)
