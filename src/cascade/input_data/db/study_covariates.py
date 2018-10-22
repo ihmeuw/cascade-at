@@ -77,11 +77,12 @@ def _normalize_covariate_data(bundle_index, id_to_name, study_covariates):
     """
     The input is study covariates in a sparse-columnar format, so it's a list
     of which covariates are nonzero for which seq numbers, where a seq
-    number identifies a row in the bundle index.
+    number identifies a row in the bundle index. If there are no covariates,
+    the returned DataFrame is empty.
 
     Args:
         bundle_index (pd.Index): The index of seq numbers for the bundle.
-        execution_context: An execution context.
+        id_to_name: A dictionary from covariate id to covariate name.
         study_covariates (pd.DataFrame): Contains seq numbers and covariate ids.
             Optionally contains the ``bundle_id``.
 
@@ -103,7 +104,10 @@ def _normalize_covariate_data(bundle_index, id_to_name, study_covariates):
         raise InputDataError(f"Study covariates list ids not found in the bundle for "
                              f"covariates: {indices_not_found}.")
 
-    return pd.concat(study_covariate_columns, axis=1)
+    if study_covariate_columns:
+        return pd.concat(study_covariate_columns, axis=1)
+    else:
+        return pd.DataFrame(index=bundle_index)
 
 
 def get_bundle_study_covariates(bundle_index, bundle_id, execution_context, tier):

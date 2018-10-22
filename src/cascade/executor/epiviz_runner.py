@@ -158,7 +158,7 @@ def model_context_from_settings(execution_context, settings):
     add_omega_constraint(model_context, execution_context)
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
 
-    fixed_effects_from_epiviz(model_context, execution_context, settings)
+    fixed_effects_from_epiviz(model_context, study_covariates, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
     return model_context

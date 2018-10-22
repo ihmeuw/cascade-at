@@ -277,7 +277,7 @@ def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
 
     Returns:
         A tuple of (bundle data, study covariate labels) where the bundle data is a pd.DataFrame and the labels are a
-        pd.DataFrame with an index aligned with bundle data and a column without "x_" for each study covariate.
+        pd.DataFrame with an index aligned with bundle data and a column without ``x_`` for each study covariate.
     """
     if bundle_id is None:
         bundle_id = _get_bundle_id(execution_context)

@@ -333,7 +333,7 @@ def make_smooth(configuration, smooth_configuration):
     return Smooth(value, d_age, d_time)
 
 
-def fixed_effects_from_epiviz(model_context, execution_context, configuration):
+def fixed_effects_from_epiviz(model_context, study_covariates, execution_context, configuration):
     if configuration.rate:
         for rate_config in configuration.rate:
             rate_name = rate_config.rate
@@ -341,6 +341,8 @@ def fixed_effects_from_epiviz(model_context, execution_context, configuration):
                 raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             rate.parent_smooth = make_smooth(configuration, rate_config)
+    else:
+        MATHLOG.info(f"No rates are configured.")
 
     covariate_column_id_func = assign_covariates(model_context, execution_context, configuration)
     create_covariate_multipliers(model_context, configuration, covariate_column_id_func)

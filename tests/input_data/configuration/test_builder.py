@@ -116,7 +116,8 @@ def test_make_smooth(base_config):
 def test_fixed_effects_from_epiviz(base_config, ihme):
     ec = make_execution_context(gbd_round_id=5)
     mc = initial_context_from_epiviz(base_config)
-    fixed_effects_from_epiviz(mc, ec, base_config)
+    study_covariates = pd.DataFrame()
+    fixed_effects_from_epiviz(mc, study_covariates, ec, base_config)
     assert all([r.parent_smooth is None for r in [mc.rates.rho, mc.rates.pini, mc.rates.chi, mc.rates.omega]])
     assert mc.rates.iota.parent_smooth == make_smooth(base_config, base_config.rate[0])
 

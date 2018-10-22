@@ -65,3 +65,17 @@ def test_id_disagrees(basic_bundle):
                   "seq": [4, 4, 6, 8, not_in_bundle_index]})
     with pytest.raises(InputDataError):
         _normalize_covariate_data(basic_bundle.index, id_to_name, covs_in)
+
+
+def test_no_covariates(basic_bundle):
+    """
+    Given covariate data and a bundle, create Series that correspond to
+    the covariate values for the bundle bundle.
+    """
+    id_to_name = {}
+    cov_in = pd.DataFrame({"study_covariate_id": [],
+                         "bundle_id": [],
+                         "seq": []})
+    covs = pd.DataFrame(index=basic_bundle.index)
+    normalized = _normalize_covariate_data(basic_bundle.index, id_to_name, cov_in)
+    pd.testing.assert_frame_equal(normalized, covs)
