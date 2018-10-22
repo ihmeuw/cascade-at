@@ -29,7 +29,7 @@ def test_get_model_results_inputs_ok(ihme):
                                    check_exact=False, check_names=False)
 
 
-def test_get_model_results_bad_model_type():
+def test_get_model_results_bad_model_type(ihme):
     """Expect an exception if model_type is not AT or ODE"""
     with pytest.raises(ValueError):
         model_version_id = 265844
