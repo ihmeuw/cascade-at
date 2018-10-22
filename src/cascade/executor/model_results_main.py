@@ -69,9 +69,9 @@ def entry():
     similarly if no ode_mvid is provided, an empty ode_None.csv is written.
     """
     parser = ArgumentParser("Writes two csv files, one for Dismod AT results and one for Dismod ODE results.")
-    parser.add_argument("--at_mvid", help="model_version_id for AT results")
-    parser.add_argument("--ode_mvid", help="model_version_id for ODE results")
-    parser.add_argument("--output_dir", default=".", help="output directory for csv files")
+    parser.add_argument("--at-mvid", help="model_version_id for AT results")
+    parser.add_argument("--ode-mvid", help="model_version_id for ODE results")
+    parser.add_argument("--output-dir", default=".", help="output directory for csv files")
     parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
     args, _ = parser.parse_known_args()
     if args.v:

@@ -37,12 +37,12 @@ To run the script on the cluster:
 
 2. Run the script and supply values for <x>, <y>, and <d>:: 
 
-    cluster> dmsr2csv --at_mvid=<x> --ode_mvid=<y> --output_dir=<d>     
+    cluster> dmsr2csv --at-mvid=<x> --ode-mvid=<y> --output-dir=<d>     
 
 
 An example call to ``dmsr2csv`` is::
 
-    dmsr2csv --at_mvid=265844 --ode_mvid=102680 --output_dir=/ihme/code/someusername/somedir
+    dmsr2csv --at-mvid=265844 --ode-mvid=102680 --output-dir=/ihme/code/someusername/somedir
 
 Two csv files will be written to ``/ihme/code/someusername/somedir``::
 
