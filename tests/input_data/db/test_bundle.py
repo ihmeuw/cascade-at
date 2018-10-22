@@ -5,7 +5,7 @@ import pytest
 import pandas as pd
 
 from cascade.input_data.db.bundle import freeze_bundle, _get_bundle_id
-from cascade.input_data.db.study_covariates import _covariate_ids_to_names
+from cascade.input_data.db.study_covariates import covariate_ids_to_names
 
 
 def test_get_bundle_id__success(mock_execution_context, mock_database_access):
@@ -77,5 +77,5 @@ def test_covariate_ids_to_names(mock_execution_context, mock_database_access):
 
     raw_covariate_data = pd.DataFrame({"seq": [1, 2, 3, 5], "study_covariate_id": [1, 2, 3, 5]})
 
-    mapping = _covariate_ids_to_names(mock_execution_context, raw_covariate_data.study_covariate_id.unique())
+    mapping = covariate_ids_to_names(mock_execution_context, raw_covariate_data.study_covariate_id.unique())
     assert mapping[5]=="f"

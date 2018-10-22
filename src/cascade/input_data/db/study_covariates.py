@@ -51,8 +51,12 @@ def _get_study_covariates(execution_context, bundle_id, tier=3):
     return covariates
 
 
-def _covariate_ids_to_names(execution_context, study_covariate_ids):
+def covariate_ids_to_names(execution_context, study_covariate_ids):
     """Convert study_covariate_ids to canonical study covariate names
+
+    Args:
+        execution_context: For access to databases.
+        study_covariate_ids (List[int]): A list of unique study covariate ids.
     """
     study_covariate_ids = list(study_covariate_ids)
 
@@ -73,7 +77,7 @@ def _covariate_ids_to_names(execution_context, study_covariate_ids):
     return covariate_mapping
 
 
-def _normalize_covariate_data(bundle_index, id_to_name, study_covariates):
+def _normalize_covariate_data(bundle_index, study_covariates, covariate_ids):
     """
     The input is study covariates in a sparse-columnar format, so it's a list
     of which covariates are nonzero for which seq numbers, where a seq
@@ -82,9 +86,9 @@ def _normalize_covariate_data(bundle_index, id_to_name, study_covariates):
 
     Args:
         bundle_index (pd.Index): The index of seq numbers for the bundle.
-        id_to_name: A dictionary from covariate id to covariate name.
         study_covariates (pd.DataFrame): Contains seq numbers and covariate ids.
             Optionally contains the ``bundle_id``.
+        covariate_ids (List[int]): List of covariate ids to read.
 
     Returns:
         pd.DataFrame: Each column is a full row of zeros and ones, and the row
@@ -93,12 +97,12 @@ def _normalize_covariate_data(bundle_index, id_to_name, study_covariates):
     study_ids = study_covariates.set_index("seq").study_covariate_id
     study_covariate_columns = list()
     indices_not_found = list()
-    for cov_id in sorted(id_to_name):  # Sort for stable behavior.
-        cov_column =  pd.Series([0.0] * len(bundle_index), index=bundle_index.values, name=id_to_name[cov_id])
+    for cov_id in sorted(covariate_ids):  # Sort for stable behavior.
+        cov_column =  pd.Series([0.0] * len(bundle_index), index=bundle_index.values, name=cov_id)
         try:
             cov_column.loc[study_ids[study_ids == cov_id].index] = 1.0
         except KeyError:
-            indices_not_found.append((cov_id, id_to_name[cov_id]))
+            indices_not_found.append(cov_id)
         study_covariate_columns.append(cov_column)
     if indices_not_found:
         raise InputDataError(f"Study covariates list ids not found in the bundle for "
@@ -112,5 +116,5 @@ def _normalize_covariate_data(bundle_index, id_to_name, study_covariates):
 
 def get_bundle_study_covariates(bundle_index, bundle_id, execution_context, tier):
     covariate_data = _get_study_covariates(execution_context, bundle_id, tier=tier)
-    id_to_name = _covariate_ids_to_names(execution_context, covariate_data.study_covariate_id.unique())
-    return _normalize_covariate_data(bundle_index, id_to_name, covariate_data)
+    unique_ids = list(sorted(covariate_data.study_covariate_id.unique()))
+    return _normalize_covariate_data(bundle_index, covariate_data, unique_ids)
