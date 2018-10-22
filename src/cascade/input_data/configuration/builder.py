@@ -12,7 +12,7 @@ from cascade.model.covariates import Covariate, CovariateMultiplier
 from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.rates import Smooth
 from cascade.input_data.configuration import SettingsError
-from cascade.input_data.db.ccov import country_covariates
+from cascade.input_data.db.country_covariates import country_covariates
 from cascade.input_data.db.demographics import get_all_age_spans
 from cascade.core.context import ModelContext
 import cascade.model.priors as priors

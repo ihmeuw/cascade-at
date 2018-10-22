@@ -11,6 +11,9 @@ from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data import InputDataError
 
 from cascade.core.log import getLoggers
+from cascade.input_data.db.study_covariates import _get_study_covariates, \
+    get_bundle_study_covariates
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -116,38 +119,6 @@ def _get_bundle_data(execution_context, bundle_id, tier=3):
         CODELOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id} from '{database}'")
 
     return bundle_data
-
-
-def _get_study_covariates(execution_context, bundle_id, tier=3):
-    """Downloads the tier 2 or 3 study covariate mappings for the bundle associated with the current model_version_id.
-    """
-
-    if tier == 2:
-        database = execution_context.parameters.bundle_database
-        table = "epi.bundle_dismod_study_covariate"
-    elif tier == 3:
-        database = execution_context.parameters.database
-        table = "epi.t3_model_version_study_covariate"
-    else:
-        raise ValueError(f"Only tiers 2 and 3 are supported")
-
-    query = f"""
-    SELECT
-        bundle_id,
-        seq,
-        study_covariate_id
-    FROM
-        {table}
-    WHERE
-        bundle_id = %(bundle_id)s
-         """
-    with connection(database=database) as c:
-        covariates = pd.read_sql(query, c, params={"bundle_id": bundle_id})
-        CODELOG.debug(
-            f"Downloaded {len(covariates)} lines of study covariates for bundle_id {bundle_id} from '{database}'"
-        )
-
-    return covariates
 
 
 def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
@@ -296,37 +267,6 @@ def _normalize_bundle_data(data):
     return data[cols]
 
 
-def _covariate_ids_to_names(execution_context, study_covariates):
-    """Convert study_covariate_ids to canonical study covariate names
-    """
-    study_covariate_ids = list(study_covariates.study_covariate_id.unique())
-    study_covariates = study_covariates.rename(columns={"study_covariate_id": "name"})
-
-    if study_covariate_ids:
-        query = """
-        select study_covariate_id, study_covariate
-        from epi.study_covariate
-        where study_covariate_id in %(covariate_ids)s
-        """
-        with cursor(execution_context) as c:
-            c.execute(query, args={"covariate_ids": study_covariate_ids})
-            covariate_mapping = dict(list(c))
-
-        study_covariates["name"] = study_covariates.name.apply(covariate_mapping.get)
-    else:
-        MATHLOG.info(f"Found no study covariates to add to bundle.")
-
-    return study_covariates
-
-
-def _normalize_covariate_data(execution_context, study_covariates):
-    study_covariates = _covariate_ids_to_names(execution_context, study_covariates)
-
-    study_covariates = study_covariates.set_index("seq")
-
-    return study_covariates.name
-
-
 def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
     """Get bundle data with associated study covariate labels.
 
@@ -337,7 +277,7 @@ def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
 
     Returns:
         A tuple of (bundle data, study covariate labels) where the bundle data is a pd.DataFrame and the labels are a
-        pd.Series with an index aligned with the bundle data
+        pd.DataFrame with an index aligned with bundle data and a column without "x_" for each study covariate.
     """
     if bundle_id is None:
         bundle_id = _get_bundle_id(execution_context)
@@ -345,10 +285,5 @@ def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
     bundle = _get_bundle_data(execution_context, bundle_id, tier=tier)
     bundle = _normalize_bundle_data(bundle)
 
-    covariate_data = _get_study_covariates(execution_context, bundle_id, tier=tier)
-    if not covariate_data.empty:
-        normalized_covariate = _normalize_covariate_data(execution_context, covariate_data)
-    else:
-        normalized_covariate = covariate_data
-
+    normalized_covariate = get_bundle_study_covariates(bundle.index, bundle_id, execution_context, tier)
     return (bundle, normalized_covariate)
