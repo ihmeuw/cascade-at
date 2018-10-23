@@ -19,6 +19,7 @@ def unique_country_covariate_transform(configuration):
     """
     Iterates through all covariate IDs, including the list of ways to
     transform them, because each transformation is its own column for Dismod.
+    This is used by ``assign_covariates``.
     """
     seen_covariate = defaultdict(set)
     if configuration.country_covariate:
@@ -32,7 +33,9 @@ def unique_country_covariate_transform(configuration):
 
 def unique_country_covariate(configuration):
     """
-    Iterates through all covariate IDs.
+    Iterates through all covariate IDs. This is used to create the
+    initial CovariateRecords object. This is before the special covariates
+    are set.
     """
     seen_covariate = set()
     if configuration.country_covariate:
@@ -80,19 +83,19 @@ def covariate_records_from_settings(model_context, execution_context, configurat
         # Decide how to take the given data and extend / subset / interpolate.
         ccov_ranges_df = convert_gbd_ids_to_dismod_values(ccov_df, age_groups)
 
-        MATHLOG.info(f"Adding {covariate_id} using "
+        MATHLOG.info(f"Adding {covariate_name} using "
                      f"covariate_to_measurements_nearest_favoring_same_year()")
         if measurements is not None:
             observations_column = covariate_to_measurements_nearest_favoring_same_year(
                 measurements, ccov_ranges_df)
-            observations_column.name = covariate_id
+            observations_column.name = covariate_name
         else:
             observations_column = None
 
         if avgint is not None:
             avgint_column = covariate_to_measurements_nearest_favoring_same_year(
                 avgint, ccov_ranges_df)
-            avgint_column.name = covariate_id
+            avgint_column.name = covariate_name
         else:
             avgint_column = None
         reference = reference_value_for_covariate_mean_all_values(ccov_df)

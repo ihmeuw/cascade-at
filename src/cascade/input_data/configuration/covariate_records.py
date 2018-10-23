@@ -29,7 +29,7 @@ class CovariateRecords:
         and the index matches the avgint index."""
 
         self.id_to_name = {}
-        """Dict from integer id to string name."""
+        """Dict from string name to integer id."""
 
         self.id_to_reference = {}
         """The reference value for this covariate."""

@@ -31,12 +31,13 @@ def test_create_columns(basic_bundle, binary_covariate):
     Given covariate data and a bundle, create Series that correspond to
     the covariate values for the bundle bundle.
     """
+    id_to_name = {102: "smoking", 64: "love_polka"}
     covs = pd.DataFrame({
-        64: [0.0, 1.0, 1.0, 1.0, 0.0],
-        102: [0.0, 1.0, 0.0, 0.0, 1.0],
+        "love_polka": [0.0, 1.0, 1.0, 1.0, 0.0],
+        "smoking": [0.0, 1.0, 0.0, 0.0, 1.0],
     },
     index=[2, 4, 6, 8, 10])
-    normalized = _normalize_covariate_data(basic_bundle.index, binary_covariate, binary_covariate.study_covariate_id.unique())
+    normalized = _normalize_covariate_data(basic_bundle.index, binary_covariate, id_to_name)
     pd.testing.assert_frame_equal(normalized, covs)
 
 
@@ -44,13 +45,14 @@ def test_empty_columns(basic_bundle, binary_covariate):
     """
     If there are no entries for a covariate, it should be all zeros.
     """
+    id_to_name = {102: "smoking", 64: "love_polka", 47: "has_cats"}
     covs = pd.DataFrame({
-        47: [0.0, 0.0, 0.0, 0.0, 0.0],
-        64: [0.0, 1.0, 1.0, 1.0, 0.0],
-        102: [0.0, 1.0, 0.0, 0.0, 1.0],
+        "has_cats": [0.0, 0.0, 0.0, 0.0, 0.0],
+        "love_polka": [0.0, 1.0, 1.0, 1.0, 0.0],
+        "smoking": [0.0, 1.0, 0.0, 0.0, 1.0],
     },
     index=[2, 4, 6, 8, 10])
-    normalized = _normalize_covariate_data(basic_bundle.index, binary_covariate, [47, 64, 102])
+    normalized = _normalize_covariate_data(basic_bundle.index, binary_covariate, id_to_name)
     pd.testing.assert_frame_equal(normalized.sort_index("columns"), covs)
 
 
@@ -58,12 +60,13 @@ def test_id_disagrees(basic_bundle):
     """
     If there are no entries for a covariate, it should be all zeros.
     """
+    id_to_name = {102: "smoking", 64: "love_polka"}
     not_in_bundle_index = 20
     covs_in = pd.DataFrame({"study_covariate_id": [64, 102, 64, 64, 102],
                   "bundle_id": [77, 77, 77, 77, 77],
                   "seq": [4, 4, 6, 8, not_in_bundle_index]})
     with pytest.raises(InputDataError):
-        _normalize_covariate_data(basic_bundle.index, covs_in, {64, 102})
+        _normalize_covariate_data(basic_bundle.index, covs_in, id_to_name)
 
 
 def test_no_covariates(basic_bundle):

@@ -221,7 +221,7 @@ def observations_to_data(observations_df, node_table, hold_out=0):
             "weight_id": 0,
             "age_lower": observations_df["age_start"],
             "age_upper": observations_df["age_end"],
-            "time_lower": observations_df["year_start"].astype(np.float),
+            "time_lower": observations_df["year_start"],
             "time_upper": observations_df["year_end"],
             "meas_value": observations_df["mean"],
             "meas_std": observations_df["standard_error"],

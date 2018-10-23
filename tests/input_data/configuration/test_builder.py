@@ -115,17 +115,6 @@ def test_make_smooth(base_config):
                 assert smooth.value_priors[0, 1990].prior == priors.Gaussian(mean=0, standard_deviation=0.3)
 
 
-def test_fixed_effects_from_epiviz(base_config, ihme):
-    ec = make_execution_context(gbd_round_id=5)
-    mc = initial_context_from_epiviz(base_config)
-    mc.average_integrand_cases = pd.DataFrame()
-    study_covariates = CovariateRecords("study")
-    study_covariates.measurements = pd.DataFrame()
-    fixed_effects_from_epiviz(mc, study_covariates, ec, base_config)
-    assert all([r.parent_smooth is None for r in [mc.rates.rho, mc.rates.pini, mc.rates.chi, mc.rates.omega]])
-    assert mc.rates.iota.parent_smooth == make_smooth(base_config, base_config.rate[0])
-
-
 def test_random_effects_from_epiviz(base_config):
     mc = initial_context_from_epiviz(base_config)
     random_effects_from_epiviz(mc, base_config)
@@ -183,7 +172,7 @@ def test_covariates_from_settings_logic(base_config, ihme):
     ec = make_execution_context(gbd_round_id=5)
     assert ec.parameters.gbd_round_id == 5
     records = CovariateRecords("country")
-    records.measurements = pd.DataFrame({26: [1.0, 2.0, 3.0, 4.0, 5.0]},
+    records.measurements = pd.DataFrame({"Funistan": [1.0, 2.0, 3.0, 4.0, 5.0]},
                                         index=mc.input_data.observations.index)
     records.id_to_name[26] = "Funistan"
     records.id_to_reference[26] = 3.7

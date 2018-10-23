@@ -31,3 +31,6 @@ Input Data Functionality
 
 .. automodule:: cascade.input_data.configuration.covariate_records
     :members:
+
+.. automodule:: cascade.input_data.configuration.construct_bundle
+    :members:

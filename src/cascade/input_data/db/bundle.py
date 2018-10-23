@@ -7,13 +7,9 @@ form.
 import pandas as pd
 
 from cascade.core.db import cursor, connection
-from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data import InputDataError
-
 from cascade.core.log import getLoggers
 from cascade.input_data.db.study_covariates import _get_study_covariates
-from cascade.input_data.configuration.construct_study import \
-    get_bundle_study_covariates
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -53,10 +49,10 @@ def _get_bundle_id(execution_context):
         bundle_ids = list(c)
 
         if not bundle_ids:
-            raise ValueError(f"No bundle_id associated with model_version_id {model_version_id}")
+            raise InputDataError(f"No bundle_id associated with model_version_id {model_version_id}")
 
         if len(bundle_ids) > 1:
-            raise ValueError(f"Multiple bundle_ids associated with model_version_id {model_version_id}")
+            raise InputDataError(f"Multiple bundle_ids associated with model_version_id {model_version_id}")
 
         return bundle_ids[0][0]
 
@@ -224,67 +220,3 @@ def freeze_bundle(execution_context, bundle_id=None) -> bool:
             _upload_bundle_data_to_tier_3(c, model_version_id, bundle_data)
             _upload_study_covariates_to_tier_3(c, model_version_id, covariate_data)
         return True
-
-
-def _normalize_measures(data):
-    """Transform measure_ids into canonical measure names, for instance,
-    GBD measure 38 for birth prevalence becomes pini.
-    """
-    data = data.copy()
-    gbd_measure_id_to_integrand = make_integrand_map()
-    if any(data.measure_id == 6):
-        MATHLOG.warn(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
-    try:
-        data["measure"] = data.measure_id.apply(lambda k: gbd_measure_id_to_integrand[k].name)
-    except KeyError as ke:
-        raise RuntimeError(
-            f"The bundle data uses measure {str(ke)} which doesn't map "
-            f"to an integrand. The map is {gbd_measure_id_to_integrand}."
-        )
-    return data
-
-
-def _normalize_sex(data):
-    """Transform sex_ids from 1, 2, 3 to male, female, both.
-    """
-    data = data.copy()
-    try:
-        data["sex"] = data.sex_id.apply({1: "Male", 2: "Female", 3: "Both", 4: "Unspecified"}.get)
-    except KeyError as ke:
-        raise InputDataError(f"Unrecognized sex id") from ke
-    return data
-
-
-def _normalize_bundle_data(data):
-    """Normalize bundle columns, strip extra columns and index on `seq`
-    """
-    data = _normalize_measures(data)
-    data = _normalize_sex(data)
-
-    data = data.set_index("seq")
-
-    cols = ["measure", "mean", "sex", "standard_error", "age_start", "age_end", "year_start", "year_end", "location_id"]
-
-    return data[cols]
-
-
-def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
-    """Get bundle data with associated study covariate labels.
-
-    Args:
-        execution_context (ExecutionContext): The context within which to make the query
-        bundle_id (int): Bundle to load. Defaults to the bundle associated with the context
-        tier (int): Tier to load data from. Defaults to 3 (frozen data) but will also accept 2 (scratch space)
-
-    Returns:
-        A tuple of (bundle data, study covariate labels) where the bundle data is a pd.DataFrame and the labels are a
-        pd.DataFrame with an index aligned with bundle data and a column without ``x_`` for each study covariate.
-    """
-    if bundle_id is None:
-        bundle_id = _get_bundle_id(execution_context)
-
-    bundle = _get_bundle_data(execution_context, bundle_id, tier=tier)
-    bundle = _normalize_bundle_data(bundle)
-
-    normalized_covariate = get_bundle_study_covariates(bundle.index, bundle_id, execution_context, tier)
-    return (bundle, normalized_covariate)

@@ -9,6 +9,7 @@ from cascade.input_data.configuration.construct_country import \
 from cascade.input_data.configuration.id_map import PRIMARY_INTEGRANDS_TO_RATES, make_integrand_map
 from cascade.model.covariates import Covariate, CovariateMultiplier
 from cascade.model.grids import AgeTimeGrid, PriorGrid
+from cascade.model.priors import NO_PRIOR, Constant
 from cascade.model.rates import Smooth
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.construct_study import \
@@ -103,19 +104,19 @@ def assign_covariates(model_context, covariate_record, transform_iterator):
 
             # Now attach the column to the observations.
             if measurements is not None:
-                measurements[f"x_{name}"] = settings_transform(covariate_record.measurements[covariate_id])
+                measurements[f"x_{name}"] = settings_transform(covariate_record.measurements[covariate_name])
             if avgints is not None:
-                avgints[f"x_{name}"] = settings_transform(covariate_record.average_integrand_cases[covariate_id])
+                avgints[f"x_{name}"] = settings_transform(covariate_record.average_integrand_cases[covariate_name])
 
     return covariate_map
 
 
 def settings_covariate_iter(config):
     """Iterate over both study and country covariate multipliers"""
-    for mul_ccov in config.country_covariate:
-        yield mul_ccov, mul_ccov.country_covariate_id
     for mul_scov in config.study_covariate:
         yield mul_scov, mul_scov.study_covariate
+    for mul_ccov in config.country_covariate:
+        yield mul_ccov, mul_ccov.country_covariate_id
 
 
 def create_covariate_multipliers(context, configuration, column_map):
@@ -205,6 +206,24 @@ def make_smooth(configuration, smooth_configuration):
                 raise SettingsError(f"Unknown prior type {row.prior_type}")
             pgrid[slice(row.age_lower, row.age_upper), slice(row.time_lower, row.time_upper)].prior = row.prior_object
     return Smooth(value, d_age, d_time)
+
+
+def build_constraint(constraint):
+    """
+    This makes a smoothing grid where the mean value is set to a given
+    set of values.
+    """
+    ages = constraint["age_start"].tolist()
+    times = constraint["year_start"].tolist()
+    grid = AgeTimeGrid(ages, times)
+    smoothing_prior = PriorGrid(grid)
+    smoothing_prior[:, :].prior = NO_PRIOR
+
+    value_prior = PriorGrid(grid)
+    # TODO: change the PriorGrid API to handle this elegantly
+    for _, row in constraint.iterrows():
+        value_prior[row["age_start"], row["year_start"]].prior = Constant(row["mean"])
+    return Smooth(value_prior, smoothing_prior, smoothing_prior)
 
 
 def fixed_effects_from_epiviz(model_context, study_covariate_records, execution_context, configuration):

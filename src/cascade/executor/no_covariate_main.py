@@ -30,16 +30,19 @@ from timeit import default_timer as timer
 import numpy as np
 import pandas as pd
 
+import cascade.input_data.configuration.construct_bundle
 from cascade.executor.argument_parser import DMArgumentParser
 import cascade.input_data.db.bundle
+from cascade.input_data.configuration.builder import build_constraint
 from cascade.testing_utilities import make_execution_context
-from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
+from cascade.dismod.db.metadata import IntegrandEnum
 from cascade.dismod.db.wrapper import _get_engine
 from cascade.core.context import ModelContext
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.grids import AgeTimeGrid, PriorGrid
-from cascade.model.priors import Uniform, Constant, NO_PRIOR
+from cascade.model.priors import Uniform
 from cascade.model.rates import Smooth
+from cascade.input_data.configuration.construct_bundle import bundle_to_observations
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -61,7 +64,7 @@ def cached_bundle_load(context, bundle_id, tier_idx):
 
     CODELOG.debug(f"Begin getting bundle and study covariates {bundle_id}")
     bundle_begin = timer()
-    bundle, covariate = cascade.input_data.db.bundle.bundle_with_study_covariates(context, bundle_id, tier_idx)
+    bundle, covariate = cascade.input_data.configuration.construct_bundle.bundle_with_study_covariates(context, bundle_id, tier_idx)
     CODELOG.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
 
     pickle.dump((bundle, covariate), cache_bundle.open("wb"), pickle.HIGHEST_PROTOCOL)
@@ -123,49 +126,6 @@ def data_from_csv(data_path):
     return Namespace(observations=bundle_observations, constraints=bundle_constraints)
 
 
-def bundle_to_observations(config, bundle_df):
-    """Convert bundle into an internal format."""
-    if "incidence" in bundle_df["measure"].values:
-        CODELOG.warning("Bundle has incidence. Replacing with Sincidence. Is this correct?")
-        bundle_df["measure"] = bundle_df["measure"].replace("incidence", "Sincidence")
-
-    for check_measure in bundle_df["measure"].unique():
-        if check_measure not in IntegrandEnum.__members__:
-            raise KeyError(f"{check_measure} isn't a name known to Cascade.")
-
-    if "location_id" in bundle_df.columns:
-        location_id = bundle_df["location_id"]
-    else:
-        location_id = np.full(len(bundle_df), config.location_id, dtype=np.int)
-
-    # assume using demographic notation because this bundle uses it.
-    demographic_interval_specification = 0
-    MATHLOG.info(f"Does this bundle assume demographic notation? {demographic_interval_specification}. "
-                 f"A 1 means that 1 year is added to both end ages and end times. A 0 means nothing is added.")
-
-    weight_method = "constant"
-    MATHLOG.info(f"The set of weights for this bundle is {weight_method}.")
-    # Stick with year_start instead of time_start because that's what's in the
-    # bundle, so it's probably what modelers use. Would be nice to pair
-    # start with finish or begin with end.
-    return pd.DataFrame(
-        {
-            "measure": bundle_df["measure"],
-            "location_id": location_id,
-            "density": DensityEnum.gaussian,
-            "weight": weight_method,
-            "sex": bundle_df["sex"],
-            "age_start": bundle_df["age_start"],
-            "age_end": bundle_df["age_end"] + demographic_interval_specification,
-            # The years should be floats in the bundle.
-            "year_start": bundle_df["year_start"].astype(np.float),
-            "year_end": bundle_df["year_end"].astype(np.float) + demographic_interval_specification,
-            "mean": bundle_df["mean"],
-            "standard_error": bundle_df["standard_error"],
-        }
-    )
-
-
 def age_year_from_data(df):
     results = dict()
     for topic in ["age", "year"]:
@@ -176,24 +136,6 @@ def age_year_from_data(df):
         results[topic] = pd.DataFrame({topic: values})
         CODELOG.debug(f"{topic}: {values}")
     return AgeTimeGrid(results["age"].age, results["year"].year)
-
-
-def build_constraint(constraint):
-    """
-    This makes a smoothing grid where the mean value is set to a given
-    set of values.
-    """
-    ages = constraint["age_start"].tolist()
-    times = constraint["year_start"].tolist()
-    grid = AgeTimeGrid(ages, times)
-    smoothing_prior = PriorGrid(grid)
-    smoothing_prior[:, :].prior = NO_PRIOR
-
-    value_prior = PriorGrid(grid)
-    # TODO: change the PriorGrid API to handle this elegantly
-    for _, row in constraint.iterrows():
-        value_prior[row["age_start"], row["year_start"]].prior = Constant(row["mean"])
-    return Smooth(value_prior, smoothing_prior, smoothing_prior)
 
 
 def internal_model(model, inputs):

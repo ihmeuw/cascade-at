@@ -4,8 +4,9 @@ import pytest
 
 import pandas as pd
 
-from cascade.input_data.db.bundle import freeze_bundle, _get_bundle_id
+from cascade.input_data.db.bundle import _get_bundle_id, freeze_bundle
 from cascade.input_data.db.study_covariates import covariate_ids_to_names
+from cascade.input_data import InputDataError
 
 
 def test_get_bundle_id__success(mock_execution_context, mock_database_access):
@@ -23,7 +24,7 @@ def test_get_bundle_id__no_bundle(mock_execution_context, mock_database_access):
     cursor = mock_database_access["cursor"]
     cursor.__iter__.side_effect = lambda: iter([])
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(InputDataError) as excinfo:
         _get_bundle_id(mock_execution_context)
     assert "No bundle_id" in str(excinfo.value)
 
@@ -32,7 +33,7 @@ def test_get_bundle_id__multiple_bundles(mock_execution_context, mock_database_a
     cursor = mock_database_access["cursor"]
     cursor.__iter__.side_effect = lambda: iter([(123,), (456,)])
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(InputDataError) as excinfo:
         _get_bundle_id(mock_execution_context)
     assert "Multiple bundle_ids" in str(excinfo.value)
 
@@ -46,14 +47,15 @@ def test_freeze_bundle__did_freeze(mock_execution_context, mock_database_access,
 
     mock_get_bundle_data = mocker.patch("cascade.input_data.db.bundle._get_bundle_data")
     mock_put_bundle_data = mocker.patch("cascade.input_data.db.bundle._upload_bundle_data_to_tier_3")
-    mock_get_covariate_data = mocker.patch("cascade.input_data.db.bundle._get_study_covariates")
+    mock_get_covariate_data = mocker.patch(
+        "cascade.input_data.db.bundle._get_study_covariates")
     mock_put_covariate_data = mocker.patch("cascade.input_data.db.bundle._upload_study_covariates_to_tier_3")
 
     assert freeze_bundle(mock_execution_context)
 
     cursor = mock_database_access["cursor"]
     model_version_id = mock_execution_context.parameters.model_version_id
-    # TODO Test if these happen within the same transaciton
+    # TODO Test if these happen within the same transaction
     mock_put_bundle_data.assert_called_with(cursor, model_version_id, mock_get_bundle_data())
     mock_put_covariate_data.assert_called_with(cursor, model_version_id, mock_get_covariate_data())
 

@@ -37,7 +37,8 @@ from cascade.model import (
     omega_from_mu,
     DemographicInterval,
 )
-from cascade.input_data.db.bundle import bundle_with_study_covariates
+from cascade.input_data.configuration.construct_bundle import \
+    bundle_with_study_covariates
 from cascade.dismod.db.metadata import IntegrandEnum
 
 LOGGER = logging.getLogger("fit_no_covariates")
