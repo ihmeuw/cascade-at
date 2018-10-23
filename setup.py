@@ -18,6 +18,7 @@ setup(
             ["dmchat=cascade.executor.chatter:chatter"],
             ["dmdummy=cascade.executor.chatter:dismod_dummy"],
             ["dmcsv2db=cascade.executor.no_covariate_main:entry"],
+            ["dmsr2csv=cascade.executor.model_results_main:entry"],
         ]
     },
     scripts=["scripts/dmdismod", "scripts/dmdismodpy"],
