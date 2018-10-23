@@ -149,6 +149,7 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
         pd.Series: One row for every row in the measurements.
     """
     if measurements is None: return
+    CODELOG.debug(f"measurements columns {measurements.columns}")
     # Rescaling the age means that the nearest age within the year
     # will always be closer than the nearest time across a full year.
     tree = spatial.KDTree(
@@ -163,9 +164,9 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
     _, indices = tree.query(
         list(
             zip(
-                measurements[["age_lower", "age_upper"]].mean(axis=1) / 240,
-                measurements[["time_lower", "time_upper"]].mean(axis=1),
-                measurements["x_sex"],
+                measurements[["age_start", "age_end"]].mean(axis=1) / 240,
+                measurements[["year_start", "year_end"]].mean(axis=1),
+                measurements["sex"],
             )
         )
     )

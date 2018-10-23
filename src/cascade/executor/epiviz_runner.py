@@ -16,8 +16,7 @@ from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import \
-    bundle_with_study_covariates, bundle_to_observations
-from cascade.input_data.configuration.construct_study import add_special_study_covariates
+    normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
@@ -140,8 +139,9 @@ def model_context_from_settings(execution_context, settings):
     freeze_bundle(execution_context, execution_context.parameters.bundle_id)
     load_csmr_to_t3(execution_context)
     load_asdr_to_t3(execution_context)
+    execution_context.parameters.tier = 3
 
-    bundle, study_covariate_records = bundle_with_study_covariates(
+    bundle, study_covariate_records = normalized_bundle_from_database(
         execution_context, bundle_id=model_context.parameters.bundle_id
     )
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
@@ -158,9 +158,8 @@ def model_context_from_settings(execution_context, settings):
     add_mortality_data(model_context, execution_context)
     add_omega_constraint(model_context, execution_context)
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
-    add_special_study_covariates(study_covariate_records, bundle, model_context.average_integrand_cases)
 
-    fixed_effects_from_epiviz(model_context, study_covariate_records, execution_context, settings)
+    fixed_effects_from_epiviz(model_context, bundle, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
     return model_context

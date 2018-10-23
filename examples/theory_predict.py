@@ -38,7 +38,7 @@ from cascade.model import (
     DemographicInterval,
 )
 from cascade.input_data.configuration.construct_bundle import \
-    bundle_with_study_covariates
+    normalized_bundle_from_database
 from cascade.dismod.db.metadata import IntegrandEnum
 
 LOGGER = logging.getLogger("fit_no_covariates")
@@ -126,7 +126,7 @@ def cached_bundle_load(context, bundle_id, tier_idx):
 
     LOGGER.debug(f"Begin getting study covariates {bundle_id}")
     bundle_begin = timer()
-    bundle, covariate = bundle_with_study_covariates(context, bundle_id, tier_idx)
+    bundle, covariate = normalized_bundle_from_database(context, bundle_id, tier_idx)
     LOGGER.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
 
     pickle.dump((bundle, covariate), cache_bundle.open("wb"), pickle.HIGHEST_PROTOCOL)

@@ -12,8 +12,8 @@ from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.priors import NO_PRIOR, Constant
 from cascade.model.rates import Smooth
 from cascade.input_data.configuration import SettingsError
-from cascade.input_data.configuration.construct_study import \
-    add_avgint_records_to_study_covariates, unique_study_covariate_transform
+from cascade.input_data.configuration.construct_study import add_special_study_covariates, \
+    add_avgint_records_to_study_covariates, unique_study_covariate_transform, get_bundle_study_covariates
 from cascade.core.context import ModelContext
 import cascade.model.priors as priors
 from cascade.input_data import InputDataError
@@ -226,7 +226,7 @@ def build_constraint(constraint):
     return Smooth(value_prior, smoothing_prior, smoothing_prior)
 
 
-def fixed_effects_from_epiviz(model_context, study_covariate_records, execution_context, configuration):
+def fixed_effects_from_epiviz(model_context, bundle, execution_context, configuration):
     if configuration.rate:
         for rate_config in configuration.rate:
             rate_name = rate_config.rate
@@ -237,8 +237,11 @@ def fixed_effects_from_epiviz(model_context, study_covariate_records, execution_
     else:
         MATHLOG.info(f"No rates are configured.")
 
-    add_avgint_records_to_study_covariates(model_context.average_integrand_cases.index,
-                                           study_covariate_records)
+    study_covariate_records = get_bundle_study_covariates(
+        bundle, execution_context.parameters.bundle_id, execution_context,
+        execution_context.parameters.tier)
+    add_special_study_covariates(study_covariate_records, bundle, model_context.average_integrand_cases)
+    add_avgint_records_to_study_covariates(model_context.average_integrand_cases.index, study_covariate_records)
     country_covariate_records = covariate_records_from_settings(model_context, execution_context, configuration)
     country_map = assign_covariates(
         model_context, country_covariate_records, unique_country_covariate_transform(configuration))

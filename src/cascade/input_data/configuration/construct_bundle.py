@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 
 from cascade.input_data import InputDataError
-from cascade.input_data.configuration.construct_study import \
-    get_bundle_study_covariates
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
 from cascade.dismod.db.metadata import DensityEnum
@@ -91,7 +89,7 @@ def bundle_to_observations(config, bundle_df):
     )
 
 
-def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
+def normalized_bundle_from_database(execution_context, bundle_id=None, tier=3):
     """Get bundle data with associated study covariate labels.
 
     Args:
@@ -109,5 +107,4 @@ def bundle_with_study_covariates(execution_context, bundle_id=None, tier=3):
     bundle = _get_bundle_data(execution_context, bundle_id, tier=tier)
     bundle = _normalize_bundle_data(bundle)
 
-    normalized_covariate = get_bundle_study_covariates(bundle.index, bundle_id, execution_context, tier)
-    return (bundle, normalized_covariate)
+    return bundle, None

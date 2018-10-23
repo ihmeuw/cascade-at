@@ -64,7 +64,7 @@ def cached_bundle_load(context, bundle_id, tier_idx):
 
     CODELOG.debug(f"Begin getting bundle and study covariates {bundle_id}")
     bundle_begin = timer()
-    bundle, covariate = cascade.input_data.configuration.construct_bundle.bundle_with_study_covariates(context, bundle_id, tier_idx)
+    bundle, covariate = cascade.input_data.configuration.construct_bundle.normalized_bundle_from_database(context, bundle_id, tier_idx)
     CODELOG.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
 
     pickle.dump((bundle, covariate), cache_bundle.open("wb"), pickle.HIGHEST_PROTOCOL)

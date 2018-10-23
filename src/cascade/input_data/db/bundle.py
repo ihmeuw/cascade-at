@@ -58,15 +58,22 @@ def _get_bundle_id(execution_context):
 
 
 def _get_bundle_data(execution_context, bundle_id, tier=3):
-    """Downloads the tier 2 or 3 data for the bundle associated with the current model_version_id.
+    """
+    Downloads the tier 2 or 3 data for the bundle associated with the current
+    model_version_id.
+
+    Returns:
+        Bundle with two properties, ``tier`` and ``bundle_id``.
     """
 
     if tier == 2:
         database = execution_context.parameters.bundle_database
         table = "epi.bundle_dismod"
+        model_version_query = ""
     elif tier == 3:
         database = execution_context.parameters.database
         table = "epi.t3_model_version_dismod"
+        model_version_query = "and model_version_id = %(mvid)s"
     else:
         raise ValueError(f"Only tiers 2 and 3 are supported")
 
@@ -109,11 +116,14 @@ def _get_bundle_data(execution_context, bundle_id, tier=3):
         WHERE
          bundle_id = %(bundle_id)s and
          input_type_id NOT IN(5,6) and
-         outlier_type_id IN (0,1)
+         outlier_type_id IN (0,1) {model_version_query}
          """
     with connection(database=database) as c:
-        bundle_data = pd.read_sql(query, c, params={"bundle_id": bundle_id})
-        CODELOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id} from '{database}'")
+        bundle_data = pd.read_sql(
+            query,
+            c,
+            params={"bundle_id": bundle_id, "mvid": execution_context.parameters.model_version_id})
+        MATHLOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id} from '{database}'")
 
     return bundle_data
 
