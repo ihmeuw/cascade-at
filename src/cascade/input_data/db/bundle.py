@@ -11,7 +11,8 @@ from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data import InputDataError
 
 from cascade.core.log import getLoggers
-from cascade.input_data.db.study_covariates import _get_study_covariates, \
+from cascade.input_data.db.study_covariates import _get_study_covariates
+from cascade.input_data.configuration.construct_study import \
     get_bundle_study_covariates
 
 CODELOG, MATHLOG = getLoggers(__name__)

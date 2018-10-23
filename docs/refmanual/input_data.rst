@@ -22,3 +22,12 @@ Input Data Functionality
 
     .. autoclass:: Configuration
         :members:
+
+.. automodule:: cascade.input_data.configuration.construct_study
+    :members:
+
+.. automodule:: cascade.input_data.configuration.construct_country
+    :members:
+
+.. automodule:: cascade.input_data.configuration.covariate_records
+    :members:

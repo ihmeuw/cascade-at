@@ -11,7 +11,6 @@ import pandas as pd
 
 from cascade.core.db import connection, cursor
 from cascade.core.log import getLoggers
-from cascade.input_data import InputDataError
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -77,44 +76,3 @@ def covariate_ids_to_names(execution_context, study_covariate_ids):
     return covariate_mapping
 
 
-def _normalize_covariate_data(bundle_index, study_covariates, covariate_ids):
-    """
-    The input is study covariates in a sparse-columnar format, so it's a list
-    of which covariates are nonzero for which seq numbers, where a seq
-    number identifies a row in the bundle index. If there are no covariates,
-    the returned DataFrame is empty.
-
-    Args:
-        bundle_index (pd.Index): The index of seq numbers for the bundle.
-        study_covariates (pd.DataFrame): Contains seq numbers and covariate ids.
-            Optionally contains the ``bundle_id``.
-        covariate_ids (List[int]): List of covariate ids to read.
-
-    Returns:
-        pd.DataFrame: Each column is a full row of zeros and ones, and the row
-        name is the name of the covariate, without the ``x_`` in front.
-    """
-    study_ids = study_covariates.set_index("seq").study_covariate_id
-    study_covariate_columns = list()
-    indices_not_found = list()
-    for cov_id in sorted(covariate_ids):  # Sort for stable behavior.
-        cov_column =  pd.Series([0.0] * len(bundle_index), index=bundle_index.values, name=cov_id)
-        try:
-            cov_column.loc[study_ids[study_ids == cov_id].index] = 1.0
-        except KeyError:
-            indices_not_found.append(cov_id)
-        study_covariate_columns.append(cov_column)
-    if indices_not_found:
-        raise InputDataError(f"Study covariates list ids not found in the bundle for "
-                             f"covariates: {indices_not_found}.")
-
-    if study_covariate_columns:
-        return pd.concat(study_covariate_columns, axis=1)
-    else:
-        return pd.DataFrame(index=bundle_index)
-
-
-def get_bundle_study_covariates(bundle_index, bundle_id, execution_context, tier):
-    covariate_data = _get_study_covariates(execution_context, bundle_id, tier=tier)
-    unique_ids = list(sorted(covariate_data.study_covariate_id.unique()))
-    return _normalize_covariate_data(bundle_index, covariate_data, unique_ids)

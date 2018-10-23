@@ -2,6 +2,7 @@ import pytest
 
 import pandas as pd
 
+from cascade.input_data.configuration.construct_country import unique_country_covariate_transform
 from cascade.input_data.configuration.form import Configuration
 from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
@@ -12,6 +13,7 @@ from cascade.input_data.configuration.builder import (
     create_covariate_multipliers,
 )
 from cascade.model import priors
+from cascade.input_data.configuration.covariate_records import CovariateRecords
 from cascade.testing_utilities import make_execution_context
 
 
@@ -116,7 +118,9 @@ def test_make_smooth(base_config):
 def test_fixed_effects_from_epiviz(base_config, ihme):
     ec = make_execution_context(gbd_round_id=5)
     mc = initial_context_from_epiviz(base_config)
-    study_covariates = pd.DataFrame()
+    mc.average_integrand_cases = pd.DataFrame()
+    study_covariates = CovariateRecords("study")
+    study_covariates.measurements = pd.DataFrame()
     fixed_effects_from_epiviz(mc, study_covariates, ec, base_config)
     assert all([r.parent_smooth is None for r in [mc.rates.rho, mc.rates.pini, mc.rates.chi, mc.rates.omega]])
     assert mc.rates.iota.parent_smooth == make_smooth(base_config, base_config.rate[0])
@@ -178,5 +182,11 @@ def test_covariates_from_settings_logic(base_config, ihme):
     assert configuration.model.default_time_grid
     ec = make_execution_context(gbd_round_id=5)
     assert ec.parameters.gbd_round_id == 5
-    column_id_func = assign_covariates(mc, ec, configuration)
+    records = CovariateRecords("country")
+    records.measurements = pd.DataFrame({26: [1.0, 2.0, 3.0, 4.0, 5.0]},
+                                        index=mc.input_data.observations.index)
+    records.id_to_name[26] = "Funistan"
+    records.id_to_reference[26] = 3.7
+    country_iter = unique_country_covariate_transform(configuration)
+    column_id_func = assign_covariates(mc, records, country_iter)
     create_covariate_multipliers(mc, configuration, column_id_func)

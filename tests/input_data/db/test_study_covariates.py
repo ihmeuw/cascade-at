@@ -5,8 +5,10 @@ for which the study covariate is 1.
 import pandas as pd
 import pytest
 
+from cascade.input_data.configuration.covariate_records import CovariateRecords
 from cascade.input_data import InputDataError
-from cascade.input_data.db.study_covariates import _normalize_covariate_data
+from cascade.input_data.configuration.construct_study import \
+    _normalize_covariate_data, add_avgint_records_to_study_covariates
 
 
 @pytest.fixture
@@ -75,3 +77,12 @@ def test_no_covariates(basic_bundle):
     covs = pd.DataFrame(index=basic_bundle.index)
     normalized = _normalize_covariate_data(basic_bundle.index, cov_in, {})
     pd.testing.assert_frame_equal(normalized, covs)
+
+
+def test_add_avgint(basic_bundle):
+    covariate_records = CovariateRecords("study")
+    covariate_records.measurements = pd.DataFrame(columns=["a", "c", "e"])
+    add_avgint_records_to_study_covariates(basic_bundle.index, covariate_records)
+    aic = covariate_records.average_integrand_cases
+    assert aic.shape[0] == len(basic_bundle.index)
+    assert aic.shape[1] == len(covariate_records.measurements.columns)

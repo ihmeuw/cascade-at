@@ -139,7 +139,7 @@ def model_context_from_settings(execution_context, settings):
     load_csmr_to_t3(execution_context)
     load_asdr_to_t3(execution_context)
 
-    bundle, study_covariates = bundle_with_study_covariates(
+    bundle, study_covariate_records = bundle_with_study_covariates(
         execution_context, bundle_id=model_context.parameters.bundle_id
     )
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
@@ -158,7 +158,7 @@ def model_context_from_settings(execution_context, settings):
     add_omega_constraint(model_context, execution_context)
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
 
-    fixed_effects_from_epiviz(model_context, study_covariates, execution_context, settings)
+    fixed_effects_from_epiviz(model_context, study_covariate_records, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
     return model_context
