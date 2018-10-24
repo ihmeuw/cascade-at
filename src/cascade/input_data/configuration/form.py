@@ -105,7 +105,7 @@ class Smoothing(Form):
 
 class StudyCovariate(Form):
     # Haven't seen if this is a string or an ID for the column in the bundle.
-    study_covariate = StringListField(nullable=True, display="Study covariates")
+    study_covariate_id = IntField(display="Covariate")
 
     measure_id = IntField(display="Measure")
     mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")

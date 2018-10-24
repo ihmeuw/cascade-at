@@ -13,7 +13,7 @@ from cascade.model.priors import NO_PRIOR, Constant
 from cascade.model.rates import Smooth
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.construct_study import add_special_study_covariates, \
-    add_avgint_records_to_study_covariates, unique_study_covariate_transform, get_bundle_study_covariates
+    unique_study_covariate_transform, get_bundle_study_covariates
 from cascade.core.context import ModelContext
 import cascade.model.priors as priors
 from cascade.input_data import InputDataError
@@ -114,7 +114,7 @@ def assign_covariates(model_context, covariate_record, transform_iterator):
 def settings_covariate_iter(config):
     """Iterate over both study and country covariate multipliers"""
     for mul_scov in config.study_covariate:
-        yield mul_scov, mul_scov.study_covariate
+        yield mul_scov, mul_scov.study_covariate_id
     for mul_ccov in config.country_covariate:
         yield mul_ccov, mul_ccov.country_covariate_id
 
@@ -127,9 +127,10 @@ def create_covariate_multipliers(context, configuration, column_map):
     standard deviation. There aren't a lot of interesting choices in here.
 
     Args:
-        context:
-        configuration:
-        column_id_func:
+        context (ModelContext):
+        configuration (Configuration): This describes the settings from EpiViz.
+        column_map: Dictionary from covariate id and transform to the covariate
+            object.
     """
     # Assumes covariates exist.
     gbd_to_dismod_integrand_enum = make_integrand_map()
@@ -226,7 +227,7 @@ def build_constraint(constraint):
     return Smooth(value_prior, smoothing_prior, smoothing_prior)
 
 
-def fixed_effects_from_epiviz(model_context, bundle, execution_context, configuration):
+def fixed_effects_from_epiviz(model_context, execution_context, configuration):
     if configuration.rate:
         for rate_config in configuration.rate:
             rate_name = rate_config.rate
@@ -237,12 +238,14 @@ def fixed_effects_from_epiviz(model_context, bundle, execution_context, configur
     else:
         MATHLOG.info(f"No rates are configured.")
 
+    # These are the _bundle_ study covariates. There are more observations
+    # than those in the bundle because we add values.
     study_covariate_records = get_bundle_study_covariates(
-        bundle, execution_context.parameters.bundle_id, execution_context,
+        model_context, execution_context.parameters.bundle_id, execution_context,
         execution_context.parameters.tier)
-    add_special_study_covariates(study_covariate_records, bundle, model_context.average_integrand_cases)
-    add_avgint_records_to_study_covariates(model_context.average_integrand_cases.index, study_covariate_records)
-    country_covariate_records = covariate_records_from_settings(model_context, execution_context, configuration)
+    add_special_study_covariates(study_covariate_records, model_context)
+    country_covariate_records = covariate_records_from_settings(
+        model_context, execution_context, configuration, study_covariate_records)
     country_map = assign_covariates(
         model_context, country_covariate_records, unique_country_covariate_transform(configuration))
     study_map = assign_covariates(

@@ -23,7 +23,7 @@ def unique_study_covariate_transform(configuration):
     seen_covariate = defaultdict(set)
     if configuration.study_covariate:
         for covariate_configuration in configuration.study_covariate:
-            seen_covariate[covariate_configuration.study_covariate].add(
+            seen_covariate[covariate_configuration.study_covariate_id].add(
                 covariate_configuration.transformation)
 
     for always_include_special_covariate in [0, 1604]:
@@ -33,7 +33,7 @@ def unique_study_covariate_transform(configuration):
         yield cov_id, list(sorted(cov_transformations))
 
 
-def _normalize_covariate_data(bundle, study_covariates, id_to_name):
+def _normalize_covariate_data(observations, study_covariates, id_to_name):
     """
     The input is study covariates in a sparse-columnar format, so it's a list
     of which covariates are nonzero for which seq numbers, where a seq
@@ -41,7 +41,8 @@ def _normalize_covariate_data(bundle, study_covariates, id_to_name):
     the returned DataFrame is empty.
 
     Args:
-        bundle (pd.DataFrame): Bundle with its seq column as index
+        observations (pd.DataFrame): Observations including those in the bundle.
+            These have the "in_bundle" column.
         study_covariates (pd.DataFrame): Contains seq numbers and covariate ids.
             Optionally contains the ``bundle_id``.
         id_to_name: Dictionary from ids to names
@@ -53,11 +54,12 @@ def _normalize_covariate_data(bundle, study_covariates, id_to_name):
     study_ids = study_covariates.set_index("seq")
     study_covariate_columns = list()
     indices_not_found = list()
+    bundle = observations[observations["in_bundle"] == 1]
     # Get rid of records, by seq number, which don't appear in both bundle and covariates.
     study_subset = study_ids.join(bundle["mean"]).dropna().drop(columns="mean").study_covariate_id
     MATHLOG.info(f"There are {study_subset.shape[0]} nonzero study covariates in this bundle.")
     for cov_id in sorted(id_to_name):  # Sort for stable behavior.
-        cov_column =  pd.Series([0.0] * bundle.shape[0], index=bundle.index.values, name=id_to_name[cov_id])
+        cov_column =  pd.Series([0.0] * observations.shape[0], index=observations.index.values, name=id_to_name[cov_id])
         try:
             cov_column.loc[study_subset[study_subset == cov_id].index] = 1.0
         except KeyError:
@@ -70,27 +72,32 @@ def _normalize_covariate_data(bundle, study_covariates, id_to_name):
     if study_covariate_columns:
         return pd.concat(study_covariate_columns, axis=1)
     else:
-        return pd.DataFrame(index=bundle.index)
+        return pd.DataFrame(index=observations.index)
 
 
-def add_special_study_covariates(covariate_records, bundle, average_integrand_cases):
+def add_special_study_covariates(covariate_records, model_context):
     """
     Adds the following covariates to the covariate records: one, sex.
     These are special and have to happen after avgints are defined.
 
     Args:
         covariate_records (CovariateRecords): The study covariates.
-        bundle (pd.DataFrame): The input data bundle, which still has a sex id.
-        average_integrand_cases (pd.DataFrame): Desired output records.
+        model_context (ModelContext): Uses observations and average integrand cases.
     """
-    sex_col = bundle.sex_id.apply({1: 0.5, 2: -0.5, 3: 0.0, 4: 0.0}.get)
+    observations = model_context.input_data.observations
+    average_integrand_cases = model_context.average_integrand_cases
+    sex_assignment = {1: 0.5, 2: -0.5, 3: 0.0, 4: 0.0}
+    sex_col = observations.sex_id.apply(sex_assignment.get)
     covariate_records.measurements = covariate_records.measurements.assign(sex=sex_col)
+    covariate_records.average_integrand_cases = covariate_records.average_integrand_cases.assign(
+        sex=average_integrand_cases.sex_id.apply(sex_assignment.get)
+    )
     # covariate_records.average_integrand_cases. These are set when making avgints.
     covariate_records.id_to_reference[0] = 0.0
     covariate_records.id_to_name[0] = "sex"
 
     covariate_records.measurements = covariate_records.measurements.assign(
-        one=pd.Series(np.ones(bundle.shape[0], dtype=np.double), index=bundle.index))
+        one=pd.Series(np.ones(observations.shape[0], dtype=np.double), index=observations.index))
     covariate_records.average_integrand_cases = covariate_records.average_integrand_cases.assign(
         one=pd.Series(np.ones(average_integrand_cases.shape[0], dtype=np.double),
                       index=average_integrand_cases.index))
@@ -98,23 +105,21 @@ def add_special_study_covariates(covariate_records, bundle, average_integrand_ca
     covariate_records.id_to_name[1604] = "one"
 
 
-def add_avgint_records_to_study_covariates(average_integrand_cases_index, covariate_records):
-    """All study covariates get added to the average integrands with level=0."""
-    columns_to_add = covariate_records.measurements.columns
-    covariate_records.average_integrand_cases = pd.DataFrame(
+def get_bundle_study_covariates(model_context, bundle_id, execution_context, tier):
+    # Sparse data is specified as a list of seq IDs that have a particular study covariate.
+    sparse_covariate_data = _get_study_covariates(execution_context, bundle_id, tier=tier)
+    unique_ids = list(sorted(sparse_covariate_data.study_covariate_id.unique()))
+    records = CovariateRecords("study")
+    id_to_name = covariate_ids_to_names(execution_context, unique_ids)
+    observations = model_context.input_data.observations
+    records.measurements = _normalize_covariate_data(observations, sparse_covariate_data, id_to_name)
+    records.id_to_name = id_to_name
+    records.id_to_reference = {rid: 0.0 for rid in records.id_to_name}
+    columns_to_add = records.measurements.columns
+    average_integrand_cases_index = model_context.average_integrand_cases.index
+    records.average_integrand_cases = pd.DataFrame(
         data=np.zeros((len(average_integrand_cases_index), len(columns_to_add)), dtype=np.double),
         columns=columns_to_add,
         index=average_integrand_cases_index,
     )
-
-
-def get_bundle_study_covariates(bundle, bundle_id, execution_context, tier):
-    covariate_data = _get_study_covariates(execution_context, bundle_id, tier=tier)
-    unique_ids = list(sorted(covariate_data.study_covariate_id.unique()))
-    records = CovariateRecords("study")
-    id_to_name = covariate_ids_to_names(execution_context, unique_ids)
-    records.measurements = _normalize_covariate_data(bundle, covariate_data, id_to_name)
-    records.id_to_name = id_to_name
-    records.id_to_reference = {rid: 0.0 for rid in records.id_to_name}
-    # Cannot fill out study covariates for average integrand cases until they are made.
     return records

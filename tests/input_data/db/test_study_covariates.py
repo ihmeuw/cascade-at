@@ -7,15 +7,16 @@ import pytest
 
 from cascade.input_data.configuration.covariate_records import CovariateRecords
 from cascade.input_data import InputDataError
-from cascade.input_data.configuration.construct_study import \
-    _normalize_covariate_data, add_avgint_records_to_study_covariates
+from cascade.input_data.configuration.construct_study import _normalize_covariate_data
 
 
 @pytest.fixture
 def basic_bundle():
     return pd.DataFrame(
         {"seq": [2, 4, 6, 8, 10],
-         "mean": [2.0, 4.0, 6.0, 8.0, 10.0]}
+         "mean": [2.0, 4.0, 6.0, 8.0, 10.0],
+         "in_bundle": [1, 1, 1, 1, 1],
+         }
     ).set_index("seq")
 
 
@@ -81,12 +82,3 @@ def test_no_covariates(basic_bundle):
     covs = pd.DataFrame(index=basic_bundle.index)
     normalized = _normalize_covariate_data(basic_bundle, cov_in, {})
     pd.testing.assert_frame_equal(normalized, covs)
-
-
-def test_add_avgint(basic_bundle):
-    covariate_records = CovariateRecords("study")
-    covariate_records.measurements = pd.DataFrame(columns=["a", "c", "e"])
-    add_avgint_records_to_study_covariates(basic_bundle, covariate_records)
-    aic = covariate_records.average_integrand_cases
-    assert aic.shape[0] == len(basic_bundle.index)
-    assert aic.shape[1] == len(covariate_records.measurements.columns)

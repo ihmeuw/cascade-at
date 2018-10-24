@@ -80,6 +80,8 @@ def add_mortality_data(model_context, execution_context):
     )
     csmr["measure"] = "mtspecific"
     csmr = csmr.rename(columns={"location_id": "node_id"})
+    # Ensure that the csmr index doesn't overlap with the existing seq values in the observations.
+    csmr.index = csmr.index.values + model_context.input_data.observations.index.max() + 1
     model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr])
 
 
@@ -99,6 +101,8 @@ def add_omega_constraint(model_context, execution_context):
     asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
 
+    # Ensure that the index is after the observation index so that the seq numbers are preserved.
+    asdr.index = asdr.index.values + model_context.input_data.observations.index.max() + 1
     mask = model_context.input_data.observations.measure == "mtall"
     model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr])
     model_context.input_data.observations = model_context.input_data.observations[~mask]
@@ -141,7 +145,7 @@ def model_context_from_settings(execution_context, settings):
     load_asdr_to_t3(execution_context)
     execution_context.parameters.tier = 3
 
-    bundle, study_covariate_records = normalized_bundle_from_database(
+    bundle = normalized_bundle_from_database(
         execution_context, bundle_id=model_context.parameters.bundle_id
     )
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
@@ -159,9 +163,11 @@ def model_context_from_settings(execution_context, settings):
     add_omega_constraint(model_context, execution_context)
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
 
-    fixed_effects_from_epiviz(model_context, bundle, execution_context, settings)
+    fixed_effects_from_epiviz(model_context, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
+    model_context.input_data.observations = model_context.input_data.observations.drop(columns="sex_id")
+    model_context.average_integrand_cases = model_context.average_integrand_cases.drop(columns="sex_id")
     return model_context
 
 

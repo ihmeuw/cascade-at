@@ -44,7 +44,8 @@ def unique_country_covariate(configuration):
     yield from sorted(seen_covariate)  # Sorted for stability.
 
 
-def covariate_records_from_settings(model_context, execution_context, configuration):
+def covariate_records_from_settings(model_context, execution_context,
+                                    configuration, study_covariate_records):
     """
     The important choices are assignment of covariates to observations and
     integrands by
@@ -57,6 +58,8 @@ def covariate_records_from_settings(model_context, execution_context, configurat
             a bundle as "observations", and a location id.
         execution_context: Context for execution of this program.
         configuration: Settings from EpiViz.
+        study_covariate_records (CovariateRecords): Study covariates which
+            have the sex column for measurements and average integrand cases.
 
     Returns:
         CovariateRecords object, completely filled out.
@@ -87,31 +90,31 @@ def covariate_records_from_settings(model_context, execution_context, configurat
                      f"covariate_to_measurements_nearest_favoring_same_year()")
         if measurements is not None:
             observations_column = covariate_to_measurements_nearest_favoring_same_year(
-                measurements, ccov_ranges_df)
+                measurements, study_covariate_records.measurements["sex"], ccov_ranges_df)
             observations_column.name = covariate_name
         else:
             observations_column = None
 
         if avgint is not None:
             avgint_column = covariate_to_measurements_nearest_favoring_same_year(
-                avgint, ccov_ranges_df)
+                avgint, study_covariate_records.average_integrand_cases["sex"], ccov_ranges_df)
             avgint_column.name = covariate_name
         else:
             avgint_column = None
         reference = reference_value_for_covariate_mean_all_values(ccov_df)
-        records.id_to_reference = reference
+        records.id_to_reference[covariate_id] = reference
         measurement_columns.append(observations_column)
         avgint_columns.append(avgint_column)
 
-    if all(isinstance(mmc, pd.DataFrame) for mmc in measurement_columns) and measurement_columns:
-        records.measurements = pd.concat(measurement_columns)
+    if all(isinstance(mmc, pd.Series) for mmc in measurement_columns) and measurement_columns:
+        records.measurements = pd.concat(measurement_columns, axis=1)
     elif measurements is not None:
         records.measurements = pd.DataFrame(index=measurements.index)
     else:
         records.measurements = pd.DataFrame()
 
-    if all(isinstance(aac, pd.DataFrame) for aac in avgint_columns) and avgint_columns:
-        records.average_integrand_cases = pd.concat(avgint_columns)
+    if all(isinstance(aac, pd.Series) for aac in avgint_columns) and avgint_columns:
+        records.average_integrand_cases = pd.concat(avgint_columns, axis=1)
     elif records.average_integrand_cases is not None:
         records.average_integrand_cases = pd.DataFrame(index=avgint.index)
     else:
@@ -127,7 +130,7 @@ def reference_value_for_covariate_mean_all_values(cov_df):
     return float(cov_df["mean_value"].mean())
 
 
-def covariate_to_measurements_nearest_favoring_same_year(measurements, covariates):
+def covariate_to_measurements_nearest_favoring_same_year(measurements, sex, covariates):
     """
     Given a covariate that might not cover all of the age and time range
     of the measurements select a covariate value for each measurement.
@@ -141,6 +144,7 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
         measurements (pd.DataFrame):
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``. All others are ignored.
+        sex (pd.Series): The sex covariate as [-0.5, 0, 0.5].
         covariates (pd.DataFrame):
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``, and ``value``.
@@ -166,7 +170,7 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
             zip(
                 measurements[["age_lower", "age_upper"]].mean(axis=1) / 240,
                 measurements[["time_lower", "time_upper"]].mean(axis=1),
-                measurements["sex"],
+                sex,
             )
         )
     )

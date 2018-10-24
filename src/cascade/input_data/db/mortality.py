@@ -17,7 +17,7 @@ def get_excess_mortality_data(execution_context):
                 year_end as time_upper,
                 age_start as age_lower,
                 age_end as age_upper,
-                sex_id as sex,
+                sex_id,
                 mean as meas_value,
                 lower as meas_lower,
                 upper as meas_upper,
@@ -43,7 +43,7 @@ def get_cause_specific_mortality_data(execution_context):
                 year_id as time_lower,
                 year_id as time_upper,
                 age_group_id,
-                sex_id as sex,
+                sex_id,
                 mean as meas_value,
                 lower as meas_lower,
                 upper as meas_upper
@@ -67,7 +67,7 @@ def get_age_standardized_death_rate_data(execution_context):
                 year_id as time_lower,
                 year_id as time_upper,
                 age_group_id,
-                sex_id as sex,
+                sex_id,
                 mean as meas_value,
                 lower as meas_lower,
                 upper as meas_upper

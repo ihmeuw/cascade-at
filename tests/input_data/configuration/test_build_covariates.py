@@ -45,7 +45,7 @@ def sample_covariate():
 def test_covariate_nearest(sample_measurements, sample_covariate):
     m = sample_measurements.copy()
     m["cov_name"] = cascade.input_data.configuration.construct_country.covariate_to_measurements_nearest_favoring_same_year(
-        sample_measurements, sample_covariate)
+        sample_measurements, sample_measurements.x_sex, sample_covariate)
     c = m["cov_name"]
     expected = [0.2, 0.5, 0.7, 0.8, 0.8, 0.8, 2.0, 2.0]
     for idx, ex in enumerate(expected):

@@ -57,6 +57,11 @@ def bundle_to_observations(config, bundle_df):
     """
     Convert bundle into an internal format. It removes the sex column and changes
     location to node. It also adjusts for the demographic specification.
+
+    Returns:
+        pd.DataFrame: Includes ``sex_id`` and ``in_bundle``, which indicates
+            that these particular observations are from the bundle as
+            opposed to ones we add separately.
     """
     if "location_id" in bundle_df.columns:
         location_id = bundle_df["location_id"]
@@ -83,7 +88,10 @@ def bundle_to_observations(config, bundle_df):
             "time_upper": bundle_df["time_upper"].astype(np.float) + demographic_interval_specification,
             "mean": bundle_df["mean"],
             "standard_error": bundle_df["standard_error"],
-        }
+            "sex_id": bundle_df["sex_id"],
+            "in_bundle": np.ones(bundle_df.shape[0]),
+        },
+        index=bundle_df.index,  # So that we preserve the seq that identifies the record.
     )
 
 
@@ -105,4 +113,4 @@ def normalized_bundle_from_database(execution_context, bundle_id=None, tier=3):
     bundle = _get_bundle_data(execution_context, bundle_id, tier=tier)
     bundle = _normalize_bundle_data(bundle)
 
-    return bundle, None
+    return bundle

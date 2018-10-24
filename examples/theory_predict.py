@@ -126,7 +126,7 @@ def cached_bundle_load(context, bundle_id, tier_idx):
 
     LOGGER.debug(f"Begin getting study covariates {bundle_id}")
     bundle_begin = timer()
-    bundle, covariate = normalized_bundle_from_database(context, bundle_id, tier_idx)
+    bundle = normalized_bundle_from_database(context, bundle_id, tier_idx)
     LOGGER.debug(f"bundle is {bundle} time {timer() - bundle_begin}")
 
     pickle.dump((bundle, covariate), cache_bundle.open("wb"), pickle.HIGHEST_PROTOCOL)

@@ -34,7 +34,7 @@ def model_context_from_epiviz(execution_context):
 
     freeze_bundle(execution_context)
 
-    bundle, study_covariates = normalized_bundle_from_database(
+    bundle = normalized_bundle_from_database(
         execution_context, bundle_id=model_context.parameters.bundle_id
     )
     model_context.input_data.observations = bundle_to_observations(model_context.parameters, bundle)
