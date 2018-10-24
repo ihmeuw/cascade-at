@@ -211,25 +211,23 @@ def observations_to_data(observations_df, node_table, hold_out=0):
                                                        left_on="node_id",
                                                        right_on=node_table.c_location_id
                                                        ).node_id
-    return pd.DataFrame(
-        {
-            "integrand_id": observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
-            "node_id": observations_df.node_id,
-            # Density is an Enum at this point.
-            "density_id": observations_df["density"].apply(lambda x: x.value),
-            # Translate weight from string
-            "weight_id": 0,
-            "age_lower": observations_df["age_lower"],
-            "age_upper": observations_df["age_upper"],
-            "time_lower": observations_df["time_lower"],
-            "time_upper": observations_df["time_upper"],
-            "meas_value": observations_df["mean"],
-            "meas_std": observations_df["standard_error"],
-            "eta": np.NaN,
-            "nu": np.NaN,
-            "hold_out": hold_out,
-        }
+    transformed = observations_df.assign(
+        integrand_id=observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
+        density_id=observations_df["density"].apply(lambda x: x.value),
+        meas_value=observations_df["mean"],
+        meas_std=observations_df["standard_error"],
+        weight_id=0,
+        hold_out=hold_out,
+        eta=np.NaN,
+        nu=np.NaN,
     )
+    keep = {"data_name", "integrand_id", "density_id", "node_id", "weight_id",
+            "hold_out", "meas_value", "meas_std", "eta", "nu", "age_lower",
+            "age_upper", "time_lower", "time_upper"}
+    keep |= {xcol for xcol in transformed.columns if xcol.startswith("x_")}
+    to_remove = list(sorted(set(list(transformed.columns)) - keep))
+    CODELOG.debug(f"Removing columns from observations before saving {to_remove}")
+    return transformed.drop(columns=to_remove)
 
 
 def collect_priors(context):

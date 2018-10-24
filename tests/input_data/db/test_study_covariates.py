@@ -5,7 +5,6 @@ for which the study covariate is 1.
 import pandas as pd
 import pytest
 
-from cascade.input_data.configuration.covariate_records import CovariateRecords
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.construct_study import _normalize_covariate_data
 
