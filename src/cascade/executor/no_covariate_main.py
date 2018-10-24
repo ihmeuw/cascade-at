@@ -88,10 +88,10 @@ def fake_mtother():
             mean=0.001,
             sex="Male",
             standard_error=0.0007,
-            age_start=age_time[:, 0],
-            age_end=age_time[:, 0],
-            year_start=age_time[:, 1],
-            year_end=age_time[:, 1],
+            age_lower=age_time[:, 0],
+            age_upper=age_time[:, 0],
+            time_lower=age_time[:, 1],
+            time_upper=age_time[:, 1],
         )
     )
 

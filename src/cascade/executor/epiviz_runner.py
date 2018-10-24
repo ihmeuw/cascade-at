@@ -96,7 +96,7 @@ def add_omega_constraint(model_context, execution_context):
     asdr = asdr.rename(columns={"location_id": "node_id"})
     min_time = np.min(list(model_context.input_data.times))  # noqa: F841
     max_time = np.max(list(model_context.input_data.times))  # noqa: F841
-    asdr = asdr.query("year_start >= @min_time and year_end <= @max_time and year_start % 5 == 0")
+    asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
 
     mask = model_context.input_data.observations.measure == "mtall"

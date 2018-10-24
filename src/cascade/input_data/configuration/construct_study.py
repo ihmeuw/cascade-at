@@ -53,7 +53,8 @@ def _normalize_covariate_data(bundle, study_covariates, id_to_name):
     study_ids = study_covariates.set_index("seq")
     study_covariate_columns = list()
     indices_not_found = list()
-    study_subset = study_ids.join(bundle.measure).dropna().drop(columns="measure").study_covariate_id
+    # Get rid of records, by seq number, which don't appear in both bundle and covariates.
+    study_subset = study_ids.join(bundle["mean"]).dropna().drop(columns="mean").study_covariate_id
     MATHLOG.info(f"There are {study_subset.shape[0]} nonzero study covariates in this bundle.")
     for cov_id in sorted(id_to_name):  # Sort for stable behavior.
         cov_column =  pd.Series([0.0] * bundle.shape[0], index=bundle.index.values, name=id_to_name[cov_id])

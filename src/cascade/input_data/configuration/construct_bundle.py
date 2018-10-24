@@ -49,7 +49,8 @@ def _normalize_bundle_data(data):
 
     cols = ["measure", "mean", "sex", "sex_id", "standard_error", "age_start", "age_end", "year_start", "year_end", "location_id"]
 
-    return data[cols]
+    return data[cols].rename(columns={"age_start": "age_lower", "age_end": "age_upper",
+                                      "year_start": "time_lower", "year_end": "time_upper"})
 
 
 def bundle_to_observations(config, bundle_df):
@@ -69,20 +70,17 @@ def bundle_to_observations(config, bundle_df):
 
     weight_method = "constant"
     MATHLOG.info(f"The set of weights for this bundle is {weight_method}.")
-    # Stick with year_start instead of time_start because that's what's in the
-    # bundle, so it's probably what modelers use. Would be nice to pair
-    # start with finish or begin with end.
     return pd.DataFrame(
         {
             "measure": bundle_df["measure"],
             "node_id": location_id,
             "density": DensityEnum.gaussian,
             "weight": weight_method,
-            "age_start": bundle_df["age_start"],
-            "age_end": bundle_df["age_end"] + demographic_interval_specification,
+            "age_lower": bundle_df["age_lower"],
+            "age_upper": bundle_df["age_upper"] + demographic_interval_specification,
             # The years should be floats in the bundle.
-            "year_start": bundle_df["year_start"].astype(np.float),
-            "year_end": bundle_df["year_end"].astype(np.float) + demographic_interval_specification,
+            "time_lower": bundle_df["time_lower"].astype(np.float),
+            "time_upper": bundle_df["time_upper"].astype(np.float) + demographic_interval_specification,
             "mean": bundle_df["mean"],
             "standard_error": bundle_df["standard_error"],
         }

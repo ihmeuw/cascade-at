@@ -28,20 +28,20 @@ class AgeTimeGrid:
     """
 
     @classmethod
-    def uniform(cls, age_start, age_end, age_step, time_start, time_end, time_step):
+    def uniform(cls, age_lower, age_upper, age_step, time_lower, time_upper, time_step):
         """Construct an age-time grid with uniform spacing on each axis.
         All values are in units of years.
 
         Args:
-            age_start: the lowest age in the grid
-            age_end: the highest age in the grid (inclusive)
+            age_lower: the lowest age in the grid
+            age_upper: the highest age in the grid (inclusive)
             age_step: the step between ages
-            time_start: the earliest time in the grid
-            time_end: the latest time in the grid (inclusive)
+            time_lower: the earliest time in the grid
+            time_upper: the latest time in the grid (inclusive)
             time_step: the step between times
         """
-        ages = np.arange(age_start, age_end, age_step)
-        times = np.arange(time_start, time_end, time_step)
+        ages = np.arange(age_lower, age_upper, age_step)
+        times = np.arange(time_lower, time_upper, time_step)
 
         return cls(ages, times)
 
@@ -165,7 +165,7 @@ class PriorGrid:
         hyper_prior: The prior for the priors in this grid
 
     Examples:
-        >>> grid = AgeTimeGrid.uniform(age_start=0,age_end=120,age_step=5,time_start=1990,time_end=2018,time_step=1)
+        >>> grid = AgeTimeGrid.uniform(age_lower=0,age_upper=120,age_step=5,time_lower=1990,time_upper=2018,time_step=1)
         >>> d_time = PriorGrid(grid)
         >>> #Set a prior for the whole grid:
         >>> d_time[:, :].prior = Gaussian(0, 0.1)

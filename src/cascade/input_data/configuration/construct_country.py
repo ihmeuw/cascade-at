@@ -164,8 +164,8 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, covariate
     _, indices = tree.query(
         list(
             zip(
-                measurements[["age_start", "age_end"]].mean(axis=1) / 240,
-                measurements[["year_start", "year_end"]].mean(axis=1),
+                measurements[["age_lower", "age_upper"]].mean(axis=1) / 240,
+                measurements[["time_lower", "time_upper"]].mean(axis=1),
                 measurements["sex"],
             )
         )

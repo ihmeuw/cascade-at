@@ -31,7 +31,7 @@ def get_locations(execution_context):
 def age_groups_to_ranges(execution_context, data):
     groups = get_age_groups(execution_context)
     with_group = data.merge(groups, on="age_group_id").drop(columns="age_group_id")
-    return with_group.rename(columns={"age_group_years_start": "age_start", "age_group_years_end": "age_end"})
+    return with_group.rename(columns={"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"})
 
 
 def get_all_age_spans(execution_context):
