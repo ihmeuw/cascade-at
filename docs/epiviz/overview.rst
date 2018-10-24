@@ -10,7 +10,7 @@ Introduction
 EpiViz-AT is a web page on http://epimodeling-web-d01.ihme.washington.edu/at
 or http://epimodeling-web-p01.ihme.washington.edu/at. After you fill out
 that web page and hit submit, the web server runs a program on the cluster.
-We call that program ``epiviz_runner``. It installed on the IHME cluster,
+We call that program ``epiviz_runner``. It is installed on the IHME cluster,
 and the code itself is stored at https://github.com/ihmeuw/cascade.
 The ``epiviz_runner``, itself, is at
 https://github.com/ihmeuw/cascade/blob/develop/src/cascade/executor/epiviz_runner.py.
@@ -55,20 +55,22 @@ a table of measurements in the Dismod-AT input file.
     GBD measure ID to a Dismod measure, according to the
     `bundle id map <https://github.com/ihmeuw/cascade/blob/develop/src/cascade/input_data/configuration/id_map.py>`_.
     If the incoming data uses incidence, instead of S-incidence
-    or T-incidence, reject it.
+    or T-incidence, reject it because Dismod-AT distinguishes
+    between S-incidence and T-incidence.
 
  3. Convert sex id from 1, 2, 3, 4 to male, female, both, or unspecified.
 
  4. Find the list of study covariates associated with this bundle,
     both by covariate id and by name.
 
- 5. If data is in demographic notation, then the bundle end times
-    will be wrong, but the code prints a message to say whether it adds
-    a year to the end of an age region or time region.
+ 5. Adjust age and time values to account for demographic notation.
+    Bundles have a column to specify whether a record uses
+    demographic notation. The code doesn't check that currently
+    but does print the assumption it makes.
 
  6. It assigns a set of weights to the measurements. These are
     meant to give relative importance according to changes in
-    population size. These are all 1 if the weight method is "constant."
+    population size. These are all 1 if the weight method is "constant".
 
  7. All observations with standard error at zero are removed,
     unless they are relative risks.

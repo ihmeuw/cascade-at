@@ -134,7 +134,9 @@ def model_context_from_settings(execution_context, settings):
      5. Create Average Integrand Cases, which are the list of
         desired outputs from Dismod-AT to show in graphs in EpiViz-AT.
 
-     6. Construct all Fixed Effects.
+     6. Construct all Fixed Effects. These are defined in
+        https://bradbell.github.io/dismod_at/doc/model_variables.htm.
+
 
      7. Construct all Random Effects.
     """
