@@ -353,8 +353,11 @@ def make_prior_table(context, density_table):
         columns=["prior_name", "density_name", "lower", "upper", "mean", "std", "eta", "nu"],
     )
     prior_table["prior_id"] = prior_table.index
-    prior_table.loc[prior_table.prior_name.isnull(), "prior_name"] = prior_table.loc[
-        prior_table.prior_name.isnull(), "prior_id"
+    null_names = prior_table.prior_name.isnull()
+    prior_table.loc[~null_names, "prior_name"] = prior_table.loc[
+        ~null_names, "prior_name"] + "_" + prior_table.loc[~null_names, "prior_id"].astype(str)
+    prior_table.loc[null_names, "prior_name"] = prior_table.loc[
+        null_names, "prior_id"
     ].apply(lambda pid: f"prior_{pid}")
 
     prior_table["prior_id"] = prior_table.index
@@ -470,7 +473,7 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
         if smooth.name is None:
             name = f"smooth_{len(smooths)}"
         else:
-            name = smooth.name
+            name = f"{smooth.name}_{len(smooths)}"
         smooth_rows.append(_smooth_row(name, smooth, grid_table, prior_id_func))
         smooths.append(smooth)
         grid_tables.append(grid_table)

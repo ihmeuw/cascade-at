@@ -243,7 +243,7 @@ def test_make_smooth_and_smooth_grid_tables(base_context):
     )
 
     assert len(smooth_table) == 2
-    assert "iota_smooth" in smooth_table.smooth_name.values
+    assert "iota_smooth_1" in smooth_table.smooth_name.values
 
     assert set(smooth_table.index) == set(smooth_grid_table.smooth_id)
 
