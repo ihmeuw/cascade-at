@@ -10,10 +10,8 @@ Introduction
 EpiViz-AT is a web page on http://epimodeling-web-d01.ihme.washington.edu/at
 or http://epimodeling-web-p01.ihme.washington.edu/at. After you fill out
 that web page and hit submit, the web server runs a program on the cluster.
-We call that program ``epiviz_runner``. It is installed on the IHME cluster,
+We call that program ``dmcascade``. It is installed on the IHME cluster,
 and the code itself is stored at https://github.com/ihmeuw/cascade.
-The ``epiviz_runner``, itself, is at
-https://github.com/ihmeuw/cascade/blob/develop/src/cascade/executor/epiviz_runner.py.
 
 This page describes what that code does, in order.
 
@@ -23,6 +21,7 @@ Outline
 -------
 
 .. autofunction:: cascade.executor.epiviz_runner.main
+    :noindex:
 
 
 .. _build-model-from-epiviz-settings:
@@ -36,6 +35,7 @@ about how to enter that data. Here is how we separate them
 in EpiViz Runner.
 
 .. autofunction:: cascade.executor.epiviz_runner.model_context_from_settings
+    :noindex:
 
 
 .. _convert-bundle-to-measurement-data:

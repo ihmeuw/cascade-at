@@ -8,14 +8,12 @@ from cascade.core.db import latest_model_version
 from cascade.input_data.db.configuration import settings_json_from_epiviz
 from cascade.executor.no_covariate_main import bundle_to_observations
 from cascade.input_data.configuration.form import Configuration
-from cascade.input_data.configuration.construct_bundle import \
-    normalized_bundle_from_database
+from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
     fixed_effects_from_epiviz,
-    integrand_grids_from_epiviz,
 )
 
 

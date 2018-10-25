@@ -12,8 +12,11 @@ from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.priors import NO_PRIOR, Constant
 from cascade.model.rates import Smooth
 from cascade.input_data.configuration import SettingsError
-from cascade.input_data.configuration.construct_study import add_special_study_covariates, \
-    unique_study_covariate_transform, get_bundle_study_covariates
+from cascade.input_data.configuration.construct_study import (
+    add_special_study_covariates,
+    unique_study_covariate_transform,
+    get_bundle_study_covariates,
+)
 from cascade.core.context import ModelContext
 import cascade.model.priors as priors
 from cascade.input_data import InputDataError

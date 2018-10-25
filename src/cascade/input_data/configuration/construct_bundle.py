@@ -104,8 +104,7 @@ def normalized_bundle_from_database(execution_context, bundle_id=None, tier=3):
         tier (int): Tier to load data from. Defaults to 3 (frozen data) but will also accept 2 (scratch space)
 
     Returns:
-        A tuple of (bundle data, study covariate labels) where the bundle data is a pd.DataFrame and the labels are a
-        pd.DataFrame with an index aligned with bundle data and a column without ``x_`` for each study covariate.
+        bundle data, where the bundle data is a pd.DataFrame.
     """
     if bundle_id is None:
         bundle_id = _get_bundle_id(execution_context)

@@ -9,8 +9,7 @@ import pandas as pd
 
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.covariate_records import CovariateRecords
-from cascade.input_data.db.study_covariates import _get_study_covariates, \
-    covariate_ids_to_names
+from cascade.input_data.db.study_covariates import _get_study_covariates, covariate_ids_to_names
 from cascade.core.log import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)

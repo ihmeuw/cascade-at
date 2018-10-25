@@ -15,8 +15,7 @@ from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
-from cascade.input_data.configuration.construct_bundle import \
-    normalized_bundle_from_database, bundle_to_observations
+from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
