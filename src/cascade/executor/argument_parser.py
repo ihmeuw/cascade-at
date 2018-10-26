@@ -203,7 +203,8 @@ class BaseArgumentParser(ArgumentParser):
         log_file = math_log_dir / "log.log"
         try:
             append_to_math_log = "a"
-            math_handler = logging.FileHandler(str(log_file), append_to_math_log)
+            windows_newlines = "\r\n"
+            math_handler = logging.StreamHandler(log_file.open(append_to_math_log, newline=windows_newlines))
         except (OSError, PermissionError) as mhe:
             logging.warning(f"Could not write to math log at {log_file} even though "
                             f"directory {math_log_dir} exists: {mhe}")
