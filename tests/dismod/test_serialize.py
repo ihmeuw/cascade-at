@@ -17,12 +17,13 @@ from cascade.dismod.serialize import (
     make_age_table,
     make_time_table,
     integrand_to_id,
+    make_covariate_table,
     make_prior_table,
     make_smooth_and_smooth_grid_tables,
     make_node_table,
     make_data_table,
     make_rate_table,
-    make_covariate_table,
+    make_mulcov_table,
 )
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.dismod.db.metadata import DensityEnum
@@ -55,10 +56,10 @@ def mock_get_location_hierarchy_from_gbd(mocker):
 def make_data(integrands):
     ages = np.arange(0, 121, 5, dtype=float)
     times = np.arange(1980, 2016, 5, dtype=float)
-    df = pd.MultiIndex.from_product([ages, times, integrands], names=["age_start", "year_start", "measure"])
+    df = pd.MultiIndex.from_product([ages, times, integrands], names=["age_lower", "time_lower", "measure"])
     df = pd.DataFrame(index=df).reset_index()
-    df["age_end"] = df.age_start + 5
-    df["year_end"] = df.year_start + 5
+    df["age_upper"] = df.age_lower + 5
+    df["time_upper"] = df.time_lower + 5
     df["node_id"] = 1
     df["sex"] = "Both"
     df["density"] = DensityEnum.gaussian
@@ -89,7 +90,7 @@ def base_context(observations, constraints):
     context.input_data.observations = observations
     context.input_data.constraints = constraints
 
-    grid = AgeTimeGrid.uniform(age_start=0, age_end=100, age_step=1, time_start=1990, time_end=2018, time_step=5)
+    grid = AgeTimeGrid.uniform(age_lower=0, age_upper=100, age_step=1, time_lower=1990, time_upper=2018, time_step=5)
 
     d_time = PriorGrid(grid)
     d_time[:, :].prior = Gaussian(0, 0.1, eta=1)
@@ -260,7 +261,8 @@ def test_make_node_table(base_context, mock_get_location_hierarchy_from_gbd):
 
 def test_make_data_table(base_context, mock_get_location_hierarchy_from_gbd):
     node_table, _ = make_node_table(base_context)
-    data_table = make_data_table(base_context, node_table)
+    renames = dict(x_sex="x_0")
+    data_table = make_data_table(base_context, node_table, renames)
 
     assert len(data_table) == len(base_context.input_data.observations) + len(base_context.input_data.constraints)
     assert len(data_table.query("hold_out==1")) == len(base_context.input_data.constraints)
@@ -288,7 +290,7 @@ def test_make_rate_table(base_context):
 
 
 def test_make_covariate_table(base_context):
-    at_grid = AgeTimeGrid.uniform(age_start=0, age_end=120, age_step=5, time_start=1990, time_end=2018, time_step=1)
+    at_grid = AgeTimeGrid.uniform(age_lower=0, age_upper=120, age_step=5, time_lower=1990, time_upper=2018, time_step=1)
     value_priors = PriorGrid(at_grid)
     value_priors[:, :].prior = Gaussian(0, 0.8)
     at_priors = PriorGrid(at_grid)
@@ -328,8 +330,8 @@ def test_make_covariate_table(base_context):
     smooth_table, smooth_grid_table, smooth_id_func = make_smooth_and_smooth_grid_tables(
         base_context, age_table, time_table, prior_objects
     )
-
+    covariate_columns, cov_id_func, covariate_renames = make_covariate_table(base_context)
     rate_table, rate_to_id = make_rate_table(base_context, smooth_id_func)
-    columns_df, mulcov_df, columns_func = make_covariate_table(
-        base_context, smooth_id_func, rate_to_id, integrand_to_id
+    mulcov_df = make_mulcov_table(
+        base_context, smooth_id_func, rate_to_id, integrand_to_id, cov_id_func
     )

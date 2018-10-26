@@ -19,8 +19,8 @@ def test_assign_covariates_to_iota():
     model = ModelContext()
 
     at_grid = AgeTimeGrid.uniform(
-        age_start=0, age_end=120, age_step=5,
-        time_start=1990, time_end=2018, time_step=1)
+        age_lower=0, age_upper=120, age_step=5,
+        time_lower=1990, time_upper=2018, time_step=1)
     value_priors = PriorGrid(at_grid)
     value_priors[:, :].prior = Gaussian(0, 1.0)
     at_priors = PriorGrid(at_grid)

@@ -14,9 +14,9 @@ from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
-from cascade.executor.no_covariate_main import bundle_to_observations, build_constraint
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
-from cascade.input_data.db.bundle import bundle_with_study_covariates, freeze_bundle
+from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
+from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.saver.save_model_results import save_model_results
@@ -25,9 +25,9 @@ from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
     fixed_effects_from_epiviz,
     random_effects_from_epiviz,
-)
+    build_constraint)
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -79,7 +79,7 @@ def add_mortality_data(model_context, execution_context):
     )
     csmr["measure"] = "mtspecific"
     csmr = csmr.rename(columns={"location_id": "node_id"})
-    model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr])
+    model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr], ignore_index=True)
 
 
 def add_omega_constraint(model_context, execution_context):
@@ -95,30 +95,58 @@ def add_omega_constraint(model_context, execution_context):
     asdr = asdr.rename(columns={"location_id": "node_id"})
     min_time = np.min(list(model_context.input_data.times))  # noqa: F841
     max_time = np.max(list(model_context.input_data.times))  # noqa: F841
-    asdr = asdr.query("year_start >= @min_time and year_end <= @max_time and year_start % 5 == 0")
+    asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
 
+    # Ensure that the index is after the observation index so that the seq numbers are preserved.
     mask = model_context.input_data.observations.measure == "mtall"
-    model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr])
+    model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr], ignore_index=True)
     model_context.input_data.observations = model_context.input_data.observations[~mask]
 
 
 def model_context_from_settings(execution_context, settings):
-    model_context = initial_context_from_epiviz(settings)
+    """
+     1. Freeze the measurement bundle, which means that we make a copy of the
+        input measurement data and study covariates for safe-keeping
+        in case there is later question about what data was used.
 
-    fixed_effects_from_epiviz(model_context, execution_context, settings)
-    random_effects_from_epiviz(model_context, settings)
+     2. Retrieve the measurement bundle and its study covariates
+        and convert it into data on the model, as described in
+        :ref:`convert-bundle-to-measurement-data`.
+
+     3. Add mortality data. This is cause-specific mortality
+        data, and it is added as "mtspecific" in the Dismod-AT measurements.
+        This data has a "measurement upper" and "measurement lower"
+        which are converted into a standard error with a Gaussian
+        prior.
+
+     4. Add other-cause mortality as a constraint on the system, meaning
+        the age-standardized death rate is used to construct both
+        measurement data for mtall, with priors determined from
+        "measurement upper" and "measurement lower", but also a constraint
+        on omega, the underlying rate for other-cause mortality, so that
+        Dismod-AT will accept this as a given in the problem.
+
+     5. Create Average Integrand Cases, which are the list of
+        desired outputs from Dismod-AT to show in graphs in EpiViz-AT.
+
+     6. Construct all Fixed Effects. These are defined in
+        https://bradbell.github.io/dismod_at/doc/model_variables.htm.
+
+     7. Construct all Random Effects.
+    """
+    model_context = initial_context_from_epiviz(settings)
 
     freeze_bundle(execution_context, execution_context.parameters.bundle_id)
     load_csmr_to_t3(execution_context)
     load_asdr_to_t3(execution_context)
+    execution_context.parameters.tier = 3
 
-    bundle, study_covariates = bundle_with_study_covariates(
+    bundle = normalized_bundle_from_database(
         execution_context, bundle_id=model_context.parameters.bundle_id
     )
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
     observations = bundle_to_observations(model_context.parameters, bundle)
-    observations = observations.rename(columns={"location_id": "node_id"})
     model_context.input_data.observations = observations
 
     mask = model_context.input_data.observations.standard_error > 0
@@ -132,6 +160,11 @@ def model_context_from_settings(execution_context, settings):
     add_omega_constraint(model_context, execution_context)
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
 
+    fixed_effects_from_epiviz(model_context, execution_context, settings)
+    random_effects_from_epiviz(model_context, settings)
+
+    model_context.input_data.observations = model_context.input_data.observations.drop(columns="sex_id")
+    model_context.average_integrand_cases = model_context.average_integrand_cases.drop(columns="sex_id")
     return model_context
 
 
@@ -173,6 +206,21 @@ def has_random_effects(model):
 
 
 def main(args):
+    """
+     1. Parse arguments to the command line. The GUI calls a shell script
+        which passes the model version ID to the EpiViz Runner.
+
+     2. Construct an Execution Context, which tells EpiViz Runner where it can find
+        directories, files, and databases on the cluster.
+
+     3. Load Settings, which are the values you entered into EpiViz-AT on the web page.
+
+     4. Using the Settings and the Execution Context, fill out the data and
+        any parameters for Dismod-AT, as described in
+        :ref:`build-model-from-epiviz-settings`.
+
+     5. Put that data into a file and run Dismod-AT on that file.
+    """
     ec = make_execution_context()
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
     add_settings_to_execution_context(ec, settings)

@@ -41,6 +41,7 @@ def model_to_dismod_file(model, execution_context):
 
     bundle_fit.covariate = bundle_fit.empty_table("covariate")
     CODELOG.debug(f"Covariate types {bundle_fit.covariate.dtypes}")
+    bundle_fit.covariate, cov_col_id_func, covariate_renames = make_covariate_table(model)
 
     # Defaults, empty, b/c Brad makes them empty.
     bundle_fit.nslist = bundle_fit.empty_table("nslist")
@@ -69,7 +70,7 @@ def model_to_dismod_file(model, execution_context):
         }
     )
 
-    bundle_fit.data = make_data_table(model, bundle_fit.node)
+    bundle_fit.data = make_data_table(model, bundle_fit.node, covariate_renames)
 
     # Include all data in the data_subset.
     bundle_fit.data_subset = pd.DataFrame({"data_id": np.arange(len(bundle_fit.data))})
@@ -92,12 +93,12 @@ def model_to_dismod_file(model, execution_context):
 
     # Given average integrand cases by name, convert them to average integrand
     # cases by ID and save. Any covariates have to exist at this point.
-    bundle_fit.avgint = make_avgint_table(model, integrand_id_func, location_to_node_func)
+    bundle_fit.avgint = make_avgint_table(model, integrand_id_func, location_to_node_func, covariate_renames)
 
     bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
 
-    bundle_fit.covariate, bundle_fit.mulcov, covariate_id_func = make_covariate_table(
-        model, smooth_id_func, rate_id_func, integrand_to_id
+    bundle_fit.mulcov = make_mulcov_table(
+        model, smooth_id_func, rate_id_func, integrand_to_id, cov_col_id_func
     )
 
     bundle_fit.option = make_option_table(model)
@@ -159,21 +160,21 @@ def make_node_table(execution_context):
     return table, location_to_node_func
 
 
-def make_data_table(context, node_table):
+def make_data_table(model_context, node_table, covariate_renames):
     total_data = []
-    if context.input_data.observations is not None:
+    if model_context.input_data.observations is not None:
         # It's OK for observations to be None if we are running a prediction.
-        total_data.append(observations_to_data(context.input_data.observations, node_table))
-    if context.input_data.constraints is not None:
+        total_data.append(observations_to_data(model_context.input_data.observations, node_table))
+    if model_context.input_data.constraints is not None:
         # While constraints are defined as smoothings on rates, these same
         # data values are put into measurement data as hold-outs so that they
         # can be visualized with the data and residuals.
-        total_data.append(observations_to_data(context.input_data.constraints, node_table, hold_out=1))
+        total_data.append(observations_to_data(model_context.input_data.constraints, node_table, hold_out=1))
 
     if total_data:
         total_data = pd.concat(total_data, ignore_index=True)
-        # Why a unique string name?
         total_data["data_name"] = total_data.index.astype(str)
+        total_data = total_data.rename(columns=covariate_renames)
     else:
         total_data = pd.DataFrame(
             columns=[
@@ -191,7 +192,7 @@ def make_data_table(context, node_table):
                 "nu",
                 "hold_out",
                 "data_name",
-            ]
+            ] + list(covariate_renames.values())
         )
     return total_data
 
@@ -211,25 +212,23 @@ def observations_to_data(observations_df, node_table, hold_out=0):
                                                        left_on="node_id",
                                                        right_on=node_table.c_location_id
                                                        ).node_id
-    return pd.DataFrame(
-        {
-            "integrand_id": observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
-            "node_id": observations_df.node_id,
-            # Density is an Enum at this point.
-            "density_id": observations_df["density"].apply(lambda x: x.value),
-            # Translate weight from string
-            "weight_id": 0,
-            "age_lower": observations_df["age_start"],
-            "age_upper": observations_df["age_end"],
-            "time_lower": observations_df["year_start"].astype(np.float),
-            "time_upper": observations_df["year_end"],
-            "meas_value": observations_df["mean"],
-            "meas_std": observations_df["standard_error"],
-            "eta": np.NaN,
-            "nu": np.NaN,
-            "hold_out": hold_out,
-        }
+    transformed = observations_df.assign(
+        integrand_id=observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
+        density_id=observations_df["density"].apply(lambda x: x.value),
+        meas_value=observations_df["mean"],
+        meas_std=observations_df["standard_error"],
+        weight_id=0,
+        hold_out=hold_out,
+        eta=np.NaN,
+        nu=np.NaN,
     )
+    keep = {"data_name", "integrand_id", "density_id", "node_id", "weight_id",
+            "hold_out", "meas_value", "meas_std", "eta", "nu", "age_lower",
+            "age_upper", "time_lower", "time_upper"}
+    keep |= {xcol for xcol in transformed.columns if xcol.startswith("x_")}
+    to_remove = list(sorted(set(list(transformed.columns)) - keep))
+    CODELOG.debug(f"Removing columns from observations before saving {to_remove}")
+    return transformed.drop(columns=to_remove)
 
 
 def collect_priors(context):
@@ -306,17 +305,16 @@ def integrand_to_id(integrand):
     return IntegrandEnum[integrand].value
 
 
-def make_avgint_table(context, integrand_id_func, location_to_node_func):
+def make_avgint_table(context, integrand_id_func, location_to_node_func, covariate_renames):
     if context.average_integrand_cases is not None:
         df = context.average_integrand_cases.copy()
         df["integrand_id"] = df.integrand_name.apply(integrand_id_func)
         df["node_id"] = df.node_id.apply(location_to_node_func)
-        return df.drop(columns=["integrand_name"])
+        return df.drop(columns=["integrand_name"]).rename(columns=covariate_renames)
     else:
-        covariate_names = [cov_obj.name for cov_obj in context.input_data.covariates]
         all_avgint_columns = ["integrand_id", "age_lower", "age_upper",
                               "time_lower", "time_upper", "weight_id",
-                              "node_id"] + covariate_names
+                              "node_id"] + list(covariate_renames.values())
         return pd.DataFrame([], columns=all_avgint_columns)
 
 
@@ -537,30 +535,11 @@ def make_rate_table(context, smooth_id_func):
     return pd.DataFrame(rows), rate_id_func
 
 
-def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_func):
-    cols = context.input_data.covariates
-    covariate_columns = pd.DataFrame(
-        {
-            "covariate_id": np.arange(len(cols)),
-            "covariate_name": [col.name for col in cols],
-            "reference": np.array([col.reference for col in cols], dtype=np.float),
-            "max_difference": np.array([col.max_difference for col in cols], dtype=np.float),
-        }
-    )
-    if covariate_columns["reference"].isnull().any():
-        null_references = list()
-        for check_ref_col in cols:
-            if not isinstance(check_ref_col.reference, Real):
-                null_references.append(check_ref_col.name)
-        raise RuntimeError(f"Covariate columns without reference values {null_references}")
-
-    def cov_col_id_func(query_column):
-        return cols.index(query_column)
-
+def make_mulcov_table(model_context, smooth_id_func, rate_id_func, integrand_id_func, cov_col_id_func):
     cm_rows = []
     # The kinds are described here:
     # https://bradbell.github.io/dismod_at/doc/avg_integrand.htm
-    for cidx, mul_type in enumerate(covariate_multiplier_iter(context)):
+    for cidx, mul_type in enumerate(covariate_multiplier_iter(model_context)):
         cov_mul, kind, rate_or_integrand = mul_type
         if kind == "rate_value":
             rate_id = rate_id_func(rate_or_integrand)
@@ -583,7 +562,39 @@ def make_covariate_table(context, smooth_id_func, rate_id_func, integrand_id_fun
         cm_rows, columns=["mulcov_id", "mulcov_type", "rate_id", "integrand_id", "covariate_id", "smooth_id"]
     )
 
-    return covariate_columns, mul_cov, cov_col_id_func
+    return mul_cov
+
+
+def make_covariate_table(context):
+    cols = context.input_data.covariates
+    covariate_columns = pd.DataFrame(
+        {
+            "covariate_id": np.arange(len(cols)),
+            "covariate_name": [col.name for col in cols],
+            "reference": np.array([col.reference for col in cols],
+                                  dtype=np.float),
+            "max_difference": np.array([col.max_difference for col in cols],
+                                       dtype=np.float),
+        }
+    )
+    if covariate_columns["reference"].isnull().any():
+        null_references = list()
+        for check_ref_col in cols:
+            if not isinstance(check_ref_col.reference, Real):
+                null_references.append(check_ref_col.name)
+        raise RuntimeError(
+            f"Covariate columns without reference values {null_references}")
+
+    def cov_col_id_func(query_column):
+        return cols.index(query_column)
+
+    # Map from x_sex, x_one to x_0, x_1, x_2...
+    renames = dict()
+    for covariate in cols:
+        x_english = f"x_{covariate.name}"
+        renames[x_english] = f"x_{cov_col_id_func(covariate)}"
+
+    return covariate_columns, cov_col_id_func, renames
 
 
 def make_option_table(context):

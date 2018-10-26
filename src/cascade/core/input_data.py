@@ -23,20 +23,20 @@ class InputData:
     def ages(self):
         ages = set()
         if self.observations is not None:
-            ages.update(self.observations.age_start)
-            ages.update(self.observations.age_end)
+            ages.update(self.observations.age_lower)
+            ages.update(self.observations.age_upper)
         if self.constraints is not None:
-            ages.update(self.constraints.age_start)
-            ages.update(self.constraints.age_end)
+            ages.update(self.constraints.age_lower)
+            ages.update(self.constraints.age_upper)
         return ages
 
     @property
     def times(self):
         times = set()
         if self.observations is not None:
-            times.update(self.observations.year_start)
-            times.update(self.observations.year_end)
+            times.update(self.observations.time_lower)
+            times.update(self.observations.time_upper)
         if self.constraints is not None:
-            times.update(self.constraints.year_start)
-            times.update(self.constraints.year_end)
+            times.update(self.constraints.time_lower)
+            times.update(self.constraints.time_upper)
         return times

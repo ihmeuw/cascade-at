@@ -22,12 +22,12 @@ def make_average_integrand_cases_from_gbd(execution_context):
             # Assuming using the first set of weights, which is constant.
             "weight_id": 0,
             "node_id": execution_context.parameters.location_id,
-            "x_sex": sex,
+            "sex_id": sex_id,
         }
         for integrand in IntegrandEnum
         for age_lower, age_upper in age_ranges
         for time_lower, time_upper in time_ranges
-        for sex in [-0.5, 0.5]
+        for sex_id in [1, 2]
     ]
 
     return pd.DataFrame(
@@ -40,6 +40,6 @@ def make_average_integrand_cases_from_gbd(execution_context):
             "time_upper",
             "weight_id",
             "node_id",
-            "x_sex",
+            "sex_id",
         ],
     )
