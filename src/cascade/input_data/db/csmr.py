@@ -92,14 +92,14 @@ def load_csmr_to_t3(execution_context) -> bool:
 
     if _csmr_in_t3(execution_context):
         CODELOG.info(
-            f"""csmr data for model_version_id {model_version_id}
-            on '{database}' already exists, doing nothing."""
+            f"csmr data for model_version_id {model_version_id} "
+            f"on '{database}' already exists, doing nothing."
         )
         return False
     else:
         CODELOG.info(
-            f"""Uploading csmr data for model_version_id
-            {model_version_id} on '{database}'"""
+            f"Uploading csmr data for model_version_id "
+            f"{model_version_id} on '{database}'"
         )
 
         csmr_data = _get_csmr_data(execution_context)

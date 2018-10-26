@@ -8,13 +8,13 @@ from cascade.model.priors import Gaussian
 
 @pytest.fixture
 def age_time_grid():
-    return AgeTimeGrid.uniform(age_start=0, age_end=120, age_step=5, time_start=1990, time_end=2018, time_step=1)
+    return AgeTimeGrid.uniform(age_lower=0, age_upper=120, age_step=5, time_lower=1990, time_upper=2018, time_step=1)
 
 
 def test_PriorGrid__development_target():
     # Make a grid using a standard structure. Other options might be
     # a constructor which makes a grid that's denser at extreme ages.
-    grid = AgeTimeGrid.uniform(age_start=0, age_end=120, age_step=5, time_start=1990, time_end=2018, time_step=1)
+    grid = AgeTimeGrid.uniform(age_lower=0, age_upper=120, age_step=5, time_lower=1990, time_upper=2018, time_step=1)
 
     d_time = PriorGrid(grid)
     d_time[:, :].prior = Gaussian(0, 0.1)
