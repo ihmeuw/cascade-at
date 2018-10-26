@@ -1,5 +1,6 @@
 #!/bin/bash
 set -x
+umask 0002
 
 # Installs the develop branch of Cascade from github into a virtual environment in
 # /ihme/code/dismod_at/env
@@ -89,10 +90,12 @@ source "${ENV}/bin/activate"
 pip install --upgrade pip
 cd "${CASCADE_DEVELOP_DIR}"
 pip install .[ihme_databases,documentation,testing]
-
+if [ "$?" -ne "0" ]; then
+    echo pip failed to install cascade. Exiting.
+    exit 7
+fi
 
 # Install the virtual environment to be the "current" if the tests pass
-
 (cd "${CASCADE_DEVELOP_DIR}/tests" && pytest)
 
 if [ "$?" -eq "0" ]; then
