@@ -173,6 +173,7 @@ def test_covariates_from_settings_logic(base_config, ihme):
         ],
     }
     configuration.country_covariate = [start]
+    configuration.validate_and_normalize()
     assert configuration.model.default_time_grid
     ec = make_execution_context(gbd_round_id=5)
     assert ec.parameters.gbd_round_id == 5

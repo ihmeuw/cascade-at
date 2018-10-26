@@ -145,7 +145,7 @@ def create_covariate_multipliers(context, configuration, column_map):
 
         smooth = make_smooth(configuration, mul_cov_config, name_prefix=target_dismod_name)
         try:
-            covariate_obj = column_id_func(mul_cov_config.country_covariate_id, mul_cov_config.transformation)
+            covariate_obj = column_map[(cov_id, mul_cov_config.transformation)]
         except KeyError:
             raise RuntimeError(f"A covariate id and its transformation weren't found: "
                                f"{cov_id}, with transform {mul_cov_config.transformation}.")
