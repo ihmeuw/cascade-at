@@ -90,9 +90,12 @@ def _normalize_draws_df(draws_df, execution_context):
     node_to_location = {r.node_id: r.c_location_id for _, r in node_table.iterrows()}
 
     draws["location_id"] = draws.node_id.apply(lambda nid: node_to_location[nid])
-
-    draws["sex_id"] = draws.x_sex.apply(lambda x: {-0.5: 2, 0.5: 1}[x])
-    return draws.drop(["node_id", "weight_id", "x_sex"], "columns")
+    covariate_table = execution_context.dismodfile.covariate
+    sex_index = int(covariate_table[covariate_table.covariate_name == "sex"].covariate_id)
+    draws["sex_id"] = draws[f"x_{sex_index}"].apply(lambda x: {-0.5: 2, 0.5: 1}[x])
+    # Remove covariates from draws to upload.
+    to_drop = ["node_id", "weight_id"] + [str(cov_col) for cov_col in draws.columns if cov_col.startswith("x_")]
+    return draws.drop(to_drop, "columns")
 
 
 def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context):
@@ -118,16 +121,21 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
             data_columns=["age_group_id", "location_id", "measure_id", "sex_id", "year_id"],
         )
 
-        CODELOG.debug("Saving Results to DB")
-
         modelable_entity_id = execution_context.parameters.modelable_entity_id
         model_title = execution_context.parameters.model_title or ""
         measures_to_save = list(draws_df["measure_id"].unique())
         model_version_id = execution_context.parameters.model_version_id
+        gbd_round_id = execution_context.parameters.gbd_round_id
+        year_ids = list(draws_df.year_id.unique())
         if "prod" in execution_context.parameters.database:
             db_env = "prod"
         else:
             db_env = "dev"
+
+        CODELOG.debug(f"Saving Results to DB years {year_ids} "
+                      f"measure_id {draws_df.measure_id.unique()} "
+                      f"age_group_id {draws_df.age_group_id.unique()} "
+                      f"round {gbd_round_id} env {db_env} mvid {model_version_id} ")
 
         model_version_id_df = save_results_at(
             tmpdirname,
@@ -135,8 +143,10 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
             modelable_entity_id,
             model_title,
             measures_to_save,
+            year_id=year_ids,
             model_version_id=model_version_id,
             db_env=db_env,
+            gbd_round_id=gbd_round_id,
         )
 
         CODELOG.debug(f"model_version_id_df: {model_version_id_df.iloc[0, 0]}")
