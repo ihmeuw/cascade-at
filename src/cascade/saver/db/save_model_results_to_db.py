@@ -91,8 +91,13 @@ def _normalize_draws_df(draws_df, execution_context):
 
     draws["location_id"] = draws.node_id.apply(lambda nid: node_to_location[nid])
     covariate_table = execution_context.dismodfile.covariate
-    sex_index = int(covariate_table[covariate_table.covariate_name == "sex"].covariate_id)
-    draws["sex_id"] = draws[f"x_{sex_index}"].apply(lambda x: {-0.5: 2, 0.5: 1}[x])
+    try:
+        sex_index = int(covariate_table[covariate_table.covariate_name == "sex"].covariate_id.iloc[0])
+    except KeyError as ke:
+        raise RuntimeError(f"Output from Dismod-AT lacks a sex column, so upload not possible.") from ke
+    sex_column = f"x_{sex_index}"
+    ids = pd.DataFrame({"sex_id": [1, 2, 3], "x_sex": [0.5, -0.5, 0.0]}).sort_values(by=["x_sex"])
+    draws = pd.merge_asof(draws.sort_values(by=[sex_column]), ids, left_on=sex_column, right_on="x_sex")
     # Remove covariates from draws to upload.
     to_drop = ["node_id", "weight_id"] + [str(cov_col) for cov_col in draws.columns if cov_col.startswith("x_")]
     return draws.drop(to_drop, "columns")
