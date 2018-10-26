@@ -26,6 +26,9 @@ def execution_context():
     execution_context.dismodfile.node = pd.DataFrame(
         [{"node_id": 0, "c_location_id": 102, "node_name": "102", "parent": None}]
     )
+    execution_context.dismodfile.covariate = pd.DataFrame(
+        [{"covariate_id": 0, "covariate_name": "sex", "reference": 0.0, "max_difference": None}]
+    )
     execution_context.parameters = defaults
 
     return execution_context
@@ -39,7 +42,7 @@ def pre_normalized_draws_df():
     pre_normalized_draws_df["node_id"] = [0, 0, 0, 0, 0, 0, 0, 0]
     pre_normalized_draws_df["integrand_id"] = [2, 2, 7, 7, 2, 2, 7, 7]
     pre_normalized_draws_df["weight_id"] = [0, 0, 0, 0, 0, 0, 0, 0]
-    pre_normalized_draws_df["x_sex"] = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+    pre_normalized_draws_df["x_0"] = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
     pre_normalized_draws_df["time_lower"] = [1990.0, 1990.0, 1995.0, 1995.0, 2000.0, 2005.0, 2010.0, 2017.0]
     pre_normalized_draws_df["time_upper"] = [1990.0, 1990.0, 1995.0, 1995.0, 2000.0, 2005.0, 2010.0, 2017.0]
     pre_normalized_draws_df["draw_0"] = [1, 2, 3, 4, 1.1, 2.1, 3.1, 4.1]
