@@ -139,16 +139,17 @@ def create_covariate_multipliers(context, configuration, column_map):
     gbd_to_dismod_integrand_enum = make_integrand_map()
 
     for mul_cov_config, cov_id in settings_covariate_iter(configuration):
-        smooth = make_smooth(configuration, mul_cov_config)
+        if mul_cov_config.measure_id not in gbd_to_dismod_integrand_enum:
+            raise RuntimeError(f"The measure id isn't recognized as an integrand {mul_cov_config.measure_id}")
+        target_dismod_name = gbd_to_dismod_integrand_enum[mul_cov_config.measure_id].name
+
+        smooth = make_smooth(configuration, mul_cov_config, name_prefix=target_dismod_name)
         try:
-            covariate_obj = column_map[(cov_id, mul_cov_config.transformation)]
+            covariate_obj = column_id_func(mul_cov_config.country_covariate_id, mul_cov_config.transformation)
         except KeyError:
             raise RuntimeError(f"A covariate id and its transformation weren't found: "
                                f"{cov_id}, with transform {mul_cov_config.transformation}.")
         covariate_multiplier = CovariateMultiplier(covariate_obj, smooth)
-        if mul_cov_config.measure_id not in gbd_to_dismod_integrand_enum:
-            raise RuntimeError(f"The measure id isn't recognized as an integrand {mul_cov_config.measure_id}")
-        target_dismod_name = gbd_to_dismod_integrand_enum[mul_cov_config.measure_id].name
         if mul_cov_config.mulcov_type == "rate_value":
             if target_dismod_name not in PRIMARY_INTEGRANDS_TO_RATES:
                 raise SettingsToModelError(
@@ -158,7 +159,8 @@ def create_covariate_multipliers(context, configuration, column_map):
                     f"Primary integrands are {', '.join(list(sorted(PRIMARY_INTEGRANDS_TO_RATES.keys())))}"
                 )
             target_rate = PRIMARY_INTEGRANDS_TO_RATES[target_dismod_name]
-            MATHLOG.info(f"Covariate multiplier for measure_id {mul_cov_config.measure_id} applied to rate {target_rate} "
+            MATHLOG.info(f"Covariate multiplier for measure_id {mul_cov_config.measure_id} "
+                         f"applied to rate {target_rate} "
                          f"It was set to primary integrand {target_dismod_name} in EpiViz.")
             add_to_rate = getattr(context.rates, target_rate)
             add_to_rate.covariate_multipliers.append(covariate_multiplier)
@@ -172,7 +174,7 @@ def create_covariate_multipliers(context, configuration, column_map):
                 raise RuntimeError(f"mulcov_type isn't among the three {configuration.mulcov_type}")
 
 
-def make_smooth(configuration, smooth_configuration):
+def make_smooth(configuration, smooth_configuration, name_prefix=None):
     ages = smooth_configuration.age_grid
     if ages is None:
         if getattr(smooth_configuration, "rate", None) == "pini":
@@ -188,14 +190,24 @@ def make_smooth(configuration, smooth_configuration):
     d_age = PriorGrid(grid)
     value = PriorGrid(grid)
 
-    if smooth_configuration.default.dage is None:
-        d_age[:, :].prior = priors.Uniform(float("-inf"), float("inf"), 0)
+    smooth_name = name_prefix
+
+    if name_prefix is not None:
+        name_prefix += "_"
     else:
+        name_prefix = ""
+
+    if smooth_configuration.default.dage is None:
+        d_age[:, :].prior = priors.Uniform(float("-inf"), float("inf"), 0, name=f"{name_prefix}d_age")
+    else:
+        smooth_configuration.default.dage.prior_object.name = f"{name_prefix}d_age"
         d_age[:, :].prior = smooth_configuration.default.dage.prior_object
     if smooth_configuration.default.dtime is None:
-        d_time[:, :].prior = priors.Uniform(float("-inf"), float("inf"), 0)
+        d_time[:, :].prior = priors.Uniform(float("-inf"), float("inf"), 0, name=f"{name_prefix}d_time")
     else:
+        smooth_configuration.default.dtime.prior_object.name = f"{name_prefix}d_time"
         d_time[:, :].prior = smooth_configuration.default.dtime.prior_object
+    smooth_configuration.default.value.prior_object.name = f"{name_prefix}value"
     value[:, :].prior = smooth_configuration.default.value.prior_object
 
     if smooth_configuration.detail:
@@ -208,8 +220,10 @@ def make_smooth(configuration, smooth_configuration):
                 pgrid = value
             else:
                 raise SettingsError(f"Unknown prior type {row.prior_type}")
+            row.prior_object.name = f"{name_prefix}{row.prior_type}" \
+                                    f"__age_{row.age_lower}_{row.age_upper}__time_{row.time_lower}_{row.time_upper}"
             pgrid[slice(row.age_lower, row.age_upper), slice(row.time_lower, row.time_upper)].prior = row.prior_object
-    return Smooth(value, d_age, d_time)
+    return Smooth(value, d_age, d_time, name=smooth_name)
 
 
 def build_constraint(constraint):
@@ -237,7 +251,7 @@ def fixed_effects_from_epiviz(model_context, execution_context, configuration):
             if rate_name not in [r.name for r in model_context.rates]:
                 raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
-            rate.parent_smooth = make_smooth(configuration, rate_config)
+            rate.parent_smooth = make_smooth(configuration, rate_config, name_prefix=rate_name)
     else:
         MATHLOG.info(f"No rates are configured.")
 
@@ -269,4 +283,6 @@ def random_effects_from_epiviz(model_context, configuration):
                 raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             location = smoothing_config.location
-            rate.child_smoothings.append((location, make_smooth(configuration, smoothing_config)))
+            rate.child_smoothings.append(
+                (location, make_smooth(configuration, smoothing_config, name_prefix=rate_name))
+            )

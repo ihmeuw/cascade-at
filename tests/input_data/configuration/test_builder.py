@@ -98,11 +98,11 @@ def test_initial_context_from_epiviz(base_config):
 def test_make_smooth(base_config):
     smooth = make_smooth(base_config, base_config.rate[0])
 
-    assert smooth.d_age_priors.priors == {priors.Gaussian(mean=0, standard_deviation=0.1)}
-    assert smooth.d_time_priors.priors == {priors.Gaussian(mean=0, standard_deviation=0.2)}
+    assert smooth.d_age_priors.priors == {priors.Gaussian(mean=0, standard_deviation=0.1, name="d_age")}
+    assert smooth.d_time_priors.priors == {priors.Gaussian(mean=0, standard_deviation=0.2, name="d_time")}
     assert smooth.value_priors.priors == {
-        priors.Gaussian(mean=0, standard_deviation=0.3),
-        priors.StudentsT(mean=0, standard_deviation=0.25, nu=1),
+        priors.Gaussian(mean=0, standard_deviation=0.3, name="value"),
+        priors.StudentsT(mean=0, standard_deviation=0.25, nu=1, name="value__age_20.0_40.0__time_1995.0_2005.0"),
     }
     assert set(smooth.grid.ages) == {0.0, 20.0, 40.0, 60.0, 80.0}
     assert set(smooth.grid.times) == {1990.0, 1995.0, 2000.0, 2005.0, 2010.0}
@@ -110,9 +110,14 @@ def test_make_smooth(base_config):
     for age in smooth.grid.ages:
         for time in smooth.grid.times:
             if age in {20.0, 40.0} and time in {1995.0, 2000.0, 2005.0}:
-                assert smooth.value_priors[20, 2000].prior == priors.StudentsT(mean=0, standard_deviation=0.25, nu=1)
+                expected = priors.StudentsT(mean=0,
+                                            standard_deviation=0.25,
+                                            nu=1,
+                                            name="value__age_20.0_40.0__time_1995.0_2005.0")
+                assert smooth.value_priors[20, 2000].prior == expected
             else:
-                assert smooth.value_priors[0, 1990].prior == priors.Gaussian(mean=0, standard_deviation=0.3)
+                expected = priors.Gaussian(mean=0, standard_deviation=0.3, name="value")
+                assert smooth.value_priors[0, 1990].prior == expected
 
 
 def test_random_effects_from_epiviz(base_config):
@@ -125,7 +130,7 @@ def test_random_effects_from_epiviz(base_config):
 
     assert rate.child_smoothings[0][0] == 180
 
-    expected_smooth = make_smooth(base_config, base_config.random_effect[0])
+    expected_smooth = make_smooth(base_config, base_config.random_effect[0], name_prefix="rho")
     assert rate.child_smoothings[0][1] == expected_smooth
 
 
