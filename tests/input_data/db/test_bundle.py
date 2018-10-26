@@ -48,7 +48,7 @@ def test_freeze_bundle__did_freeze(mock_execution_context, mock_database_access,
     mock_get_bundle_data = mocker.patch("cascade.input_data.db.bundle._get_bundle_data")
     mock_put_bundle_data = mocker.patch("cascade.input_data.db.bundle._upload_bundle_data_to_tier_3")
     mock_get_covariate_data = mocker.patch(
-        "cascade.input_data.db.bundle._get_study_covariates")
+        "cascade.input_data.db.bundle.get_study_covariates")
     mock_put_covariate_data = mocker.patch("cascade.input_data.db.bundle._upload_study_covariates_to_tier_3")
 
     assert freeze_bundle(mock_execution_context)

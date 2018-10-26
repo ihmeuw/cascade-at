@@ -9,7 +9,7 @@ import pandas as pd
 
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.covariate_records import CovariateRecords
-from cascade.input_data.db.study_covariates import _get_study_covariates, covariate_ids_to_names
+from cascade.input_data.db.study_covariates import get_study_covariates, covariate_ids_to_names
 from cascade.core.log import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -41,37 +41,43 @@ def _normalize_covariate_data(observations, study_covariates, id_to_name):
 
     Args:
         observations (pd.DataFrame): Observations including those in the bundle.
-            These have the "in_bundle" column.
         study_covariates (pd.DataFrame): Contains seq numbers and covariate ids.
             Optionally contains the ``bundle_id``.
         id_to_name: Dictionary from ids to names
 
     Returns:
         pd.DataFrame: Each column is a full row of zeros and ones, and the row
-        name is the name of the covariate, without the ``x_`` in front.
+            name is the name of the covariate, without the ``x_`` in front.
+            Even if there are no covariates, this will have the
+            ``covariate_sequence_number``.
     """
-    study_ids = study_covariates.set_index("seq")
-    study_covariate_columns = list()
-    indices_not_found = list()
-    bundle = observations[observations["in_bundle"] == 1]
-    # Get rid of records, by seq number, which don't appear in both bundle and covariates.
-    study_subset = study_ids.join(bundle["mean"]).dropna().drop(columns="mean").study_covariate_id
-    MATHLOG.info(f"There are {study_subset.shape[0]} nonzero study covariates in this bundle.")
-    for cov_id in sorted(id_to_name):  # Sort for stable behavior.
-        cov_column =  pd.Series([0.0] * observations.shape[0], index=observations.index.values, name=id_to_name[cov_id])
-        try:
-            cov_column.loc[study_subset[study_subset == cov_id].index] = 1.0
-        except KeyError:
-            indices_not_found.append(cov_id)
-        study_covariate_columns.append(cov_column)
-    if indices_not_found:
+    with_ones = study_covariates.assign(value=pd.Series(np.ones(len(study_covariates), dtype=np.double)))
+    try:
+        cov_columns = with_ones.pivot(index="seq", columns="study_covariate_id", values="value") \
+            .fillna(0.0).rename(columns=id_to_name)
+    except ValueError as ve:
+        study_covariates.to_hdf("covariates", "table")
+        raise InputDataError(f"Could not create covariate columns") from ve
+    missing_columns = set(id_to_name.values()) - set(cov_columns.columns)
+    if missing_columns:
+        cov_columns = cov_columns.assign(**{
+            miss_col: pd.Series(np.zeros(len(cov_columns), dtype=np.double))
+            for miss_col in missing_columns
+        })
+    try:
+        obs_with_covs = observations.merge(cov_columns, left_on="seq", right_index=True, how="left")
+    except KeyError as ke:
         raise InputDataError(f"These study covariate IDs have seq IDs that don't "
-                             f"correspond to the bundle seq IDs: {indices_not_found}.")
-
-    if study_covariate_columns:
-        return pd.concat(study_covariate_columns, axis=1)
-    else:
-        return pd.DataFrame(index=observations.index)
+                             f"correspond to the bundle seq IDs") from ke
+    # This sets NaNs in covariate columns to zeros.
+    full = obs_with_covs.fillna(value={fname: 0.0 for fname in id_to_name.values()})
+    # Now separate the covariates from the observations because they will
+    # be transformed and added back.
+    keep_cols = {"seq"} | set(id_to_name.values())
+    # Rename seq to covariate_sequence_number because if there is ever a
+    # ovariate with the same name, then it will collide, and seq is too short
+    # not to collide.
+    return full.drop(columns=[dc for dc in full.columns if dc not in keep_cols]).rename(columns={"seq": "covariate_sequence_number"})
 
 
 def add_special_study_covariates(covariate_records, model_context):
@@ -84,6 +90,9 @@ def add_special_study_covariates(covariate_records, model_context):
         model_context (ModelContext): Uses observations and average integrand cases.
     """
     observations = model_context.input_data.observations
+    if not observations.seq.equals(covariate_records.measurements.covariate_sequence_number):
+        raise RuntimeError(f"The study covariates and the measurements aren't "
+                           f"in the same order.")
     average_integrand_cases = model_context.average_integrand_cases
     sex_assignment = {1: 0.5, 2: -0.5, 3: 0.0, 4: 0.0}
     sex_col = observations.sex_id.apply(sex_assignment.get)
@@ -106,7 +115,7 @@ def add_special_study_covariates(covariate_records, model_context):
 
 def get_bundle_study_covariates(model_context, bundle_id, execution_context, tier):
     # Sparse data is specified as a list of seq IDs that have a particular study covariate.
-    sparse_covariate_data = _get_study_covariates(execution_context, bundle_id, tier=tier)
+    sparse_covariate_data = get_study_covariates(execution_context, bundle_id, tier=tier)
     unique_ids = list(sorted(sparse_covariate_data.study_covariate_id.unique()))
     records = CovariateRecords("study")
     id_to_name = covariate_ids_to_names(execution_context, unique_ids)

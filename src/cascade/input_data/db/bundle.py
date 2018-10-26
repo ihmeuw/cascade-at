@@ -9,7 +9,7 @@ import pandas as pd
 from cascade.core.db import cursor, connection
 from cascade.input_data import InputDataError
 from cascade.core.log import getLoggers
-from cascade.input_data.db.study_covariates import _get_study_covariates
+from cascade.input_data.db.study_covariates import get_study_covariates
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -225,7 +225,7 @@ def freeze_bundle(execution_context, bundle_id=None) -> bool:
         if bundle_id is None:
             bundle_id = _get_bundle_id(execution_context)
         bundle_data = _get_bundle_data(execution_context, bundle_id, tier=2)
-        covariate_data = _get_study_covariates(execution_context, bundle_id, tier=2)
+        covariate_data = get_study_covariates(execution_context, bundle_id, tier=2)
         with cursor(execution_context) as c:
             _upload_bundle_data_to_tier_3(c, model_version_id, bundle_data)
             _upload_study_covariates_to_tier_3(c, model_version_id, covariate_data)

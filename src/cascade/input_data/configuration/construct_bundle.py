@@ -45,9 +45,7 @@ def _normalize_bundle_data(data):
     data = _normalize_measures(data)
     data = _normalize_sex(data)
 
-    data = data.set_index("seq")
-
-    cols = ["measure", "mean", "sex", "sex_id", "standard_error", "age_start", "age_end", "year_start", "year_end", "location_id"]
+    cols = ["seq", "measure", "mean", "sex", "sex_id", "standard_error", "age_start", "age_end", "year_start", "year_end", "location_id"]
 
     return data[cols].rename(columns={"age_start": "age_lower", "age_end": "age_upper",
                                       "year_start": "time_lower", "year_end": "time_upper"})
@@ -59,9 +57,11 @@ def bundle_to_observations(config, bundle_df):
     location to node. It also adjusts for the demographic specification.
 
     Returns:
-        pd.DataFrame: Includes ``sex_id`` and ``in_bundle``, which indicates
+        pd.DataFrame: Includes ``sex_id`` and which indicates
             that these particular observations are from the bundle as
-            opposed to ones we add separately.
+            opposed to ones we add separately. It also keeps the `seq` column
+            which aligns bundle data with covariates.
+
     """
     if "location_id" in bundle_df.columns:
         location_id = bundle_df["location_id"]
@@ -89,9 +89,8 @@ def bundle_to_observations(config, bundle_df):
             "mean": bundle_df["mean"],
             "standard_error": bundle_df["standard_error"],
             "sex_id": bundle_df["sex_id"],
-            "in_bundle": np.ones(bundle_df.shape[0]),
-        },
-        index=bundle_df.index,  # So that we preserve the seq that identifies the record.
+            "seq": bundle_df["seq"],
+        }
     )
 
 

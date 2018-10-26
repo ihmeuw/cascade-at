@@ -15,7 +15,7 @@ from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def _get_study_covariates(execution_context, bundle_id, tier=3):
+def get_study_covariates(execution_context, bundle_id, tier=3):
     """Downloads the tier 2 or 3 study covariate mappings for the bundle
     associated with the current model_version_id. This is used both to move
     covariates from tier 2 to tier 3 and to get them for construction of the
@@ -25,9 +25,11 @@ def _get_study_covariates(execution_context, bundle_id, tier=3):
     if tier == 2:
         database = execution_context.parameters.bundle_database
         table = "epi.bundle_dismod_study_covariate"
+        mvid_clause = ""
     elif tier == 3:
         database = execution_context.parameters.database
         table = "epi.t3_model_version_study_covariate"
+        mvid_clause = " and model_version_id = %(mvid)s"
     else:
         raise ValueError(f"Only tiers 2 and 3 are supported")
 
@@ -39,10 +41,11 @@ def _get_study_covariates(execution_context, bundle_id, tier=3):
     FROM
         {table}
     WHERE
-        bundle_id = %(bundle_id)s
+        bundle_id = %(bundle_id)s {mvid_clause}
          """
     with connection(database=database) as c:
-        covariates = pd.read_sql(query, c, params={"bundle_id": bundle_id})
+        covariates = pd.read_sql(query, c,
+                                 params={"bundle_id": bundle_id, "mvid": execution_context.parameters.model_version_id})
         CODELOG.debug(
             f"Downloaded {len(covariates)} lines of study covariates for bundle_id {bundle_id} from '{database}'"
         )

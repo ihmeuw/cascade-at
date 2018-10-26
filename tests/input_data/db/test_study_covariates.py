@@ -12,11 +12,10 @@ from cascade.input_data.configuration.construct_study import _normalize_covariat
 @pytest.fixture
 def basic_bundle():
     return pd.DataFrame(
-        {"seq": [2, 4, 6, 8, 10],
-         "mean": [2.0, 4.0, 6.0, 8.0, 10.0],
-         "in_bundle": [1, 1, 1, 1, 1],
+        {"seq": [2, 4, 6, 8, 10, None, None],
+         "mean": [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0],
          }
-    ).set_index("seq")
+    )
 
 
 @pytest.fixture
@@ -33,12 +32,12 @@ def test_create_columns(basic_bundle, binary_covariate):
     """
     id_to_name = {102: "smoking", 64: "love_polka"}
     covs = pd.DataFrame({
-        "love_polka": [0.0, 1.0, 1.0, 1.0, 0.0],
-        "smoking": [0.0, 1.0, 0.0, 0.0, 1.0],
-    },
-    index=[2, 4, 6, 8, 10])
+        "covariate_sequence_number": [2, 4, 6, 8, 10, None, None],
+        "love_polka": [0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+        "smoking": [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+    })
     normalized = _normalize_covariate_data(basic_bundle, binary_covariate, id_to_name)
-    pd.testing.assert_frame_equal(normalized, covs)
+    pd.testing.assert_frame_equal(normalized.sort_index("columns"), covs)
 
 
 def test_empty_columns(basic_bundle, binary_covariate):
@@ -47,11 +46,11 @@ def test_empty_columns(basic_bundle, binary_covariate):
     """
     id_to_name = {102: "smoking", 64: "love_polka", 47: "has_cats"}
     covs = pd.DataFrame({
-        "has_cats": [0.0, 0.0, 0.0, 0.0, 0.0],
-        "love_polka": [0.0, 1.0, 1.0, 1.0, 0.0],
-        "smoking": [0.0, 1.0, 0.0, 0.0, 1.0],
-    },
-    index=[2, 4, 6, 8, 10])
+        "covariate_sequence_number": [2, 4, 6, 8, 10, None, None],
+        "has_cats": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "love_polka": [0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+        "smoking": [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+    })
     normalized = _normalize_covariate_data(basic_bundle, binary_covariate, id_to_name)
     pd.testing.assert_frame_equal(normalized.sort_index("columns"), covs)
 
@@ -78,6 +77,6 @@ def test_no_covariates(basic_bundle):
     cov_in = pd.DataFrame({"study_covariate_id": [],
                          "bundle_id": [],
                          "seq": []})
-    covs = pd.DataFrame(index=basic_bundle.index)
+    covs = pd.DataFrame({"covariate_sequence_number": basic_bundle.seq})
     normalized = _normalize_covariate_data(basic_bundle, cov_in, {})
     pd.testing.assert_frame_equal(normalized, covs)

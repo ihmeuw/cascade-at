@@ -79,9 +79,7 @@ def add_mortality_data(model_context, execution_context):
     )
     csmr["measure"] = "mtspecific"
     csmr = csmr.rename(columns={"location_id": "node_id"})
-    # Ensure that the csmr index doesn't overlap with the existing seq values in the observations.
-    csmr.index = csmr.index.values + model_context.input_data.observations.index.max() + 1
-    model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr])
+    model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr], ignore_index=True)
 
 
 def add_omega_constraint(model_context, execution_context):
@@ -101,9 +99,8 @@ def add_omega_constraint(model_context, execution_context):
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
 
     # Ensure that the index is after the observation index so that the seq numbers are preserved.
-    asdr.index = asdr.index.values + model_context.input_data.observations.index.max() + 1
     mask = model_context.input_data.observations.measure == "mtall"
-    model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr])
+    model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr], ignore_index=True)
     model_context.input_data.observations = model_context.input_data.observations[~mask]
 
 
