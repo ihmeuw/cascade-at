@@ -7,8 +7,8 @@ from pathlib import Path
 import sys
 
 import pandas as pd
+import sqlite3
 
-from cascade.core.db import connection
 from cascade.core.log import getLoggers
 
 CODELOG = getLoggers(__name__)
@@ -17,11 +17,14 @@ CODELOG = getLoggers(__name__)
 def _get_residuals(dm_file):
     """Retrieve the residual values from the dismod output tables in the dismod file.
     """
-    # get fit_var table from dm_file
-    # fv_residuals = fv_table["residual_value", "residual_dage", "residual_dtime"]
+    conn = sqlite3.connect(dm_file)
 
-    # get input_data_subset table from dm_file
-    # fds_residuals = fds_table["weighted_residual"]
+    # get fit_var table from dm_file
+    fv_residuals = pd.read_sql_query("select * from fit_var;", conn)[
+        ["residual_value", "residual_dage", "residual_dtime"]]
+    # get fit_data_subset table from dm_file
+    fds_residuals = pd.read_sql_query("select * from fit_data_subset;", conn)[
+        ["weighted_residual"]]
 
     return fv_residuals, fds_residuals
 

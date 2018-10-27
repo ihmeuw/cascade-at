@@ -2,6 +2,7 @@
 """
 import pytest
 
+from cascade.dismod.db.wrapper import DismodFile
 from cascade.executor.model_residuals_main import _get_residuals
 
 
@@ -19,7 +20,9 @@ def dm_file_invalid():
 
 @pytest.fixture
 def dm_file_empty():
-    dm_file_empty = None
+    dm_file_empty = DismodFile()
+    dm_file_empty.empty_table("fit_var")
+    dm_file_empty.empty_table("fit_data_subset")
     return dm_file_empty
 
 
