@@ -167,6 +167,20 @@ def run_and_watch(command, single_use_machine, poll_time):
     return loop.run_until_complete(_async_run_and_watch(command, single_use_machine, poll_time))
 
 
+def dismod_report_info(text):
+    """This ensures MATHLOG messages have a function name in the log.
+    Otherwise, they show <lambda> as the function name.
+    """
+    MATHLOG.info(text)
+
+
+def dismod_report_error(text):
+    """This ensures MATHLOG messages have a function name in the log.
+    Otherwise, they show <lambda> as the function name.
+    """
+    MATHLOG.error(text)
+
+
 @asyncio.coroutine
 def _async_run_and_watch(command, single_use_machine, poll_time):
     if single_use_machine:
@@ -185,8 +199,8 @@ def _async_run_and_watch(command, single_use_machine, poll_time):
         raise Exception(f"Dismod couldn't run due to OS error {ose}")
 
     loop = asyncio.get_event_loop()
-    std_out_task = loop.create_task(_read_pipe(sub_process.stdout, lambda text: MATHLOG.info(text)))
-    std_err_task = loop.create_task(_read_pipe(sub_process.stderr, lambda text: MATHLOG.error(text)))
+    std_out_task = loop.create_task(_read_pipe(sub_process.stdout, dismod_report_info))
+    std_err_task = loop.create_task(_read_pipe(sub_process.stderr, dismod_report_error))
     yield from sub_process.wait()
     yield from std_out_task
     yield from std_err_task
