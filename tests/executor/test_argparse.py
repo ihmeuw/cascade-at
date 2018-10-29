@@ -60,11 +60,12 @@ def test_math_log(tmpdir):
     close_all_handlers()
 
     in_log = (tmp_dir / str(args.mvid) / "log.log").read_text().splitlines()
-    assert any(in_line.strip().endswith("infofum") for in_line in in_log)
-    assert any(in_line.strip().endswith("warningfo") for in_line in in_log)
-    assert any(in_line.strip().endswith("errorhum") for in_line in in_log)
+    print(f"math log is ========={in_log}==============")
+    assert any("infofum" in in_line for in_line in in_log)
+    assert any("warningfo" in in_line for in_line in in_log)
+    assert any("errorhum" in in_line for in_line in in_log)
     # Math log is set to DEBUG level.
-    assert any(in_line.strip().endswith("debugfi") for in_line in in_log)
+    assert any("debugfi" in in_line for in_line in in_log)
 
 
 def test_code_log(tmpdir):
@@ -83,7 +84,7 @@ def test_code_log(tmpdir):
     logs = list(base_dir.glob("*.log"))
     print(logs)
     code_log = logs[0].read_text().splitlines()
-    assert any(in_line.strip().endswith("infofuml") for in_line in code_log)
+    assert any("infofuml" in in_line.strip() for in_line in code_log)
     assert any(in_line.strip().endswith("warningfol") for in_line in code_log)
     assert any(in_line.strip().endswith("errorhuml") for in_line in code_log)
     assert not any(in_line.strip().endswith("debugfil") for in_line in code_log)

@@ -40,7 +40,7 @@ def test_dmchat_low_priority(dmchat, caplog):
     records = caplog.records
     err = ""
     for r in records:
-        if r.levelname == "ERROR":
+        if r.levelname == "WARNING":
             err += r.message
     assert err == "".join(["err" + os.linesep] * 2)
 

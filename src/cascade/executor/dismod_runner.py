@@ -174,11 +174,11 @@ def dismod_report_info(text):
     MATHLOG.info(text)
 
 
-def dismod_report_error(text):
+def dismod_report_stderr(text):
     """This ensures MATHLOG messages have a function name in the log.
     Otherwise, they show <lambda> as the function name.
     """
-    MATHLOG.error(text)
+    MATHLOG.warning(text)
 
 
 @asyncio.coroutine
@@ -200,7 +200,7 @@ def _async_run_and_watch(command, single_use_machine, poll_time):
 
     loop = asyncio.get_event_loop()
     std_out_task = loop.create_task(_read_pipe(sub_process.stdout, dismod_report_info))
-    std_err_task = loop.create_task(_read_pipe(sub_process.stderr, dismod_report_error))
+    std_err_task = loop.create_task(_read_pipe(sub_process.stderr, dismod_report_stderr))
     yield from sub_process.wait()
     yield from std_out_task
     yield from std_err_task
