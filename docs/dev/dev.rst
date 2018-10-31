@@ -9,3 +9,4 @@ Developer Manual
    meid_quota
    testing
    logging
+   dismod_at_shape
