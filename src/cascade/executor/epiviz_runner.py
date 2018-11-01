@@ -67,36 +67,38 @@ def meas_bounds_to_stdev(df):
     return df.drop(["meas_lower", "meas_upper"], axis=1)
 
 
-def add_mortality_data(model_context, execution_context):
+def add_mortality_data(model_context, execution_context, sex_id):
     """
     Gets cause-specific mortality rate and adds that data as an ``mtspecific``
     measurement by appending it to the bundle. Uses ranges for ages and years.
     This doesn't determine point-data values.
     """
-    MATHLOG.debug(f"Creating a set of mtspecific observations from IHME CSMR database.")
     csmr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
     )
     csmr["measure"] = "mtspecific"
     csmr = csmr.rename(columns={"location_id": "node_id"})
+    csmr = csmr.query(f"sex_id == @sex_id")
+    MATHLOG.debug(f"Creating a set of {csmr.shape[0]} mtspecific observations from IHME CSMR database.")
     model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr], ignore_index=True)
 
 
-def add_omega_constraint(model_context, execution_context):
+def add_omega_constraint(model_context, execution_context, sex_id):
     """
     Adds a constraint to other-cause mortality rate. Removes mtother,
     mtall, and mtspecific from observation data.
     """
-    MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
     asdr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
     )
     asdr["measure"] = "mtall"
     asdr = asdr.rename(columns={"location_id": "node_id"})
+    asdr = asdr.query(f"sex_id == @sex_id")
     min_time = np.min(list(model_context.input_data.times))  # noqa: F841
     max_time = np.max(list(model_context.input_data.times))  # noqa: F841
     asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
+    MATHLOG.debug(f"Add {asdr.shape[0]} omega constraints from age-standardized death rate data.")
 
     # Ensure that the index is after the observation index so that the seq numbers are preserved.
     mask = model_context.input_data.observations.measure == "mtall"
@@ -156,8 +158,9 @@ def model_context_from_settings(execution_context, settings):
         MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
         model_context.input_data.observations = model_context.input_data.observations[mask]
 
-    add_mortality_data(model_context, execution_context)
-    add_omega_constraint(model_context, execution_context)
+    settings.model.drill_sex = 1
+    add_mortality_data(model_context, execution_context, settings.model.drill_sex)
+    add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
 
     fixed_effects_from_epiviz(model_context, execution_context, settings)

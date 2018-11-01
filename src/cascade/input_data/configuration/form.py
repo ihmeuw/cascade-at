@@ -160,6 +160,16 @@ class Model(Form):
         display="(Advanced) Rate case",
     )
 
+    def _full_form_validation(self, root):
+        errors = []
+
+        if self.drill == "drill":
+            if self.is_field_unset("drill_location"):
+                errors.append("For a drill, please specify Drill location.")
+            if self.is_field_unset("drill_sex"):
+                errors.append("For a drill, please specify Drill sex.")
+
+        return errors
 
 class Eta(Form):
     priors = FloatField(nullable=True)
