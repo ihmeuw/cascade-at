@@ -229,7 +229,15 @@ def make_smooth(configuration, smooth_configuration, name_prefix=None):
 def build_constraint(constraint):
     """
     This makes a smoothing grid where the mean value is set to a given
-    set of values.
+    set of values. If records in the constraint have age-spans or time-spans,
+    this reduces them to point values to place as priors on a grid.
+
+    Args:
+        constraint (pd.DataFrame): Measurements with age, time, mean values.
+
+    Returns:
+        Smooth: A smooth with priors on values, age differences, and time
+        differences.
     """
     ages = constraint["age_lower"].tolist()
     times = constraint["time_lower"].tolist()

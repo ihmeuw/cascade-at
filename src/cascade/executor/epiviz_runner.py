@@ -80,13 +80,15 @@ def add_mortality_data(model_context, execution_context, sex_id):
     csmr = csmr.rename(columns={"location_id": "node_id"})
     csmr = csmr.query(f"sex_id == @sex_id")
     MATHLOG.debug(f"Creating a set of {csmr.shape[0]} mtspecific observations from IHME CSMR database.")
-    model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr], ignore_index=True)
+    model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr],
+                                                      ignore_index=True, sort=True)
 
 
 def add_omega_constraint(model_context, execution_context, sex_id):
     """
     Adds a constraint to other-cause mortality rate. Removes mtother,
-    mtall, and mtspecific from observation data.
+    mtall, and mtspecific from observation data. Uses
+    :py:func:`cascade.input_data.configuration.builder.build_constraint` to make smoothing priors.
     """
     asdr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
@@ -94,15 +96,16 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     asdr["measure"] = "mtall"
     asdr = asdr.rename(columns={"location_id": "node_id"})
     asdr = asdr.query(f"sex_id == @sex_id")
-    min_time = np.min(list(model_context.input_data.times))  # noqa: F841
-    max_time = np.max(list(model_context.input_data.times))  # noqa: F841
-    asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
+    if model_context.input_data.times:  # The times are a set so can be tested this way.
+        min_time = np.min(list(model_context.input_data.times))  # noqa: F841
+        max_time = np.max(list(model_context.input_data.times))  # noqa: F841
+        asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
     MATHLOG.debug(f"Add {asdr.shape[0]} omega constraints from age-standardized death rate data.")
 
-    # Ensure that the index is after the observation index so that the seq numbers are preserved.
     mask = model_context.input_data.observations.measure == "mtall"
-    model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr], ignore_index=True)
+    model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr],
+                                                     ignore_index=True, sort=True)
     model_context.input_data.observations = model_context.input_data.observations[~mask]
 
 
