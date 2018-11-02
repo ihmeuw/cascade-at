@@ -34,3 +34,6 @@ Input Data Functionality
 
 .. automodule:: cascade.input_data.configuration.construct_bundle
     :members:
+
+.. automodule:: cascade.input_data.configuration.builder
+    :members:

@@ -7,6 +7,11 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def get_excess_mortality_data(execution_context):
+    """
+    The year range is from start of year to end of year, so these
+    measurements have a year duration. To make point data, take
+    the midpoint of the year.
+    """
     model_version_id = execution_context.parameters.model_version_id
 
     query = """
@@ -14,7 +19,7 @@ def get_excess_mortality_data(execution_context):
                 model_version_dismod_id as data_id,
                 location_id,
                 year_start as time_lower,
-                year_end as time_upper,
+                year_end + 1 as time_upper,
                 age_start as age_lower,
                 age_end as age_upper,
                 sex_id,
@@ -35,13 +40,18 @@ def get_excess_mortality_data(execution_context):
 
 
 def get_cause_specific_mortality_data(execution_context):
+    """
+    The year range is from start of year to end of year, so these
+    measurements have a year duration. To make point data, take
+    the midpoint of the year.
+    """
     model_version_id = execution_context.parameters.model_version_id
 
     query = """
             SELECT
                 location_id,
                 year_id as time_lower,
-                year_id as time_upper,
+                year_id + 1 as time_upper,
                 age_group_id,
                 sex_id,
                 mean as meas_value,
@@ -59,13 +69,18 @@ def get_cause_specific_mortality_data(execution_context):
 
 
 def get_age_standardized_death_rate_data(execution_context):
+    """
+    The year range is from start of year to end of year, so these
+    measurements have a year duration. To make point data, take
+    the midpoint of the year.
+    """
     model_version_id = execution_context.parameters.model_version_id
 
     query = """
             SELECT
                 location_id,
                 year_id as time_lower,
-                year_id as time_upper,
+                year_id + 1 as time_upper,
                 age_group_id,
                 sex_id,
                 mean as meas_value,
