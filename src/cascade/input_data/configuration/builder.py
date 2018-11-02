@@ -101,7 +101,7 @@ def assign_covariates(model_context, covariate_record, transform_iterator):
             # The reference value is calculated from the download, not from the
             # the download as applied to the observations.
             reference = settings_transform(covariate_record.id_to_reference[covariate_id])
-            covariate_obj = Covariate(name, reference)
+            covariate_obj = Covariate(name, reference, covariate_record.id_to_max_difference.get(covariate_id))
             model_context.input_data.covariates.append(covariate_obj)
             covariate_map[(covariate_id, transform)] = covariate_obj
 
@@ -265,7 +265,7 @@ def fixed_effects_from_epiviz(model_context, execution_context, configuration):
     study_covariate_records = get_bundle_study_covariates(
         model_context, execution_context.parameters.bundle_id, execution_context,
         execution_context.parameters.tier)
-    add_special_study_covariates(study_covariate_records, model_context)
+    add_special_study_covariates(study_covariate_records, model_context, configuration.model.drill_sex)
     country_covariate_records = covariate_records_from_settings(
         model_context, execution_context, configuration, study_covariate_records)
     country_map = assign_covariates(

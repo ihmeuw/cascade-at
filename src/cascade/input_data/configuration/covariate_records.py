@@ -16,7 +16,8 @@ class CovariateRecords:
     Data structure to store covariate data that is part of the bundle but not
     yet put on the model.
     """
-    __slots__ = ["kind", "measurements", "average_integrand_cases", "id_to_name", "id_to_reference"]
+    __slots__ = ["kind", "measurements", "average_integrand_cases", "id_to_name",
+                 "id_to_reference", "id_to_max_difference"]
 
     def __init__(self, study_or_country):
         self.kind = study_or_country
@@ -33,3 +34,6 @@ class CovariateRecords:
 
         self.id_to_reference = {}
         """The reference value for this covariate."""
+
+        self.id_to_max_difference = {}
+        """If a value is farther than this from reference, it is excluded."""
