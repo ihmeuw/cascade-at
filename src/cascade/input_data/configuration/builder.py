@@ -229,18 +229,23 @@ def make_smooth(configuration, smooth_configuration, name_prefix=None):
 def build_constraint(constraint):
     """
     This makes a smoothing grid where the mean value is set to a given
-    set of values.
+    set of values. The input values will be on age and time domains,
+    so this takes the average age and time for the prior.
     """
-    ages = constraint["age_lower"].tolist()
-    times = constraint["time_lower"].tolist()
+    midpoint_constraint = constraint.assign(
+        age=0.5 * (constraint["age_lower"] + constraint["age_upper"]),
+        time=0.5 * (constraint["time_lower"] + constraint["time_upper"])
+    )
+    ages = midpoint_constraint["age"].tolist()
+    times = midpoint_constraint["time"].tolist()
     grid = AgeTimeGrid(ages, times)
     smoothing_prior = PriorGrid(grid)
     smoothing_prior[:, :].prior = NO_PRIOR
 
     value_prior = PriorGrid(grid)
     # TODO: change the PriorGrid API to handle this elegantly
-    for _, row in constraint.iterrows():
-        value_prior[row["age_lower"], row["time_lower"]].prior = Constant(row["mean"])
+    for _, row in midpoint_constraint.iterrows():
+        value_prior[row["age"], row["time"]].prior = Constant(row["mean"])
     return Smooth(value_prior, smoothing_prior, smoothing_prior)
 
 
