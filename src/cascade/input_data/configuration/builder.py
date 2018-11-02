@@ -207,11 +207,11 @@ def make_smooth(configuration, smooth_configuration, name_prefix=None):
 
     if smooth_configuration.default.dage is not None:
         d_age = PriorGrid(grid)
-        smooth_configuration.default.dage.prior_object.name = f"{name_prefix}d_age"
+        smooth_configuration.default.dage.prior_object.name = f"{name_prefix}dA"
         d_age[:, :].prior = smooth_configuration.default.dage.prior_object
     if smooth_configuration.default.dtime is not None:
         d_time = PriorGrid(grid)
-        smooth_configuration.default.dtime.prior_object.name = f"{name_prefix}d_time"
+        smooth_configuration.default.dtime.prior_object.name = f"{name_prefix}dT"
         d_time[:, :].prior = smooth_configuration.default.dtime.prior_object
     smooth_configuration.default.value.prior_object.name = f"{name_prefix}value"
     value[:, :].prior = smooth_configuration.default.value.prior_object
