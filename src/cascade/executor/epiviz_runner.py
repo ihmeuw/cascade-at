@@ -99,6 +99,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     if model_context.input_data.times:  # The times are a set so can be tested this way.
         min_time = np.min(list(model_context.input_data.times))  # noqa: F841
         max_time = np.max(list(model_context.input_data.times))  # noqa: F841
+        # The % 5 is to exclude annual data points.
         asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
     MATHLOG.debug(f"Add {asdr.shape[0]} omega constraints from age-standardized death rate data.")
