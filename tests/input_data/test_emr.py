@@ -184,7 +184,6 @@ def test_prepare_csmr(mocker):
     )
     mock_age_groups_to_ranges = mocker.patch("cascade.input_data.emr.age_groups_to_ranges")
     mock_age_groups_to_ranges.side_effect = lambda ec, df, keep_age_group_id: df
-    mocker.patch("cascade.input_data.emr.get_mean_years")
     ec = make_execution_context(use_weighted_age_group_midpoints=False)
 
     csmr_new = _prepare_csmr(ec, csmr)
