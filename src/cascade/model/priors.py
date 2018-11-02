@@ -213,7 +213,7 @@ class LogStudentsT(_Prior):
 
 # Useful predefined priors
 
-NO_PRIOR = Uniform(float("-inf"), float("inf"), 0, name="no_constraint")
+NO_PRIOR = Uniform(float("-inf"), float("inf"), 0, name="null_prior")
 ZERO = Uniform(0, 0, 0, name="constrain_to_zero")
 ZERO_TO_ONE = Uniform(0, 1, 0.1, name="uniform_zero_to_one")
 MINUS_ONE_TO_ONE = Uniform(-1, 1, 0, name="uniform_negative_one_to_one")
