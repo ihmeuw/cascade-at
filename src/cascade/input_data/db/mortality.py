@@ -41,7 +41,7 @@ def get_cause_specific_mortality_data(execution_context):
             SELECT
                 location_id,
                 year_id as time_lower,
-                year_id as time_upper,
+                year_id + 1 as time_upper,
                 age_group_id,
                 sex_id,
                 mean as meas_value,
@@ -65,7 +65,7 @@ def get_age_standardized_death_rate_data(execution_context):
             SELECT
                 location_id,
                 year_id as time_lower,
-                year_id as time_upper,
+                year_id + 1 as time_upper,
                 age_group_id,
                 sex_id,
                 mean as meas_value,

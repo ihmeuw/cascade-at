@@ -1,19 +1,21 @@
 import os
 from pathlib import Path
 from pprint import pformat
+from bdb import BdbQuit
 
 import pandas as pd
 import numpy as np
 
+from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.dismod.db.wrapper import _get_engine
-from cascade.dismod.db.metadata import DensityEnum
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
+from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
@@ -25,9 +27,11 @@ from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
     fixed_effects_from_epiviz,
     random_effects_from_epiviz,
-    build_constraint)
+    build_constraint,
+)
 
 from cascade.core import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -39,32 +43,11 @@ def add_settings_to_execution_context(ec, settings):
         gbd_round_id=settings.gbd_round_id,
         bundle_id=settings.model.bundle_id,
         add_csmr_cause=settings.model.add_csmr_cause,
+        use_weighted_age_group_midpoints=settings.model.use_weighted_age_group_midpoints,
         location_id=settings.model.drill_location,
     )
     for param, value in to_append.items():
         setattr(ec.parameters, param, value)
-
-
-def meas_bounds_to_stdev(df):
-    r"""
-    Given data that includes a measurement upper bound and measurement lower
-    bound, assume those are 95% confidence intervals. Convert them to
-    standard error using:
-
-    .. math::
-
-        \mbox{stderr} = \frac{\mbox{upper} - \mbox{lower}}{2 1.96}
-
-    Standard errors become Gaussian densities.
-    Replace any zero values with :math:`10^{-9}`.
-    """
-    MATHLOG.debug("Assigning standard error from measured upper and lower.")
-    df["standard_error"] = (df.meas_upper - df.meas_lower) / (2 * 1.96)
-    df["standard_error"] = df.standard_error.replace({0: 1e-9})
-    df = df.rename(columns={"meas_value": "mean"})
-    df["density"] = DensityEnum.gaussian
-    df["weight"] = "constant"
-    return df.drop(["meas_lower", "meas_upper"], axis=1)
 
 
 def add_mortality_data(model_context, execution_context):
@@ -74,6 +57,7 @@ def add_mortality_data(model_context, execution_context):
     This doesn't determine point-data values.
     """
     MATHLOG.debug(f"Creating a set of mtspecific observations from IHME CSMR database.")
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
     csmr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
     )
@@ -88,6 +72,7 @@ def add_omega_constraint(model_context, execution_context):
     mtall, and mtspecific from observation data.
     """
     MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
     asdr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
     )
@@ -100,7 +85,9 @@ def add_omega_constraint(model_context, execution_context):
 
     # Ensure that the index is after the observation index so that the seq numbers are preserved.
     mask = model_context.input_data.observations.measure == "mtall"
-    model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr], ignore_index=True)
+    model_context.input_data.constraints = pd.concat(
+        [model_context.input_data.observations[mask], asdr], ignore_index=True
+    )
     model_context.input_data.observations = model_context.input_data.observations[~mask]
 
 
@@ -142,9 +129,7 @@ def model_context_from_settings(execution_context, settings):
     load_asdr_to_t3(execution_context)
     execution_context.parameters.tier = 3
 
-    bundle = normalized_bundle_from_database(
-        execution_context, bundle_id=model_context.parameters.bundle_id
-    )
+    bundle = normalized_bundle_from_database(execution_context, bundle_id=model_context.parameters.bundle_id)
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
     observations = bundle_to_observations(model_context.parameters, bundle)
     model_context.input_data.observations = observations
@@ -158,6 +143,9 @@ def model_context_from_settings(execution_context, settings):
 
     add_mortality_data(model_context, execution_context)
     add_omega_constraint(model_context, execution_context)
+
+    add_emr_from_prevalence(model_context, execution_context)
+
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
 
     fixed_effects_from_epiviz(model_context, execution_context, settings)
@@ -259,6 +247,8 @@ def entry():
             error_lines.append(f"\t{error_location}: {error_message}")
         MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
         exit(1)
+    except BdbQuit:
+        pass
     except Exception:
         if args.pdb:
             import pdb

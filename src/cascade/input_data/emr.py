@@ -1,78 +1,219 @@
-from scipy import stats
-from scipy.interpolate import SmoothBivariateSpline
+from textwrap import dedent
+
+from scipy.interpolate import InterpolatedUnivariateSpline, LSQBivariateSpline
 
 import numpy as np
 import pandas as pd
 
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data
-from cascade.input_data.db.demographics import age_groups_to_ranges
+from cascade.input_data.db.demographics import age_groups_to_ranges, get_mean_years
+from cascade.stats import meas_bounds_to_stdev
+
+from cascade.core import getLoggers
+
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def _standard_error_from_uncertainty(p, lower, upper, confidence=0.95):
-    quantile = 1 - (1 - confidence) / 2
-    return np.amax([upper - p, p - lower], 0) / stats.norm.ppf(quantile)
+def _prepare_prevalence(observations):
+    prevalence = observations.query("measure == 'prevalence' and sex_id in [1, 2, 3]")
+
+    zero_means = prevalence["mean"] == 0
+    if np.any(zero_means):
+        not_quite_zero = 1e-6
+        MATHLOG.debug(f"{np.sum(zero_means)} prevalence rows with 0 means. Changing them to {not_quite_zero}.")
+        prevalence.loc[zero_means, "mean"] = not_quite_zero
+
+    MATHLOG.debug(f"{len(prevalence)} prevalence observations avaliable, exluding sex_id 4")
+    return prevalence
 
 
-def emr_from_prevalence(execution_context, observations):
-    all_prevalence = observations.query("measure == 'prevalence'")
+def _collapse_times(csmr):
+    MATHLOG.debug("Treating CSMR measurements over time ranges as measurements at the ranges midpoint")
+    csmr["time"] = (csmr["time_lower"] + csmr["time_upper"]) / 2
+    return csmr.drop(columns=["time_lower", "time_upper"])
 
-    # Exclude very small points which would produce impossibly high excess mortality values
-    all_prevalence = all_prevalence.query("mean >= 1/100000")
 
-    all_csmr = get_cause_specific_mortality_data(execution_context)
-    all_csmr = all_csmr.rename(columns={"location_id": "node_id"})
+def _collapse_ages_unweighted(csmr):
+    csmr["age"] = (csmr["age_lower"] + csmr["age_upper"]) / 2
+    return csmr
 
-    # Exclude 0 and NaN csmr values which will produce NaN outputs
-    # FIXME: Do these actually exist?
-    all_csmr = all_csmr.query("meas_value > 0")
-    all_csmr = all_csmr.loc[
-        all_csmr.meas_value.notnull() & all_csmr.meas_lower.notnull() & all_csmr.meas_upper.notnull()
-    ]
 
-    all_csmr["standard_error"] = _standard_error_from_uncertainty(
-        all_csmr.meas_value, all_csmr.meas_lower, all_csmr.meas_upper
+def _collapse_ages_weighted(execution_context, csmr):
+    mean_years = get_mean_years(execution_context)
+    mean_years = mean_years.rename(columns={"mean": "age", "location_id": "node_id", "year_id": "time_lower"})
+    csmr = csmr.merge(mean_years, on=["age_group_id", "node_id", "sex_id", "time_lower"])
+    csmr["age"] += csmr["age_lower"]
+    return csmr
+
+
+def _prepare_csmr(execution_context, csmr):
+    MATHLOG.debug("Preparing CSMR data from GBD")
+    csmr = csmr.rename(columns={"location_id": "node_id"})
+
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
+    csmr = meas_bounds_to_stdev(csmr)
+
+    null_means = csmr["mean"].isnull()
+    if np.any(null_means):
+        MATHLOG.warn(
+            f"{np.sum(null_means)} CSMR rows with NaN means in EMR calculation. "
+            "Removing them but there may be something wrong"
+        )
+        csmr = csmr.loc[~null_means]
+
+    csmr = age_groups_to_ranges(execution_context, csmr, keep_age_group_id=True)
+    if execution_context.parameters.use_weighted_age_group_midpoints:
+        MATHLOG.debug("Treating CSMR measurements over age ranges as measurements at the mortality weighted midpoint")
+        csmr = _collapse_ages_weighted(execution_context, csmr)
+    else:
+        MATHLOG.debug("Treating CSMR measurements over age ranges as measurements at the unweighted midpoint")
+        csmr = _collapse_ages_unweighted(csmr)
+    csmr = csmr.drop(columns=["age_lower", "age_upper"])
+
+    csmr = _collapse_times(csmr)
+
+    return csmr
+
+
+def _make_interpolators(csmr):
+    """ Calculate interpolations over CSMR so we can integrate the CSMR value
+    over the age/time range of each prevalence measurement.
+    """
+    mean = {}
+    stderr = {}
+    mean["both"] = LSQBivariateSpline(
+        csmr.age, csmr.time, csmr["mean"], sorted(csmr.age.unique()), sorted(csmr.time.unique()), kx=1, ky=1
     )
-    all_csmr = all_csmr.drop(columns=["meas_lower", "meas_upper"])
+    stderr["both"] = LSQBivariateSpline(
+        csmr.age, csmr.time, csmr.standard_error, sorted(csmr.age.unique()), sorted(csmr.time.unique()), kx=1, ky=1
+    )
 
-    # CSMR is actually always on a single point in time
-    all_csmr["time"] = all_csmr.time_lower
-    all_csmr = all_csmr.drop(columns=["time_lower", "time_upper"])
+    # csmr_by_age = csmr.sort_values("age").groupby("age").mean().reset_index()
+    # mean["age"] = InterpolatedUnivariateSpline(csmr_by_age.age, csmr_by_age["mean"], k=1)
+    # stderr["age"] = InterpolatedUnivariateSpline(csmr_by_age.age, csmr_by_age.standard_error, k=1)
 
-    # Collapse CSMR to the midpoints of age ranges
-    all_csmr = age_groups_to_ranges(execution_context, all_csmr)
-    all_csmr["age"] = (all_csmr["age_lower"] + all_csmr["age_upper"]) / 2
-    all_csmr = all_csmr.drop(columns=["age_lower", "age_upper"])
+    csmr_by_time = csmr.sort_values("time").groupby("time").mean().reset_index()
+    mean["time"] = InterpolatedUnivariateSpline(csmr_by_time.time, csmr_by_time["mean"], k=1)
+    stderr["time"] = InterpolatedUnivariateSpline(csmr_by_time.time, csmr_by_time.standard_error, k=1)
 
+    return mean, stderr
+
+
+def _emr_from_sex_and_node_specific_csmr_and_prevalence(csmr, prevalence):
+    mean_interp, stderr_interp = _make_interpolators(csmr)
+
+    emr = prevalence[["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id", "density", "weight"]]
+    emr["measure"] = "mtexcess"
+
+    def emr_mean(prevalence_measurement):
+        if (
+            prevalence_measurement.time_lower == prevalence_measurement.time_upper
+            and prevalence_measurement.age_lower == prevalence_measurement.age_upper
+        ):
+            # No integral, just interpolate to a point
+            csmr_mean = mean_interp["both"](prevalence_measurement.age_lower, prevalence_measurement.time_lower)
+            csmr_stderr = stderr_interp["both"](prevalence_measurement.age_lower, prevalence_measurement.time_lower)
+        elif prevalence_measurement.time_lower == prevalence_measurement.time_upper:
+            # Integrate over age
+            divisor = prevalence_measurement.age_upper - prevalence_measurement.age_lower
+
+            csmr_mean = mean_interp["age"].integral(prevalence_measurement.age_lower, prevalence_measurement.age_upper)
+            csmr_mean /= divisor
+
+            csmr_stderr = stderr_interp["age"].integral(
+                prevalence_measurement.age_lower, prevalence_measurement.age_upper
+            )
+            csmr_stderr /= divisor
+        elif prevalence_measurement.age_lower == prevalence_measurement.age_upper:
+            # Integrate over time
+            divisor = prevalence_measurement.time_upper - prevalence_measurement.time_lower
+
+            csmr_mean = mean_interp["time"].integral(
+                prevalence_measurement.time_lower, prevalence_measurement.time_upper
+            )
+            csmr_mean /= divisor
+
+            csmr_stderr = stderr_interp["time"].integral(
+                prevalence_measurement.time_lower, prevalence_measurement.time_upper
+            )
+            csmr_stderr /= divisor
+        else:
+            # Integrate over both
+            divisor = (prevalence_measurement.time_upper - prevalence_measurement.time_lower) * (
+                prevalence_measurement.age_upper - prevalence_measurement.age_lower
+            )
+
+            csmr_mean = mean_interp["both"].integral(
+                prevalence_measurement.age_lower,
+                prevalence_measurement.age_upper,
+                prevalence_measurement.time_lower,
+                prevalence_measurement.time_upper,
+            )
+            csmr_mean /= divisor
+
+            csmr_stderr = stderr_interp["both"].integral(
+                prevalence_measurement.age_lower,
+                prevalence_measurement.age_upper,
+                prevalence_measurement.time_lower,
+                prevalence_measurement.time_upper,
+            )
+            csmr_stderr /= divisor
+
+        emr_mean = csmr_mean / prevalence_measurement["mean"]
+
+        # Propagation of uncertainty for f = A/B gives a standard deviation of
+        # sqrt( (sigma_a)^2 / A^2 + (sigma_b)^2 / B^2 - 2 (sigma_ab) / (A B) )
+        # but we don't know the covariance sigma_ab, so we use an upper bound on the error by
+        # assuming it's zero.
+        emr_stderr = np.sqrt(
+            (prevalence_measurement.standard_error / prevalence_measurement["mean"]) ** 2
+            + (csmr_stderr / csmr_mean) ** 2
+        )
+        return pd.Series({"mean": float(emr_mean), "standard_error": float(emr_stderr)})
+
+    return emr.merge(prevalence.apply(emr_mean, "columns"), left_index=True, right_index=True)
+
+
+def add_emr_from_prevalence(model_context, execution_context):
+    r"""Estimate excess mortality from the supplied prevalence measurements and
+    cause specific mortality estimates from GBD using the formula:
+    :math:`\chi=\frac{P}{{}_nm_x^c}
+    """
+    MATHLOG.debug("Calculating excess mortality using: EMR=CSMR/prevalence")
+    prevalence = _prepare_prevalence(model_context.input_data.observations)
+    csmr = get_cause_specific_mortality_data(execution_context)
+    csmr = _prepare_csmr(execution_context, csmr)
+
+    emr = _calculate_emr_from_csmr_and_prevalence(csmr, prevalence)
+
+    model_context.input_data.observations = pd.concat([model_context.input_data.observations, emr])
+
+
+def _calculate_emr_from_csmr_and_prevalence(all_csmr, all_prevalence):
+    MATHLOG.debug(
+        dedent(
+            """
+    For every sex/location combination in the prevalence data we construct a
+    linear interpolation of CSMR over age and time and use the integral of that
+    to estimate the mean CSMR in the age/time region of each prevalence
+    measurement which is then used to calculate EMR.
+    """
+        )
+    )
     excess_mortality_chunks = []
-    for sex_id in all_prevalence.sex_id.unique():
-        for node_id in all_prevalence.node_id.unique():
-            csmr = all_csmr.query("sex_id == @sex_id and node_id == @node_id")
-            if not csmr.empty:
-                prevalence = all_prevalence.query("sex_id == @sex_id and node_id == @node_id")
-                csmr_mean_interpolator = SmoothBivariateSpline(csmr.age, csmr.time, csmr.meas_value, kx=1, ky=1)
-                csmr_stderr_interpolator = SmoothBivariateSpline(csmr.age, csmr.time, csmr.standard_error, kx=1, ky=1)
-                emr = prevalence[["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id"]]
+    non_interpolatable_groups = all_prevalence[["sex_id", "node_id"]].drop_duplicates()
+    for (sex_id, node_id) in non_interpolatable_groups.values:
+        csmr = all_csmr.query("sex_id == @sex_id and node_id == @node_id")
+        prevalence = all_prevalence.query("sex_id == @sex_id and node_id == @node_id")
+        if csmr.empty:
+            MATHLOG.debug(
+                f"No CSMR data for the {len(prevalence)} prevalence observations "
+                f"with sex_id {sex_id} and location_id {node_id}. These points will not have EMR data."
+            )
+        else:
+            emr = _emr_from_sex_and_node_specific_csmr_and_prevalence(csmr, prevalence)
+            excess_mortality_chunks.append(emr)
 
-                def emr_mean(row):
-                    time_lower = row.time_lower
-                    time_upper = row.time_upper
-                    if time_lower == time_upper:
-                        # FIXME demographer notation?
-                        time_upper += 1
-                    age_lower = row.age_lower
-                    age_upper = row.age_upper
-                    if age_lower == age_upper:
-                        # FIXME demographer notation?
-                        age_upper += 1
-
-                    csmr_mean = csmr_mean_interpolator.integral(age_lower, age_upper, time_lower, time_upper)
-                    csmr_stderr = csmr_stderr_interpolator.integral(age_lower, age_upper, time_lower, time_upper)
-
-                    emr_mean = row["mean"] / csmr_mean
-                    emr_stderr = np.sqrt((row.standard_error / row["mean"]) ** 2 + (csmr_stderr / csmr_mean) ** 2)
-                    return pd.Series({"mean": emr_mean, "standard_error": emr_stderr})
-
-                emr = emr.merge(prevalence.apply(emr_mean, "columns"), left_index=True, right_index=True)
-                excess_mortality_chunks.append(emr)
-
-    return pd.concat(excess_mortality_chunks).dropna()
+    excess_mortality = pd.concat(excess_mortality_chunks)
+    MATHLOG.debug(f"Calculated {len(excess_mortality)} EMR points from {len(all_prevalence)} prevalence points.")
+    return excess_mortality

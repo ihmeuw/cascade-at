@@ -71,7 +71,7 @@ def covariate_records_from_settings(model_context, execution_context,
     measurement_columns = list()
     avgint_columns = list()
 
-    age_groups = get_all_age_spans(execution_context)
+    age_groups = get_all_age_spans()
     for covariate_id in unique_country_covariate(configuration):
         demographics = dict(
             age_group_ids="all", year_ids="all", sex_ids="all",
@@ -206,8 +206,9 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
         incoming_age_group_ids = set(with_ids_df.age_group_id.unique())
         missing = incoming_age_group_ids - set(age_groups_df.age_group_id.unique())
         raise InputDataError(f"Not all age group ids from observations are found in the age group list "
-                           f"missing age groups {missing} other age ids in bundle {list(sorted(incoming_age_group_ids))} "
-                           f"Of the original {len(with_ids_df)} records, {len(merged)} had known ids.")
+                             f"missing age groups {missing} other age ids in bundle "
+                             f"{list(sorted(incoming_age_group_ids))} "
+                             f"Of the original {len(with_ids_df)} records, {len(merged)} had known ids.")
     reordered = merged.sort_values(by="original_index").reset_index()
     reordered["time_lower"] = reordered["year_id"]
     MATHLOG.info(f"Conversion of bundle assumes demographic notation for years, "

@@ -14,6 +14,7 @@ from cascade.core.form import Form, IntField, FloatField, StrField, StringListFi
 from cascade.model import priors
 
 from cascade.core.log import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -27,7 +28,9 @@ class SmoothingPrior(Form):
     age_upper = FloatField(nullable=True, display="Age upper")
     time_lower = FloatField(nullable=True, display="Time lower")
     time_upper = FloatField(nullable=True, display="Time upper")
-    density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density")
+    density = OptionField(
+        ["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density"
+    )
     min = FloatField(nullable=True, default=float("-inf"), display="Min")
     mean = FloatField(nullable=True, display="Mean")
     max = FloatField(nullable=True, default=float("inf"), display="Max")
@@ -159,6 +162,7 @@ class Model(Form):
         default="iota_pos_rho_zero",
         display="(Advanced) Rate case",
     )
+    use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
 
 
 class Eta(Form):
@@ -180,6 +184,7 @@ class Configuration(Form):
                 print(f"Ready to configure a model for {form.model.modelable_entity_id}")
 
     """
+
     model = Model(display="Model")
     gbd_round_id = IntField(display="GBD Round ID")
     random_effect = FormList(Smoothing, nullable=True, display="Random effects")
