@@ -244,7 +244,7 @@ def test_make_smooth_and_smooth_grid_tables(base_context):
     )
 
     assert len(smooth_table) == 2
-    assert "iota_smooth_1" in smooth_table.smooth_name.values
+    assert "iota_smooth    1" in smooth_table.smooth_name.values
 
     assert set(smooth_table.index) == set(smooth_grid_table.smooth_id)
 
@@ -332,6 +332,6 @@ def test_make_covariate_table(base_context):
     )
     covariate_columns, cov_id_func, covariate_renames = make_covariate_table(base_context)
     rate_table, rate_to_id = make_rate_table(base_context, smooth_id_func)
-    mulcov_df = make_mulcov_table(
+    make_mulcov_table(
         base_context, smooth_id_func, rate_to_id, integrand_to_id, cov_id_func
     )
