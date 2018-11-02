@@ -162,7 +162,6 @@ def model_context_from_settings(execution_context, settings):
         MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
         model_context.input_data.observations = model_context.input_data.observations[mask]
 
-    settings.model.drill_sex = 1
     add_mortality_data(model_context, execution_context, settings.model.drill_sex)
     add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
     model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
