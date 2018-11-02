@@ -3,15 +3,14 @@
 Auto Sync of DB tables so we can run MR and AT in parallel
 ===========================================================
 
-Scripts run daily on Jenkins to sync 12 tables from ``modeling-epi-db`` to ``epiat-db-p01``
-and ``epi-db-d01``.  The 12 tables are:
+Scripts run daily on Jenkins to sync 11 tables from ``modeling-epi-db`` to ``epiat-db-p01``
+and ``epi-db-d01``.  The 11 tables are:
 
 * ``epi.modelable_entity``
 * ``epi.modelable_entity_cause``
 * ``epi.modelable_entity_metadata``
 * ``epi.modelable_entity_metadata_type``
 * ``epi.modelable_entity_note``
-* ``epi.modelable_entity_quota``
 * ``epi.modelable_entity_rei``
 * ``epi.modelable_entity_set``
 * ``epi.modelable_entity_set_version``
