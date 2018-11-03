@@ -1,6 +1,7 @@
 """This module aids in comparing results from Dismod AT and Dismod ODE.
 """
 from argparse import ArgumentParser
+import itertools as it
 import logging
 import os
 from pathlib import Path
@@ -14,7 +15,33 @@ from cascade.core.db import connection
 CODELOG = logging.getLogger(__name__)
 
 
-def _get_model_results(model_version_id, model_type):
+dbs = ["epi-dev":"epi-test",
+           "epi-prod":"epi",
+           "at-dev":"dismod-at-dev",
+           "at-prod":"dismod-at-prod"]
+
+tables = {"fit":"epi.model_estimate_fit", "final":"epi.model_estimate_final"}
+
+
+def _check_database(db, table):
+    """
+    """
+
+    query = f"""
+    SELECT * FROM {table}
+    WHERE
+	model_version_id = %(model_version_id)s
+    """
+
+    with connection(database=db) as c:
+        model_results_data = pd.read_sql(query, c, params={"model_version_id": model_version_id})
+        CODELOG.debug(f"""Downloaded {len(model_results_data)} lines of dismod {model_type}
+                      data for model_version_id {model_version_id} from '{database}'""")
+
+    return model_results_data
+
+
+def _get_model_results(model_version_id, db, table):
     """Downloads the model results data for a Dismod model of type AT or ODE.
     The data lives in the epi.model_estimate_fit table which has columns:
     model_version_id, year_id, location_id, sex_id, age_group_id, measure_id,
@@ -32,25 +59,24 @@ def _get_model_results(model_version_id, model_type):
         pandas.DataFrame: containing all columns in the "save results" upload table
     """
 
-    if model_type.upper() == "AT":
-        database = "dismod-at-dev"
-    elif model_type.upper() == "ODE":
-        database = "epi"
+    if(db and table):
+        model_results_data = _check_database(db, table)
     else:
-        raise ValueError(f"model must be of type 'AT' or 'ODE', not {model_type}")
-
-    table = "epi.model_estimate_fit"
-
-    query = f"""
-    SELECT * FROM {table}
-    WHERE
-        model_version_id = %(model_version_id)s
-    """
-
-    with connection(database=database) as c:
-        model_results_data = pd.read_sql(query, c, params={"model_version_id": model_version_id})
-        CODELOG.debug(f"""Downloaded {len(model_results_data)} lines of dismod {model_type}
-                      data for model_version_id {model_version_id} from '{database}'""")
+        # check all, if find more than one report it, else return one
+        model_results = []
+        model_results_db_and_table = []
+        for db, table in it.product(dbs.keys(), tables.keys()):
+            model_results_data = _check_database(db, table)
+            if not model_results_data.empty:
+                model_results.append(model_results_data)     
+                model_results_db_and_table.append((db,table))
+        if len(model_results) > 1:
+            # exit and report
+            sys.exit(f"""Found {model_version_id} in multiple locations 
+                     {model_results_db_and_table}
+                     Please identify the one you want and try again.""")
+        else:
+            model_results_data = model_results[0]
 
     return model_results_data
 
@@ -71,6 +97,10 @@ def entry():
     parser = ArgumentParser("Writes two csv files, one for Dismod AT results and one for Dismod ODE results.")
     parser.add_argument("--at-mvid", help="model_version_id for AT results")
     parser.add_argument("--ode-mvid", help="model_version_id for ODE results")
+    parser.add_argument("--at-db", help="db name for AT results")
+    parser.add_argument("--ode-db", help="db name for ODE results")
+    parser.add_argument("--at-table", help="db table for AT results")
+    parser.add_argument("--ode-table", help="db table for ODE results")
     parser.add_argument("--output-dir", default=".", help="output directory for csv files")
     parser.add_argument("-v", help="increase debugging verbosity", action="store_true")
     args, _ = parser.parse_known_args()
