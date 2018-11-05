@@ -18,7 +18,7 @@ def test_make_average_integrand_cases_from_gbd(mocker):
 
     ec = make_execution_context(location_id=180)
 
-    average_integrand_cases = make_average_integrand_cases_from_gbd(ec)
+    average_integrand_cases = make_average_integrand_cases_from_gbd(ec, [1, 2])
 
     assert np.all(average_integrand_cases.node_id == 180)
     for (age_lower, age_upper) in {(0, 1), (1, 4), (4, 82)}:

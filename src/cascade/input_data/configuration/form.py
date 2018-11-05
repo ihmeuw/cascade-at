@@ -27,13 +27,8 @@ class SmoothingPrior(Form):
     age_upper = FloatField(nullable=True, display="Age upper")
     time_lower = FloatField(nullable=True, display="Time lower")
     time_upper = FloatField(nullable=True, display="Time upper")
-    density = OptionField(["uniform",
-                           "gaussian",
-                           "laplace",
-                           "students",
-                           "log_gaussian",
-                           "log_laplace",
-                           "log_students"], display="Density")
+    density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian",
+                           "log_laplace", "log_students"], display="Density")
     min = FloatField(nullable=True, default=float("-inf"), display="Min")
     mean = FloatField(nullable=True, display="Mean")
     max = FloatField(nullable=True, default=float("inf"), display="Max")
@@ -41,7 +36,7 @@ class SmoothingPrior(Form):
     nu = FloatField(nullable=True)
     eta = FloatField(nullable=True)
 
-    def _full_form_validation(self, root):
+    def _full_form_validation(self, root):  # noqa: C901 too complex
         errors = []
 
         if not self.is_field_unset("age_lower") and not self.is_field_unset("age_lower"):
@@ -55,9 +50,8 @@ class SmoothingPrior(Form):
             lower = self.min
             upper = self.max
             mean = self.mean
-            if mean is None:
-                if np.isinf(lower) or np.isinf(upper):
-                    mean = max(lower, 0)
+            if mean is None and np.isinf(lower) or np.isinf(upper):
+                mean = max(lower, 0)
             std = self.std
 
             if self.nu is None:

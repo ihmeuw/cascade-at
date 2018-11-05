@@ -77,5 +77,3 @@ def covariate_ids_to_names(execution_context, study_covariate_ids):
         covariate_mapping = {}
 
     return covariate_mapping
-
-
