@@ -27,7 +27,13 @@ class SmoothingPrior(Form):
     age_upper = FloatField(nullable=True, display="Age upper")
     time_lower = FloatField(nullable=True, display="Time lower")
     time_upper = FloatField(nullable=True, display="Time upper")
-    density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density")
+    density = OptionField(["uniform",
+                           "gaussian",
+                           "laplace",
+                           "students",
+                           "log_gaussian",
+                           "log_laplace",
+                           "log_students"], display="Density")
     min = FloatField(nullable=True, default=float("-inf"), display="Min")
     mean = FloatField(nullable=True, display="Mean")
     max = FloatField(nullable=True, default=float("inf"), display="Max")
@@ -53,7 +59,17 @@ class SmoothingPrior(Form):
                 if np.isinf(lower) or np.isinf(upper):
                     mean = max(lower, 0)
             std = self.std
-            nu = self.nu
+
+            if self.nu is None:
+                if self.density == "students" and not root.is_field_unset("students_dof"):
+                    nu = root.students_dof.priors
+                elif self.density == "log_students" and not root.is_field_unset("log_students_dof"):
+                    nu = root.log_students_dof.priors
+                else:
+                    nu = None
+            else:
+                nu = self.nu
+
             if self.eta is None:
                 if not root.is_field_unset("eta"):
                     eta = root.eta.priors
@@ -63,11 +79,11 @@ class SmoothingPrior(Form):
                 eta = self.eta
 
             if self.density == "uniform":
-                self.prior_object = priors.Uniform(lower, upper, mean)
+                self.prior_object = priors.Uniform(lower, upper, mean, eta=eta)
             elif self.density == "gaussian":
-                self.prior_object = priors.Gaussian(mean, std, lower, upper)
+                self.prior_object = priors.Gaussian(mean, std, lower, upper, eta=eta)
             elif self.density == "laplace":
-                self.prior_object = priors.Laplace(mean, std, lower, upper)
+                self.prior_object = priors.Laplace(mean, std, lower, upper, eta=eta)
             elif self.density == "students":
                 self.prior_object = priors.StudentsT(mean, std, nu, lower, upper, eta)
             elif self.density == "log_gaussian":
@@ -171,7 +187,13 @@ class Model(Form):
 
         return errors
 
+
 class Eta(Form):
+    priors = FloatField(nullable=True)
+    data = FloatField(nullable=True)
+
+
+class StudentsDOF(Form):
     priors = FloatField(nullable=True)
     data = FloatField(nullable=True)
 
@@ -209,8 +231,8 @@ class Configuration(Form):
     print_level = Dummy()
     accept_after_max_steps = Dummy()
     tolerance = Dummy()
-    students_dof = Dummy()
-    log_students_dof = Dummy()
+    students_dof = StudentsDOF()
+    log_students_dof = StudentsDOF()
     data_eta_by_integrand = Dummy()
     data_density_by_integrand = Dummy()
     config_version = Dummy()
