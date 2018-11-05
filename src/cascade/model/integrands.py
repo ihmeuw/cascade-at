@@ -7,7 +7,7 @@ from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def make_average_integrand_cases_from_gbd(execution_context):
+def make_average_integrand_cases_from_gbd(execution_context, sexes):
     gbd_age_groups = get_age_groups(execution_context)
     age_ranges = [(r.age_group_years_start, r.age_group_years_end) for _, r in gbd_age_groups.iterrows()]
     time_ranges = [(y, y) for y in get_years(execution_context)]
@@ -27,7 +27,7 @@ def make_average_integrand_cases_from_gbd(execution_context):
         for integrand in IntegrandEnum
         for age_lower, age_upper in age_ranges
         for time_lower, time_upper in time_ranges
-        for sex_id in [1, 2]
+        for sex_id in sexes
     ]
 
     return pd.DataFrame(
