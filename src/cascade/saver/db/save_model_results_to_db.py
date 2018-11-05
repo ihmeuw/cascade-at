@@ -9,16 +9,8 @@ import numpy as np
 
 from cascade.input_data.db.demographics import get_age_groups, get_years
 from cascade.model.grids import unique_floats
+from cascade.core.db import save_results
 
-try:
-    from save_results._save_results import save_results_at
-except ImportError:
-
-    class DummySaveResults:
-        def __getattr__(self, name):
-            raise ImportError(f"Required package save_results not found")
-
-    save_results_at = DummySaveResults()
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -95,6 +87,7 @@ def _normalize_draws_df(draws_df, execution_context):
         sex_index = int(covariate_table[covariate_table.covariate_name == "sex"].covariate_id.iloc[0])
     except KeyError as ke:
         raise RuntimeError(f"Output from Dismod-AT lacks a sex column, so upload not possible.") from ke
+
     sex_column = f"x_{sex_index}"
     ids = pd.DataFrame({"sex_id": [1, 2, 3], "x_sex": [0.5, -0.5, 0.0]}).sort_values(by=["x_sex"])
     draws = pd.merge_asof(draws.sort_values(by=[sex_column]), ids, left_on=sex_column, right_on="x_sex")
@@ -142,7 +135,7 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
                       f"age_group_id {draws_df.age_group_id.unique()} "
                       f"round {gbd_round_id} env {db_env} mvid {model_version_id} ")
 
-        model_version_id_df = save_results_at(
+        model_version_id_df = save_results.save_results_at(
             tmpdirname,
             DRAWS_INPUT_FILE_PATTERN,
             modelable_entity_id,
@@ -152,6 +145,7 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
             model_version_id=model_version_id,
             db_env=db_env,
             gbd_round_id=gbd_round_id,
+            sex_id=list(draws_df.sex_id.unique()),
         )
 
         CODELOG.debug(f"model_version_id_df: {model_version_id_df.iloc[0, 0]}")
