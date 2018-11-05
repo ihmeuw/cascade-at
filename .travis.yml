@@ -1,11 +1,9 @@
+dist: trusty
 language: python
 python:
     - "3.6"
-    - "3.7"
-install: 
+install:
     - pip install tox
-    - pip install -r docs/requirements.txt
 script:
     - flake8 src
     - tox
-    - "sphinx-build -WT -b dummy -d docs docs docs/_build/html"
