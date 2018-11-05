@@ -102,6 +102,7 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context,
     Args:
         draws_df (pd.DataFrame): the draws data to upload
         execution_context (ExecutionContext): contains model id data
+        saver (Function): For testing, this can be a mock of ``save_results``.
 
     Returns:
         (int) of the model_version_id returned by save_results
