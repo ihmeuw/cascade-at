@@ -152,7 +152,8 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, sex, cova
     Returns:
         pd.Series: One row for every row in the measurements.
     """
-    if measurements is None: return
+    if measurements is None:
+        return
     CODELOG.debug(f"measurements columns {measurements.columns}")
     # Rescaling the age means that the nearest age within the year
     # will always be closer than the nearest time across a full year.
@@ -205,9 +206,10 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
         # This is a fault in the input data.
         incoming_age_group_ids = set(with_ids_df.age_group_id.unique())
         missing = incoming_age_group_ids - set(age_groups_df.age_group_id.unique())
-        raise InputDataError(f"Not all age group ids from observations are found in the age group list "
-                           f"missing age groups {missing} other age ids in bundle {list(sorted(incoming_age_group_ids))} "
-                           f"Of the original {len(with_ids_df)} records, {len(merged)} had known ids.")
+        raise InputDataError(
+            f"Not all age group ids from observations are found in the age group list "
+            f"missing age groups {missing} other age ids in bundle {list(sorted(incoming_age_group_ids))} "
+            f"Of the original {len(with_ids_df)} records, {len(merged)} had known ids.")
     reordered = merged.sort_values(by="original_index").reset_index()
     reordered["time_lower"] = reordered["year_id"]
     MATHLOG.info(f"Conversion of bundle assumes demographic notation for years, "

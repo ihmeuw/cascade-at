@@ -304,7 +304,7 @@ class DismodFile:
                         table.to_sql(
                             table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
                         )
-                    except StatementError as e:
+                    except StatementError:
                         raise
 
                     self._table_hash[table_name] = table_hash

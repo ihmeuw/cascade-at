@@ -14,6 +14,7 @@ from cascade.core.log import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
+
 def unique_study_covariate_transform(configuration):
     """
     Iterates through all covariate IDs, including the list of ways to
@@ -77,7 +78,8 @@ def _normalize_covariate_data(observations, study_covariates, id_to_name):
     # Rename seq to covariate_sequence_number because if there is ever a
     # ovariate with the same name, then it will collide, and seq is too short
     # not to collide.
-    return full.drop(columns=[dc for dc in full.columns if dc not in keep_cols]).rename(columns={"seq": "covariate_sequence_number"})
+    return full.drop(columns=[dc for dc in full.columns if dc not in keep_cols]).rename(
+        columns={"seq": "covariate_sequence_number"})
 
 
 def add_special_study_covariates(covariate_records, model_context, sex_id):

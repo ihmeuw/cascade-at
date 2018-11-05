@@ -45,7 +45,8 @@ def _normalize_bundle_data(data):
     data = _normalize_measures(data)
     data = _normalize_sex(data)
 
-    cols = ["seq", "measure", "mean", "sex", "sex_id", "standard_error", "age_start", "age_end", "year_start", "year_end", "location_id"]
+    cols = ["seq", "measure", "mean", "sex", "sex_id", "standard_error",
+            "age_start", "age_end", "year_start", "year_end", "location_id"]
 
     return data[cols].rename(columns={"age_start": "age_lower", "age_end": "age_upper",
                                       "year_start": "time_lower", "year_end": "time_upper"})
