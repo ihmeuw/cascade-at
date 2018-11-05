@@ -229,7 +229,8 @@ class BaseArgumentParser(ArgumentParser):
     @staticmethod
     def _logging_individual_modules(logmod, modlevel):
         """Set a list of modules to a particular logging level."""
-        if not logmod: return
+        if not logmod:
+            return
 
         module_log_level = getattr(logging, modlevel.upper(), modlevel)
         if not isinstance(module_log_level, int):
