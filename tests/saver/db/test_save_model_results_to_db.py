@@ -82,11 +82,6 @@ def to_hdf_fake(file_path, key, *pargs, **kwargs):
 
 
 @pytest.fixture
-def fake_save_results_at(monkeypatch):
-    monkeypatch.setattr(cascade.saver.db.save_model_results_to_db, "save_results_at", save_results_fake)
-
-
-@pytest.fixture
 def fake_write_hdf(monkeypatch):
     monkeypatch.setattr(pd.DataFrame, "to_hdf", to_hdf_fake)
 
@@ -154,16 +149,16 @@ def test_normalize_draws_df(pre_normalized_draws_df, draws_df, execution_context
 
 
 def test_write_temp_draws_file_and_upload_model_results_no_hdf_no_sr_call(
-    draws_df, execution_context, fake_save_results_at, fake_write_hdf
+    draws_df, execution_context, fake_write_hdf
 ):
 
-    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
+    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context, saver=save_results_fake)
 
     assert model_version_id == 1234
 
 
-def test_write_temp_draws_file_and_upload_model_results_no_sr_call(draws_df, execution_context, fake_save_results_at):
+def test_write_temp_draws_file_and_upload_model_results_no_sr_call(draws_df, execution_context):
 
-    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
+    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context, saver=save_results_fake)
 
     assert model_version_id == 1234

@@ -96,7 +96,7 @@ def _normalize_draws_df(draws_df, execution_context):
     return draws.drop(to_drop, "columns")
 
 
-def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context):
+def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context, saver=None):
     """
 
     Args:
@@ -135,7 +135,8 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
                       f"age_group_id {draws_df.age_group_id.unique()} "
                       f"round {gbd_round_id} env {db_env} mvid {model_version_id} ")
 
-        model_version_id_df = save_results.save_results_at(
+        saver = saver if saver else save_results.save_results_at
+        model_version_id_df = saver(
             tmpdirname,
             DRAWS_INPUT_FILE_PATTERN,
             modelable_entity_id,
