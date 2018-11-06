@@ -42,6 +42,38 @@ def test_SmoothingPrior__full_form_validation__fail():
     ]
 
 
+def test_SmoothingPrior__global_eta():
+    # Non-log distributions shouldn't get the global eta
+    f = DummyForm(
+        {
+            "eta": {"priors": 0.001, "data": 0.001},
+            "prior": {"prior_type": "value", "density": "uniform", "min": 0, "max": 10},
+        }
+    )
+    f.validate_and_normalize()
+    assert f.prior.prior_object == priors.Uniform(0, 10)
+
+    # But log distributions which don't have their own eta should
+    f = DummyForm(
+        {
+            "eta": {"priors": 0.001, "data": 0.001},
+            "prior": {"prior_type": "value", "density": "log_gaussian", "mean": 0, "std": 0.01},
+        }
+    )
+    f.validate_and_normalize()
+    assert f.prior.prior_object == priors.LogGaussian(0, 0.01, eta=0.001)
+
+    # But if they do have their own eta, they shouldn't
+    f = DummyForm(
+        {
+            "eta": {"priors": 0.001, "data": 0.001},
+            "prior": {"prior_type": "value", "density": "log_gaussian", "mean": 0, "std": 0.01, "eta": 0.002},
+        }
+    )
+    f.validate_and_normalize()
+    assert f.prior.prior_object == priors.LogGaussian(0, 0.01, eta=0.002)
+
+
 def test_SmoothingPrior__global_nu():
     # a students distribution, which gets its nu from the global default
     f = DummyForm(

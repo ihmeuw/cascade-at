@@ -73,13 +73,13 @@ class SmoothingPrior(Form):
                 eta = self.eta
 
             if self.density == "uniform":
-                self.prior_object = priors.Uniform(lower, upper, mean, eta=eta)
+                self.prior_object = priors.Uniform(lower, upper, mean)
             elif self.density == "gaussian":
-                self.prior_object = priors.Gaussian(mean, std, lower, upper, eta=eta)
+                self.prior_object = priors.Gaussian(mean, std, lower, upper)
             elif self.density == "laplace":
-                self.prior_object = priors.Laplace(mean, std, lower, upper, eta=eta)
+                self.prior_object = priors.Laplace(mean, std, lower, upper)
             elif self.density == "students":
-                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper, eta)
+                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper)
             elif self.density == "log_gaussian":
                 self.prior_object = priors.LogGaussian(mean, std, eta, lower, upper)
             elif self.density == "log_laplace":
