@@ -11,14 +11,16 @@ def test_get_model_results_inputs_ok(ihme):
                        'age_group_id', 'measure_id', 'mean', 'upper', 'lower']
 
     ode_model_version_id = 102680
-    ode_model_type = "ODE"
-    ode_results = _get_model_results(ode_model_version_id, ode_model_type)
+    db = "epi-prod"
+    table = "fit"
+    ode_results = _get_model_results(ode_model_version_id, db, table)
 
     assert set(ode_results.columns) == set(results_columns)
 
     at_model_version_id = 265844
-    at_model_type = "AT"
-    at_results = _get_model_results(at_model_version_id, at_model_type)
+    db = "at-dev"
+    table = "fit"
+    at_results = _get_model_results(at_model_version_id, db, table)
 
     assert set(at_results.columns) == set(results_columns)
 
@@ -29,19 +31,31 @@ def test_get_model_results_inputs_ok(ihme):
                                    check_exact=False, check_names=False)
 
 
-def test_get_model_results_bad_model_type(ihme):
-    """Expect an exception if model_type is not AT or ODE"""
-    with pytest.raises(ValueError):
+def test_get_model_results_bad_database_name(ihme):
+    """Expect an exception if db not 'epi-dev', 'epi-prod', 'at-dev', or 'at-prod'"""
+    with pytest.raises(SystemExit):
         model_version_id = 265844
-        model_type = "NOT_AT_OR_ODE"
-        _get_model_results(model_version_id, model_type)
+        db = "not-at-dev"
+        table = "fit"
+        _get_model_results(model_version_id, db, table)
+
+
+def test_get_model_results_bad_table_name(ihme):
+    """Expect an exception if table not 'fit', 'final'"""
+    with pytest.raises(SystemExit):
+        model_version_id = 265844
+        db = "at-dev"
+        table = "not-fit"
+        _get_model_results(model_version_id, db, table)
 
 
 def test_get_model_results_bad_model_version_id(ihme):
     """Expect an empty dataframe if model_version_id is not in the database"""
 
     at_model_version_id = 1
-    at_model_type = "AT"
-    at_results = _get_model_results(at_model_version_id, at_model_type)
+    db = "at-dev"
+    table = "fit"
+
+    at_results = _get_model_results(at_model_version_id, db, table)
 
     assert at_results.empty
