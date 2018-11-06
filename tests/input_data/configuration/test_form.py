@@ -42,27 +42,8 @@ def test_SmoothingPrior__full_form_validation__fail():
     ]
 
 
-def test_SmoothingPrior__global_eta():
-    f = DummyForm(
-        {
-            "eta": {"priors": 0.001, "data": 0.001},
-            "prior": {"prior_type": "value", "density": "uniform", "min": 0, "max": 10},
-        }
-    )
-    f.validate_and_normalize()
-    assert f.prior.prior_object == priors.Uniform(0, 10, eta=0.001)
-
-    f = DummyForm(
-        {
-            "eta": {"priors": 0.001, "data": 0.001},
-            "prior": {"prior_type": "value", "density": "uniform", "min": 0, "max": 10, "eta": 0.002},
-        }
-    )
-    f.validate_and_normalize()
-    assert f.prior.prior_object == priors.Uniform(0, 10, eta=0.002)
-
-
 def test_SmoothingPrior__global_nu():
+    # a students distribution, which gets its nu from the global default
     f = DummyForm(
         {
             "students_dof": {"priors": 5, "data": 5},
@@ -72,6 +53,7 @@ def test_SmoothingPrior__global_nu():
     f.validate_and_normalize()
     assert f.prior.prior_object == priors.StudentsT(0, 0.1, 5)
 
+    # a students distribution, who's local nu overrides the global default
     f = DummyForm(
         {
             "students_dof": {"priors": 5, "data": 5},
@@ -81,6 +63,7 @@ def test_SmoothingPrior__global_nu():
     f.validate_and_normalize()
     assert f.prior.prior_object == priors.StudentsT(0, 0.1, 3)
 
+    # a log students distribution which is missing nu because the global default is for non-log students
     f = DummyForm(
         {
             "students_dof": {"priors": 5, "data": 5},
@@ -91,6 +74,7 @@ def test_SmoothingPrior__global_nu():
         ("prior", "prior", "Parameters incompatible with density 'log_students': Nu must be positive: nu=None")
     }
 
+    # a students distribution which is missing nu because the global default is for log students
     f = DummyForm(
         {
             "log_students_dof": {"priors": 5, "data": 5},
