@@ -1,3 +1,10 @@
+# Dismod-AT databases
+*.db
+# Dismod-AT settings files (use -f to add if desired)
+*.json
+# Data downloaded for modelers
+*.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -66,6 +73,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+*.doctree
 
 # PyBuilder
 target/
