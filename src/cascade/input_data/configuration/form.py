@@ -50,7 +50,7 @@ class SmoothingPrior(Form):
             lower = self.min
             upper = self.max
             mean = self.mean
-            if mean is None and np.isinf(lower) or np.isinf(upper):
+            if mean is None and (np.isinf(lower) or np.isinf(upper)):
                 mean = max(lower, 0)
             std = self.std
             nu = self.nu
