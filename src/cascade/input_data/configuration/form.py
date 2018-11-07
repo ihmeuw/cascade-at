@@ -14,6 +14,7 @@ from cascade.core.form import Form, IntField, FloatField, StrField, StringListFi
 from cascade.model import priors
 
 from cascade.core.log import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -27,8 +28,9 @@ class SmoothingPrior(Form):
     age_upper = FloatField(nullable=True, display="Age upper")
     time_lower = FloatField(nullable=True, display="Time lower")
     time_upper = FloatField(nullable=True, display="Time upper")
-    density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian",
-                           "log_laplace", "log_students"], display="Density")
+    density = OptionField(
+        ["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density"
+    )
     min = FloatField(nullable=True, default=float("-inf"), display="Min")
     mean = FloatField(nullable=True, display="Mean")
     max = FloatField(nullable=True, default=float("inf"), display="Max")
@@ -112,6 +114,23 @@ class Smoothing(Form):
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
 
+    def _full_form_validation(self, root):
+        errors = []
+
+        if self.rate == "pini":
+            if not self.is_field_unset("age_grid") and len(self.age_grid) != 1:
+                errors.append("Pini must have exactly one age point")
+        else:
+            age_grid = self.age_grid or root.model.default_age_grid
+            if len(age_grid) > 1 and self.default.is_field_unset("dage"):
+                errors.append("You must supply a default age diff prior if the smoothing has extent over age")
+
+        time_grid = self.time_grid or root.model.default_time_grid
+        if len(time_grid) > 1 and self.default.is_field_unset("dtime"):
+            errors.append("You must supply a default time diff prior if the smoothing has extent over time")
+
+        return errors
+
 
 class StudyCovariate(Form):
     # Haven't seen if this is a string or an ID for the column in the bundle.
@@ -161,6 +180,7 @@ class Model(Form):
     drill = OptionField(["cascade", "drill"], display="Drill")
     drill_location = IntField(display="Drill location")
     drill_sex = OptionField([1, 2], constructor=int, nullable=True, display="Drill sex")
+    birth_prev = OptionField([0, 1], constructor=int, nullable=True, default=0, display="Prevalence at birth")
     default_age_grid = StringListField(constructor=float, display="(Cascade) Age grid")
     default_time_grid = StringListField(constructor=float, display="(Cascade) Time grid")
     rate_case = OptionField(
@@ -206,6 +226,7 @@ class Configuration(Form):
                 print(f"Ready to configure a model for {form.model.modelable_entity_id}")
 
     """
+
     model = Model(display="Model")
     gbd_round_id = IntField(display="GBD Round ID")
     random_effect = FormList(Smoothing, nullable=True, display="Random effects")
