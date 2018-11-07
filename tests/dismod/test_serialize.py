@@ -60,7 +60,7 @@ def make_data(integrands):
     df = pd.DataFrame(index=df).reset_index()
     df["age_upper"] = df.age_lower + 5
     df["time_upper"] = df.time_lower + 5
-    df["node_id"] = 1
+    df["node_id"] = 10
     df["sex"] = "Both"
     df["density"] = DensityEnum.gaussian
     df["weight"] = "constant"
@@ -266,6 +266,7 @@ def test_make_data_table(base_context, mock_get_location_hierarchy_from_gbd):
 
     assert len(data_table) == len(base_context.input_data.observations) + len(base_context.input_data.constraints)
     assert len(data_table.query("hold_out==1")) == len(base_context.input_data.constraints)
+    assert all(data_table.node_id == 1)
 
 
 def test_make_rate_table(base_context):
