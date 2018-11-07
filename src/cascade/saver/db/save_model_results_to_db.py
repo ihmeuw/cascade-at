@@ -64,8 +64,23 @@ def _normalize_draws_df(draws_df, execution_context):
     )
 
     age_groups = get_age_groups(execution_context)
+
+    # TODO: Age group 164 (Birth) is a special case which is not included in the standard
+    # age group set and which the model may optionally produce for prevalence (and no other
+    # measure). I'm hard coding it in here but it really should be plumbed through better.
+    age_groups = age_groups.append([{
+        "age_group_id": 164,
+        "age_group_years_start": 0,
+        "age_group_years_end": 0,
+    }])
+
+    # TODO: This assumes there will never be two different age groups with the same
+    # upper range. Be wary
     with_age_groups = pd.merge_asof(
-        draws.sort_values("age_lower"), age_groups, left_on="age_lower", right_on="age_group_years_start"
+        draws.sort_values("age_upper"),
+        age_groups.sort_values("age_group_years_end"),
+        left_on="age_upper",
+        right_on="age_group_years_end"
     )
 
     merge_is_good = np.allclose(with_age_groups.age_lower, with_age_groups.age_group_years_start)
@@ -74,6 +89,10 @@ def _normalize_draws_df(draws_df, execution_context):
     if not merge_is_good:
         raise ValueError(
             "There are age_lowers or age_uppers in the avgint table that do not match GBD age group boundaries"
+        )
+    if not with_age_groups.query("age_group_id == 164 and measure_id != 5").empty:  # measure_id 5 is prevalence
+        raise ValueError(
+            "There are non-prevalence estimates for the Birth age group"
         )
 
     draws = with_age_groups.drop(["age_group_years_start", "age_group_years_end", "age_lower", "age_upper"], "columns")

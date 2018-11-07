@@ -206,7 +206,7 @@ def observations_to_data(observations_df, node_table):
     observations_df["node_id"] = observations_df.merge(node_table,
                                                        left_on="node_id",
                                                        right_on=node_table.c_location_id
-                                                       ).node_id
+                                                       ).node_id_y
     transformed = observations_df.assign(
         integrand_id=observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
         density_id=observations_df["density"].apply(lambda x: x.value),

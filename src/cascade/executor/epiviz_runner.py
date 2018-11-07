@@ -25,9 +25,11 @@ from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
     fixed_effects_from_epiviz,
     random_effects_from_epiviz,
-    build_constraint)
+    build_constraint,
+)
 
 from cascade.core import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -81,8 +83,9 @@ def add_mortality_data(model_context, execution_context, sex_id):
     csmr = csmr.query(f"sex_id == @sex_id")
     MATHLOG.debug(f"Creating a set of {csmr.shape[0]} mtspecific observations from IHME CSMR database.")
     csmr = csmr.assign(hold_out=0)
-    model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr],
-                                                      ignore_index=True, sort=True)
+    model_context.input_data.observations = pd.concat(
+        [model_context.input_data.observations, csmr], ignore_index=True, sort=True
+    )
 
 
 def add_omega_constraint(model_context, execution_context, sex_id):
@@ -149,9 +152,7 @@ def model_context_from_settings(execution_context, settings):
     load_asdr_to_t3(execution_context)
     execution_context.parameters.tier = 3
 
-    bundle = normalized_bundle_from_database(
-        execution_context, bundle_id=model_context.parameters.bundle_id
-    )
+    bundle = normalized_bundle_from_database(execution_context, bundle_id=model_context.parameters.bundle_id)
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
     observations = bundle_to_observations(model_context.parameters, bundle)
     model_context.input_data.observations = observations
@@ -165,8 +166,11 @@ def model_context_from_settings(execution_context, settings):
 
     add_mortality_data(model_context, execution_context, settings.model.drill_sex)
     add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
-    model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(
-        execution_context, [settings.model.drill_sex])
+    cases = make_average_integrand_cases_from_gbd(
+        execution_context, [settings.model.drill_sex], include_birth_prevalence=bool(settings.model.birth_prev)
+    )
+    cases = make_average_integrand_cases_from_gbd(execution_context, [settings.model.drill_sex])
+    model_context.average_integrand_cases = cases
 
     fixed_effects_from_epiviz(model_context, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
@@ -231,6 +235,10 @@ def main(args):
     """
     ec = make_execution_context()
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+
+    if settings.model.drill != "drill":
+        raise NotImplementedError("Only 'drill' mode is currently supported")
+
     add_settings_to_execution_context(ec, settings)
     mc = model_context_from_settings(ec, settings)
 
