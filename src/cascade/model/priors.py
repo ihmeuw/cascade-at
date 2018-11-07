@@ -5,12 +5,8 @@ import numpy as np
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
-# TODO: Several of these prior types accept eta as a parameter and the others
-# don't use it as a parameter but use it as an offset in the optimization
-# process only if certain conditions are met. I think that means that the
-# offset case should be represented differently and there is also a validation
-# of eta for that case which could be done but isn't. For more details see the
-# docs: https://bradbell.github.io/dismod_at/doc/prior_table.htm#eta.Scaling%20Fixed%20Effects
+# A description of how dismod interprets these distributions and their parameters can be found here:
+# https://bradbell.github.io/dismod_at/doc/prior_table.htm
 
 
 class PriorError(Exception):

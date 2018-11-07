@@ -52,10 +52,20 @@ class SmoothingPrior(Form):
             lower = self.min
             upper = self.max
             mean = self.mean
-            if mean is None and np.isinf(lower) or np.isinf(upper):
+            if mean is None and (np.isinf(lower) or np.isinf(upper)):
                 mean = max(lower, 0)
             std = self.std
-            nu = self.nu
+
+            if self.nu is None:
+                if self.density == "students" and not root.is_field_unset("students_dof"):
+                    nu = root.students_dof.priors
+                elif self.density == "log_students" and not root.is_field_unset("log_students_dof"):
+                    nu = root.log_students_dof.priors
+                else:
+                    nu = None
+            else:
+                nu = self.nu
+
             if self.eta is None:
                 if not root.is_field_unset("eta"):
                     eta = root.eta.priors
@@ -71,7 +81,7 @@ class SmoothingPrior(Form):
             elif self.density == "laplace":
                 self.prior_object = priors.Laplace(mean, std, lower, upper)
             elif self.density == "students":
-                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper, eta)
+                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper)
             elif self.density == "log_gaussian":
                 self.prior_object = priors.LogGaussian(mean, std, eta, lower, upper)
             elif self.density == "log_laplace":
@@ -197,6 +207,11 @@ class Eta(Form):
     data = FloatField(nullable=True)
 
 
+class StudentsDOF(Form):
+    priors = FloatField(nullable=True)
+    data = FloatField(nullable=True)
+
+
 class Configuration(Form):
     """ The root Form of the whole configuration tree.
 
@@ -231,8 +246,8 @@ class Configuration(Form):
     print_level = Dummy()
     accept_after_max_steps = Dummy()
     tolerance = Dummy()
-    students_dof = Dummy()
-    log_students_dof = Dummy()
+    students_dof = StudentsDOF()
+    log_students_dof = StudentsDOF()
     data_eta_by_integrand = Dummy()
     data_density_by_integrand = Dummy()
     config_version = Dummy()
