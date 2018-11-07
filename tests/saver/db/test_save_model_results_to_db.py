@@ -3,7 +3,6 @@ import pytest
 
 from cascade.dismod.db.wrapper import DismodFile
 from cascade.core.context import ExecutionContext
-import cascade.saver.db.save_model_results_to_db
 from cascade.saver.db.save_model_results_to_db import (
     _normalize_draws_df,
     _write_temp_draws_file_and_upload_model_results,
@@ -152,13 +151,19 @@ def test_write_temp_draws_file_and_upload_model_results_no_hdf_no_sr_call(
     draws_df, execution_context, fake_write_hdf
 ):
 
-    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context, saver=save_results_fake)
+    model_version_id = _write_temp_draws_file_and_upload_model_results(
+        draws_df,
+        execution_context,
+        saver=save_results_fake
+    )
 
     assert model_version_id == 1234
 
 
 def test_write_temp_draws_file_and_upload_model_results_no_sr_call(draws_df, execution_context):
 
-    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context, saver=save_results_fake)
+    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df,
+                                                                       execution_context,
+                                                                       saver=save_results_fake)
 
     assert model_version_id == 1234
