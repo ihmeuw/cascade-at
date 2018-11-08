@@ -109,7 +109,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     MATHLOG.debug(f"Add {asdr.shape[0]} omega constraints from age-standardized death rate data.")
 
     observations = model_context.input_data.observations
-    observations[observations.measure == "mtall"][["hold_out"]] = 1
+    observations.loc[observations.measure == "mtall", "hold_out"] = 1
     asdr = asdr.assign(hold_out=1)
     model_context.input_data.observations = pd.concat([observations, asdr], ignore_index=True, sort=True)
 
