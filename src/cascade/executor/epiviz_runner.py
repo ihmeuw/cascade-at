@@ -82,6 +82,7 @@ def add_mortality_data(model_context, execution_context, sex_id):
     csmr = csmr.rename(columns={"location_id": "node_id"})
     csmr = csmr.query(f"sex_id == @sex_id")
     MATHLOG.debug(f"Creating a set of {csmr.shape[0]} mtspecific observations from IHME CSMR database.")
+    csmr = csmr.assign(hold_out=0)
     model_context.input_data.observations = pd.concat(
         [model_context.input_data.observations, csmr], ignore_index=True, sort=True
     )
@@ -107,11 +108,10 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.rates.omega.parent_smooth = build_constraint(asdr)
     MATHLOG.debug(f"Add {asdr.shape[0]} omega constraints from age-standardized death rate data.")
 
-    mask = model_context.input_data.observations.measure == "mtall"
-    model_context.input_data.constraints = pd.concat(
-        [model_context.input_data.observations[mask], asdr], ignore_index=True, sort=True
-    )
-    model_context.input_data.observations = model_context.input_data.observations[~mask]
+    observations = model_context.input_data.observations
+    observations.loc[observations.measure == "mtall", "hold_out"] = 1
+    asdr = asdr.assign(hold_out=1)
+    model_context.input_data.observations = pd.concat([observations, asdr], ignore_index=True, sort=True)
 
 
 def model_context_from_settings(execution_context, settings):

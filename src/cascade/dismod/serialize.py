@@ -165,11 +165,6 @@ def make_data_table(model_context, node_table, covariate_renames):
     if model_context.input_data.observations is not None:
         # It's OK for observations to be None if we are running a prediction.
         total_data.append(observations_to_data(model_context.input_data.observations, node_table))
-    if model_context.input_data.constraints is not None:
-        # While constraints are defined as smoothings on rates, these same
-        # data values are put into measurement data as hold-outs so that they
-        # can be visualized with the data and residuals.
-        total_data.append(observations_to_data(model_context.input_data.constraints, node_table, hold_out=1))
 
     if total_data:
         total_data = pd.concat(total_data, ignore_index=True)
@@ -204,7 +199,7 @@ def simplest_weight():
     return weight, weight_grid
 
 
-def observations_to_data(observations_df, node_table, hold_out=0):
+def observations_to_data(observations_df, node_table):
     """Turn an internal format into a Dismod format."""
     # Don't make the data_name here because could convert multiple observations.
     observations_df = observations_df.reset_index()
@@ -218,7 +213,7 @@ def observations_to_data(observations_df, node_table, hold_out=0):
         meas_value=observations_df["mean"],
         meas_std=observations_df["standard_error"],
         weight_id=0,
-        hold_out=hold_out,
+        hold_out=observations_df["hold_out"],
         eta=np.NaN,
         nu=np.NaN,
     )

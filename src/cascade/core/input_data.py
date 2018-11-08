@@ -16,7 +16,6 @@ class InputData:
 
     def __init__(self):
         self.observations = None
-        self.constraints = None
         self.covariates = []
 
     @property
@@ -25,9 +24,6 @@ class InputData:
         if self.observations is not None:
             ages.update(self.observations.age_lower)
             ages.update(self.observations.age_upper)
-        if self.constraints is not None:
-            ages.update(self.constraints.age_lower)
-            ages.update(self.constraints.age_upper)
         return ages
 
     @property
@@ -36,7 +32,4 @@ class InputData:
         if self.observations is not None:
             times.update(self.observations.time_lower)
             times.update(self.observations.time_upper)
-        if self.constraints is not None:
-            times.update(self.constraints.time_lower)
-            times.update(self.constraints.time_upper)
         return times

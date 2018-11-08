@@ -40,12 +40,15 @@ def _normalize_sex(data):
 
 
 def _normalize_bundle_data(data):
-    """Normalize bundle columns, strip extra columns and index on `seq`
+    """Normalize bundle columns, strip extra columns and index on `seq`.
+    Change measures to string names. Add sex as string names.
+    Assign ``hold_out`` column.
     """
     data = _normalize_measures(data)
     data = _normalize_sex(data)
+    data = data.assign(hold_out=0)
 
-    cols = ["seq", "measure", "mean", "sex", "sex_id", "standard_error",
+    cols = ["seq", "measure", "mean", "sex", "sex_id", "standard_error", "hold_out",
             "age_start", "age_end", "year_start", "year_end", "location_id"]
 
     return data[cols].rename(columns={"age_start": "age_lower", "age_end": "age_upper",
@@ -91,6 +94,7 @@ def bundle_to_observations(config, bundle_df):
             "standard_error": bundle_df["standard_error"],
             "sex_id": bundle_df["sex_id"],
             "seq": bundle_df["seq"],
+            "hold_out": bundle_df["hold_out"],
         }
     )
 
