@@ -116,7 +116,7 @@ def _get_bundle_data(execution_context, bundle_id, tier=3):
         WHERE
          bundle_id = %(bundle_id)s and
          input_type_id NOT IN(5,6) and
-         outlier_type_id IN (0,1) {model_version_query}
+         outlier_type_id = 0 {model_version_query}
          """
     with connection(database=database) as c:
         bundle_data = pd.read_sql(
