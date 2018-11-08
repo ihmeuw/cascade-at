@@ -64,7 +64,7 @@ else
 fi
 ROOTEDSCRIPT=`readlink -f "${CALLSCRIPT}"`
 
-QSUB_CMD="qsub -N dmat_${MVID} -P proj_dismod -terse -o ${LOG_FILE} -j y -b y /bin/bash --noprofile --norc ${ROOTEDSCRIPT} ${MVID} ${EPI_ENV} > ${LOG_FILE} 2>&1"
+QSUB_CMD="qsub -N dmat_${MVID} -terse -o ${LOG_FILE} -j y -b y /bin/bash --noprofile --norc ${ROOTEDSCRIPT} ${MVID} ${EPI_ENV} > ${LOG_FILE} 2>&1"
 if [ "${DBG_SUDO}" = 1 ]; then
     sh -c ". /etc/profile.d/sge.sh;${QSUB_CMD}"
 else
