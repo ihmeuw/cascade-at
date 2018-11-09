@@ -3,7 +3,7 @@
 import pandas as pd
 
 from cascade.core.db import cursor, db_queries
-from cascade.input_data.db import GBD_ROUND_ID, METRIC_IDS, MEASURE_IDS
+from cascade.input_data.db import METRIC_IDS, MEASURE_IDS
 
 
 from cascade.core.log import getLoggers
@@ -45,7 +45,7 @@ def _get_csmr_data(execution_context):
         age_group_id="most_detailed",
         measure_id=MEASURE_IDS["deaths"],
         sex_id="all",
-        gbd_round_id=GBD_ROUND_ID,
+        gbd_round_id=execution_context.parameters.gbd_round_id,
         version="latest",
     )[keep_cols]
 
