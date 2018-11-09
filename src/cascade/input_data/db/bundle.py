@@ -57,7 +57,7 @@ def _get_bundle_id(execution_context):
         return bundle_ids[0][0]
 
 
-def _get_bundle_data(execution_context, bundle_id, tier=3):
+def _get_bundle_data(execution_context, bundle_id, tier=3, exclude_outliers=True):
     """
     Downloads the tier 2 or 3 data for the bundle associated with the current
     model_version_id.
@@ -76,6 +76,11 @@ def _get_bundle_data(execution_context, bundle_id, tier=3):
         model_version_query = "and model_version_id = %(mvid)s"
     else:
         raise ValueError(f"Only tiers 2 and 3 are supported")
+
+    if exclude_outliers:
+        outlier_flags = "(0)"
+    else:
+        outlier_flags = "(0, 1)"
 
     query = f"""
     SELECT
@@ -116,7 +121,7 @@ def _get_bundle_data(execution_context, bundle_id, tier=3):
         WHERE
          bundle_id = %(bundle_id)s and
          input_type_id NOT IN(5,6) and
-         outlier_type_id = 0 {model_version_query}
+         outlier_type_id IN {outlier_flags} {model_version_query}
          """
     with connection(database=database) as c:
         bundle_data = pd.read_sql(
@@ -224,7 +229,7 @@ def freeze_bundle(execution_context, bundle_id=None) -> bool:
         CODELOG.info(f"Freezing bundle data for model_version_id {model_version_id} on '{database}'")
         if bundle_id is None:
             bundle_id = _get_bundle_id(execution_context)
-        bundle_data = _get_bundle_data(execution_context, bundle_id, tier=2)
+        bundle_data = _get_bundle_data(execution_context, bundle_id, tier=2, exclude_outliers=False)
         covariate_data = get_study_covariates(execution_context, bundle_id, tier=2)
         with cursor(execution_context) as c:
             _upload_bundle_data_to_tier_3(c, model_version_id, bundle_data)
