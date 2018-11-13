@@ -1,7 +1,9 @@
 import numpy as np
 
+from scipy.stats import gamma
+
 from cascade.stats import (
-    gamma,
+    DemographicInterval,
     build_derivative_prevalence,
     build_derivative_full,
     solve_differential_equation,
@@ -15,7 +17,6 @@ from cascade.stats import (
     integrand_normalization,
     integrands_from_function,
 )
-from cascade.model import DemographicInterval
 
 
 def iota_a(t):
