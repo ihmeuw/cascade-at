@@ -15,7 +15,6 @@ from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
-from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
@@ -148,8 +147,6 @@ def model_context_from_settings(execution_context, settings):
         remove_cnt = mask.sum()
         MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
         model_context.input_data.observations = model_context.input_data.observations[mask]
-
-    add_emr_from_prevalence(model_context, execution_context)
 
     add_mortality_data(model_context, execution_context, settings.model.drill_sex)
     add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
