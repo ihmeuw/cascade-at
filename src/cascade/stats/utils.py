@@ -17,6 +17,7 @@ def meas_bounds_to_stdev(df):
     Standard errors become Gaussian densities.
     Replace any zero values with :math:`10^{-9}`.
     """
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
     df["standard_error"] = (df.meas_upper - df.meas_lower) / (2 * 1.96)
     df["standard_error"] = df.standard_error.replace({0: 1e-9})
     df = df.rename(columns={"meas_value": "mean"})

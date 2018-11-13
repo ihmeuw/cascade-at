@@ -9,16 +9,8 @@ import numpy as np
 
 from cascade.input_data.db.demographics import get_age_groups, get_years
 from cascade.model.grids import unique_floats
+from cascade.core.db import save_results
 
-try:
-    from save_results._save_results import save_results_at
-except ImportError:
-
-    class DummySaveResults:
-        def __getattr__(self, name):
-            raise ImportError(f"Required package save_results not found")
-
-    save_results_at = DummySaveResults()
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -72,8 +64,23 @@ def _normalize_draws_df(draws_df, execution_context):
     )
 
     age_groups = get_age_groups(execution_context)
+
+    # TODO: Age group 164 (Birth) is a special case which is not included in the standard
+    # age group set and which the model may optionally produce for prevalence (and no other
+    # measure). I'm hard coding it in here but it really should be plumbed through better.
+    age_groups = age_groups.append([{
+        "age_group_id": 164,
+        "age_group_years_start": 0,
+        "age_group_years_end": 0,
+    }])
+
+    # TODO: This assumes there will never be two different age groups with the same
+    # upper range. Be wary
     with_age_groups = pd.merge_asof(
-        draws.sort_values("age_lower"), age_groups, left_on="age_lower", right_on="age_group_years_start"
+        draws.sort_values("age_upper"),
+        age_groups.sort_values("age_group_years_end"),
+        left_on="age_upper",
+        right_on="age_group_years_end"
     )
 
     merge_is_good = np.allclose(with_age_groups.age_lower, with_age_groups.age_group_years_start)
@@ -82,6 +89,10 @@ def _normalize_draws_df(draws_df, execution_context):
     if not merge_is_good:
         raise ValueError(
             "There are age_lowers or age_uppers in the avgint table that do not match GBD age group boundaries"
+        )
+    if not with_age_groups.query("age_group_id == 164 and measure_id != 5").empty:  # measure_id 5 is prevalence
+        raise ValueError(
+            "There are non-prevalence estimates for the Birth age group"
         )
 
     draws = with_age_groups.drop(["age_group_years_start", "age_group_years_end", "age_lower", "age_upper"], "columns")
@@ -95,6 +106,7 @@ def _normalize_draws_df(draws_df, execution_context):
         sex_index = int(covariate_table[covariate_table.covariate_name == "sex"].covariate_id.iloc[0])
     except KeyError as ke:
         raise RuntimeError(f"Output from Dismod-AT lacks a sex column, so upload not possible.") from ke
+
     sex_column = f"x_{sex_index}"
     ids = pd.DataFrame({"sex_id": [1, 2, 3], "x_sex": [0.5, -0.5, 0.0]}).sort_values(by=["x_sex"])
     draws = pd.merge_asof(draws.sort_values(by=[sex_column]), ids, left_on=sex_column, right_on="x_sex")
@@ -103,12 +115,13 @@ def _normalize_draws_df(draws_df, execution_context):
     return draws.drop(to_drop, "columns")
 
 
-def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context):
+def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context, saver=None):
     """
 
     Args:
         draws_df (pd.DataFrame): the draws data to upload
         execution_context (ExecutionContext): contains model id data
+        saver (Function): For testing, this can be a mock of ``save_results``.
 
     Returns:
         (int) of the model_version_id returned by save_results
@@ -142,7 +155,8 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
                       f"age_group_id {draws_df.age_group_id.unique()} "
                       f"round {gbd_round_id} env {db_env} mvid {model_version_id} ")
 
-        model_version_id_df = save_results_at(
+        saver = saver if saver else save_results.save_results_at
+        model_version_id_df = saver(
             tmpdirname,
             DRAWS_INPUT_FILE_PATTERN,
             modelable_entity_id,
@@ -152,6 +166,7 @@ def _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
             model_version_id=model_version_id,
             db_env=db_env,
             gbd_round_id=gbd_round_id,
+            sex_id=list(draws_df.sex_id.unique()),
         )
 
         CODELOG.debug(f"model_version_id_df: {model_version_id_df.iloc[0, 0]}")

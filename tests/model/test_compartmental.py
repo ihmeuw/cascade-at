@@ -1,7 +1,7 @@
 import numpy as np
-from scipy.stats import gamma
 
-from cascade.model import (
+from cascade.stats import (
+    gamma,
     build_derivative_prevalence,
     build_derivative_full,
     solve_differential_equation,

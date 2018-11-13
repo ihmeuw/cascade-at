@@ -71,8 +71,8 @@ class Covariate:
         return f"Covariate({self.name}, {self.reference}, {self.max_difference})"
 
     def __eq__(self, other):
-        return (self._name == other.name and self._reference == other._reference and
-                self._max_difference == other._max_difference)
+        return (self._name == other.name and self._reference == other._reference
+                and self._max_difference == other._max_difference)
 
 
 class CovariateMultiplier:

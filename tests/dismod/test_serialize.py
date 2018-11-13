@@ -60,13 +60,14 @@ def make_data(integrands):
     df = pd.DataFrame(index=df).reset_index()
     df["age_upper"] = df.age_lower + 5
     df["time_upper"] = df.time_lower + 5
-    df["node_id"] = 1
+    df["node_id"] = 10
     df["sex"] = "Both"
     df["density"] = DensityEnum.gaussian
     df["weight"] = "constant"
 
     df["mean"] = 0
     df["standard_error"] = 0.001
+    df["hold_out"] = 0
 
     return df
 
@@ -88,7 +89,6 @@ def base_context(observations, constraints):
     context.parameters.minimum_meas_cv = 0
 
     context.input_data.observations = observations
-    context.input_data.constraints = constraints
 
     grid = AgeTimeGrid.uniform(age_lower=0, age_upper=100, age_step=1, time_lower=1990, time_upper=2018, time_step=5)
 
@@ -172,7 +172,6 @@ def test_collect_ages_or_times__ages(base_context):
 
 def test_collect_ages_or_times__no_data(base_context):
     base_context.input_data.observations = None
-    base_context.input_data.constraints = None
     ages = collect_ages_or_times(base_context, "ages")
     assert set(ages) == set(range(0, 100, 1))
 
@@ -244,7 +243,7 @@ def test_make_smooth_and_smooth_grid_tables(base_context):
     )
 
     assert len(smooth_table) == 2
-    assert "iota_smooth_1" in smooth_table.smooth_name.values
+    assert "iota_smooth    1" in smooth_table.smooth_name.values
 
     assert set(smooth_table.index) == set(smooth_grid_table.smooth_id)
 
@@ -264,8 +263,8 @@ def test_make_data_table(base_context, mock_get_location_hierarchy_from_gbd):
     renames = dict(x_sex="x_0")
     data_table = make_data_table(base_context, node_table, renames)
 
-    assert len(data_table) == len(base_context.input_data.observations) + len(base_context.input_data.constraints)
-    assert len(data_table.query("hold_out==1")) == len(base_context.input_data.constraints)
+    assert len(data_table) == len(base_context.input_data.observations)
+    assert all(data_table.node_id == 1)
 
 
 def test_make_rate_table(base_context):
@@ -332,6 +331,6 @@ def test_make_covariate_table(base_context):
     )
     covariate_columns, cov_id_func, covariate_renames = make_covariate_table(base_context)
     rate_table, rate_to_id = make_rate_table(base_context, smooth_id_func)
-    mulcov_df = make_mulcov_table(
+    make_mulcov_table(
         base_context, smooth_id_func, rate_to_id, integrand_to_id, cov_id_func
     )

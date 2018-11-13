@@ -14,7 +14,9 @@ def get_age_groups(execution_context):
     groups = db_queries.get_age_metadata(
         age_group_set_id=EPI_AGE_GROUP_SET_ID, gbd_round_id=execution_context.parameters.gbd_round_id
     )
-    return groups[["age_group_id", "age_group_years_start", "age_group_years_end"]]
+    groups = groups[["age_group_id", "age_group_years_start", "age_group_years_end"]]
+
+    return groups
 
 
 def get_years(execution_context):

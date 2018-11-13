@@ -13,7 +13,7 @@ def test_development_target():
             return new_value, None
 
     class MyInnerForm(Form):
-        my_inner_field = IntField()
+        my_inner_field = IntField(display="My Inner Field!!")
 
     class MyForm(Form):
         my_field = IntField()
@@ -28,14 +28,15 @@ def test_development_target():
 
     f = MyForm({"my_field": "10", "my_inner_form": {"my_inner_field": "eaoeao"}})
     errors = f.validate_and_normalize()
-    assert set(errors) == {("my_inner_form.my_inner_field", "my_inner_form.my_inner_field",
-                            "Invalid integer value 'eaoeao'")}
+    assert set(errors) == {
+        ("my_inner_form.my_inner_field", "my_inner_form.My Inner Field!!", "Invalid integer value 'eaoeao'")
+    }
 
     f = MyForm({"my_field": None, "my_inner_form": {}})
     errors = f.validate_and_normalize()
     assert set(errors) == {
         ("my_field", "my_field", "Invalid integer value 'None'"),
-        ("my_inner_form.my_inner_field", "my_inner_form.my_inner_field", "Missing data"),
+        ("my_inner_form.my_inner_field", "my_inner_form.My Inner Field!!", "Missing data"),
     }
 
 
@@ -120,6 +121,19 @@ def test_Form__name_field():
     f = MyOuter({"inner_form": {"my_field": "10", "foo": "not_inner_form"}})
     assert not f.validate_and_normalize()
     assert f.inner_form.foo == "inner_form"
+
+
+def test_Form__display_name():
+    class MyInnerForm(Form):
+        my_field = SimpleTypeField(int, display="Cheesy Interior")
+
+    class MyOuter(Form):
+        inner_form = MyInnerForm(display="Flaky Crust")
+
+    f = MyOuter({"inner_form": {"my_field": "abc"}})
+    assert set(f.validate_and_normalize()) == {
+        ("inner_form.my_field", "Flaky Crust.Cheesy Interior", "Invalid int value 'abc'")
+    }
 
 
 def test_SimpleTypeField__validation():

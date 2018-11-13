@@ -1,9 +1,12 @@
+dist: trusty
+sudo: false
+git:
+  depth: 3
 language: python
 python:
     - "3.6"
-install: 
-    - pip install tox
-    - pip install -r docs/requirements.txt
-script: 
+install:
+    - pip install tox flake8
+script:
+    - flake8 src
     - tox
-    - "sphinx-build -WT -b dummy -d docs docs docs/_build/html"

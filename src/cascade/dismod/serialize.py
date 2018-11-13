@@ -165,11 +165,6 @@ def make_data_table(model_context, node_table, covariate_renames):
     if model_context.input_data.observations is not None:
         # It's OK for observations to be None if we are running a prediction.
         total_data.append(observations_to_data(model_context.input_data.observations, node_table))
-    if model_context.input_data.constraints is not None:
-        # While constraints are defined as smoothings on rates, these same
-        # data values are put into measurement data as hold-outs so that they
-        # can be visualized with the data and residuals.
-        total_data.append(observations_to_data(model_context.input_data.constraints, node_table, hold_out=1))
 
     if total_data:
         total_data = pd.concat(total_data, ignore_index=True)
@@ -204,21 +199,21 @@ def simplest_weight():
     return weight, weight_grid
 
 
-def observations_to_data(observations_df, node_table, hold_out=0):
+def observations_to_data(observations_df, node_table):
     """Turn an internal format into a Dismod format."""
     # Don't make the data_name here because could convert multiple observations.
     observations_df = observations_df.reset_index()
     observations_df["node_id"] = observations_df.merge(node_table,
                                                        left_on="node_id",
                                                        right_on=node_table.c_location_id
-                                                       ).node_id
+                                                       ).node_id_y
     transformed = observations_df.assign(
         integrand_id=observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
         density_id=observations_df["density"].apply(lambda x: x.value),
         meas_value=observations_df["mean"],
         meas_std=observations_df["standard_error"],
         weight_id=0,
-        hold_out=hold_out,
+        hold_out=observations_df["hold_out"],
         eta=np.NaN,
         nu=np.NaN,
     )
@@ -353,7 +348,7 @@ def make_prior_table(context, density_table):
     prior_table["prior_id"] = prior_table.index
     null_names = prior_table.prior_name.isnull()
     prior_table.loc[~null_names, "prior_name"] = prior_table.loc[
-        ~null_names, "prior_name"] + "_" + prior_table.loc[~null_names, "prior_id"].astype(str)
+        ~null_names, "prior_name"] + "    " + prior_table.loc[~null_names, "prior_id"].astype(str)
     prior_table.loc[null_names, "prior_name"] = prior_table.loc[
         null_names, "prior_id"
     ].apply(lambda pid: f"prior_{pid}")
@@ -471,7 +466,7 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
         if smooth.name is None:
             name = f"smooth_{len(smooths)}"
         else:
-            name = f"{smooth.name}_{len(smooths)}"
+            name = f"{smooth.name}    {len(smooths)}"
         smooth_rows.append(_smooth_row(name, smooth, grid_table, prior_id_func))
         smooths.append(smooth)
         grid_tables.append(grid_table)

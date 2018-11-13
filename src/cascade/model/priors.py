@@ -5,12 +5,8 @@ import numpy as np
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
-# TODO: Several of these prior types accept eta as a parameter and the others
-# don't use it as a parameter but use it as an offset in the optimization
-# process only if certain conditions are met. I think that means that the
-# offset case should be represented differently and there is also a validation
-# of eta for that case which could be done but isn't. For more details see the
-# docs: https://bradbell.github.io/dismod_at/doc/prior_table.htm#eta.Scaling%20Fixed%20Effects
+# A description of how dismod interprets these distributions and their parameters can be found here:
+# https://bradbell.github.io/dismod_at/doc/prior_table.htm
 
 
 class PriorError(Exception):
@@ -213,7 +209,7 @@ class LogStudentsT(_Prior):
 
 # Useful predefined priors
 
-NO_PRIOR = Uniform(float("-inf"), float("inf"), 0, name="no_constraint")
+NO_PRIOR = Uniform(float("-inf"), float("inf"), 0, name="null_prior")
 ZERO = Uniform(0, 0, 0, name="constrain_to_zero")
 ZERO_TO_ONE = Uniform(0, 1, 0.1, name="uniform_zero_to_one")
 MINUS_ONE_TO_ONE = Uniform(-1, 1, 0, name="uniform_negative_one_to_one")

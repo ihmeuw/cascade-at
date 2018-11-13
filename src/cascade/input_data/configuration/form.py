@@ -38,7 +38,7 @@ class SmoothingPrior(Form):
     nu = FloatField(nullable=True)
     eta = FloatField(nullable=True)
 
-    def _full_form_validation(self, root):
+    def _full_form_validation(self, root):  # noqa: C901 too complex
         errors = []
 
         if not self.is_field_unset("age_lower") and not self.is_field_unset("age_lower"):
@@ -52,11 +52,20 @@ class SmoothingPrior(Form):
             lower = self.min
             upper = self.max
             mean = self.mean
-            if mean is None:
-                if np.isinf(lower) or np.isinf(upper):
-                    mean = max(lower, 0)
+            if mean is None and (np.isinf(lower) or np.isinf(upper)):
+                mean = max(lower, 0)
             std = self.std
-            nu = self.nu
+
+            if self.nu is None:
+                if self.density == "students" and not root.is_field_unset("students_dof"):
+                    nu = root.students_dof.priors
+                elif self.density == "log_students" and not root.is_field_unset("log_students_dof"):
+                    nu = root.log_students_dof.priors
+                else:
+                    nu = None
+            else:
+                nu = self.nu
+
             if self.eta is None:
                 if not root.is_field_unset("eta"):
                     eta = root.eta.priors
@@ -72,7 +81,7 @@ class SmoothingPrior(Form):
             elif self.density == "laplace":
                 self.prior_object = priors.Laplace(mean, std, lower, upper)
             elif self.density == "students":
-                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper, eta)
+                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper)
             elif self.density == "log_gaussian":
                 self.prior_object = priors.LogGaussian(mean, std, eta, lower, upper)
             elif self.density == "log_laplace":
@@ -104,6 +113,23 @@ class Smoothing(Form):
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
+
+    def _full_form_validation(self, root):
+        errors = []
+
+        if self.rate == "pini":
+            if not self.is_field_unset("age_grid") and len(self.age_grid) != 1:
+                errors.append("Pini must have exactly one age point")
+        else:
+            age_grid = self.age_grid or root.model.default_age_grid
+            if len(age_grid) > 1 and self.default.is_field_unset("dage"):
+                errors.append("You must supply a default age diff prior if the smoothing has extent over age")
+
+        time_grid = self.time_grid or root.model.default_time_grid
+        if len(time_grid) > 1 and self.default.is_field_unset("dtime"):
+            errors.append("You must supply a default time diff prior if the smoothing has extent over time")
+
+        return errors
 
 
 class StudyCovariate(Form):
@@ -154,6 +180,7 @@ class Model(Form):
     drill = OptionField(["cascade", "drill"], display="Drill")
     drill_location = IntField(display="Drill location")
     drill_sex = OptionField([1, 2], constructor=int, nullable=True, display="Drill sex")
+    birth_prev = OptionField([0, 1], constructor=int, nullable=True, default=0, display="Prevalence at birth")
     default_age_grid = StringListField(constructor=float, display="(Cascade) Age grid")
     default_time_grid = StringListField(constructor=float, display="(Cascade) Time grid")
     rate_case = OptionField(
@@ -164,8 +191,24 @@ class Model(Form):
     )
     use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
 
+    def _full_form_validation(self, root):
+        errors = []
+
+        if self.drill == "drill":
+            if self.is_field_unset("drill_location"):
+                errors.append("For a drill, please specify Drill location.")
+            if self.is_field_unset("drill_sex"):
+                errors.append("For a drill, please specify Drill sex.")
+
+        return errors
+
 
 class Eta(Form):
+    priors = FloatField(nullable=True)
+    data = FloatField(nullable=True)
+
+
+class StudentsDOF(Form):
     priors = FloatField(nullable=True)
     data = FloatField(nullable=True)
 
@@ -204,8 +247,8 @@ class Configuration(Form):
     print_level = Dummy()
     accept_after_max_steps = Dummy()
     tolerance = Dummy()
-    students_dof = Dummy()
-    log_students_dof = Dummy()
+    students_dof = StudentsDOF()
+    log_students_dof = StudentsDOF()
     data_eta_by_integrand = Dummy()
     data_density_by_integrand = Dummy()
     config_version = Dummy()
