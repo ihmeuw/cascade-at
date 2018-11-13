@@ -1,5 +1,6 @@
 """ Functions for creating internal model representations of settings from EpiViz
 """
+from types import MappingProxyType
 
 import numpy as np
 from scipy.special import logit
@@ -55,6 +56,8 @@ def initial_context_from_epiviz(configuration):
     context.parameters.location_id = configuration.model.drill_location
     context.parameters.rate_case = configuration.model.rate_case
     context.parameters.minimum_meas_cv = configuration.model.minimum_meas_cv
+
+    context.policies = policies_from_settings(configuration)
 
     return context
 
@@ -310,3 +313,7 @@ def random_effects_from_epiviz(model_context, configuration):
             rate.child_smoothings.append(
                 (location, make_smooth(configuration, smoothing_config, name_prefix=rate_name))
             )
+
+
+def policies_from_settings(settings):
+    return MappingProxyType(dict(settings.policies.items()))

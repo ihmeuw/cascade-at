@@ -15,6 +15,7 @@ from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
+from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
@@ -68,6 +69,10 @@ def add_mortality_data(model_context, execution_context, sex_id):
     model_context.input_data.observations = pd.concat(
         [model_context.input_data.observations, csmr], ignore_index=True, sort=True
     )
+
+    if model_context.policies["estimate_emr_from_prevalence"]:
+        MATHLOG.debug(f"estimate_emr_from_prevalence policy is selected")
+        add_emr_from_prevalence(model_context, execution_context)
 
 
 def add_omega_constraint(model_context, execution_context, sex_id):
