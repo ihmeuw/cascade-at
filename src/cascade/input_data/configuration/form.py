@@ -235,7 +235,7 @@ class Configuration(Form):
     country_covariate = FormList(CountryCovariate, display="Country covariates")
     eta = Eta()
 
-    csmr_cod_output_version_id = Dummy()
+    csmr_cod_output_version_id = IntField()
     csmr_mortality_output_version_id = Dummy()
     location_set_version_id = Dummy()
     min_cv = FormList(Dummy)
