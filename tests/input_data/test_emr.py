@@ -1,3 +1,5 @@
+import pytest
+
 import pandas as pd
 import numpy as np
 
@@ -64,35 +66,8 @@ SPAN_PREVALENCE = pd.DataFrame(
 )
 
 
-def test_interpolators__points_only():
-    mean, stderr = _make_interpolators(POINT_CSMR)
-
-    assert mean["both"](0, 1990) == 0.006
-    assert mean["both"](1, 1990) == 0.007
-    assert mean["both"](10, 1990) == 0.008
-    assert mean["both"](15, 1990) == 0.009
-    assert mean["both"](20, 1990) == 0.01
-
-    assert stderr["both"](0, 1990) == 0.0005
-    assert stderr["both"](1, 1990) == 0.0004
-    assert stderr["both"](10, 1990) == 0.0003
-    assert stderr["both"](15, 1990) == 0.0002
-    assert stderr["both"](20, 1990) == 0.0001
-
-
-def test_emr_from_sex_and_node_specific_csmr_and_prevalence__perfect_alignment__points_only():
-    emr = _emr_from_sex_and_node_specific_csmr_and_prevalence(POINT_CSMR, POINT_PREVALENCE)
-
-    emr = emr.set_index(["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id"])
-    csmr = POINT_CSMR.set_index(["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id"])
-    prevalence = POINT_PREVALENCE.set_index(["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id"])
-
-    assert len(emr) == len(prevalence)
-
-    assert np.allclose(emr["mean"], csmr["mean"] / prevalence["mean"])
-
-
-def test_emr_from_sex_and_node_specific_csmr_and_prevalence__perfect_alignment__spans():
+@pytest.fixture(scope="module")
+def csmr_surface():
     a = -0.01
     b = -0.02
     c = 1.0
@@ -112,7 +87,50 @@ def test_emr_from_sex_and_node_specific_csmr_and_prevalence__perfect_alignment__
                 }
             )
 
-    csmr = pd.DataFrame(csmr_rows)
+    return pd.DataFrame(csmr_rows), csmr_mean
+
+
+def test_interpolators__points_only(csmr_surface):
+    csmr, source = csmr_surface
+    interps, _ = _make_interpolators(csmr)
+
+    for age in np.linspace(0, 100, 200):
+        for time in np.linspace(1990, 2018, 50):
+            assert np.isclose(interps["both"](age, time), source(age, time))
+
+
+def test_interpolators__across_ages(csmr_surface):
+    csmr, source = csmr_surface
+    interps, stderr_interp = _make_interpolators(csmr)
+
+    for age in np.linspace(0, 100, 200):
+        mean = np.mean([source(age, time) for time in np.linspace(1980, 2040, 100)])
+        assert abs(interps["age"](age) - mean) < stderr_interp["age"](age) * 2
+
+
+def test_interpolators__across_times(csmr_surface):
+    csmr, source = csmr_surface
+    interps, stderr_interp = _make_interpolators(csmr)
+
+    for time in np.linspace(1990, 2018, 50):
+        mean = np.mean([source(age, time) for age in np.linspace(0, 120, 200)])
+        assert abs(interps["time"](time) - mean) < stderr_interp["time"](time) * 2
+
+
+def test_emr_from_sex_and_node_specific_csmr_and_prevalence__perfect_alignment__points_only():
+    emr = _emr_from_sex_and_node_specific_csmr_and_prevalence(POINT_CSMR, POINT_PREVALENCE)
+
+    emr = emr.set_index(["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id"])
+    csmr = POINT_CSMR.set_index(["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id"])
+    prevalence = POINT_PREVALENCE.set_index(["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id"])
+
+    assert len(emr) == len(prevalence)
+
+    assert np.allclose(emr["mean"], csmr["mean"] / prevalence["mean"])
+
+
+def test_emr_from_sex_and_node_specific_csmr_and_prevalence__perfect_alignment__spans(csmr_surface):
+    csmr, source = csmr_surface
 
     emr = _emr_from_sex_and_node_specific_csmr_and_prevalence(csmr, SPAN_PREVALENCE)
 
@@ -120,7 +138,7 @@ def test_emr_from_sex_and_node_specific_csmr_and_prevalence__perfect_alignment__
 
     for (_, pr), (_, er) in zip(SPAN_PREVALENCE.iterrows(), emr.iterrows()):
         pmean = pr["mean"]
-        cmean = csmr_mean((pr["age_lower"] + pr["age_upper"]) / 2, (pr["time_lower"] + pr["time_upper"]) / 2)
+        cmean = source((pr["age_lower"] + pr["age_upper"]) / 2, (pr["time_lower"] + pr["time_upper"]) / 2)
         assert er["mean"] - cmean / pmean < er["standard_error"]
 
 

@@ -23,7 +23,7 @@ def _prepare_prevalence(observations):
         MATHLOG.debug(f"{np.sum(zero_means)} prevalence rows with 0 means. Changing them to {not_quite_zero}.")
         prevalence.loc[zero_means, "mean"] = not_quite_zero
 
-    MATHLOG.debug(f"{len(prevalence)} prevalence observations avaliable, exluding sex_id 4")
+    MATHLOG.debug(f"{len(prevalence)} prevalence observations available, excluding sex_id 4")
     return prevalence
 
 
@@ -88,9 +88,9 @@ def _make_interpolators(csmr):
         csmr.age, csmr.time, csmr.standard_error, sorted(csmr.age.unique()), sorted(csmr.time.unique()), kx=1, ky=1
     )
 
-    # csmr_by_age = csmr.sort_values("age").groupby("age").mean().reset_index()
-    # mean["age"] = InterpolatedUnivariateSpline(csmr_by_age.age, csmr_by_age["mean"], k=1)
-    # stderr["age"] = InterpolatedUnivariateSpline(csmr_by_age.age, csmr_by_age.standard_error, k=1)
+    csmr_by_age = csmr.sort_values("age").groupby("age").mean().reset_index()
+    mean["age"] = InterpolatedUnivariateSpline(csmr_by_age.age, csmr_by_age["mean"], k=1)
+    stderr["age"] = InterpolatedUnivariateSpline(csmr_by_age.age, csmr_by_age.standard_error, k=1)
 
     csmr_by_time = csmr.sort_values("time").groupby("time").mean().reset_index()
     mean["time"] = InterpolatedUnivariateSpline(csmr_by_time.time, csmr_by_time["mean"], k=1)
