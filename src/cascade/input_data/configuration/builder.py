@@ -93,10 +93,7 @@ def assign_covariates(model_context, covariate_record, transform_iterator, name_
             covariate_name = covariate_record.id_to_name[covariate_id]
             transform_name = settings_transform.__name__
             MATHLOG.info(f"Transforming {covariate_name} with {transform_name}")
-            if transform_name == "identity":
-                name = f"{name_prefix}{covariate_name}"
-            else:
-                name = f"{name_prefix}{covariate_name}_{transform_name}"
+            name = f"{name_prefix}{covariate_name}_{transform_name}"
 
             # The reference value is calculated from the download, not from the
             # the download as applied to the observations.
