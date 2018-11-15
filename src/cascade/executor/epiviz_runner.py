@@ -43,7 +43,6 @@ def add_settings_to_execution_context(ec, settings):
         gbd_round_id=settings.gbd_round_id,
         bundle_id=settings.model.bundle_id,
         add_csmr_cause=settings.model.add_csmr_cause,
-        use_weighted_age_group_midpoints=settings.model.use_weighted_age_group_midpoints,
         location_id=settings.model.drill_location,
     )
     for param, value in to_append.items():

@@ -189,7 +189,6 @@ class Model(Form):
         default="iota_pos_rho_zero",
         display="(Advanced) Rate case",
     )
-    use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
 
     def _full_form_validation(self, root):
         errors = []
@@ -217,6 +216,7 @@ class Policies(Form):
     estimate_emr_from_prevalence = OptionField(
         [0, 1], constructor=int, default=0, display="Estimate EMR from prevalance", nullable=True
     )
+    use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
 
 
 class Configuration(Form):

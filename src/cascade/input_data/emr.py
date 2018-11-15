@@ -62,7 +62,7 @@ def _prepare_csmr(execution_context, csmr):
         csmr = csmr.loc[~null_means]
 
     csmr = age_groups_to_ranges(execution_context, csmr, keep_age_group_id=True)
-    if execution_context.parameters.use_weighted_age_group_midpoints:
+    if execution_context.policies["use_weighted_age_group_midpoints"]:
         MATHLOG.debug("Treating CSMR measurements over age ranges as measurements at the mortality weighted midpoint")
         csmr = _collapse_ages_weighted(execution_context, csmr)
     else:
