@@ -6,11 +6,10 @@ import numpy as np
 import pandas as pd
 
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data
-from cascade.input_data.db.demographics import age_groups_to_ranges, get_mean_years
+from cascade.input_data.db.demographics import age_groups_to_ranges, get_years_from_lower_age_to_mean_age
 from cascade.stats import meas_bounds_to_stdev
 
 from cascade.core import getLoggers
-
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -39,7 +38,10 @@ def _collapse_ages_unweighted(csmr):
 
 
 def _collapse_ages_weighted(execution_context, csmr):
-    mean_years = get_mean_years(execution_context)
+    """This converts age ranges into a single point which is the average age of
+    an individual within the range based on mortality estimates from GBD.
+    """
+    mean_years = get_years_from_lower_age_to_mean_age(execution_context)
     mean_years = mean_years.rename(columns={"mean": "age", "location_id": "node_id", "year_id": "time_lower"})
     csmr = csmr.merge(mean_years, on=["age_group_id", "node_id", "sex_id", "time_lower"])
     csmr["age"] += csmr["age_lower"]
@@ -106,14 +108,13 @@ def _emr_from_sex_and_node_specific_csmr_and_prevalence(csmr, prevalence):
     emr["measure"] = "mtexcess"
 
     def emr_mean(prevalence_measurement):
-        if (
-            prevalence_measurement.time_lower == prevalence_measurement.time_upper
-            and prevalence_measurement.age_lower == prevalence_measurement.age_upper
-        ):
+        time_is_point = prevalence_measurement.time_lower == prevalence_measurement.time_upper
+        age_is_point = prevalence_measurement.age_lower == prevalence_measurement.age_upper
+        if (time_is_point and age_is_point):
             # No integral, just interpolate to a point
             csmr_mean = mean_interp["both"](prevalence_measurement.age_lower, prevalence_measurement.time_lower)
             csmr_stderr = stderr_interp["both"](prevalence_measurement.age_lower, prevalence_measurement.time_lower)
-        elif prevalence_measurement.time_lower == prevalence_measurement.time_upper:
+        elif time_is_point:
             # Integrate over age
             divisor = prevalence_measurement.age_upper - prevalence_measurement.age_lower
 
@@ -124,7 +125,7 @@ def _emr_from_sex_and_node_specific_csmr_and_prevalence(csmr, prevalence):
                 prevalence_measurement.age_lower, prevalence_measurement.age_upper
             )
             csmr_stderr /= divisor
-        elif prevalence_measurement.age_lower == prevalence_measurement.age_upper:
+        elif age_is_point:
             # Integrate over time
             divisor = prevalence_measurement.time_upper - prevalence_measurement.time_lower
 
