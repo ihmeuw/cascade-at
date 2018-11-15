@@ -3,7 +3,7 @@
 import pandas as pd
 
 from cascade.core.db import cursor, db_queries
-from cascade.input_data.db import GBD_ROUND_ID, METRIC_IDS, MEASURE_IDS
+from cascade.input_data.db import GBD_ROUND_ID, METRIC_IDS, MEASURE_IDS, GBDDataError
 
 
 from cascade.core.log import getLoggers
@@ -31,6 +31,12 @@ def _csmr_in_t3(execution_context):
 
 
 def _gbd_process_version_id_from_cod_version(cod_version):
+    """Central comp uses process_version_id to track data versions independently
+    from the versioning systems of the tools that produced the data. Thus we
+    need to map from CODcorrect's versions to a process_version_id to do
+    version constrained lookups using central comp's tools.
+    """
+
     query = """
     SELECT gbd.gbd_process_version_metadata.gbd_process_version_id from gbd.gbd_process_version_metadata
         JOIN  gbd.gbd_process_version ON gbd.gbd_process_version_metadata.gbd_process_version_id =
@@ -46,7 +52,7 @@ def _gbd_process_version_id_from_cod_version(cod_version):
         result = c.fetchone()
 
     if result is None:
-        raise ValueError(f"No best gbd_process_version_id for cod version {cod_version}")
+        raise GBDDataError(f"No best gbd_process_version_id for cod version {cod_version}")
 
     return result[0]
 
@@ -116,11 +122,11 @@ def load_csmr_to_t3(execution_context) -> bool:
 
     if _csmr_in_t3(execution_context):
         CODELOG.info(
-            f"csmr data for model_version_id {model_version_id} " f"on '{database}' already exists, doing nothing."
+            f"csmr data for model_version_id {model_version_id} on '{database}' already exists, doing nothing."
         )
         return False
     else:
-        CODELOG.info(f"Uploading csmr data for model_version_id " f"{model_version_id} on '{database}'")
+        CODELOG.info(f"Uploading csmr data for model_version_id {model_version_id} on '{database}'")
 
         csmr_data = _get_csmr_data(execution_context)
 
