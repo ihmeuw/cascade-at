@@ -39,7 +39,7 @@ def age_groups_to_ranges(execution_context, data, keep_age_group_id=False):
     return with_group.rename(columns={"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"})
 
 
-def get_mean_years(execution_context):
+def get_years_from_lower_age_to_mean_age(execution_context):
     """
     Get the mean year estimate for age groups. This is the mean age beyond the
     start of the age group for people in a given age group.
