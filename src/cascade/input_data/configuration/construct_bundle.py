@@ -82,7 +82,7 @@ def bundle_to_observations(config, bundle_df):
     return pd.DataFrame(
         {
             "measure": bundle_df["measure"],
-            "node_id": location_id,
+            "node_id": pd.Series(location_id, dtype=np.int),
             "density": DensityEnum.gaussian,
             "weight": weight_method,
             "age_lower": bundle_df["age_lower"],

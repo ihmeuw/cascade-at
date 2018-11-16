@@ -44,6 +44,7 @@ def add_settings_to_execution_context(ec, settings):
         add_csmr_cause=settings.model.add_csmr_cause,
         use_weighted_age_group_midpoints=settings.model.use_weighted_age_group_midpoints,
         location_id=settings.model.drill_location,
+        cod_version=settings.csmr_cod_output_version_id,
     )
     for param, value in to_append.items():
         setattr(ec.parameters, param, value)

@@ -82,6 +82,7 @@ def base_config():
                     ],
                 }
             ],
+            "csmr_cod_output_version_id": 90,
         }
     )
     assert not config.validate_and_normalize()

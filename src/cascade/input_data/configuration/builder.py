@@ -59,7 +59,7 @@ def initial_context_from_epiviz(configuration):
     return context
 
 
-def assign_covariates(model_context, covariate_record, transform_iterator):
+def assign_covariates(model_context, covariate_record, transform_iterator, name_prefix=""):
     """
     The EpiViz interface allows assigning a covariate with a transformation
     to a specific target (rate, measure value, measure standard deviation).
@@ -93,10 +93,7 @@ def assign_covariates(model_context, covariate_record, transform_iterator):
             covariate_name = covariate_record.id_to_name[covariate_id]
             transform_name = settings_transform.__name__
             MATHLOG.info(f"Transforming {covariate_name} with {transform_name}")
-            if transform_name == "identity":
-                name = covariate_name
-            else:
-                name = f"{covariate_name}_{transform_name}"
+            name = f"{name_prefix}{covariate_name}_{transform_name}"
 
             # The reference value is calculated from the download, not from the
             # the download as applied to the observations.
@@ -288,9 +285,9 @@ def fixed_effects_from_epiviz(model_context, execution_context, configuration):
     country_covariate_records = covariate_records_from_settings(
         model_context, execution_context, configuration, study_covariate_records)
     country_map = assign_covariates(
-        model_context, country_covariate_records, unique_country_covariate_transform(configuration))
+        model_context, country_covariate_records, unique_country_covariate_transform(configuration), "c_")
     study_map = assign_covariates(
-        model_context, study_covariate_records, unique_study_covariate_transform(configuration))
+        model_context, study_covariate_records, unique_study_covariate_transform(configuration), "s_")
 
     if set(country_map) & set(study_map):
         raise RuntimeError(f"The study covariate IDs and country covariate IDs collide "

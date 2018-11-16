@@ -3,10 +3,11 @@
 import pandas as pd
 
 from cascade.core.db import cursor, db_queries
-from cascade.input_data.db import AGE_GROUP_SET_ID, GBD_ROUND_ID
+from cascade.input_data.db import AGE_GROUP_SET_ID
 
 
 from cascade.core.log import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -33,14 +34,14 @@ def _get_asdr_data(execution_context):
 
     parent_loc = execution_context.parameters.location_id
 
-    demo_dict = db_queries.get_demographics(gbd_team="epi", gbd_round_id=GBD_ROUND_ID)
+    demo_dict = db_queries.get_demographics(gbd_team="epi", gbd_round_id=execution_context.parameters.gbd_round_id)
     age_group_ids = demo_dict["age_group_id"]
     sex_ids = demo_dict["sex_id"]
 
     asdr = db_queries.get_envelope(
         location_id=parent_loc,
         year_id=-1,
-        gbd_round_id=GBD_ROUND_ID,
+        gbd_round_id=execution_context.parameters.gbd_round_id,
         age_group_id=age_group_ids,
         sex_id=sex_ids,
         with_hiv=True,
@@ -49,9 +50,9 @@ def _get_asdr_data(execution_context):
 
     asdr = asdr[asdr["mean"].notnull()]
 
-    age_group_data = db_queries.get_age_metadata(age_group_set_id=AGE_GROUP_SET_ID, gbd_round_id=GBD_ROUND_ID)[
-        ["age_group_id", "age_group_years_start", "age_group_years_end"]
-    ]
+    age_group_data = db_queries.get_age_metadata(
+        age_group_set_id=AGE_GROUP_SET_ID, gbd_round_id=execution_context.parameters.gbd_round_id
+    )[["age_group_id", "age_group_years_start", "age_group_years_end"]]
 
     age_group_data.columns = ["age_group_id", "age_lower", "age_upper"]
 
