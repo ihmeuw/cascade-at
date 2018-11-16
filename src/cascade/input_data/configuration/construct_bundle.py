@@ -84,6 +84,7 @@ def bundle_to_observations(config, bundle_df):
             "measure": bundle_df["measure"],
             "node_id": pd.Series(location_id, dtype=np.int),
             "density": DensityEnum.gaussian,
+            "eta": config.global_data_eta or np.nan,
             "weight": weight_method,
             "age_lower": bundle_df["age_lower"],
             "age_upper": bundle_df["age_upper"] + demographic_interval_specification,

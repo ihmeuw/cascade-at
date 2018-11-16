@@ -56,6 +56,7 @@ def initial_context_from_epiviz(configuration):
     context.parameters.location_id = configuration.model.drill_location
     context.parameters.rate_case = configuration.model.rate_case
     context.parameters.minimum_meas_cv = configuration.model.minimum_meas_cv
+    context.parameters.global_data_eta = configuration.eta.data
 
     context.policies = policies_from_settings(configuration)
 
