@@ -3,10 +3,11 @@
 import pandas as pd
 
 from cascade.core.db import cursor, db_queries
-from cascade.input_data.db import METRIC_IDS, MEASURE_IDS
+from cascade.input_data.db import METRIC_IDS, MEASURE_IDS, GBDDataError
 
 
 from cascade.core.log import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -29,12 +30,41 @@ def _csmr_in_t3(execution_context):
     return exists == 1
 
 
+def _gbd_process_version_id_from_cod_version(cod_version):
+    """Central comp uses process_version_id to track data versions independently
+    from the versioning systems of the tools that produced the data. Thus we
+    need to map from CODcorrect's versions to a process_version_id to do
+    version constrained lookups using central comp's tools.
+    """
+
+    query = """
+    SELECT gbd.gbd_process_version_metadata.gbd_process_version_id from gbd.gbd_process_version_metadata
+        JOIN  gbd.gbd_process_version ON gbd.gbd_process_version_metadata.gbd_process_version_id =
+                                         gbd.gbd_process_version.gbd_process_version_id
+        WHERE gbd_process_id = 3                     -- codcorrect process
+              and metadata_type_id = 1               -- codcorrect version
+              and val = %(cod_version)s
+              and gbd_process_version_status_id = 1  -- marked best
+    """
+
+    with cursor(database="gbd") as c:
+        c.execute(query, args={"cod_version": cod_version})
+        result = c.fetchone()
+
+    if result is None:
+        raise GBDDataError(f"No best gbd_process_version_id for cod version {cod_version}")
+
+    return result[0]
+
+
 def _get_csmr_data(execution_context):
 
     cause_id = execution_context.parameters.add_csmr_cause
     parent_loc = execution_context.parameters.location_id
 
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
+
+    process_version_id = _gbd_process_version_id_from_cod_version(execution_context.parameters.cod_version)
 
     csmr = db_queries.get_outputs(
         topic="cause",
@@ -46,7 +76,7 @@ def _get_csmr_data(execution_context):
         measure_id=MEASURE_IDS["deaths"],
         sex_id="all",
         gbd_round_id=execution_context.parameters.gbd_round_id,
-        version="latest",
+        process_version_id=process_version_id,
     )[keep_cols]
 
     csmr = csmr[csmr["val"].notnull()]
@@ -92,15 +122,11 @@ def load_csmr_to_t3(execution_context) -> bool:
 
     if _csmr_in_t3(execution_context):
         CODELOG.info(
-            f"csmr data for model_version_id {model_version_id} "
-            f"on '{database}' already exists, doing nothing."
+            f"csmr data for model_version_id {model_version_id} on '{database}' already exists, doing nothing."
         )
         return False
     else:
-        CODELOG.info(
-            f"Uploading csmr data for model_version_id "
-            f"{model_version_id} on '{database}'"
-        )
+        CODELOG.info(f"Uploading csmr data for model_version_id {model_version_id} on '{database}'")
 
         csmr_data = _get_csmr_data(execution_context)
 
