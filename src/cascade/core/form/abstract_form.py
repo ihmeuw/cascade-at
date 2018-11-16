@@ -65,14 +65,16 @@ class FormComponent:
 
     _children = None
 
-    def __init__(self, nullable=False, default=None, display=None):
+    def __init__(self, nullable=False, default=None, display=None, validation_priority=100):
         self._nullable = nullable
         self._default = default
         self._name = None
         self._display_name = display
         if self._children:
+            self._validation_priority = min([c._validation_priority for c in self._children] + [validation_priority])
             self._child_instances = {c: NO_VALUE for c in self._children}
         else:
+            self._validation_priority = validation_priority
             self._child_instances = {}
 
     def __get__(self, instance, owner):
@@ -227,8 +229,8 @@ class Form(FormComponent):
                           the field had in the input data.
     """
 
-    def __init__(self, source=None, name_field=None, nullable=False, display=None):
-        super().__init__(nullable=nullable, display=display)
+    def __init__(self, source=None, name_field=None, nullable=False, display=None, **kwargs):
+        super().__init__(nullable=nullable, display=display, **kwargs)
         self._args = []
         self._kwargs = {"name_field": name_field, "nullable": nullable}
         self._name_field = name_field
@@ -288,7 +290,7 @@ class Form(FormComponent):
         if root is None:
             root = self
 
-        for child in self.children:
+        for child in sorted(self.children, key=lambda c: c._validation_priority):
             c_errors = child.validate_and_normalize(self, root=root)
             if c_errors:
                 if child._name:

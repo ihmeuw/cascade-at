@@ -207,3 +207,26 @@ def test_subform_with_defaults():
     errors = f.validate_and_normalize()
     assert not errors
     assert f.inner.a == 42
+
+
+def test_alidation_priority():
+    class InnerOne(Form):
+        a = SimpleTypeField(int)
+
+        def _full_form_validation(self, root):
+            assert isinstance(root.two.b, int)
+            return []
+
+    class InnerTwo(Form):
+        b = SimpleTypeField(int, validation_priority=5)
+
+        def _full_form_validation(self, root):
+            assert isinstance(root.one.a, str)
+            return []
+
+    class MyForm(Form):
+        one = InnerOne()
+        two = InnerTwo()
+
+    f = MyForm({"one": {"a": "10"}, "two": {"b": "15"}})
+    f.validate_and_normalize()

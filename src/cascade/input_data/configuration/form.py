@@ -234,16 +234,18 @@ class Configuration(Form):
 
     """
 
-    model = Model(display="Model")
+    model = Model(display="Model", validation_priority=5)
     policies = Policies(display="Policies")
     gbd_round_id = IntField(display="GBD Round ID")
     random_effect = FormList(Smoothing, nullable=True, display="Random effects")
     rate = FormList(Smoothing, display="Rates")
     study_covariate = FormList(StudyCovariate, display="Study covariates")
     country_covariate = FormList(CountryCovariate, display="Country covariates")
-    eta = Eta()
-
+    eta = Eta(validation_priority=5)
+    students_dof = StudentsDOF(validation_priority=5)
+    log_students_dof = StudentsDOF(validation_priority=5)
     csmr_cod_output_version_id = IntField()
+
     csmr_mortality_output_version_id = Dummy()
     location_set_version_id = Dummy()
     min_cv = FormList(Dummy)
@@ -254,8 +256,6 @@ class Configuration(Form):
     print_level = Dummy()
     accept_after_max_steps = Dummy()
     tolerance = Dummy()
-    students_dof = StudentsDOF()
-    log_students_dof = StudentsDOF()
     data_eta_by_integrand = Dummy()
     data_density_by_integrand = Dummy()
     config_version = Dummy()
