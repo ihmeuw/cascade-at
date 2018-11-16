@@ -212,6 +212,13 @@ class StudentsDOF(Form):
     data = FloatField(nullable=True)
 
 
+class Policies(Form):
+    estimate_emr_from_prevalence = OptionField(
+        [0, 1], constructor=int, default=0, display="Estimate EMR from prevalance", nullable=True
+    )
+    use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
+
+
 class Configuration(Form):
     """ The root Form of the whole configuration tree.
 
@@ -228,6 +235,7 @@ class Configuration(Form):
     """
 
     model = Model(display="Model")
+    policies = Policies(display="Policies")
     gbd_round_id = IntField(display="GBD Round ID")
     random_effect = FormList(Smoothing, nullable=True, display="Random effects")
     rate = FormList(Smoothing, display="Rates")

@@ -71,7 +71,7 @@ def covariate_records_from_settings(model_context, execution_context,
     measurement_columns = list()
     avgint_columns = list()
 
-    age_groups = get_all_age_spans(execution_context)
+    age_groups = get_all_age_spans()
     for covariate_id in unique_country_covariate(configuration):
         demographics = dict(
             age_group_ids="all", year_ids="all", sex_ids="all",

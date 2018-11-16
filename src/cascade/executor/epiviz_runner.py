@@ -1,19 +1,21 @@
 import os
 from pathlib import Path
 from pprint import pformat
+from bdb import BdbQuit
 
 import pandas as pd
 import numpy as np
 
+from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.dismod.db.wrapper import _get_engine
-from cascade.dismod.db.metadata import DensityEnum
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
+from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
@@ -48,34 +50,14 @@ def add_settings_to_execution_context(ec, settings):
         setattr(ec.parameters, param, value)
 
 
-def meas_bounds_to_stdev(df):
-    r"""
-    Given data that includes a measurement upper bound and measurement lower
-    bound, assume those are 95% confidence intervals. Convert them to
-    standard error using:
-
-    .. math::
-
-        \mbox{stderr} = \frac{\mbox{upper} - \mbox{lower}}{2 1.96}
-
-    Standard errors become Gaussian densities.
-    Replace any zero values with :math:`10^{-9}`.
-    """
-    MATHLOG.debug("Assigning standard error from measured upper and lower.")
-    df["standard_error"] = (df.meas_upper - df.meas_lower) / (2 * 1.96)
-    df["standard_error"] = df.standard_error.replace({0: 1e-9})
-    df = df.rename(columns={"meas_value": "mean"})
-    df["density"] = DensityEnum.gaussian
-    df["weight"] = "constant"
-    return df.drop(["meas_lower", "meas_upper"], axis=1)
-
-
 def add_mortality_data(model_context, execution_context, sex_id):
     """
     Gets cause-specific mortality rate and adds that data as an ``mtspecific``
     measurement by appending it to the bundle. Uses ranges for ages and years.
     This doesn't determine point-data values.
     """
+    MATHLOG.debug(f"Creating a set of mtspecific observations from IHME CSMR database.")
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
     csmr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
     )
@@ -88,6 +70,10 @@ def add_mortality_data(model_context, execution_context, sex_id):
         [model_context.input_data.observations, csmr], ignore_index=True, sort=True
     )
 
+    if model_context.policies["estimate_emr_from_prevalence"]:
+        MATHLOG.debug(f"estimate_emr_from_prevalence policy is selected")
+        add_emr_from_prevalence(model_context, execution_context)
+
 
 def add_omega_constraint(model_context, execution_context, sex_id):
     """
@@ -95,6 +81,8 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     mtall, and mtspecific from observation data. Uses
     :py:func:`cascade.input_data.configuration.builder.build_constraint` to make smoothing priors.
     """
+    MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
     asdr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
     )
@@ -276,6 +264,8 @@ def entry():
             error_lines.append(f"\t{error_location}: {error_message}")
         MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
         exit(1)
+    except BdbQuit:
+        pass
     except Exception:
         if args.pdb:
             import pdb

@@ -194,3 +194,16 @@ def test_full_form_validation__failure_due_to_inconsistent_state(form_with_valid
     errors = f.validate_and_normalize()
     assert errors
     assert ("", "", "a must be >= b") not in errors
+
+
+def test_subform_with_defaults():
+    class MyInnerForm(Form):
+        a = SimpleTypeField(int, default=42, nullable=True)
+
+    class MyForm(Form):
+        inner = MyInnerForm()
+
+    f = MyForm({})
+    errors = f.validate_and_normalize()
+    assert not errors
+    assert f.inner.a == 42

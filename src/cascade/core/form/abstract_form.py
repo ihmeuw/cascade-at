@@ -232,7 +232,7 @@ class Form(FormComponent):
         self._args = []
         self._kwargs = {"name_field": name_field, "nullable": nullable}
         self._name_field = name_field
-        if source:
+        if source is not None:
             self.process_source(source)
 
     def __set__(self, instance, value):
@@ -250,6 +250,10 @@ class Form(FormComponent):
                 child = child_value
             yield child
 
+    def items(self):
+        for c in self.children:
+            yield (c._name, getattr(self, c._name))
+
     def is_field_unset(self, field_name):
         child = type(self).__dict__[field_name]
         child_value = self._child_instances[child]
@@ -264,12 +268,13 @@ class Form(FormComponent):
         return type(self)(*self._args, **self._kwargs)
 
     def process_source(self, source):
-        if source:
-            for k, v in source.items():
-                for c in self._children:
-                    if c._name == k:
-                        setattr(self, k, v)
-                        break
+        for c in self._children:
+            v = source.get(str(c._name), NO_VALUE)
+            if v is not NO_VALUE:
+                setattr(self, c._name, v)
+            elif isinstance(c, Form) and not c._nullable:
+                # Make sure sub-forms which contain default values get a chance to setup
+                setattr(self, c._name, {})
 
         if self._name_field:
             setattr(self, self._name_field, self._name)
