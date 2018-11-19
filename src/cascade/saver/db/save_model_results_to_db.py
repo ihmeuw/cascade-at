@@ -103,7 +103,7 @@ def _normalize_draws_df(draws_df, execution_context):
     draws["location_id"] = draws.node_id.apply(lambda nid: node_to_location[nid])
     covariate_table = execution_context.dismodfile.covariate
     try:
-        sex_index = int(covariate_table[covariate_table.covariate_name == "sex"].covariate_id.iloc[0])
+        sex_index = int(covariate_table[covariate_table.covariate_name == "s_sex_identity"].covariate_id.iloc[0])
     except KeyError as ke:
         raise RuntimeError(f"Output from Dismod-AT lacks a sex column, so upload not possible.") from ke
 
