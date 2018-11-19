@@ -26,7 +26,7 @@ def execution_context():
         [{"node_id": 0, "c_location_id": 102, "node_name": "102", "parent": None}]
     )
     execution_context.dismodfile.covariate = pd.DataFrame(
-        [{"covariate_id": 0, "covariate_name": "sex", "reference": 0.0, "max_difference": None}]
+        [{"covariate_id": 0, "covariate_name": "s_sex_identity", "reference": 0.0, "max_difference": None}]
     )
     execution_context.parameters = defaults
 
