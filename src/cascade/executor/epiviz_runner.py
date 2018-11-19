@@ -137,7 +137,10 @@ def model_context_from_settings(execution_context, settings):
     model_context = initial_context_from_epiviz(settings)
 
     freeze_bundle(execution_context, execution_context.parameters.bundle_id)
-    load_csmr_to_t3(execution_context)
+    if execution_context.parameters.add_csmr_cause is not None:
+        MATHLOG.info(f"Cause {execution_context.parameters.add_csmr_cause} "
+                     "selected as CSMR source, freezing it's data if it has not already been frozen.")
+        load_csmr_to_t3(execution_context)
     load_asdr_to_t3(execution_context)
     execution_context.parameters.tier = 3
 
@@ -153,7 +156,11 @@ def model_context_from_settings(execution_context, settings):
         MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
         model_context.input_data.observations = model_context.input_data.observations[mask]
 
-    add_mortality_data(model_context, execution_context, settings.model.drill_sex)
+    if execution_context.parameters.add_csmr_cause is not None:
+        MATHLOG.info(f"Cause {execution_context.parameters.add_csmr_cause} selected as CSMR source, loading it's data.")
+        add_mortality_data(model_context, execution_context, settings.model.drill_sex)
+    else:
+        MATHLOG.info(f"No cause selected as CSMR source so no CSMR data will be added to the bundle.")
     add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
     cases = make_average_integrand_cases_from_gbd(
         execution_context, [settings.model.drill_sex], include_birth_prevalence=bool(settings.model.birth_prev)
