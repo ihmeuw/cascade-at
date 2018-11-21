@@ -7,5 +7,6 @@ User Manual
 
    install
    dismodat
+   rates
    covariates
    dmsr2csv
