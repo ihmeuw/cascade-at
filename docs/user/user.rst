@@ -6,7 +6,7 @@ User Manual
    :maxdepth: 2
 
    install
-   dmcsv2db
    dismodat
+   rates
    covariates
    dmsr2csv
