@@ -16,7 +16,7 @@ from cascade.stats.compartmental import (
 )
 from cascade.stats.demography import DemographicInterval
 
-from cascade.stats.utils import meas_bounds_to_stdev  # noqa: F401
+from cascade.stats.estimation import meas_bounds_to_stdev  # noqa: F401
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
