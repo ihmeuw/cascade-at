@@ -267,7 +267,7 @@ class Form(FormComponent):
         return all([c.is_unset(self) for c in self.children])
 
     def new_instance(self):
-        return type(self)(*self._args, **self._kwargs)
+        return type(self)(*self._args, validation_priority=self._validation_priority, **self._kwargs)
 
     def process_source(self, source):
         for c in self._children:
