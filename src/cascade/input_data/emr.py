@@ -180,14 +180,15 @@ def add_emr_from_prevalence(model_context, execution_context):
     cause specific mortality estimates from GBD using the formula:
     :math:`\chi=\frac{P}{{}_nm_x^c}
     """
-    MATHLOG.debug("Calculating excess mortality using: EMR=CSMR/prevalence")
     prevalence = _prepare_prevalence(model_context.input_data.observations)
+    MATHLOG.debug("Calculating excess mortality using: EMR=CSMR/prevalence from {len(prevalence)} observations")
     csmr = get_cause_specific_mortality_data(execution_context)
     csmr = _prepare_csmr(execution_context, csmr)
 
     emr = _calculate_emr_from_csmr_and_prevalence(csmr, prevalence)
 
-    model_context.input_data.observations = pd.concat([model_context.input_data.observations, emr])
+    if not emr.empty:
+        model_context.input_data.observations = pd.concat([model_context.input_data.observations, emr])
 
 
 def _calculate_emr_from_csmr_and_prevalence(all_csmr, all_prevalence):
@@ -215,6 +216,9 @@ def _calculate_emr_from_csmr_and_prevalence(all_csmr, all_prevalence):
             emr = _emr_from_sex_and_node_specific_csmr_and_prevalence(csmr, prevalence)
             excess_mortality_chunks.append(emr)
 
-    excess_mortality = pd.concat(excess_mortality_chunks)
-    MATHLOG.debug(f"Calculated {len(excess_mortality)} EMR points from {len(all_prevalence)} prevalence points.")
-    return excess_mortality
+    if excess_mortality_chunks:
+        excess_mortality = pd.concat(excess_mortality_chunks)
+        MATHLOG.debug(f"Calculated {len(excess_mortality)} EMR points from {len(all_prevalence)} prevalence points.")
+        return excess_mortality
+    else:
+        return pd.DataFrame()
