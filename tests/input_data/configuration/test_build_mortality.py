@@ -13,6 +13,8 @@ def test_add_mortality_data(ihme, sexes):
     mc.input_data.observations = pd.DataFrame(
         columns=["time_upper", "time_lower", "age_upper", "age_lower", "measure", "hold_out"]
     )
+    mc.policies["estimate_emr_from_prevalence"] = False
+
     add_mortality_data(mc, ec, sexes)
     with_mort = mc.input_data.observations
     assert "sex_id" in with_mort.columns
