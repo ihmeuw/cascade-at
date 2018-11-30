@@ -2,14 +2,17 @@ import os
 from pathlib import Path
 from pprint import pformat
 from bdb import BdbQuit
+from concurrent.futures import ProcessPoolExecutor
+from tempfile import TemporaryDirectory
+import shutil
 
 import pandas as pd
 import numpy as np
 
+from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.input_data.db.demographics import age_groups_to_ranges
-from cascade.dismod.db.wrapper import _get_engine
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
@@ -183,30 +186,82 @@ def write_dismod_file(mc, ec, db_file_path):
     return dismod_file
 
 
-def run_dismod(dismod_file, with_random_effects):
+def run_dismod(dismod_file, command, *args):
     dm_file_path = dismod_file.engine.url.database
     if dm_file_path == ":memory:":
         raise ValueError("Cannot run dismodat on an in-memory database")
 
     command_prefix = ["dmdismod", dm_file_path]
 
-    run_and_watch(command_prefix + ["init"], False, 1)
+    run_and_watch(command_prefix + [command] + list(args), False, 1)
     dismod_file.refresh()
-    if "end init" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'init' command")
+    if f"end {command}" not in dismod_file.log.message.iloc[-1]:
+        raise DismodATException(f"DismodAt failed to complete '{command}' command")
 
+
+def run_dismod_fit(dismod_file, with_random_effects):
     random_or_fixed = "both" if with_random_effects else "fixed"
     # FIXME: both doesn't work. Something about actually having parents in the node table
     random_or_fixed = "fixed"
-    run_and_watch(command_prefix + ["fit", random_or_fixed], False, 1)
-    dismod_file.refresh()
-    if "end fit" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'fit' command")
 
-    run_and_watch(command_prefix + ["predict", "fit_var"], False, 1)
-    dismod_file.refresh()
-    if "end predict" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'predict' command")
+    run_dismod(dismod_file, "fit", random_or_fixed)
+
+
+def run_dismod_predict(dismod_file):
+    run_dismod(dismod_file, "predict", "fit_var")
+
+
+def make_fixed_effect_samples(execution_context, num_samples):
+    run_dismod(execution_context.dismodfile, "set", "truth_var", "fit_var")
+    run_dismod(execution_context.dismodfile, "simulate", str(num_samples))
+
+
+def _fit_fixed_effect_sample(db_path, sample_id):
+    # FIXME: Concurrent logging is basically unreadable. Until we have a better
+    # way of doing it just turn it off.
+    import logging
+    logging.root.setLevel(logging.CRITICAL)
+
+    with TemporaryDirectory() as d:
+        temp_dm_path = Path(d) / "sample.db"
+        shutil.copy2(db_path, temp_dm_path)
+        dismod_file = DismodFile(_get_engine(temp_dm_path))
+        run_dismod(dismod_file, "set", "start_var", "truth_var")
+        run_dismod(dismod_file, "fit", "fixed", str(sample_id))
+
+        fit = dismod_file.fit_var
+        fit["sample_index"] = sample_id
+    return fit
+
+
+def fit_fixed_effect_samples(execution_context, num_processes):
+    if execution_context.dismodfile.engine.url.database == ":memory:":
+        raise ValueError("Cannot run fit_fixed_effect_samples on an in-memory database")
+
+    samples = execution_context.dismodfile.data_sim.simulate_index.unique()
+
+    if (num_processes is None or num_processes > 1) and len(samples) > 1:
+        CODELOG.info(f"Starting parallel fixed effect sample generation using {num_processes} processes")
+        with ProcessPoolExecutor(max_workers=num_processes) as executor:
+            fits = executor.map(
+                _fit_fixed_effect_sample,
+                [execution_context.dismodfile.engine.url.database] * len(samples),
+                samples
+            )
+        CODELOG.info("Done generating fixed effect samples")
+
+        # FIXME: Even with logging turned off and nothing (I think) from the
+        # child processes going to stdout/err the terminal still get's
+        # corrupted and is unusable without a reset. I don't know what
+        # causes this. It could be something dismodat itself is doing.
+        import os
+        os.system("reset")
+    else:
+        fits = []
+        for sample in samples:
+            fits.append(_fit_fixed_effect_sample(execution_context.dismodfile.engine.url.database, sample))
+
+    return pd.concat(fits)
 
 
 def has_random_effects(model):
@@ -239,9 +294,14 @@ def main(args):
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
+    run_dismod(ec.dismodfile, "init")
 
     if not args.db_only:
-        run_dismod(ec.dismodfile, has_random_effects(mc))
+        run_dismod_fit(ec.dismodfile, has_random_effects(mc))
+
+        num_samples = mc.policies["number_of_fixed_effect_samples"]
+        make_fixed_effect_samples(ec, num_samples)
+        fit_fixed_effect_samples(ec, None)
 
         if not args.no_upload:
             save_model_results(ec)

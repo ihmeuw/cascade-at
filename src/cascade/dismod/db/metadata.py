@@ -516,6 +516,16 @@ class Simulate(Base):
     simulate_delta = Column(Float(), nullable=False)  # Greg's has meas_std
 
 
+class DataSim(Base):
+    __tablename__ = "data_sim"
+
+    data_sim_id = Column(Integer(), primary_key=True, autoincrement=False)
+    simulate_index = Column(Integer(), nullable=False)
+    data_subset_id = Column(None, ForeignKey("data_subset_table.data_subset_id"), nullable=False)
+    data_sim_value = Column(Float(), nullable=False)
+    data_sim_delta = Column(Float(), nullable=False)
+
+
 class Var(Base):
     """Output"""
 

@@ -217,6 +217,7 @@ class Policies(Form):
         [0, 1], constructor=int, default=0, display="Estimate EMR from prevalance", nullable=True
     )
     use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
+    number_of_fixed_effect_samples = IntField(default=10, nullable=True)
 
 
 class Configuration(Form):

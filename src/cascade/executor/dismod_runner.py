@@ -163,8 +163,10 @@ def run_and_watch(command, single_use_machine, poll_time):
         str: The error stream.
     """
     command = [str(a) for a in command]
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(_async_run_and_watch(command, single_use_machine, poll_time))
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(_async_run_and_watch(command, single_use_machine, poll_time, loop))
+    return result
 
 
 def dismod_report_info(text):
@@ -182,7 +184,7 @@ def dismod_report_stderr(text):
 
 
 @asyncio.coroutine
-def _async_run_and_watch(command, single_use_machine, poll_time):
+def _async_run_and_watch(command, single_use_machine, poll_time, loop):
     if single_use_machine:
         pre_execution_function = reduce_process_priority
     else:
@@ -191,14 +193,14 @@ def _async_run_and_watch(command, single_use_machine, poll_time):
     try:
         CODELOG.info(f"Forking to {command}")
         sub_process = yield from asyncio.subprocess.create_subprocess_exec(
-            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, preexec_fn=pre_execution_function
+            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, preexec_fn=pre_execution_function,
+            loop=loop
         )
     except ValueError as ve:
         raise Exception(f"Dismod called with invalid arguments {ve}")
     except OSError as ose:
         raise Exception(f"Dismod couldn't run due to OS error {ose}")
 
-    loop = asyncio.get_event_loop()
     std_out_task = loop.create_task(_read_pipe(sub_process.stdout, dismod_report_info))
     std_err_task = loop.create_task(_read_pipe(sub_process.stderr, dismod_report_stderr))
     yield from sub_process.wait()
