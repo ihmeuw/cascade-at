@@ -6,7 +6,8 @@ from collections.__init__ import defaultdict
 
 import numpy as np
 import pandas as pd
-from scipy import (griddata, spatial)
+from scipy import spatial
+from scipy.interpolate import griddata
 
 import intervals as it
 
@@ -372,7 +373,7 @@ def compute_interpolated_covariate_values_by_sex(
     cov_col = []
     cov_index = []
 
-    cov_col = covariate_f + covariate_m + covariate_both
+    cov_col = list(covariate_f) + list(covariate_m) + list(covariate_both)
     cov_index = index_f + index_m + index_both
 
     covariate_column = pd.Series(cov_col, index=cov_index).sort_index()
@@ -393,7 +394,7 @@ def get_covariate_data_by_sex(covariates):
     Args:
         covariates (pandas.DataFrame): data for a specific covariate_id
     Returns:
-        dict: sex keys and covariate data values
+        dict: sex keys (-0.5, 0, 0.5) and covariate data as values
     """
 
     covariates_by_sex = {}
@@ -404,8 +405,8 @@ def get_covariate_data_by_sex(covariates):
         covariates_by_sex[MALE] = covariates
         covariates_by_sex[BOTH] = covariates
     elif (len(sex_values) == 2) and (-0.5 in sex_values) and (0.5 in sex_values):
-        covariates_by_sex[FEMALE] = covariates[covariates["x_sex" == FEMALE]]
-        covariates_by_sex[MALE] = covariates[covariates["x_sex" == MALE]]
+        covariates_by_sex[FEMALE] = covariates[covariates["x_sex"] == FEMALE]
+        covariates_by_sex[MALE] = covariates[covariates["x_sex"] == MALE]
         covariates_both = covariates_by_sex[FEMALE].merge(
             covariates_by_sex[MALE],
             on=["age_lower", "age_upper", "time_lower", "time_upper"],
