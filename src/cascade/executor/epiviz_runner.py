@@ -290,7 +290,8 @@ def fit_fixed_effect_samples(execution_context, num_processes):
 
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
 
-    CODELOG.info(f"Starting parallel fixed effect sample generation using {num_processes} processes")
+    actual_processes = min(len(samples), num_processes)
+    CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
     loop = asyncio.get_event_loop()
     fits = loop.run_until_complete(
         _async_fit_fixed_effect_samples(num_processes, execution_context.dismodfile.engine.url.database, samples)
