@@ -1,8 +1,10 @@
 import os
+import logging
+import asyncio
 from pathlib import Path
 from pprint import pformat
 from bdb import BdbQuit
-from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import cpu_count
 from tempfile import TemporaryDirectory
 import shutil
 
@@ -19,7 +21,7 @@ from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.input_data.emr import add_emr_from_prevalence
-from cascade.executor.dismod_runner import run_and_watch, DismodATException
+from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
@@ -141,8 +143,10 @@ def model_context_from_settings(execution_context, settings):
 
     freeze_bundle(execution_context, execution_context.parameters.bundle_id)
     if execution_context.parameters.add_csmr_cause is not None:
-        MATHLOG.info(f"Cause {execution_context.parameters.add_csmr_cause} "
-                     "selected as CSMR source, freezing it's data if it has not already been frozen.")
+        MATHLOG.info(
+            f"Cause {execution_context.parameters.add_csmr_cause} "
+            "selected as CSMR source, freezing it's data if it has not already been frozen."
+        )
         load_csmr_to_t3(execution_context)
     load_asdr_to_t3(execution_context)
     execution_context.parameters.tier = 3
@@ -186,17 +190,44 @@ def write_dismod_file(mc, ec, db_file_path):
     return dismod_file
 
 
-def run_dismod(dismod_file, command, *args):
+def _get_dismod_db_path(dismod_file):
     dm_file_path = dismod_file.engine.url.database
     if dm_file_path == ":memory:":
         raise ValueError("Cannot run dismodat on an in-memory database")
+    return dm_file_path
+
+
+def _check_dismod_command(dismod_file, command):
+    dismod_file.refresh()
+    if f"end {command}" not in dismod_file.log.message.iloc[-1]:
+        raise DismodATException(f"DismodAt failed to complete '{command}' command")
+
+
+def run_dismod(dismod_file, command, *args):
+    dm_file_path = _get_dismod_db_path(dismod_file)
 
     command_prefix = ["dmdismod", dm_file_path]
 
     run_and_watch(command_prefix + [command] + list(args), False, 1)
-    dismod_file.refresh()
-    if f"end {command}" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException(f"DismodAt failed to complete '{command}' command")
+
+    _check_dismod_command(dismod_file, command)
+
+
+@asyncio.coroutine
+def async_run_dismod(dismod_file, command, *args):
+    dm_file_path = _get_dismod_db_path(dismod_file)
+
+    command_prefix = ["dmdismod", dm_file_path]
+
+    yield from async_run_and_watch(command_prefix + [command] + list(args), False, 1)
+
+    # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
+    # It does this even if all output is supressed. Other programs don't cause this problem
+    # even if they have lots of output. This is the least invasive way I've found
+    # of ensuring that the environment is usable after this runs
+    yield from async_run_and_watch(["stty", "sane"], False, 1)
+
+    _check_dismod_command(dismod_file, command)
 
 
 def run_dismod_fit(dismod_file, with_random_effects):
@@ -216,22 +247,41 @@ def make_fixed_effect_samples(execution_context, num_samples):
     run_dismod(execution_context.dismodfile, "simulate", str(num_samples))
 
 
-def _fit_fixed_effect_sample(db_path, sample_id):
-    # FIXME: Concurrent logging is basically unreadable. Until we have a better
-    # way of doing it just turn it off.
-    import logging
+@asyncio.coroutine
+def _fit_fixed_effect_sample(db_path, sample_id, sem):
+    yield from sem.acquire()
+    try:
+        with TemporaryDirectory() as d:
+            temp_dm_path = Path(d) / "sample.db"
+            shutil.copy2(db_path, temp_dm_path)
+            dismod_file = DismodFile(_get_engine(temp_dm_path))
+            yield from async_run_dismod(dismod_file, "set", "start_var", "truth_var")
+            yield from async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
+
+            fit = dismod_file.fit_var
+            fit["sample_index"] = sample_id
+        return fit
+    finally:
+        sem.release()
+
+
+@asyncio.coroutine
+def _async_fit_fixed_effect_samples(num_processes, dismodfile, samples):
+    sem = asyncio.Semaphore(num_processes)
+    jobs = []
+    for sample in samples:
+        jobs.append(_fit_fixed_effect_sample(
+            dismodfile,
+            sample,
+            sem
+        ))
+    log_level = logging.root.level
     logging.root.setLevel(logging.CRITICAL)
-
-    with TemporaryDirectory() as d:
-        temp_dm_path = Path(d) / "sample.db"
-        shutil.copy2(db_path, temp_dm_path)
-        dismod_file = DismodFile(_get_engine(temp_dm_path))
-        run_dismod(dismod_file, "set", "start_var", "truth_var")
-        run_dismod(dismod_file, "fit", "fixed", str(sample_id))
-
-        fit = dismod_file.fit_var
-        fit["sample_index"] = sample_id
-    return fit
+    try:
+        fits = yield from asyncio.gather(*jobs)
+    finally:
+        logging.root.setLevel(log_level)
+    return fits
 
 
 def fit_fixed_effect_samples(execution_context, num_processes):
@@ -240,26 +290,12 @@ def fit_fixed_effect_samples(execution_context, num_processes):
 
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
 
-    if (num_processes is None or num_processes > 1) and len(samples) > 1:
-        CODELOG.info(f"Starting parallel fixed effect sample generation using {num_processes} processes")
-        with ProcessPoolExecutor(max_workers=num_processes) as executor:
-            fits = executor.map(
-                _fit_fixed_effect_sample,
-                [execution_context.dismodfile.engine.url.database] * len(samples),
-                samples
-            )
-        CODELOG.info("Done generating fixed effect samples")
-
-        # FIXME: Even with logging turned off and nothing (I think) from the
-        # child processes going to stdout/err the terminal still get's
-        # corrupted and is unusable without a reset. I don't know what
-        # causes this. It could be something dismodat itself is doing.
-        import os
-        os.system("reset")
-    else:
-        fits = []
-        for sample in samples:
-            fits.append(_fit_fixed_effect_sample(execution_context.dismodfile.engine.url.database, sample))
+    CODELOG.info(f"Starting parallel fixed effect sample generation using {num_processes} processes")
+    loop = asyncio.get_event_loop()
+    fits = loop.run_until_complete(
+        _async_fit_fixed_effect_samples(num_processes, execution_context.dismodfile.engine.url.database, samples)
+    )
+    CODELOG.info("Done generating fixed effect samples")
 
     return pd.concat(fits)
 
@@ -301,7 +337,7 @@ def main(args):
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
-        fit_fixed_effect_samples(ec, None)
+        fit_fixed_effect_samples(ec, cpu_count())
 
         if not args.no_upload:
             save_model_results(ec)
