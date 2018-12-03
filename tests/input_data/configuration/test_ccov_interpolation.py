@@ -2,13 +2,11 @@ import pytest
 
 import numpy as np
 import pandas as pd
-from scipy.interpolate import griddata
 
 from cascade.input_data.configuration.construct_country import (
     assign_interpolated_covariate_values,
     compute_covariate_age_interval,
-    get_covariate_data_by_sex,
-    )
+    get_covariate_data_by_sex,)
 
 
 @pytest.fixture
@@ -28,6 +26,7 @@ def measurements_1():
 
     return measurements_1
 
+
 @pytest.fixture
 def measurements_2():
     """
@@ -44,6 +43,7 @@ def measurements_2():
     measurements_2["avg_time"] = measurements_2[["time_lower", "time_upper"]].mean(axis=1)
 
     return measurements_2
+
 
 @pytest.fixture
 def covariates_1():
@@ -71,6 +71,7 @@ def covariates_1():
                                   0, 0, 0, 0, 0, 0, 0, 0]
 
     return covariates_1
+
 
 @pytest.fixture
 def covariates_2():
@@ -116,7 +117,6 @@ def covariates_2():
                                   2, 2, 2, 2, 2, 2, 2, 2]
     covariates_2["avg_age"] = covariates_2[["age_lower", "age_upper"]].mean(axis=1)
     covariates_2["avg_time"] = covariates_2[["time_lower", "time_upper"]].mean(axis=1)
-
 
     return covariates_2
 
@@ -188,17 +188,18 @@ def covariate_column_2():
 @pytest.fixture
 def covariate_column_3():
     """Expected output"""
-    covariate_column_3 = pd.Series([np.nan, 
-                                    np.nan, 
-                                    np.nan, 
+    covariate_column_3 = pd.Series([np.nan,
+                                    np.nan,
+                                    np.nan,
                                     2.646154,
                                     np.nan,
-				    2.338462,
-                                    1.723077, 
+                                    2.338462,
+                                    1.723077,
                                     np.nan,
                                     np.nan])
 
     return covariate_column_3.sort_index()
+
 
 @pytest.fixture
 def mean_value_covs_2():
@@ -206,17 +207,17 @@ def mean_value_covs_2():
 
     mean_value_covs_2 = pd.Series([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
                                   1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-                                  1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], 
-                                  index=np.arange(0,28))
+                                  1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                                  index=np.arange(0, 28))
 
     return mean_value_covs_2
 
 
 def test_age_interval(covariates_1, covariates_2, covariates_3):
-    
-    age_interval_1 = compute_covariate_age_interval(covariates_1)    
-    age_interval_2 = compute_covariate_age_interval(covariates_2)    
-    age_interval_3 = compute_covariate_age_interval(covariates_3)    
+
+    age_interval_1 = compute_covariate_age_interval(covariates_1)
+    age_interval_2 = compute_covariate_age_interval(covariates_2)
+    age_interval_3 = compute_covariate_age_interval(covariates_3)
 
     assert 0 in age_interval_1
     assert 50 in age_interval_1
@@ -248,7 +249,7 @@ def test_get_covariate_data_by_sex(covariates_1, covariates_2, covariates_3, mea
     cov_data_1 = get_covariate_data_by_sex(covariates_1)
     cov_data_2 = get_covariate_data_by_sex(covariates_2)
     cov_data_3 = get_covariate_data_by_sex(covariates_3)
-    
+
     pd.testing.assert_frame_equal(cov_data_1[FEMALE], cov_data_1[BOTH])
     pd.testing.assert_frame_equal(cov_data_1[MALE], cov_data_1[BOTH])
 
@@ -273,7 +274,6 @@ def test_assign_interpolated_covariate_values_sex_both_1d(measurements_1, covari
     pd.testing.assert_series_equal(covariate_column_1, cov_col)
 
 
-@pytest.mark.skip
 def test_assign_interpolated_covariate_values_sex_mf_1d(measurements_2, covariates_2, covariate_column_2):
     """
     covariates have multiple time values, only one age group, and two sexes (female, male)
@@ -281,52 +281,8 @@ def test_assign_interpolated_covariate_values_sex_mf_1d(measurements_2, covariat
     """
     sex = pd.Series()
 
-    #cov_col = assign_interpolated_covariate_values(measurements_2, sex, covariates_2)
-    #pd.testing.assert_series_equal(covariate_column_2, cov_col)
-
-    #print(f"cov_col: {cov_col}")
-    print(f"covariate_column_2: {covariate_column_2}")
-
-    covs_f = covariates_2[covariates_2["x_sex"] == -0.5]
-    covs_m = covariates_2[covariates_2["x_sex"] == 0.5]
-    covs_b = covs_f.merge(covs_m, on=["age_lower", "age_upper", "time_lower", "time_upper"],
-            how="inner")
-    covs_b["mean_value"] = covs_b[["mean_value_x", "mean_value_y"]].mean(axis=1)
-
-    #print(f"covs_b cols: {covs_b.columns}")
-    #print(f"size covs_f: {covs_f.shape}")
-    #print(f"size covs_m: {covs_m.shape}")
-    #print(f"size covs_b: {covs_b.shape}")
-    #print(f" covs_b min mean_value: {covs_b['mean_value'].min(), covs_b['mean_value'].max()}")
-    
-    z = griddata((covariates_2["avg_time"],), covariates_2["mean_value"], (covariates_2["avg_time"],))    
-
-    #print(f"length z: {len(z)}")
-
-    meas_b = measurements_2[measurements_2["x_sex"] == 0]
-    meas_f = measurements_2[measurements_2["x_sex"] == -0.5]
-    meas_m = measurements_2[measurements_2["x_sex"] == 0.5]
-
-    #print(f"meas_b size: {meas_b.shape}")
-    #print(f"meas_f size: {meas_f.shape}")
-    #print(f"meas_m size: {meas_m.shape}")
-
-    z_b = griddata((covs_b["avg_time_x"],), covs_b["mean_value"], (meas_b["avg_time"],))
-    #print(f"z_b: {z_b}")
-
-    z_f = griddata((covs_f["avg_time"],), covs_f["mean_value"], (meas_f["avg_time"],))
-    #print(f"z_f: {z_f}, {type(z_f)}")
-    #print(f"z_f: avg_time: {covs_f['avg_time']}")
-    #print(f"z_f: mean_value: {covs_f['mean_value']}")
-    #print(f"z_f: meas avg_time: {meas_f['avg_time']}")
-
-    covs_m = covs_m.reset_index()
-    #print(f"z_m: avg_time: {covs_m['avg_time']}")
-    #print(f"z_m: mean_value: {covs_m['mean_value']}")
-    #print(f"z_m: meas avg_time: {meas_m['avg_time']}")
-
-    z_m = griddata((covs_m["avg_time"],), covs_m["mean_value"], (meas_m["avg_time"],))
-    #print(f"z_m: {z_m}")
+    cov_col = assign_interpolated_covariate_values(measurements_2, sex, covariates_2)
+    pd.testing.assert_series_equal(covariate_column_2, cov_col)
 
 
 def test_assign_interpolated_covariate_values_sex_both_2d(measurements_1, covariates_3, covariate_column_3):
@@ -341,5 +297,3 @@ def test_assign_interpolated_covariate_values_sex_both_2d(measurements_1, covari
     cov_col = assign_interpolated_covariate_values(measurements_1, sex, covariates_3)
 
     pd.testing.assert_series_equal(covariate_column_3, cov_col, check_exact=False)
-
-

@@ -295,6 +295,25 @@ def assign_interpolated_covariate_values(measurements, sex, covariates):
     return covariate_column
 
 
+def get_measurement_data_by_sex(measurements):
+    """Split the measurement data by sex values found in the measurements.
+    Args:
+        measurements (pandas.DataFrame): data for a specific measurement
+    Returns:
+        dict: possible sex keys (-0.5, 0, 0.5) and measurement data as values
+    """
+    measurements_by_sex = {}
+
+    for sex in (FEMALE, MALE, BOTH):
+
+        measurements_sex = measurements[measurements["x_sex"] == sex]
+
+        if not measurements_sex.empty:
+            measurements_by_sex[sex] = measurements_sex
+
+    return measurements_by_sex
+
+
 def compute_interpolated_covariate_values_by_sex(
         measurements, covariates, covar_at_dims, covar_age_interval):
     """
@@ -310,78 +329,48 @@ def compute_interpolated_covariate_values_by_sex(
 
     covariates_by_sex = get_covariate_data_by_sex(covariates)
 
-    covariates_f = covariates_by_sex[FEMALE]
-    covariates_m = covariates_by_sex[MALE]
-    covariates_both = covariates_by_sex[BOTH]
-
     measurements["avg_age"] = measurements[["age_lower", "age_upper"]].mean(axis=1)
     measurements["avg_time"] = measurements[["time_lower", "time_upper"]].mean(axis=1)
 
-    measurements_f = measurements[measurements["x_sex"] == FEMALE]
-    measurements_m = measurements[measurements["x_sex"] == MALE]
-    measurements_both = measurements[measurements["x_sex"] == BOTH]
-
-    index_f = measurements_f.index.tolist()
-    index_m = measurements_m.index.tolist()
-    index_both = measurements_both.index.tolist()
-
-    # covariate is by_age and "by_time"
-    if covar_at_dims["age_1d"] and covar_at_dims["time_1d"]:
-
-        covariate_f = griddata((covariates_f["avg_age"], covariates_f["avg_time"]),
-                               covariates_f["mean_value"],
-                               (measurements_f["avg_age"], measurements_f["avg_time"]))
-
-        covariate_m = griddata((covariates_m["avg_age"], covariates_m["avg_time"]),
-                               covariates_m["mean_value"],
-                               (measurements_m["avg_age"], measurements_m["avg_time"]))
-
-        covariate_both = griddata((covariates_both["avg_age"], covariates_both["avg_time"]),
-                                  covariates_both["mean_value"],
-                                  (measurements_both["avg_age"], measurements_both["avg_time"]))
-
-    # covariate is "by_time", but not by_age
-    elif not covar_at_dims["age_1d"] and covar_at_dims["time_1d"]:
-
-        covariate_f = griddata((covariates_f["avg_time"],),
-                               covariates_f["mean_value"],
-                               (measurements_f["avg_time"],))
-
-        covariate_m = griddata((covariates_m["avg_time"],),
-                               covariates_m["mean_value"],
-                               (measurements_m["avg_time"],))
-
-        covariate_both = griddata((covariates_both["avg_time"],),
-                                  covariates_both["mean_value"],
-                                  (measurements_both["avg_time"],))
-
-    # covariate is by_age, but not "by_time"
-    elif covar_at_dims["age_1d"] and not covar_at_dims["time_1d"]:
-
-        covariate_f = griddata((covariates_f["avg_age"],),
-                               covariates_f["mean_value"],
-                               (measurements_f["avg_age"],))
-
-        covariate_m = griddata((covariates_m["avg_age"],),
-                               covariates_m["mean_value"],
-                               (measurements_m["avg_age"],))
-
-        covariate_both = griddata((covariates_both["avg_age"],),
-                                  covariates_both["mean_value"],
-                                  (measurements_both["avg_age"],))
+    measurements_by_sex = get_measurement_data_by_sex(measurements)
 
     cov_col = []
     cov_index = []
 
-    cov_col = list(covariate_f) + list(covariate_m) + list(covariate_both)
-    cov_index = index_f + index_m + index_both
+    for sex, measurements_sex in measurements_by_sex.items():
+
+        cov_index = cov_index + list(measurements_sex.index)
+        meas_sex_new_index = measurements_sex.reset_index()
+
+        covariates_sex = covariates_by_sex[sex]
+
+        # covariate is by_age and "by_time"
+        if covar_at_dims["age_1d"] and covar_at_dims["time_1d"]:
+
+            covariate_sex = griddata((covariates_sex["avg_age"], covariates_sex["avg_time"]),
+                                     covariates_sex["mean_value"],
+                                     (meas_sex_new_index["avg_age"], meas_sex_new_index["avg_time"]))
+
+        # covariate is "by_time", but not by_age
+        elif not covar_at_dims["age_1d"] and covar_at_dims["time_1d"]:
+
+            covariate_sex = griddata((covariates_sex["avg_time"],),
+                                     covariates_sex["mean_value"],
+                                     (meas_sex_new_index["avg_time"],))
+
+        # covariate is by_age, but not "by_time"
+        elif covar_at_dims["age_1d"] and not covar_at_dims["time_1d"]:
+
+            covariate_sex = griddata((covariates_sex["avg_age"],),
+                                     covariates_sex["mean_value"],
+                                     (meas_sex_new_index["avg_age"],))
+
+        cov_col = cov_col + list(covariate_sex)
 
     covariate_column = pd.Series(cov_col, index=cov_index).sort_index()
 
     # set missings using covar_age_interval
-
-    meas_mean_age = measurements[["age_lower", "age_upper"]].mean(axis=1)
-    meas_mean_age_in_age_interval = [i in covar_age_interval for i in meas_mean_age]
+    meas_mean_age_in_age_interval = [i in covar_age_interval for i in measurements["avg_age"]]
     covariate_column = pd.Series(np.where(meas_mean_age_in_age_interval, covariate_column, np.nan))
 
     return covariate_column
@@ -390,7 +379,8 @@ def compute_interpolated_covariate_values_by_sex(
 def get_covariate_data_by_sex(covariates):
     """Covariate data is expected to have sex values for (female, male) or for (both).
        This checks which are present, and selects the applicable covariate data
-       for each sex type.
+       for each sex type.  If (female, male) are present, then both is computed as the
+       average.  If (both) is present, it is assigned to female and male.
     Args:
         covariates (pandas.DataFrame): data for a specific covariate_id
     Returns:
