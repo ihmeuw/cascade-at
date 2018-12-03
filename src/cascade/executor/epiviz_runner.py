@@ -331,9 +331,9 @@ def main(args):
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
-    run_dismod(ec.dismodfile, "init")
 
     if not args.db_only:
+        run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
