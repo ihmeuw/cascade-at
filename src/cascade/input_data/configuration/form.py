@@ -129,6 +129,13 @@ class Smoothing(Form):
         if len(time_grid) > 1 and self.default.is_field_unset("dtime"):
             errors.append("You must supply a default time diff prior if the smoothing has extent over time")
 
+        if self._name == "rates":
+            # This validation only makes sense for Fixed Effects not Random Effects
+            for prior in [self.default.value] + [p for p in self.detail or [] if p.prior_type == "value"]:
+                if prior.min < 0:
+                    errors.append("Rates must be constrained to be >= 0 at all points. Add or correct the lower bound")
+                    break
+
         return errors
 
 
@@ -183,12 +190,7 @@ class Model(Form):
     birth_prev = OptionField([0, 1], constructor=int, nullable=True, default=0, display="Prevalence at birth")
     default_age_grid = StringListField(constructor=float, display="(Cascade) Age grid")
     default_time_grid = StringListField(constructor=float, display="(Cascade) Time grid")
-    rate_case = OptionField(
-        ["iota_zero_rho_pos", "iota_pos_rho_zero", "iota_zero_rho_zero", "iota_pos_rho_pos"],
-        nullable=True,
-        default="iota_pos_rho_zero",
-        display="(Advanced) Rate case",
-    )
+    rate_case = Dummy()
 
     def _full_form_validation(self, root):
         errors = []

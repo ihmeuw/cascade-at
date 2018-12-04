@@ -88,5 +88,25 @@ class Rate:
             smoothings.append(self.parent_smooth)
         return smoothings
 
+    @property
+    def positive(self):
+        if self.parent_smooth is None:
+            return False
+        else:
+            for prior in self.parent_smooth.value_priors.priors:
+                if prior.lower > 0:
+                    return True
+            return False
+
+    @property
+    def zero(self):
+        if self.parent_smooth is None:
+            return True
+        else:
+            for prior in self.parent_smooth.value_priors.priors:
+                if prior.lower != 0 or prior.upper != 0:
+                    return False
+            return True
+
     def __repr__(self):
         return f"<Rate '{self.name}'>"

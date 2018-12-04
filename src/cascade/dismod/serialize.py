@@ -594,7 +594,7 @@ def make_covariate_table(context):
 
 def make_option_table(context):
     options = {
-        "rate_case": context.parameters.rate_case,
+        "rate_case": _infer_rate_case(context),
         "parent_node_id": "0",
         "print_level_fixed": "5",
         "ode_step_size": "1",
@@ -602,3 +602,19 @@ def make_option_table(context):
     }
 
     return pd.DataFrame([{"option_name": k, "option_value": v} for k, v in sorted(options.items())])
+
+
+def _infer_rate_case(context):
+    iota = context.rates.iota
+    rho = context.rates.rho
+
+    if iota.zero and rho.zero:
+        return "iota_zero_rho_zero"
+    elif iota.positive and rho.zero:
+        return "iota_pos_rho_zero"
+    elif iota.zero and rho.positive:
+        return "iota_zero_rho_pos"
+    elif iota.positive and rho.positive:
+        return "iota_pos_rho_pos"
+    else:
+        raise ValueError("Impossible rate_case. Iota or Rho has negative limits?")
