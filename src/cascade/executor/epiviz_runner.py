@@ -277,12 +277,14 @@ def _async_fit_fixed_effect_samples(num_processes, dismodfile, samples):
         ))
     log_level = logging.root.level
     logging.root.setLevel(logging.CRITICAL)
-    logging.getLogger("cascade.math").setLevel(logging.CRITICAL)
+    math_root = logging.getLogger("cascade.math")
+    math_log_level = math_root.level
+    math_root.setLevel(logging.CRITICAL)
     try:
         fits = yield from asyncio.gather(*jobs)
     finally:
         logging.root.setLevel(log_level)
-        logging.getLogger("cascade.math").setLevel(log_level)
+        logging.getLogger("cascade.math").setLevel(math_log_level)
     return fits
 
 
@@ -345,7 +347,14 @@ def main(args):
         fit_fixed_effect_samples(ec, cpu_count())
 
         if not args.no_upload:
+            MATHLOG.debug(f"Uploading results to epiviz")
             save_model_results(ec)
+        else:
+            MATHLOG.debug(f"Skipping results upload because 'no-upload' was selected")
+    else:
+        MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
+
+    MATHLOG.debug(f"Completed succesfully")
 
 
 def entry():

@@ -66,10 +66,10 @@ class MathLogFormatter(Formatter):
 
         is_dismod = record.__dict__.pop("is_dismod_output", False)
         if self.in_dismod_output and not is_dismod:
-            message += "</div>"
+            message += "</pre>"
             self.in_dismod_output = False
         elif not self.in_dismod_output and is_dismod:
-            message += "<div class='dismod_block'>"
+            message += "<pre class='dismod_block'>"
             self.in_dismod_output = True
 
         if not is_dismod:
@@ -79,9 +79,11 @@ class MathLogFormatter(Formatter):
             message += f"<div class='log_line {level_class}'>"
             message += f"<span class='line_prefix'><span class='level_name {level_class}'>{record.levelname}</span> "
             message += f"<span class='function_name'>{record.funcName}</span></span>"
+            message += record.getMessage().replace("\n", "<br/>\n")
+        else:
+            message += record.getMessage()
         self.last_event = record.created
 
-        message += record.getMessage().replace("\n", "<br/>\n")
         if not is_dismod:
             message += "</div>"
 
