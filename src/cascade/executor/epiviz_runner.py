@@ -153,15 +153,24 @@ def model_context_from_settings(execution_context, settings):
 
     bundle = normalized_bundle_from_database(execution_context, bundle_id=model_context.parameters.bundle_id)
     bundle = bundle.query("location_id == @execution_context.parameters.location_id")
-    observations = bundle_to_observations(model_context.parameters, bundle)
-    model_context.input_data.observations = observations
+    MATHLOG.info(f"Filtering bundle to the current location. {len(bundle)} rows remaining.")
 
-    mask = model_context.input_data.observations.standard_error > 0
-    mask &= model_context.input_data.observations.measure != "relrisk"
-    if mask.any():
-        remove_cnt = mask.sum()
-        MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
-        model_context.input_data.observations = model_context.input_data.observations[mask]
+    stderr_mask = bundle.standard_error > 0
+    if (~stderr_mask).sum() > 0:
+        MATHLOG.warn(
+            f"Filtering {(~stderr_mask).sum()} rows where standard error == 0 out of bundle. "
+            f"{stderr_mask.sum()} rows remaining."
+        )
+    rr_mask = bundle.measure != "relrisk"
+    mask = stderr_mask & rr_mask
+    if (~rr_mask).sum() > 0:
+        MATHLOG.info(
+            f"Filtering {(~rr_mask).sum()} rows of relative risk data out of bundle. "
+            f"{mask.sum()} rows remaining."
+        )
+
+    observations = bundle_to_observations(model_context.parameters, bundle[mask])
+    model_context.input_data.observations = observations
 
     if execution_context.parameters.add_csmr_cause is not None:
         MATHLOG.info(f"Cause {execution_context.parameters.add_csmr_cause} selected as CSMR source, loading it's data.")
