@@ -18,6 +18,7 @@ from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
+from cascade.input_data.db.locations import get_location_hierarchy_from_gbd
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.input_data.emr import add_emr_from_prevalence
@@ -152,8 +153,12 @@ def model_context_from_settings(execution_context, settings):
     execution_context.parameters.tier = 3
 
     bundle = normalized_bundle_from_database(execution_context, bundle_id=model_context.parameters.bundle_id)
-    bundle = bundle.query("location_id == @execution_context.parameters.location_id")
-    MATHLOG.info(f"Filtering bundle to the current location. {len(bundle)} rows remaining.")
+
+    location_hierarchy = get_location_hierarchy_from_gbd(execution_context)
+    location = location_hierarchy.get_node_by_id(execution_context.parameters.location_id)
+    location_and_descendents = {d.id for d in location.all_descendants()} | {location.id}  # noqa: F841
+    bundle = bundle.query("location_id in @location_and_descendents")
+    MATHLOG.info(f"Filtering bundle to the current location and it's descendents. {len(bundle)} rows remaining.")
 
     stderr_mask = bundle.standard_error > 0
     if (~stderr_mask).sum() > 0:
