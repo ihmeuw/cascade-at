@@ -277,10 +277,12 @@ def _async_fit_fixed_effect_samples(num_processes, dismodfile, samples):
         ))
     log_level = logging.root.level
     logging.root.setLevel(logging.CRITICAL)
+    logging.getLogger("cascade.math").setLevel(logging.CRITICAL)
     try:
         fits = yield from asyncio.gather(*jobs)
     finally:
         logging.root.setLevel(log_level)
+        logging.getLogger("cascade.math").setLevel(log_level)
     return fits
 
 
@@ -291,6 +293,7 @@ def fit_fixed_effect_samples(execution_context, num_processes):
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
 
     actual_processes = min(len(samples), num_processes)
+    MATHLOG.info(f"Calculating {len(samples)} fixed effect samples")
     CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
     loop = asyncio.get_event_loop()
     fits = loop.run_until_complete(
@@ -335,6 +338,7 @@ def main(args):
     if not args.db_only:
         run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
+        MATHLOG.info(f"Successfully fit parent")
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)

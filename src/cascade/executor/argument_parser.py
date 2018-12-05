@@ -13,6 +13,8 @@ import tempfile
 
 import pkg_resources
 
+from cascade.executor.math_log import MathLogFormatter
+
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -217,9 +219,7 @@ class BaseArgumentParser(ArgumentParser):
                             f"directory {math_log_dir} exists: {mhe}")
             return
         # The br is an HTML tag to add a line break.
-        fmt = "%(levelname)s %(asctime)s %(funcName)s: %(message)s<br />"
-        datefmt = "%y-%m-%d %H:%M:%S"
-        math_handler.setFormatter(logging.Formatter(fmt, datefmt))
+        math_handler.setFormatter(MathLogFormatter())
         math_handler.setLevel(logging.DEBUG)
         math_logger = logging.getLogger(f"{__name__.split('.')[0]}.math")
         math_logger.addHandler(math_handler)

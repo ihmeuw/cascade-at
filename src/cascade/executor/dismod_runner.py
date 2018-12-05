@@ -172,14 +172,14 @@ def dismod_report_info(text):
     """This ensures MATHLOG messages have a function name in the log.
     Otherwise, they show <lambda> as the function name.
     """
-    MATHLOG.info(text)
+    MATHLOG.info(text, extra=dict(is_dismod_output=True))
 
 
 def dismod_report_stderr(text):
     """This ensures MATHLOG messages have a function name in the log.
     Otherwise, they show <lambda> as the function name.
     """
-    MATHLOG.warning(text)
+    MATHLOG.warning(text, extra=dict(is_dismod_output=True))
 
 
 @asyncio.coroutine
