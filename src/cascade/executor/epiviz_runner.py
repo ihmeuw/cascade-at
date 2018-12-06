@@ -235,11 +235,17 @@ def async_run_dismod(dismod_file, command, *args):
 
     yield from async_run_and_watch(command_prefix + [command] + list(args), False, 1)
 
-    # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
-    # It does this even if all output is supressed. Other programs don't cause this problem
-    # even if they have lots of output. This is the least invasive way I've found
-    # of ensuring that the environment is usable after this runs
-    yield from async_run_and_watch(["stty", "sane"], False, 1)
+    try:
+        # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
+        # It does this even if all output is supressed. Other programs don't cause this problem
+        # even if they have lots of output. This is the least invasive way I've found
+        # of ensuring that the environment is usable after this runs
+        yield from async_run_and_watch(["stty", "sane"], False, 1)
+    except DismodATException:
+        # in some environments (inside a qsub) stty fails but in those
+        # environments the problem with mangled terminals doesn't come
+        # up, so just ignore it
+        pass
 
     _check_dismod_command(dismod_file, command)
 
