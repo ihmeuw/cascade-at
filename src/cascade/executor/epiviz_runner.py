@@ -4,7 +4,6 @@ import asyncio
 from pathlib import Path
 from pprint import pformat
 from bdb import BdbQuit
-from multiprocessing import cpu_count
 from tempfile import TemporaryDirectory
 import shutil
 
@@ -355,10 +354,7 @@ def main(args):
     if not args.db_only:
         run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
-
-        num_samples = mc.policies["number_of_fixed_effect_samples"]
-        make_fixed_effect_samples(ec, num_samples)
-        fit_fixed_effect_samples(ec, cpu_count())
+        run_dismod_predict(ec.dismodfile)
 
         if not args.no_upload:
             save_model_results(ec)
