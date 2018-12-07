@@ -315,10 +315,14 @@ def _async_fit_fixed_effect_samples(num_processes, dismodfile, samples):
         ))
     log_level = logging.root.level
     logging.root.setLevel(logging.CRITICAL)
+    math_root = logging.getLogger("cascade.math")
+    math_log_level = math_root.level
+    math_root.setLevel(logging.CRITICAL)
     try:
         fits = yield from asyncio.gather(*jobs)
     finally:
         logging.root.setLevel(log_level)
+        logging.getLogger("cascade.math").setLevel(math_log_level)
     return fits
 
 
@@ -329,6 +333,7 @@ def fit_fixed_effect_samples(execution_context, num_processes):
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
 
     actual_processes = min(len(samples), num_processes)
+    MATHLOG.info(f"Calculating {len(samples)} fixed effect samples")
     CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
     loop = asyncio.get_event_loop()
     fits = loop.run_until_complete(
@@ -373,10 +378,18 @@ def main(args):
     if not args.db_only:
         run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
+        MATHLOG.info(f"Successfully fit parent")
         run_dismod_predict(ec.dismodfile)
 
         if not args.no_upload:
+            MATHLOG.debug(f"Uploading results to epiviz")
             save_model_results(ec)
+        else:
+            MATHLOG.debug(f"Skipping results upload because 'no-upload' was selected")
+    else:
+        MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
+
+    MATHLOG.debug(f"Completed successfully")
 
 
 def entry():
