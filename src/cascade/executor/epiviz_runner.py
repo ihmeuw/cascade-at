@@ -354,7 +354,7 @@ def main(args):
     else:
         MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
 
-    MATHLOG.debug(f"Completed succesfully")
+    MATHLOG.debug(f"Completed successfully")
 
 
 def entry():

@@ -46,7 +46,7 @@ _CSS = """<style>
 </style>
 """
 
-INSTANTANIOUSNESS_THRESHOLD = 0.5
+INSTANTANEOUSNESS_THRESHOLD = 0.5
 
 
 class MathLogFormatter(Formatter):
@@ -55,7 +55,7 @@ class MathLogFormatter(Formatter):
         super().__init__(datefmt=datefmt)
         self.in_dismod_output = False
         self.last_event = 0.0
-        self.has_emited_css = False
+        self.has_emitted_css = False
 
     def format(self, record):
         if not self.has_emited_css:
@@ -73,7 +73,7 @@ class MathLogFormatter(Formatter):
             self.in_dismod_output = True
 
         if not is_dismod:
-            if record.created - self.last_event > INSTANTANIOUSNESS_THRESHOLD:
+            if record.created - self.last_event > INSTANTANEOUSNESS_THRESHOLD:
                 message += f"<div class='time_stamp'>{self.formatTime(record, self.datefmt)}</div>"
             level_class = record.levelname.lower()
             message += f"<div class='log_line {level_class}'>"
