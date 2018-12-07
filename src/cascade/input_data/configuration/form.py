@@ -10,7 +10,17 @@ The Configuration class is the root of the form.
 """
 import numpy as np
 
-from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
+from cascade.core.form import (
+    Form,
+    IntField,
+    FloatField,
+    StrField,
+    StringListField,
+    ListField,
+    OptionField,
+    FormList,
+    Dummy,
+)
 from cascade.model import priors
 
 from cascade.core.log import getLoggers
@@ -190,6 +200,7 @@ class Model(Form):
         display="(Advanced) Rate case",
     )
     constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
+    exclude_data_for_param = ListField(constructor=int, nullable=True, display="Exclude data for parameter")
 
     def _full_form_validation(self, root):
         errors = []
