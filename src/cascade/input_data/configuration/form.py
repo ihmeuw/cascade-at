@@ -189,6 +189,7 @@ class Model(Form):
         default="iota_pos_rho_zero",
         display="(Advanced) Rate case",
     )
+    constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
 
     def _full_form_validation(self, root):
         errors = []
