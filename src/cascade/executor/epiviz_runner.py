@@ -10,6 +10,7 @@ import shutil
 import pandas as pd
 import numpy as np
 
+from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
@@ -173,7 +174,22 @@ def model_context_from_settings(execution_context, settings):
             f"{mask.sum()} rows remaining."
         )
 
-    observations = bundle_to_observations(model_context.parameters, bundle[mask])
+    bundle = bundle[mask]
+
+    measures_to_exclude = settings.model.exclude_data_for_param
+    integrand_map = make_integrand_map()
+    measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude]
+    if measures_to_exclude:
+        mask = bundle.measure.isin(measures_to_exclude)
+        if mask.sum() > 0:
+            bundle = bundle[~mask]
+            MATHLOG.info(
+                f"Filtering {mask.sum()} rows of of data where the measure has been excluded. "
+                f"Measures marked for exclusion: {measures_to_exclude}. "
+                f"{len(bundle)} rows remaining."
+            )
+
+    observations = bundle_to_observations(model_context.parameters, bundle)
     model_context.input_data.observations = observations
 
     if execution_context.parameters.add_csmr_cause is not None:
