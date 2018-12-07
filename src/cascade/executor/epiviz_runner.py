@@ -99,7 +99,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
         max_time = np.max(list(model_context.input_data.times))  # noqa: F841
         # The % 5 is to exclude annual data points.
         asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
-    model_context.rates.omega.parent_smooth = build_constraint(asdr)
+    model_context.rates.omega.parent_smooth = build_constraint(asdr, "omega")
     MATHLOG.debug(f"Add {asdr.shape[0]} omega constraints from age-standardized death rate data.")
 
     observations = model_context.input_data.observations
@@ -181,7 +181,10 @@ def model_context_from_settings(execution_context, settings):
         add_mortality_data(model_context, execution_context, settings.model.drill_sex)
     else:
         MATHLOG.info(f"No cause selected as CSMR source so no CSMR data will be added to the bundle.")
-    add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
+
+    if settings.model.constrain_omega:
+        add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
+
     cases = make_average_integrand_cases_from_gbd(
         execution_context, [settings.model.drill_sex], include_birth_prevalence=bool(settings.model.birth_prev)
     )
