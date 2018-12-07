@@ -308,6 +308,7 @@ def random_effects_from_epiviz(model_context, configuration):
                 raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             location = smoothing_config.location
+
             rate.child_smoothings.append(
                 (location, make_smooth(configuration, smoothing_config, name_prefix=rate_name))
             )

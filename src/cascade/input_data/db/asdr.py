@@ -4,6 +4,7 @@ import pandas as pd
 
 from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import AGE_GROUP_SET_ID
+from cascade.input_data.db.locations import get_location_hierarchy_from_gbd
 
 
 from cascade.core.log import getLoggers
@@ -32,14 +33,16 @@ def _asdr_in_t3(execution_context):
 
 def _get_asdr_data(execution_context):
 
-    parent_loc = execution_context.parameters.location_id
-
     demo_dict = db_queries.get_demographics(gbd_team="epi", gbd_round_id=execution_context.parameters.gbd_round_id)
     age_group_ids = demo_dict["age_group_id"]
     sex_ids = demo_dict["sex_id"]
 
+    location_hierarchy = get_location_hierarchy_from_gbd(execution_context)
+    location = location_hierarchy.get_node_by_id(execution_context.parameters.location_id)
+    location_and_children = [d.id for d in location.children] + [location.id]
+
     asdr = db_queries.get_envelope(
-        location_id=parent_loc,
+        location_id=location_and_children,
         year_id=-1,
         gbd_round_id=execution_context.parameters.gbd_round_id,
         age_group_id=age_group_ids,
