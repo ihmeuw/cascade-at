@@ -58,9 +58,9 @@ class MathLogFormatter(Formatter):
         self.has_emitted_css = False
 
     def format(self, record):
-        if not self.has_emited_css:
+        if not self.has_emitted_css:
             message = _CSS
-            self.has_emited_css = True
+            self.has_emitted_css = True
         else:
             message = ""
 
