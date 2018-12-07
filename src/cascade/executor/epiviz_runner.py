@@ -4,13 +4,13 @@ import asyncio
 from pathlib import Path
 from pprint import pformat
 from bdb import BdbQuit
-from multiprocessing import cpu_count
 from tempfile import TemporaryDirectory
 import shutil
 
 import pandas as pd
 import numpy as np
 
+from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
@@ -18,6 +18,7 @@ from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
+from cascade.input_data.db.locations import get_location_hierarchy_from_gbd
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.input_data.emr import add_emr_from_prevalence
@@ -99,7 +100,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
         max_time = np.max(list(model_context.input_data.times))  # noqa: F841
         # The % 5 is to exclude annual data points.
         asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
-    model_context.rates.omega.parent_smooth = build_constraint(asdr)
+    model_context.rates.omega.parent_smooth = build_constraint(asdr, "omega")
     MATHLOG.debug(f"Add {asdr.shape[0]} omega constraints from age-standardized death rate data.")
 
     observations = model_context.input_data.observations
@@ -152,23 +153,54 @@ def model_context_from_settings(execution_context, settings):
     execution_context.parameters.tier = 3
 
     bundle = normalized_bundle_from_database(execution_context, bundle_id=model_context.parameters.bundle_id)
-    bundle = bundle.query("location_id == @execution_context.parameters.location_id")
+
+    location_hierarchy = get_location_hierarchy_from_gbd(execution_context)
+    location = location_hierarchy.get_node_by_id(execution_context.parameters.location_id)
+    location_and_descendents = {d.id for d in location.all_descendants()} | {location.id}  # noqa: F841
+    bundle = bundle.query("location_id in @location_and_descendents")
+    MATHLOG.info(f"Filtering bundle to the current location and it's descendents. {len(bundle)} rows remaining.")
+
+    stderr_mask = bundle.standard_error > 0
+    if (~stderr_mask).sum() > 0:
+        MATHLOG.warn(
+            f"Filtering {(~stderr_mask).sum()} rows where standard error == 0 out of bundle. "
+            f"{stderr_mask.sum()} rows remaining."
+        )
+    rr_mask = bundle.measure != "relrisk"
+    mask = stderr_mask & rr_mask
+    if (~rr_mask).sum() > 0:
+        MATHLOG.info(
+            f"Filtering {(~rr_mask).sum()} rows of relative risk data out of bundle. "
+            f"{mask.sum()} rows remaining."
+        )
+
+    bundle = bundle[mask]
+
+    measures_to_exclude = settings.model.exclude_data_for_param
+    integrand_map = make_integrand_map()
+    measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude]
+    if measures_to_exclude:
+        mask = bundle.measure.isin(measures_to_exclude)
+        if mask.sum() > 0:
+            bundle = bundle[~mask]
+            MATHLOG.info(
+                f"Filtering {mask.sum()} rows of of data where the measure has been excluded. "
+                f"Measures marked for exclusion: {measures_to_exclude}. "
+                f"{len(bundle)} rows remaining."
+            )
+
     observations = bundle_to_observations(model_context.parameters, bundle)
     model_context.input_data.observations = observations
-
-    mask = model_context.input_data.observations.standard_error > 0
-    mask &= model_context.input_data.observations.measure != "relrisk"
-    if mask.any():
-        remove_cnt = mask.sum()
-        MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
-        model_context.input_data.observations = model_context.input_data.observations[mask]
 
     if execution_context.parameters.add_csmr_cause is not None:
         MATHLOG.info(f"Cause {execution_context.parameters.add_csmr_cause} selected as CSMR source, loading it's data.")
         add_mortality_data(model_context, execution_context, settings.model.drill_sex)
     else:
         MATHLOG.info(f"No cause selected as CSMR source so no CSMR data will be added to the bundle.")
-    add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
+
+    if settings.model.constrain_omega:
+        add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
+
     cases = make_average_integrand_cases_from_gbd(
         execution_context, [settings.model.drill_sex], include_birth_prevalence=bool(settings.model.birth_prev)
     )
@@ -221,11 +253,17 @@ def async_run_dismod(dismod_file, command, *args):
 
     yield from async_run_and_watch(command_prefix + [command] + list(args), False, 1)
 
-    # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
-    # It does this even if all output is supressed. Other programs don't cause this problem
-    # even if they have lots of output. This is the least invasive way I've found
-    # of ensuring that the environment is usable after this runs
-    yield from async_run_and_watch(["stty", "sane"], False, 1)
+    try:
+        # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
+        # It does this even if all output is supressed. Other programs don't cause this problem
+        # even if they have lots of output. This is the least invasive way I've found
+        # of ensuring that the environment is usable after this runs
+        yield from async_run_and_watch(["stty", "sane"], False, 1)
+    except DismodATException:
+        # in some environments (inside a qsub) stty fails but in those
+        # environments the problem with mangled terminals doesn't come
+        # up, so just ignore it
+        pass
 
     _check_dismod_command(dismod_file, command)
 
@@ -341,10 +379,7 @@ def main(args):
         run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
         MATHLOG.info(f"Successfully fit parent")
-
-        num_samples = mc.policies["number_of_fixed_effect_samples"]
-        make_fixed_effect_samples(ec, num_samples)
-        fit_fixed_effect_samples(ec, cpu_count())
+        run_dismod_predict(ec.dismodfile)
 
         if not args.no_upload:
             MATHLOG.debug(f"Uploading results to epiviz")
