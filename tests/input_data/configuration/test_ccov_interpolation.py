@@ -6,6 +6,7 @@ import pandas as pd
 from cascade.input_data.configuration.construct_country import (
     assign_interpolated_covariate_values,
     compute_covariate_age_interval,
+    compute_covariate_age_time_dimensions,
     get_covariate_data_by_sex,)
 
 
@@ -213,6 +214,17 @@ def mean_value_covs_2():
     return mean_value_covs_2
 
 
+def test_compute_covariate_age_time_dimensions(covariates_1, covariates_2, covariates_3):
+
+    cov_at_dims_1 = compute_covariate_age_time_dimensions(covariates_1)
+    cov_at_dims_2 = compute_covariate_age_time_dimensions(covariates_2)
+    cov_at_dims_3 = compute_covariate_age_time_dimensions(covariates_3)
+
+    assert cov_at_dims_1.age_1d is False and cov_at_dims_1.time_1d is True
+    assert cov_at_dims_2.age_1d is False and cov_at_dims_2.time_1d is True
+    assert cov_at_dims_3.age_1d is True and cov_at_dims_3.time_1d is True
+
+
 def test_age_interval(covariates_1, covariates_2, covariates_3):
 
     age_interval_1 = compute_covariate_age_interval(covariates_1)
@@ -245,6 +257,7 @@ def test_get_covariate_data_by_sex(covariates_1, covariates_2, covariates_3, mea
     FEMALE = -0.5
     MALE = 0.5
     BOTH = 0
+    NEITHER = 0.1
 
     cov_data_1 = get_covariate_data_by_sex(covariates_1)
     cov_data_2 = get_covariate_data_by_sex(covariates_2)
@@ -252,14 +265,20 @@ def test_get_covariate_data_by_sex(covariates_1, covariates_2, covariates_3, mea
 
     pd.testing.assert_frame_equal(cov_data_1[FEMALE], cov_data_1[BOTH])
     pd.testing.assert_frame_equal(cov_data_1[MALE], cov_data_1[BOTH])
+    pd.testing.assert_frame_equal(cov_data_1[NEITHER], cov_data_1[BOTH])
 
     pd.testing.assert_frame_equal(cov_data_3[FEMALE], cov_data_3[BOTH])
     pd.testing.assert_frame_equal(cov_data_3[MALE], cov_data_3[BOTH])
+    pd.testing.assert_frame_equal(cov_data_3[NEITHER], cov_data_3[BOTH])
 
     if not cov_data_2[MALE].empty and not cov_data_2[FEMALE].empty:
         assert not cov_data_2[BOTH].empty
 
+    if not cov_data_2[MALE].empty and not cov_data_2[FEMALE].empty:
+        assert not cov_data_2[NEITHER].empty
+
     pd.testing.assert_series_equal(cov_data_2[BOTH]["mean_value"], mean_value_covs_2, check_names=False)
+    pd.testing.assert_series_equal(cov_data_2[NEITHER]["mean_value"], mean_value_covs_2, check_names=False)
 
 
 def test_assign_interpolated_covariate_values_sex_both_1d(measurements_1, covariates_1, covariate_column_1):

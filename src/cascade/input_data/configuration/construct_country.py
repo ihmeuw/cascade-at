@@ -2,7 +2,7 @@
 Takes settings and creates a CovariateRecords object
 """
 
-from collections.__init__ import defaultdict
+from collections.__init__ import defaultdict, namedtuple
 
 import numpy as np
 import pandas as pd
@@ -22,6 +22,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 FEMALE = -0.5
 MALE = 0.5
 BOTH = 0
+NEITHER = 0.1
 
 
 def unique_country_covariate_transform(configuration):
@@ -233,14 +234,14 @@ def compute_covariate_age_time_dimensions(covariates):
     Determines if the input covariate data is by_age and/or by_time.
 
     Returns:
-        dictionary: keys indicate if age or time are points (0d) vs. 1d
+        namedtuple: with bool fields age_1d and time_1d
     """
 
-    covar_at_dims = {}
+    covar_at_dims = namedtuple("Result", ["age_1d", "time_1d"])
 
-    covar_at_dims["age_1d"] = len(set(zip(covariates["age_lower"], covariates["age_upper"]))) > 1
+    covar_at_dims.age_1d = len(covariates[["age_lower", "age_upper"]].drop_duplicates()) > 1
 
-    covar_at_dims["time_1d"] = len(set(zip(covariates["time_lower"], covariates["time_upper"]))) > 1
+    covar_at_dims.time_1d = len(covariates[["time_lower", "time_upper"]].drop_duplicates()) > 1
 
     return covar_at_dims
 
@@ -258,10 +259,10 @@ def compute_covariate_age_interval(covariates):
     """
     age_interval = it.empty()
 
-    age_groups = set(zip(covariates["age_lower"], covariates["age_upper"]))
+    age_groups = covariates[["age_lower", "age_upper"]].drop_duplicates()
 
-    for age in age_groups:
-        age_interval = age_interval | it.closed(age[0], age[1])
+    for index, row in age_groups.iterrows():
+        age_interval = age_interval | it.closed(row["age_lower"], row["age_upper"])
 
     return age_interval
 
@@ -300,11 +301,11 @@ def get_measurement_data_by_sex(measurements):
     Args:
         measurements (pandas.DataFrame): data for a specific measurement
     Returns:
-        dict: possible sex keys (-0.5, 0, 0.5) and measurement data as values
+        dict: possible sex keys (-0.5, 0, 0.1, 0.5) and measurement data as values
     """
     measurements_by_sex = {}
 
-    for sex in (FEMALE, MALE, BOTH):
+    for sex in (FEMALE, MALE, BOTH, NEITHER):
 
         measurements_sex = measurements[measurements["x_sex"] == sex]
 
@@ -345,21 +346,21 @@ def compute_interpolated_covariate_values_by_sex(
         covariates_sex = covariates_by_sex[sex]
 
         # covariate is by_age and "by_time"
-        if covar_at_dims["age_1d"] and covar_at_dims["time_1d"]:
+        if covar_at_dims.age_1d and covar_at_dims.time_1d:
 
             covariate_sex = griddata((covariates_sex["avg_age"], covariates_sex["avg_time"]),
                                      covariates_sex["mean_value"],
                                      (meas_sex_new_index["avg_age"], meas_sex_new_index["avg_time"]))
 
         # covariate is "by_time", but not by_age
-        elif not covar_at_dims["age_1d"] and covar_at_dims["time_1d"]:
+        elif not covar_at_dims.age_1d and covar_at_dims.time_1d:
 
             covariate_sex = griddata((covariates_sex["avg_time"],),
                                      covariates_sex["mean_value"],
                                      (meas_sex_new_index["avg_time"],))
 
         # covariate is by_age, but not "by_time"
-        elif covar_at_dims["age_1d"] and not covar_at_dims["time_1d"]:
+        elif covar_at_dims.age_1d and not covar_at_dims.time_1d:
 
             covariate_sex = griddata((covariates_sex["avg_age"],),
                                      covariates_sex["mean_value"],
@@ -368,6 +369,10 @@ def compute_interpolated_covariate_values_by_sex(
         cov_col = cov_col + list(covariate_sex)
 
     covariate_column = pd.Series(cov_col, index=cov_index).sort_index()
+
+    # if the covariate is binary, round the interpolated values
+    # use shared.covariate.dichotomous and not shared.covariate.inactive?
+    # covariate_column = pd.Series(cov_col, index=cov_index).sort_index().round()
 
     # set missings using covar_age_interval
     meas_mean_age_in_age_interval = [i in covar_age_interval for i in measurements["avg_age"]]
@@ -384,7 +389,7 @@ def get_covariate_data_by_sex(covariates):
     Args:
         covariates (pandas.DataFrame): data for a specific covariate_id
     Returns:
-        dict: sex keys (-0.5, 0, 0.5) and covariate data as values
+        dict: sex keys (-0.5, 0, 0.1, 0.5) and covariate data as values
     """
 
     covariates_by_sex = {}
@@ -394,6 +399,7 @@ def get_covariate_data_by_sex(covariates):
         covariates_by_sex[FEMALE] = covariates
         covariates_by_sex[MALE] = covariates
         covariates_by_sex[BOTH] = covariates
+        covariates_by_sex[NEITHER] = covariates
     elif (len(sex_values) == 2) and (-0.5 in sex_values) and (0.5 in sex_values):
         covariates_by_sex[FEMALE] = covariates[covariates["x_sex"] == FEMALE]
         covariates_by_sex[MALE] = covariates[covariates["x_sex"] == MALE]
@@ -406,6 +412,7 @@ def get_covariate_data_by_sex(covariates):
         covariates_both["avg_age"] = covariates_both["avg_age_x"]
         covariates_both["avg_time"] = covariates_both["avg_time_x"]
         covariates_by_sex[BOTH] = covariates_both
+        covariates_by_sex[NEITHER] = covariates_both
     else:
         raise ValueError(f"Unexpected values for x_sex in covariates data.  Expected 3 or (1,2), found {sex_values}")
 
