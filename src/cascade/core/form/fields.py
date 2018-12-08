@@ -43,6 +43,7 @@ class FormList(Form):
         for i, inner_source in enumerate(source):
             form = self._inner_form_constructor()
             form._name = str(i)
+            form._container = self
             form.process_source(inner_source)
             forms.append(form)
         self._forms = forms
