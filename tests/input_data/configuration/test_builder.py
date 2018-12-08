@@ -24,6 +24,7 @@ def base_config():
                 "modelable_entity_id": 12345,
                 "model_version_id": 0xdeadbeef,
                 "title": "Test Model",
+                "constrain_omega": 1,
                 "description": "Test Model Description",
                 "drill": "drill",
                 "drill_location": 123,

@@ -10,7 +10,17 @@ The Configuration class is the root of the form.
 """
 import numpy as np
 
-from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
+from cascade.core.form import (
+    Form,
+    IntField,
+    FloatField,
+    StrField,
+    StringListField,
+    ListField,
+    OptionField,
+    FormList,
+    Dummy,
+)
 from cascade.model import priors
 
 from cascade.core.log import getLoggers
@@ -199,6 +209,9 @@ class Model(Form):
     birth_prev = OptionField([0, 1], constructor=int, nullable=True, default=0, display="Prevalence at birth")
     default_age_grid = StringListField(constructor=float, display="(Cascade) Age grid")
     default_time_grid = StringListField(constructor=float, display="(Cascade) Time grid")
+    constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
+    exclude_data_for_param = ListField(constructor=int, nullable=True, display="Exclude data for parameter")
+
     rate_case = Dummy()
 
     def _full_form_validation(self, root):
