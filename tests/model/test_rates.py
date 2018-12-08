@@ -17,7 +17,7 @@ def test_positive():
     positive_and_negative_pg = PriorGrid(grid)
     positive_and_negative_pg[:, :].prior = priors.Gaussian(0.1, 0.1, lower=0.01)
     positive_and_negative_pg[0, 1995].prior = priors.Uniform(0, 0)
-    assert Rate("iota", parent_smooth=Smooth(positive_and_negative_pg)).positive
+    assert not Rate("iota", parent_smooth=Smooth(positive_and_negative_pg)).positive
 
     assert not Rate("iota", parent_smooth=None).positive
 

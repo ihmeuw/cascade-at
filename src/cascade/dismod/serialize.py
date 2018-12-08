@@ -617,4 +617,13 @@ def _infer_rate_case(context):
     elif iota.positive and rho.positive:
         return "iota_pos_rho_pos"
     else:
-        raise ValueError("Impossible rate_case. Iota or Rho has negative limits?")
+        problems = []
+        if not iota.zero and not iota.positive:
+            problems.append("iota")
+        if not rho.zero and not rho.positive:
+            problems.append("rho")
+        raise ValueError(
+            f"Impossible rate_case. In order to select a rate case for dismodat "
+            f"iota and rho must be completely constrained to zero or constrained "
+            f"to always be > than 0. Problematic rates: {problems}"
+        )

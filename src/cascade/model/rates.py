@@ -94,9 +94,9 @@ class Rate:
             return False
         else:
             for prior in self.parent_smooth.value_priors.priors:
-                if prior.lower > 0:
-                    return True
-            return False
+                if prior.lower <= 0:
+                    return False
+            return True
 
     @property
     def zero(self):

@@ -129,12 +129,21 @@ class Smoothing(Form):
         if len(time_grid) > 1 and self.default.is_field_unset("dtime"):
             errors.append("You must supply a default time diff prior if the smoothing has extent over time")
 
-        if self._name == "rates":
+        if self._container._name == "rate":
             # This validation only makes sense for Fixed Effects not Random Effects
+            # TODO This repeats validation logic in cascade.model.rates but I don't see a good way to bring that in here
+            is_negative = True
+            is_positive = True
             for prior in [self.default.value] + [p for p in self.detail or [] if p.prior_type == "value"]:
+                is_negative = is_negative and prior.min == 0 and prior.max == 0
+                is_positive = is_positive and prior.min > 0
                 if prior.min < 0:
                     errors.append("Rates must be constrained to be >= 0 at all points. Add or correct the lower bound")
                     break
+
+            if self.rate in ["iota", "rho"]:
+                if not (is_negative or is_positive):
+                    errors.append(f"Rate {self.rate} must be either fully positive or constrained to zero")
 
         return errors
 
