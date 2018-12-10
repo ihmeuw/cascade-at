@@ -15,6 +15,7 @@ from cascade.model.grids import unique_floats
 from cascade.input_data.db.locations import get_location_hierarchy_from_gbd
 
 from cascade.core.log import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -95,13 +96,13 @@ def model_to_dismod_file(model, execution_context):
     # cases by ID and save. Any covariates have to exist at this point.
     bundle_fit.avgint = make_avgint_table(model, integrand_id_func, location_to_node_func, covariate_renames)
 
-    bundle_fit.rate, rate_id_func = make_rate_table(model, smooth_id_func)
-
-    bundle_fit.mulcov = make_mulcov_table(
-        model, smooth_id_func, rate_id_func, integrand_to_id, cov_col_id_func
+    bundle_fit.rate, rate_id_func, bundle_fit.nslist, bundle_fit.nslist_pair = make_rate_and_nslist_tables(
+        model, smooth_id_func, location_to_node_func
     )
 
-    bundle_fit.option = make_option_table(model)
+    bundle_fit.mulcov = make_mulcov_table(model, smooth_id_func, rate_id_func, integrand_to_id, cov_col_id_func)
+
+    bundle_fit.option = make_option_table(model, location_to_node_func)
 
     return bundle_fit
 
@@ -187,7 +188,8 @@ def make_data_table(model_context, node_table, covariate_renames):
                 "nu",
                 "hold_out",
                 "data_name",
-            ] + list(covariate_renames.values())
+            ]
+            + list(covariate_renames.values())
         )
     return total_data
 
@@ -203,10 +205,9 @@ def observations_to_data(observations_df, node_table):
     """Turn an internal format into a Dismod format."""
     # Don't make the data_name here because could convert multiple observations.
     observations_df = observations_df.reset_index()
-    observations_df["node_id"] = observations_df.merge(node_table,
-                                                       left_on="node_id",
-                                                       right_on=node_table.c_location_id
-                                                       ).node_id_y
+    observations_df["node_id"] = observations_df.merge(
+        node_table, left_on="node_id", right_on=node_table.c_location_id
+    ).node_id_y
     transformed = observations_df.assign(
         integrand_id=observations_df["measure"].apply(lambda x: IntegrandEnum[x].value),
         density_id=observations_df["density"].apply(lambda x: x.value),
@@ -217,9 +218,22 @@ def observations_to_data(observations_df, node_table):
         eta=np.NaN,
         nu=np.NaN,
     )
-    keep = {"data_name", "integrand_id", "density_id", "node_id", "weight_id",
-            "hold_out", "meas_value", "meas_std", "eta", "nu", "age_lower",
-            "age_upper", "time_lower", "time_upper"}
+    keep = {
+        "data_name",
+        "integrand_id",
+        "density_id",
+        "node_id",
+        "weight_id",
+        "hold_out",
+        "meas_value",
+        "meas_std",
+        "eta",
+        "nu",
+        "age_lower",
+        "age_upper",
+        "time_lower",
+        "time_upper",
+    }
     keep |= {xcol for xcol in transformed.columns if xcol.startswith("x_")}
     to_remove = list(sorted(set(list(transformed.columns)) - keep))
     CODELOG.debug(f"Removing columns from observations before saving {to_remove}")
@@ -307,9 +321,15 @@ def make_avgint_table(context, integrand_id_func, location_to_node_func, covaria
         df["node_id"] = df.node_id.apply(location_to_node_func)
         return df.drop(columns=["integrand_name"]).rename(columns=covariate_renames)
     else:
-        all_avgint_columns = ["integrand_id", "age_lower", "age_upper",
-                              "time_lower", "time_upper", "weight_id",
-                              "node_id"] + list(covariate_renames.values())
+        all_avgint_columns = [
+            "integrand_id",
+            "age_lower",
+            "age_upper",
+            "time_lower",
+            "time_upper",
+            "weight_id",
+            "node_id",
+        ] + list(covariate_renames.values())
         return pd.DataFrame([], columns=all_avgint_columns)
 
 
@@ -347,11 +367,12 @@ def make_prior_table(context, density_table):
     )
     prior_table["prior_id"] = prior_table.index
     null_names = prior_table.prior_name.isnull()
-    prior_table.loc[~null_names, "prior_name"] = prior_table.loc[
-        ~null_names, "prior_name"] + "    " + prior_table.loc[~null_names, "prior_id"].astype(str)
-    prior_table.loc[null_names, "prior_name"] = prior_table.loc[
-        null_names, "prior_id"
-    ].apply(lambda pid: f"prior_{pid}")
+    prior_table.loc[~null_names, "prior_name"] = (
+        prior_table.loc[~null_names, "prior_name"] + "    " + prior_table.loc[~null_names, "prior_id"].astype(str)
+    )
+    prior_table.loc[null_names, "prior_name"] = prior_table.loc[null_names, "prior_id"].apply(
+        lambda pid: f"prior_{pid}"
+    )
 
     prior_table["prior_id"] = prior_table.index
     prior_table = pd.merge(prior_table, density_table, on="density_name")
@@ -506,20 +527,49 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
     return smooth_table, grid_table, smooth_id_func
 
 
-def make_rate_table(context, smooth_id_func):
-    rate_to_id = {}
-    rows = []
-    for rate_id, rate in enumerate(context.rates):
-        if len(rate.child_smoothings) > 1:
-            raise NotImplementedError("Multiple child smoothings not supported yet")
+def make_rate_and_nslist_tables(context, smooth_id_func, location_to_node_func):
+    """ Construct the rate table and related nslist and nslist_pair tables.
 
-        rows.append(
+    These are grouped together because the ns* tables are derived entirely from
+    data that is also used in the rate table plus the smooth_ids.
+    """
+    rate_to_id = {}
+    rate_rows = []
+    nslist_rows = []
+    nspairs_rows = []
+    for rate_id, rate in enumerate(context.rates):
+        nslist_id = np.NaN
+        child_smooth_id = np.NaN
+        if rate.child_smoothings:
+            if len(rate.child_smoothings) == 1 and rate.child_smoothings[0][0] is None:
+                # This is a blanket smoothing for all children
+                child_smooth_id = smooth_id_func(rate.child_smoothings[0][1])
+            else:
+                # There are actually child specific smoothings
+                nslist_id = len(nslist_rows)
+                for location_id, smoothing in rate.child_smoothings:
+                    nspairs_rows.append(
+                        {
+                            "nslist_pair_id": len(nspairs_rows),
+                            "nslist_id": nslist_id,
+                            "node_id": location_to_node_func(location_id),
+                            "smooth_id": smooth_id_func(smoothing),
+                        }
+                    )
+
+                nslist_rows.append({"nslist_id": nslist_id, "nslist_name": f"{len(nslist_rows)}"})
+        else:
+            # This rate has no random effects, which is represented simply as
+            # missing rows in the database, so there's nothing to do in this
+            # branch.
+            pass
+        rate_rows.append(
             {
                 "rate_id": rate_id,
                 "rate_name": rate.name,
                 "parent_smooth_id": smooth_id_func(rate.parent_smooth) if rate.parent_smooth else np.NaN,
-                "child_smooth_id": smooth_id_func(rate.child_smoothings[0][1]) if rate.child_smoothings else np.NaN,
-                "child_nslist_id": np.NaN,
+                "child_smooth_id": child_smooth_id,
+                "child_nslist_id": nslist_id,
             }
         )
         rate_to_id[rate] = rate_id
@@ -527,7 +577,12 @@ def make_rate_table(context, smooth_id_func):
     def rate_id_func(rate):
         return rate_to_id[rate]
 
-    return pd.DataFrame(rows), rate_id_func
+    return (
+        pd.DataFrame(rate_rows),
+        rate_id_func,
+        pd.DataFrame(nslist_rows, columns=["nslist_id", "nslist_name"]),
+        pd.DataFrame(nspairs_rows, columns=["nslist_pair_id", "nslist_id", "node_id", "smooth_id"]),
+    )
 
 
 def make_mulcov_table(model_context, smooth_id_func, rate_id_func, integrand_id_func, cov_col_id_func):
@@ -566,10 +621,8 @@ def make_covariate_table(context):
         {
             "covariate_id": np.arange(len(cols)),
             "covariate_name": [col.name for col in cols],
-            "reference": np.array([col.reference for col in cols],
-                                  dtype=np.float),
-            "max_difference": np.array([col.max_difference for col in cols],
-                                       dtype=np.float),
+            "reference": np.array([col.reference for col in cols], dtype=np.float),
+            "max_difference": np.array([col.max_difference for col in cols], dtype=np.float),
         }
     )
     if covariate_columns["reference"].isnull().any():
@@ -577,8 +630,7 @@ def make_covariate_table(context):
         for check_ref_col in cols:
             if not isinstance(check_ref_col.reference, Real):
                 null_references.append(check_ref_col.name)
-        raise RuntimeError(
-            f"Covariate columns without reference values {null_references}")
+        raise RuntimeError(f"Covariate columns without reference values {null_references}")
 
     def cov_col_id_func(query_column):
         return cols.index(query_column)
@@ -592,10 +644,10 @@ def make_covariate_table(context):
     return covariate_columns, cov_col_id_func, renames
 
 
-def make_option_table(context):
+def make_option_table(context, location_to_node_func):
     options = {
         "rate_case": _infer_rate_case(context),
-        "parent_node_id": "0",
+        "parent_node_id": f"{location_to_node_func(context.parameters.location_id)}",
         "print_level_fixed": "5",
         "ode_step_size": "1",
         "quasi_fixed": "false",

@@ -22,7 +22,7 @@ from cascade.dismod.serialize import (
     make_smooth_and_smooth_grid_tables,
     make_node_table,
     make_data_table,
-    make_rate_table,
+    make_rate_and_nslist_tables,
     make_mulcov_table,
     _infer_rate_case,
 )
@@ -87,6 +87,7 @@ def constraints():
 def base_context(observations, constraints):
     context = ModelContext()
     context.parameters.rate_case = "iota_pos_rho_zero"
+    context.parameters.location_id = 42
     context.parameters.minimum_meas_cv = 0
 
     context.input_data.observations = observations
@@ -268,7 +269,7 @@ def test_make_data_table(base_context, mock_get_location_hierarchy_from_gbd):
     assert all(data_table.node_id == 1)
 
 
-def test_make_rate_table(base_context):
+def test_make_rate_and_nslist_tables(base_context):
     dm = DismodFile(None)
     dm.make_densities()
     age_table = make_age_table(base_context)
@@ -278,7 +279,12 @@ def test_make_rate_table(base_context):
         base_context, age_table, time_table, prior_objects
     )
 
-    rate_table, rate_to_id = make_rate_table(base_context, smooth_id_func)
+    rate_table, rate_to_id, nslist_table, nspairs_table = make_rate_and_nslist_tables(
+        base_context, smooth_id_func, lambda location_id: location_id
+    )
+
+    assert len(nslist_table) == 0
+    assert len(nspairs_table) == 0
 
     assert rate_table.rate_name.tolist() == ["pini", "iota", "rho", "chi", "omega"]
 
@@ -331,10 +337,10 @@ def test_make_covariate_table(base_context):
         base_context, age_table, time_table, prior_objects
     )
     covariate_columns, cov_id_func, covariate_renames = make_covariate_table(base_context)
-    rate_table, rate_to_id = make_rate_table(base_context, smooth_id_func)
-    make_mulcov_table(
-        base_context, smooth_id_func, rate_to_id, integrand_to_id, cov_id_func
+    rate_table, rate_to_id, _, _ = make_rate_and_nslist_tables(
+        base_context, smooth_id_func, lambda location_id: location_id
     )
+    make_mulcov_table(base_context, smooth_id_func, rate_to_id, integrand_to_id, cov_id_func)
 
 
 def test_infer_rate_case(base_context):
