@@ -24,6 +24,7 @@ from cascade.dismod.serialize import (
     make_data_table,
     make_rate_and_nslist_tables,
     make_mulcov_table,
+    _infer_rate_case,
 )
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.dismod.db.metadata import DensityEnum
@@ -98,7 +99,7 @@ def base_context(observations, constraints):
     d_age = PriorGrid(grid)
     d_age[:, :].prior = Gaussian(0, 0.1, name="TestPrior")
     value = PriorGrid(grid)
-    value[:, :].prior = Gaussian(0, 0.1)
+    value[:, :].prior = Gaussian(0.1, 0.1, lower=0.01)
 
     smooth = Smooth(name="iota_smooth")
     smooth.d_time_priors = d_time
@@ -161,7 +162,7 @@ def test_collect_priors(base_context):
         Gaussian(0, 0.1, name="TestPrior"),
         Uniform(0, 1, 0.5),
         Gaussian(1, 0.1),
-        Gaussian(0, 0.1),
+        Gaussian(0.1, 0.1, lower=0.01),
         Gaussian(0, 0.1, eta=1),
     }
 
@@ -340,3 +341,8 @@ def test_make_covariate_table(base_context):
         base_context, smooth_id_func, lambda location_id: location_id
     )
     make_mulcov_table(base_context, smooth_id_func, rate_to_id, integrand_to_id, cov_id_func)
+
+
+def test_infer_rate_case(base_context):
+    case = _infer_rate_case(base_context)
+    assert case == "iota_pos_rho_zero"

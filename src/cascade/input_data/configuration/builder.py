@@ -239,7 +239,7 @@ def make_smooth(configuration, smooth_configuration, name_prefix=None):
     return Smooth(value, d_age, d_time, name=smooth_name)
 
 
-def build_constraint(constraint):
+def build_constraint(constraint, name=None):
     """
     This makes a smoothing grid where the mean value is set to a given
     set of values. If records in the constraint have age-spans or time-spans,
@@ -266,7 +266,7 @@ def build_constraint(constraint):
     # TODO: change the PriorGrid API to handle this elegantly
     for _, row in midpoint_constraint.iterrows():
         value_prior[row["age"], row["time"]].prior = Constant(row["mean"])
-    return Smooth(value_prior, smoothing_prior, smoothing_prior)
+    return Smooth(value_prior, smoothing_prior, smoothing_prior, name=name)
 
 
 def fixed_effects_from_epiviz(model_context, execution_context, configuration):
