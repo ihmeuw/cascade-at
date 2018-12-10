@@ -528,6 +528,11 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
 
 
 def make_rate_and_nslist_tables(context, smooth_id_func, location_to_node_func):
+    """ Construct the rate table and related nslist and nslist_pair tables.
+
+    These are grouped together because the ns* tables are derived entirely from
+    data that is also used in the rate table plus the smooth_ids.
+    """
     rate_to_id = {}
     rate_rows = []
     nslist_rows = []
@@ -553,6 +558,11 @@ def make_rate_and_nslist_tables(context, smooth_id_func, location_to_node_func):
                     )
 
                 nslist_rows.append({"nslist_id": nslist_id, "nslist_name": f"{len(nslist_rows)}"})
+        else:
+            # This rate has no random effects, which is represented simply as
+            # missing rows in the database, so there's nothing to do in this
+            # branch.
+            pass
         rate_rows.append(
             {
                 "rate_id": rate_id,

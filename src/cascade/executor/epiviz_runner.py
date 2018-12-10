@@ -17,7 +17,7 @@ from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
-from cascade.input_data.db.locations import get_location_hierarchy_from_gbd
+from cascade.input_data.db.locations import get_descendents
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.input_data.emr import add_emr_from_prevalence
@@ -106,9 +106,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
     MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
 
-    location_hierarchy = get_location_hierarchy_from_gbd(execution_context)
-    location = location_hierarchy.get_node_by_id(execution_context.parameters.location_id)
-    children = {d.id for d in location.children}  # noqa: F841
+    children = get_descendents(execution_context, children_only=True)  # noqa: F841
     children_asdr = asdr.query("node_id in @children")
     model_context.rates.omega.child_smoothings = [
         (node_id, build_constraint(child_asdr))
@@ -170,9 +168,8 @@ def model_context_from_settings(execution_context, settings):
 
     bundle = normalized_bundle_from_database(execution_context, bundle_id=model_context.parameters.bundle_id)
 
-    location_hierarchy = get_location_hierarchy_from_gbd(execution_context)
-    location = location_hierarchy.get_node_by_id(execution_context.parameters.location_id)
-    location_and_descendents = {d.id for d in location.all_descendants()} | {location.id}  # noqa: F841
+    location_and_descendents = get_descendents(execution_context, include_parent=True)  # noqa: F841
+
     bundle = bundle.query("location_id in @location_and_descendents")
     MATHLOG.info(f"Filtering bundle to the current location and it's descendents. {len(bundle)} rows remaining.")
 
