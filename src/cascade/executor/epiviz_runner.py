@@ -191,9 +191,9 @@ def model_context_from_settings(execution_context, settings):
     bundle = bundle[mask]
 
     measures_to_exclude = settings.model.exclude_data_for_param
-    integrand_map = make_integrand_map()
-    measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude]
     if measures_to_exclude:
+        integrand_map = make_integrand_map()
+        measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude]
         mask = bundle.measure.isin(measures_to_exclude)
         if mask.sum() > 0:
             bundle = bundle[~mask]
