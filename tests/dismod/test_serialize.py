@@ -88,6 +88,7 @@ def base_context(observations, constraints):
     context = ModelContext()
     context.parameters.rate_case = "iota_pos_rho_zero"
     context.parameters.location_id = 42
+    context.parameters.ode_step_size = 5
     context.parameters.minimum_meas_cv = 0
 
     context.input_data.observations = observations

@@ -57,6 +57,7 @@ def initial_context_from_epiviz(configuration):
     context.parameters.rate_case = configuration.model.rate_case
     context.parameters.minimum_meas_cv = configuration.model.minimum_meas_cv
     context.parameters.global_data_eta = configuration.eta.data
+    context.parameters.ode_step_size = configuration.model.ode_step_size
 
     context.policies = policies_from_settings(configuration)
 

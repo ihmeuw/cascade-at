@@ -25,6 +25,7 @@ def base_config():
                 "model_version_id": 0xdeadbeef,
                 "title": "Test Model",
                 "constrain_omega": 1,
+                "ode_step_size": 1,
                 "description": "Test Model Description",
                 "drill": "drill",
                 "drill_location": 123,
