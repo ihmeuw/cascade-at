@@ -180,6 +180,7 @@ def model_context_from_settings(execution_context, settings):
             f"Filtering {(~stderr_mask).sum()} rows where standard error == 0 out of bundle. "
             f"{stderr_mask.sum()} rows remaining."
         )
+
     rr_mask = bundle.measure != "relrisk"
     mask = stderr_mask & rr_mask
     if (~rr_mask).sum() > 0:
