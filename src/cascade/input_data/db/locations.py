@@ -36,6 +36,11 @@ def location_id_from_location_and_level(execution_context, location_id, target_l
 
     Raises:
     ValueError if location_id is itself above target_level in the hierarchy
+
+    NOTE:
+    This makes some assumptions about what level will be selectable in epiviz which could change
+    in the future. There may be a more future-proof version of this that loads stuff out of the
+    epi.cascade_level table instead of hard coding it.
     """
     hierarchy = get_location_hierarchy_from_gbd(execution_context)
     node = hierarchy.get_node_by_id(location_id)
