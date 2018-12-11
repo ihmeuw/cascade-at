@@ -649,7 +649,7 @@ def make_option_table(context, location_to_node_func):
         "rate_case": _infer_rate_case(context),
         "parent_node_id": f"{location_to_node_func(context.parameters.location_id)}",
         "print_level_fixed": "5",
-        "ode_step_size": "1",
+        "ode_step_size": f"{context.parameters.ode_step_size}",
         "quasi_fixed": "false",
     }
 
