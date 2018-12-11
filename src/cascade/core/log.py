@@ -46,7 +46,7 @@ def logged(logger):
     def logged_wrap(callable):
         @wraps(callable)
         def wrapper(*args, **kwargs):
-            logger.debug(f"Calling {callable.__name__}({args}, {kwargs})")
+            logger.debug(f"Calling {getattr(callable, '__name__', 'func')}({args}, {kwargs})")
             return callable(*args, **kwargs)
         return wrapper
     return logged_wrap
