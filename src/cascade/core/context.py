@@ -13,6 +13,7 @@ class ExecutionContext:
     model executes. This includes paths to data sources, information about
     cluster resources etc.
     """
+    __slots__ = ["_parameters_parameters", "dismodfile"]
 
     parameters = ParameterProperty()
 

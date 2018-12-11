@@ -162,10 +162,9 @@ def run_and_watch(command, single_use_machine, poll_time):
         str: The output stream.
         str: The error stream.
     """
-    command = [str(a) for a in command]
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(_async_run_and_watch(command, single_use_machine, poll_time, loop))
+    loop = asyncio.get_event_loop()
+    coroutine = async_run_and_watch(command, single_use_machine, poll_time)
+    result = loop.run_until_complete(coroutine)
     return result
 
 
@@ -173,18 +172,19 @@ def dismod_report_info(text):
     """This ensures MATHLOG messages have a function name in the log.
     Otherwise, they show <lambda> as the function name.
     """
-    MATHLOG.info(text)
+    MATHLOG.info(text, extra=dict(is_dismod_output=True))
 
 
 def dismod_report_stderr(text):
     """This ensures MATHLOG messages have a function name in the log.
     Otherwise, they show <lambda> as the function name.
     """
-    MATHLOG.warning(text)
+    MATHLOG.warning(text, extra=dict(is_dismod_output=True))
 
 
 @asyncio.coroutine
-def _async_run_and_watch(command, single_use_machine, poll_time, loop):
+def async_run_and_watch(command, single_use_machine, poll_time):
+    command = [str(a) for a in command]
     if single_use_machine:
         pre_execution_function = reduce_process_priority
     else:
@@ -194,16 +194,19 @@ def _async_run_and_watch(command, single_use_machine, poll_time, loop):
         CODELOG.info(f"Forking to {command}")
         sub_process = yield from asyncio.subprocess.create_subprocess_exec(
             *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, preexec_fn=pre_execution_function,
-            loop=loop
         )
     except ValueError as ve:
         raise Exception(f"Dismod called with invalid arguments {ve}")
     except OSError as ose:
         raise Exception(f"Dismod couldn't run due to OS error {ose}")
 
+    loop = asyncio.get_event_loop()
+
     std_out_task = loop.create_task(_read_pipe(sub_process.stdout, dismod_report_info))
     std_err_task = loop.create_task(_read_pipe(sub_process.stderr, dismod_report_stderr))
+
     yield from sub_process.wait()
+
     yield from std_out_task
     yield from std_err_task
 

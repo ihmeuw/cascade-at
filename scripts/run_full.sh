@@ -30,7 +30,8 @@ if [ "${DEBUG}" = 1 ]; then
 else
     RUNNER="dmcascade"
 fi
-DB_DIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename $0).XXXXXXXXXXXX")
+DB_DIR="/ihme/epi/at_cascade/prod/${MVID}"
+mkdir -p $DB_DIR
 source "${EPI_DIR}/bin/activate"
 echo "${RUNNER}" "$DB_DIR/model.db" --mvid "${MVID}"
 "${RUNNER}" "$DB_DIR/model.db" --mvid "${MVID}"

@@ -10,7 +10,17 @@ The Configuration class is the root of the form.
 """
 import numpy as np
 
-from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
+from cascade.core.form import (
+    Form,
+    IntField,
+    FloatField,
+    StrField,
+    StringListField,
+    ListField,
+    OptionField,
+    FormList,
+    Dummy,
+)
 from cascade.model import priors
 
 from cascade.core.log import getLoggers
@@ -129,6 +139,22 @@ class Smoothing(Form):
         if len(time_grid) > 1 and self.default.is_field_unset("dtime"):
             errors.append("You must supply a default time diff prior if the smoothing has extent over time")
 
+        if self._container._name == "rate":
+            # This validation only makes sense for Fixed Effects not Random Effects
+            # TODO This repeats validation logic in cascade.model.rates but I don't see a good way to bring that in here
+            is_negative = True
+            is_positive = True
+            for prior in [self.default.value] + [p for p in self.detail or [] if p.prior_type == "value"]:
+                is_negative = is_negative and prior.min == 0 and prior.max == 0
+                is_positive = is_positive and prior.min > 0
+                if prior.min < 0:
+                    errors.append("Rates must be constrained to be >= 0 at all points. Add or correct the lower bound")
+                    break
+
+            if self.rate in ["iota", "rho"]:
+                if not (is_negative or is_positive):
+                    errors.append(f"Rate {self.rate} must be either fully positive or constrained to zero")
+
         return errors
 
 
@@ -183,12 +209,11 @@ class Model(Form):
     birth_prev = OptionField([0, 1], constructor=int, nullable=True, default=0, display="Prevalence at birth")
     default_age_grid = StringListField(constructor=float, display="(Cascade) Age grid")
     default_time_grid = StringListField(constructor=float, display="(Cascade) Time grid")
-    rate_case = OptionField(
-        ["iota_zero_rho_pos", "iota_pos_rho_zero", "iota_zero_rho_zero", "iota_pos_rho_pos"],
-        nullable=True,
-        default="iota_pos_rho_zero",
-        display="(Advanced) Rate case",
-    )
+    constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
+    exclude_data_for_param = ListField(constructor=int, nullable=True, display="Exclude data for parameter")
+    ode_step_size = FloatField(display="ODE step size")
+
+    rate_case = Dummy()
 
     def _full_form_validation(self, root):
         errors = []

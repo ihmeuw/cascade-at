@@ -1,14 +1,16 @@
 import os
+import logging
+import asyncio
 from pathlib import Path
 from pprint import pformat
 from bdb import BdbQuit
-from concurrent.futures import ProcessPoolExecutor
 from tempfile import TemporaryDirectory
 import shutil
 
 import pandas as pd
 import numpy as np
 
+from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
@@ -16,10 +18,11 @@ from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
+from cascade.input_data.db.locations import get_descendents
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.input_data.emr import add_emr_from_prevalence
-from cascade.executor.dismod_runner import run_and_watch, DismodATException
+from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
@@ -62,6 +65,7 @@ def add_mortality_data(model_context, execution_context, sex_id):
     """
     MATHLOG.debug(f"Creating a set of mtspecific observations from IHME CSMR database.")
     MATHLOG.debug("Assigning standard error from measured upper and lower.")
+
     csmr = meas_bounds_to_stdev(
         age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
     )
@@ -70,6 +74,7 @@ def add_mortality_data(model_context, execution_context, sex_id):
     csmr = csmr.query(f"sex_id == @sex_id")
     MATHLOG.debug(f"Creating a set of {csmr.shape[0]} mtspecific observations from IHME CSMR database.")
     csmr = csmr.assign(hold_out=0)
+
     model_context.input_data.observations = pd.concat(
         [model_context.input_data.observations, csmr], ignore_index=True, sort=True
     )
@@ -98,8 +103,21 @@ def add_omega_constraint(model_context, execution_context, sex_id):
         max_time = np.max(list(model_context.input_data.times))  # noqa: F841
         # The % 5 is to exclude annual data points.
         asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
-    model_context.rates.omega.parent_smooth = build_constraint(asdr)
-    MATHLOG.debug(f"Add {asdr.shape[0]} omega constraints from age-standardized death rate data.")
+
+    parent_asdr = asdr[asdr.node_id == model_context.parameters.location_id]
+    model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
+    MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
+
+    children = get_descendents(execution_context, children_only=True)  # noqa: F841
+    children_asdr = asdr.query("node_id in @children")
+    model_context.rates.omega.child_smoothings = [
+        (node_id, build_constraint(child_asdr))
+        for node_id, child_asdr in children_asdr.groupby('node_id')
+    ]
+    MATHLOG.debug(
+        f"Add {children_asdr.shape[0]} omega constraints from "
+        f"age-standardized death rate data to the children."
+    )
 
     observations = model_context.input_data.observations
     observations.loc[observations.measure == "mtall", "hold_out"] = 1
@@ -142,30 +160,63 @@ def model_context_from_settings(execution_context, settings):
 
     freeze_bundle(execution_context, execution_context.parameters.bundle_id)
     if execution_context.parameters.add_csmr_cause is not None:
-        MATHLOG.info(f"Cause {execution_context.parameters.add_csmr_cause} "
-                     "selected as CSMR source, freezing it's data if it has not already been frozen.")
+        MATHLOG.info(
+            f"Cause {execution_context.parameters.add_csmr_cause} "
+            "selected as CSMR source, freezing it's data if it has not already been frozen."
+        )
         load_csmr_to_t3(execution_context)
     load_asdr_to_t3(execution_context)
     execution_context.parameters.tier = 3
 
     bundle = normalized_bundle_from_database(execution_context, bundle_id=model_context.parameters.bundle_id)
-    bundle = bundle.query("location_id == @execution_context.parameters.location_id")
+
+    location_and_descendents = get_descendents(execution_context, include_parent=True)  # noqa: F841
+
+    bundle = bundle.query("location_id in @location_and_descendents")
+    MATHLOG.info(f"Filtering bundle to the current location and it's descendents. {len(bundle)} rows remaining.")
+
+    stderr_mask = bundle.standard_error > 0
+    if (~stderr_mask).sum() > 0:
+        MATHLOG.warn(
+            f"Filtering {(~stderr_mask).sum()} rows where standard error == 0 out of bundle. "
+            f"{stderr_mask.sum()} rows remaining."
+        )
+
+    rr_mask = bundle.measure != "relrisk"
+    mask = stderr_mask & rr_mask
+    if (~rr_mask).sum() > 0:
+        MATHLOG.info(
+            f"Filtering {(~rr_mask).sum()} rows of relative risk data out of bundle. "
+            f"{mask.sum()} rows remaining."
+        )
+
+    bundle = bundle[mask]
+
+    measures_to_exclude = settings.model.exclude_data_for_param
+    if measures_to_exclude:
+        integrand_map = make_integrand_map()
+        measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude]
+        mask = bundle.measure.isin(measures_to_exclude)
+        if mask.sum() > 0:
+            bundle = bundle[~mask]
+            MATHLOG.info(
+                f"Filtering {mask.sum()} rows of of data where the measure has been excluded. "
+                f"Measures marked for exclusion: {measures_to_exclude}. "
+                f"{len(bundle)} rows remaining."
+            )
+
     observations = bundle_to_observations(model_context.parameters, bundle)
     model_context.input_data.observations = observations
-
-    mask = model_context.input_data.observations.standard_error > 0
-    mask &= model_context.input_data.observations.measure != "relrisk"
-    if mask.any():
-        remove_cnt = mask.sum()
-        MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
-        model_context.input_data.observations = model_context.input_data.observations[mask]
 
     if execution_context.parameters.add_csmr_cause is not None:
         MATHLOG.info(f"Cause {execution_context.parameters.add_csmr_cause} selected as CSMR source, loading it's data.")
         add_mortality_data(model_context, execution_context, settings.model.drill_sex)
     else:
         MATHLOG.info(f"No cause selected as CSMR source so no CSMR data will be added to the bundle.")
-    add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
+
+    if settings.model.constrain_omega:
+        add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
+
     cases = make_average_integrand_cases_from_gbd(
         execution_context, [settings.model.drill_sex], include_birth_prevalence=bool(settings.model.birth_prev)
     )
@@ -187,17 +238,50 @@ def write_dismod_file(mc, ec, db_file_path):
     return dismod_file
 
 
-def run_dismod(dismod_file, command, *args):
+def _get_dismod_db_path(dismod_file):
     dm_file_path = dismod_file.engine.url.database
     if dm_file_path == ":memory:":
         raise ValueError("Cannot run dismodat on an in-memory database")
+    return dm_file_path
+
+
+def _check_dismod_command(dismod_file, command):
+    dismod_file.refresh()
+    if f"end {command}" not in dismod_file.log.message.iloc[-1]:
+        raise DismodATException(f"DismodAt failed to complete '{command}' command")
+
+
+def run_dismod(dismod_file, command, *args):
+    dm_file_path = _get_dismod_db_path(dismod_file)
 
     command_prefix = ["dmdismod", dm_file_path]
 
     run_and_watch(command_prefix + [command] + list(args), False, 1)
-    dismod_file.refresh()
-    if f"end {command}" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException(f"DismodAt failed to complete '{command}' command")
+
+    _check_dismod_command(dismod_file, command)
+
+
+@asyncio.coroutine
+def async_run_dismod(dismod_file, command, *args):
+    dm_file_path = _get_dismod_db_path(dismod_file)
+
+    command_prefix = ["dmdismod", dm_file_path]
+
+    yield from async_run_and_watch(command_prefix + [command] + list(args), False, 1)
+
+    try:
+        # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
+        # It does this even if all output is supressed. Other programs don't cause this problem
+        # even if they have lots of output. This is the least invasive way I've found
+        # of ensuring that the environment is usable after this runs
+        yield from async_run_and_watch(["stty", "sane"], False, 1)
+    except DismodATException:
+        # in some environments (inside a qsub) stty fails but in those
+        # environments the problem with mangled terminals doesn't come
+        # up, so just ignore it
+        pass
+
+    _check_dismod_command(dismod_file, command)
 
 
 def run_dismod_fit(dismod_file, with_random_effects):
@@ -217,22 +301,45 @@ def make_fixed_effect_samples(execution_context, num_samples):
     run_dismod(execution_context.dismodfile, "simulate", str(num_samples))
 
 
-def _fit_fixed_effect_sample(db_path, sample_id):
-    # FIXME: Concurrent logging is basically unreadable. Until we have a better
-    # way of doing it just turn it off.
-    import logging
+@asyncio.coroutine
+def _fit_fixed_effect_sample(db_path, sample_id, sem):
+    yield from sem.acquire()
+    try:
+        with TemporaryDirectory() as d:
+            temp_dm_path = Path(d) / "sample.db"
+            shutil.copy2(db_path, temp_dm_path)
+            dismod_file = DismodFile(_get_engine(temp_dm_path))
+            yield from async_run_dismod(dismod_file, "set", "start_var", "truth_var")
+            yield from async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
+
+            fit = dismod_file.fit_var
+            fit["sample_index"] = sample_id
+        return fit
+    finally:
+        sem.release()
+
+
+@asyncio.coroutine
+def _async_fit_fixed_effect_samples(num_processes, dismodfile, samples):
+    sem = asyncio.Semaphore(num_processes)
+    jobs = []
+    for sample in samples:
+        jobs.append(_fit_fixed_effect_sample(
+            dismodfile,
+            sample,
+            sem
+        ))
+    log_level = logging.root.level
     logging.root.setLevel(logging.CRITICAL)
-
-    with TemporaryDirectory() as d:
-        temp_dm_path = Path(d) / "sample.db"
-        shutil.copy2(db_path, temp_dm_path)
-        dismod_file = DismodFile(_get_engine(temp_dm_path))
-        run_dismod(dismod_file, "set", "start_var", "truth_var")
-        run_dismod(dismod_file, "fit", "fixed", str(sample_id))
-
-        fit = dismod_file.fit_var
-        fit["sample_index"] = sample_id
-    return fit
+    math_root = logging.getLogger("cascade.math")
+    math_log_level = math_root.level
+    math_root.setLevel(logging.CRITICAL)
+    try:
+        fits = yield from asyncio.gather(*jobs)
+    finally:
+        logging.root.setLevel(log_level)
+        logging.getLogger("cascade.math").setLevel(math_log_level)
+    return fits
 
 
 def fit_fixed_effect_samples(execution_context, num_processes):
@@ -241,26 +348,14 @@ def fit_fixed_effect_samples(execution_context, num_processes):
 
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
 
-    if (num_processes is None or num_processes > 1) and len(samples) > 1:
-        CODELOG.info(f"Starting parallel fixed effect sample generation using {num_processes} processes")
-        with ProcessPoolExecutor(max_workers=num_processes) as executor:
-            fits = executor.map(
-                _fit_fixed_effect_sample,
-                [execution_context.dismodfile.engine.url.database] * len(samples),
-                samples
-            )
-        CODELOG.info("Done generating fixed effect samples")
-
-        # FIXME: Even with logging turned off and nothing (I think) from the
-        # child processes going to stdout/err the terminal still get's
-        # corrupted and is unusable without a reset. I don't know what
-        # causes this. It could be something dismodat itself is doing.
-        import os
-        os.system("reset")
-    else:
-        fits = []
-        for sample in samples:
-            fits.append(_fit_fixed_effect_sample(execution_context.dismodfile.engine.url.database, sample))
+    actual_processes = min(len(samples), num_processes)
+    MATHLOG.info(f"Calculating {len(samples)} fixed effect samples")
+    CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
+    loop = asyncio.get_event_loop()
+    fits = loop.run_until_complete(
+        _async_fit_fixed_effect_samples(num_processes, execution_context.dismodfile.engine.url.database, samples)
+    )
+    CODELOG.info("Done generating fixed effect samples")
 
     return pd.concat(fits)
 
@@ -295,18 +390,27 @@ def main(args):
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
-    run_dismod(ec.dismodfile, "init")
 
     if not args.db_only:
+        run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
+        MATHLOG.info(f"Successfully fit parent")
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
         sampled_fits = fit_fixed_effect_samples(ec, None)
         estimate_priors_from_posterior_draws(mc, ec, sampled_fits)
+        run_dismod_predict(ec.dismodfile)
 
         if not args.no_upload:
+            MATHLOG.debug(f"Uploading results to epiviz")
             save_model_results(ec)
+        else:
+            MATHLOG.debug(f"Skipping results upload because 'no-upload' was selected")
+    else:
+        MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
+
+    MATHLOG.debug(f"Completed successfully")
 
 
 def entry():
