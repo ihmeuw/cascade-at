@@ -1,6 +1,7 @@
 """
 Statistical operations on the model.
 """
+import pandas as pd
 
 
 def estimate_priors_from_posterior_draws(draws, model_context, execution_context):
@@ -47,3 +48,26 @@ def estimate_priors_from_posterior_draws(draws, model_context, execution_context
     """
 
     return draws
+
+
+def estimate_single_grid(draws, dismod_file, smooth_id):
+    """Finds draws for the given smooth id. Constructs new prior parameters
+    for that smooth id. Returns two dataframes to describe the priors.
+    Call this function for each smooth id. Then make the ``prior_id``
+    values non-overlapping and concatenate them to get the priors list.
+
+    Args:
+        draws (pd.DataFrame): Draws with ``fit_var_id``, ``fit_var_value``,
+            and ``sample_index``.
+        dismod_file: The Dismod db file.
+        smooth_id (int): The smoothing for which to do this work.
+
+    Returns:
+        (pd.DataFrame, pd.DataFrame, pd.DataFrame): First dataframe is the prior table
+        for just this smooth_id. It is one-indexed. Second dataframe
+        is the row of the smooth table with priors filled out. The third dataframe
+        is the smooth_grid for this smooth_id. The ``smooth_grid_id``
+        values are correct, but the priors point to the one-based priors
+        that are returned.
+    """
+    return (pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
