@@ -212,6 +212,7 @@ class Model(Form):
     constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
     exclude_data_for_param = ListField(constructor=int, nullable=True, display="Exclude data for parameter")
     ode_step_size = FloatField(display="ODE step size")
+    split_sex = OptionField(["most_detailed", "1", "2", "3", "4", "5"], display="Split sex (Being used as Drill Start)")
 
     rate_case = Dummy()
 

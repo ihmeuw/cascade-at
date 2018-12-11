@@ -30,6 +30,7 @@ def base_config():
                 "drill": "drill",
                 "drill_location": 123,
                 "drill_sex": 2,
+                "split_sex": 4,
                 "default_age_grid": "0 10 20 30 40 50 60 70 80",
                 "default_time_grid": "1990 1995 2000 2005 2010",
             },

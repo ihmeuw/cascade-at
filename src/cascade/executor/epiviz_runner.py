@@ -18,7 +18,7 @@ from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
-from cascade.input_data.db.locations import get_descendents
+from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
 from cascade.input_data.emr import add_emr_from_prevalence
@@ -54,6 +54,12 @@ def add_settings_to_execution_context(ec, settings):
     )
     for param, value in to_append.items():
         setattr(ec.parameters, param, value)
+
+    # FIXME: We are using split sex to represent the drill start because
+    # there isn't an entry for it in the GUI yet.
+    ec.parameters.drill_start = location_id_from_location_and_level(
+        ec, settings.model.drill_location, settings.model.split_sex
+    )
 
 
 def add_mortality_data(model_context, execution_context, sex_id):
