@@ -32,6 +32,7 @@ from cascade.input_data.configuration.builder import (
     random_effects_from_epiviz,
     build_constraint,
 )
+from cascade.model.operations import estimate_priors_from_posterior_draws
 
 from cascade.core import getLoggers
 
@@ -301,7 +302,8 @@ def main(args):
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
-        fit_fixed_effect_samples(ec, None)
+        sampled_fits = fit_fixed_effect_samples(ec, None)
+        estimate_priors_from_posterior_draws(mc, ec, sampled_fits)
 
         if not args.no_upload:
             save_model_results(ec)

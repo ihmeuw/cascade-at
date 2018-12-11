@@ -3,7 +3,7 @@
 
 from cascade.core.db import db_queries
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers, logged
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -24,10 +24,8 @@ def country_covariates(covariate_id, demographics, gbd_round_id):
         pd.DataFrame: Columns are `covariate_id`, `covariate_name_short`,
             `location_id`, `age_group_id`, `year_id`, `sex_id`,
             and `mean_value`.
-
     """
-
-    covariates_df = db_queries.get_covariate_estimates(
+    covariates_df = logged(CODELOG)(db_queries.get_covariate_estimates)(
         covariate_id,
         location_id=demographics["location_ids"],
         age_group_id=demographics["age_group_ids"],

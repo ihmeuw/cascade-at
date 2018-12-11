@@ -24,17 +24,3 @@ def meas_bounds_to_stdev(df):
     df["density"] = DensityEnum.gaussian
     df["weight"] = "constant"
     return df.drop(["meas_lower", "meas_upper"], axis=1)
-
-
-def fit_parametric_priors(samples):
-    """
-    Given a dataframe of sampled outcomes from a previous run of DismodAT,
-    find parameters for the given distributions.
-
-    Args:
-        samples (pd.DataFrame): Has lower and upper bounds, distribution class,
-            and samples from which to fit that distribution.
-
-    Returns:
-        pd.DataFrame: With parameters for each distribution.
-    """
