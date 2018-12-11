@@ -427,7 +427,7 @@ def entry():
         main(args)
     except SettingsError as e:
         MATHLOG.error(str(e))
-        MATHLOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
+        CODELOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
         error_lines = list()
         for error_spot, human_spot, error_message in e.form_errors:
             if args.settings_file is not None:
