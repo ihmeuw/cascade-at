@@ -10,7 +10,9 @@ from scipy.stats import norm
 from scipy.interpolate import SmoothBivariateSpline
 import pandas as pd
 
-from cascade.model.operations import estimate_single_grid, expand_priors, reduce_priors
+from cascade.model.operations import (
+    estimate_single_grid, expand_priors, reduce_priors, concatenate_grids_and_priors
+)
 
 
 # Construction of posteriors from priors.
@@ -97,9 +99,8 @@ def vars_from_priors(dismod_file):
     not_squeezed = smooth_grid_value.upper > smooth_grid_value.lower
     non_constant = smooth_grid_value[no_const_value & not_squeezed]
     only_relevant_columns = non_constant[["age_id", "time_id"]]
-    grid_vars = only_relevant_columns.assign(
-        var_type="rate",
-    )  # Going to ignore a bunch of columns.
+    # Going to ignore columns that identify the type of the var.
+    grid_vars = only_relevant_columns.assign(var_type="rate")
     for odd_hyper in ["dage", "dtime", "value"]:
         odd_name = f"mulstd_{odd_hyper}_prior_id"
         if dismod_file.smooth.loc[0].notna()[odd_name]:
@@ -134,20 +135,23 @@ def draws_at_value(mean, std, cnt):
     return norm.isf(np.linspace(0.01, 0.99, cnt), loc=mean, scale=std)
 
 
-def test_make_grid_priors():
-    """Testing the tests"""
+def test_array_grid():
+    """Testing with grid of ages and times"""
     ages = [0, 1, 5, 10, 20, 40]
+    times = [1990, 1995, 2000]
     shuffle(ages)  # We can choose to make these out of order.
     dismod_file = make_grid_priors(
         ages=ages,
-        times=[1990, 1995, 2000],
+        times=times,
         grid_priors=dict(value=1, dage=0, dtime=0),
         hyper_priors=dict(value=0, dage=3, dtime=0),
     )
-    assert len(dismod_file.smooth_grid == 6 * 3)
+    n = len(ages)
+    m = len(times)
+    assert len(dismod_file.smooth_grid == n * m)
     vars_from_priors(dismod_file)
     # One var for value at point, one for single hyper-prior.
-    assert len(dismod_file.var) == 18 + 3
+    assert len(dismod_file.var) == n * m + 3
 
     mean = 0.01
     std = 0.001
@@ -159,6 +163,13 @@ def test_make_grid_priors():
         sample_index=list(range(cnt * len(dismod_file.var)))
     ))
     assert not draws_df.empty
+    smooth, smooth_grid, prior = estimate_single_grid(draws_df, dismod_file, 7)
+    assert len(prior) == (n - 1) * m + (m - 1) * n + n * m + 3
+    has_prior = smooth_grid[smooth_grid.value_prior_id.isna()]
+    grid_with_prior = has_prior.merge(prior, left_on="value_prior_id", right_on="prior_id", how="left")
+    for row_idx, row in grid_with_prior.iterrows():
+        assert np.isclose(row["mean"], mean, rtol=0.01)
+        assert np.isclose(row["std"], std, rtol=0.15)
 
 
 def test_point_grid():
@@ -207,8 +218,95 @@ def test_expand_priors():
     assert len(expanded) == 6
     assert len(expanded[expanded.density_id.notna()]) == 1
     smooth, smooth_grid, priors = reduce_priors(point_db.smooth, expanded)
+    assert "prior_id" in priors.columns
     assert len(smooth_grid) == 1
     assert len(priors) == 1
     assert isnan(smooth.loc[0, "mulstd_value_prior_id"])
     assert isnan(smooth.loc[0, "mulstd_dage_prior_id"])
     assert isnan(smooth.loc[0, "mulstd_dtime_prior_id"])
+
+
+# This section tests concatenation of results in
+# estimate_priors_from_posterior_draws.
+def make_point_dismod_file(smooth_id, age, time):
+    dismod_file = make_grid_priors(
+        ages=[age],
+        times=[time],
+        grid_priors=dict(value=1, dage=0, dtime=0),
+        hyper_priors=dict(value=nan, dage=nan, dtime=nan),
+        smooth_id=smooth_id
+    )
+    vars_from_priors(dismod_file)
+    # One var for value at point, one for single hyper-prior.
+    assert len(dismod_file.var) == 1
+
+    mean = 0.01
+    std = 0.001
+    cnt = 100
+    draws = draws_at_value(mean, std, cnt)
+    draws_df = pd.DataFrame(dict(
+        fit_var_id=0,
+        fit_var_value=draws,
+        sample_index=list(range(cnt))
+    ))
+    smooth, smooth_grid, prior = estimate_single_grid(draws_df, dismod_file, smooth_id)
+    return smooth, smooth_grid, prior
+
+
+def make_grid_dismod_file(smooth_id, ages, times):
+    shuffle(ages)  # We can choose to make these out of order.
+    dismod_file = make_grid_priors(
+        ages=ages,
+        times=times,
+        grid_priors=dict(value=1, dage=0, dtime=0),
+        hyper_priors=dict(value=0, dage=3, dtime=0),
+        smooth_id=smooth_id
+    )
+    n = len(ages)
+    m = len(times)
+    assert len(dismod_file.smooth_grid == n * m)
+    vars_from_priors(dismod_file)
+    # One var for value at point, one for single hyper-prior.
+    assert len(dismod_file.var) == n * m + 3
+
+    mean = 0.01
+    std = 0.001
+    cnt = 20
+    draws = draws_at_value(mean, std, cnt)
+    draws_df = pd.DataFrame(dict(
+        fit_var_id=np.repeat(dismod_file.var["var_id"].tolist(), cnt),
+        fit_var_value=np.tile(draws.tolist(), len(dismod_file.var)),
+        sample_index=list(range(cnt * len(dismod_file.var)))
+    ))
+    assert not draws_df.empty
+    smooth, smooth_grid, prior = estimate_single_grid(draws_df, dismod_file, smooth_id)
+    return smooth, smooth_grid, prior
+
+
+def test_concatenate_grids():
+    smooths = list()
+    grids = list()
+    priors = list()
+    smooth_idx = 0
+
+    for age, time in [(0, 1990), (40, 2010), (20, 2000)]:
+        smooth, grid, prior = make_point_dismod_file(smooth_idx, age, time)
+        smooths.append(smooth)
+        grids.append(grid)
+        priors.append(prior.assign(smooth_id=smooth_idx))
+        smooth_idx += 1
+
+    for age, time in [([0, 5, 10], [1990, 2000]),
+                      ([0, 0.19, 100], [2010, 2015, 2016]),
+                      ([20, 60], [2000, 2001, 2002, 2003, 2004, 2005, 2010])]:
+        smooth, grid, prior = make_grid_dismod_file(smooth_idx, age, time)
+        smooths.append(smooth)
+        grids.append(grid)
+        priors.append(prior.assign(smooth_id=smooth_idx))
+        smooth_idx += 1
+
+    all_smooth, all_grid, all_priors = concatenate_grids_and_priors(smooths, grids, priors)
+    assert len(all_smooth) == smooth_idx
+    assert len(all_grid) == sum(len(g) for g in grids)
+    assert len(all_priors) == sum(len(p) for p in priors)
+    assert len(all_priors.prior_id.unique()) == len(all_priors)

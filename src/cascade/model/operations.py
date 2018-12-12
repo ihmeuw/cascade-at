@@ -22,6 +22,13 @@ def _var_grid_iterator(var_df):
     This function validates that we have an exhaustive list of what is in
     a ``smooth_grid``.
 
+    .. note::
+
+        This walks the var table, but it could find all smooth grids by
+        looking at the rate table and mulcov table. Are all smooth grids
+        in the var table? It looks like even rates that are constrained
+        to be constant are in the var table.
+
     Args:
         var_df (pd.DataFrame): The DB.var table from the Dismod-AT database.
 
@@ -116,26 +123,50 @@ def estimate_priors_from_posterior_draws(draws, model_context, execution_context
         execution_context: Where to find the Dismod File.
 
     Returns:
-        pd.DataFrame: With parameters for each distribution.
+        (pd.DataFrame, pd.DataFrame, pd.DataFrame): Three tables for
+        the DismodFile: the smooth, smooth_grid, and prior tables.
+        Parameters in the prior tables are set, and hyper-parameters
+        in the smooth are set. The smooth ids and smooth_grid ids should
+        be the same, but the priors will be renumbered and expanded.
     """
     # The strategy for breaking the work into parts is to split
     # the vars into different smooth_grids, process each separately,
     # and then recombine. Recombination requires renumbering priors,
     # so we will ensure that the tuple (smooth_id, prior_id) is unique.
     db = model_context.dismod_file
-    strategies = dict()
-    by_grid = list()
+    smooths = list()
+    grids = list()
+    priors = list()
     for smooth_kind, smooth_params, grid_vars in _var_grid_iterator(db.var):
-        strategy = strategies.get(smooth_kind, None)
-        if strategy is None:
-            continue
-
         smooth_id = smooth_params[0]
-        prior, smooth, smooth_grid = estimate_single_grid(draws, db, smooth_id)
-        by_grid.append([prior, smooth, smooth_grid])
+        smooth, smooth_grid, prior = estimate_single_grid(draws, db, smooth_id)
+        smooths.append(smooth)
+        grids.append(smooth_grid)
+        priors.append(prior.assign(smooth_id=smooth_id))
 
-    # Now concatenate and renumber all priors.
-    return by_grid
+    all_smooth, all_grids, final_priors = concatenate_grids_and_priors(smooths, grids, priors)
+
+    return all_smooth, all_grids, final_priors
+
+
+def concatenate_grids_and_priors(smooths, grids, priors):
+    all_smooth = pd.concat(smooths, axis=0, sort=False)
+    all_grids = pd.concat(grids, axis=0, sort=False)
+    all_priors = pd.concat(priors, axis=0, sort=False)
+    # The prior_ids are repeated, but (prior_id, smooth_id) is unique.
+    indexed_priors = all_priors.assign(one_id=list(range(len(all_priors))))
+    prior_index = indexed_priors[["prior_id", "smooth_id", "one_id"]]
+    final_priors = indexed_priors.drop(["smooth_id", "prior_id"],
+                                       axis=1).rename({"one_id": "prior_id"},
+                                                      axis=1)
+    for kind in ["value", "dage", "dtime"]:
+        id_col = f"{kind}_prior_id"
+        grids_indexed = all_grids.merge(
+            prior_index, how="left", left_on=[id_col, "smooth_id"],
+            right_on=["prior_id", "smooth_id"])
+        all_grids = grids_indexed.drop([id_col, "prior_id"], axis=1).rename(
+            {"one_id": id_col})
+    return all_smooth, all_grids, final_priors
 
 
 def expand_priors(smooth_df, grid_df, prior_df):
@@ -269,7 +300,7 @@ def estimate_single_grid(draws, dismod_file, smooth_id):
     not_squeezed = complete_grid.upper > complete_grid.lower
     not_constant = complete_grid[no_const_value & not_squeezed]
 
-    # Iterate through the non-constant.
+    # Iterate through the non-constant, and look at value priors.
     mutable_value = not_constant[not_constant.prior_type == "value"]
     var = dismod_file.var
     for index, row in mutable_value.iterrows():
