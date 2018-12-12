@@ -264,16 +264,23 @@ def estimate_single_grid(draws, dismod_file, smooth_id):
     smooth_grid_linked = smooth_grid.merge(next_age, how="left").merge(next_time, how="left")
     # Expand priors into one column. Merge with the priors.
     complete_grid = expand_priors(smooth, smooth_grid_linked, dismod_file.prior)
-
+    # With priors expanded, we can write to them. This is where we estimate.
     no_const_value = complete_grid.const_value.isna()
     not_squeezed = complete_grid.upper > complete_grid.lower
     not_constant = complete_grid[no_const_value & not_squeezed]
 
     # Iterate through the non-constant.
-    value = draws.mean()
-    std = draws.std()
-    not_constant.loc[0]["mean"] = value
-    not_constant.loc[0]["std"] = std
+    mutable_value = not_constant[not_constant.prior_type == "value"]
+    var = dismod_file.var
+    for index, row in mutable_value.iterrows():
+        age_id = row["age_id"]
+        time_id = row["time_id"]
+        var_id = var[(var.smooth_id == smooth_id) & (var.age_id == age_id) & (var.time_id == time_id)].var_id.values[0]
+        sub_draws = draws[draws.fit_var_id == var_id]
+        value = sub_draws.fit_var_value.mean()
+        std = sub_draws.fit_var_value.std()
+        complete_grid.loc[(complete_grid.age_id == age_id) & (complete_grid.time_id == time_id), "mean"] = value
+        complete_grid.loc[(complete_grid.age_id == age_id) & (complete_grid.time_id == time_id), "std"] = std
 
     # Change them back to being in the Dismod form.
     smooth, reduced_smooth_grid, reduced_prior = reduce_priors(smooth, complete_grid)

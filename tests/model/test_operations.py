@@ -186,6 +186,8 @@ def test_point_grid():
     assert len(smooth) == 1
     assert len(smooth_grid) == 1
     assert len(prior) == 1  # The value and three const.
+    assert np.isclose(prior.iloc[0]["mean"], mean, rtol=0.01)
+    assert np.isclose(prior.iloc[0]["std"], std, rtol=0.1)
 
 
 def test_expand_priors():
