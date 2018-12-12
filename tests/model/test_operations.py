@@ -10,7 +10,7 @@ from scipy.stats import norm
 from scipy.interpolate import SmoothBivariateSpline
 import pandas as pd
 
-from cascade.model.operations import estimate_single_grid
+from cascade.model.operations import estimate_single_grid, expand_priors, reduce_priors
 
 
 # Construction of posteriors from priors.
@@ -28,16 +28,14 @@ from cascade.model.operations import estimate_single_grid
 #
 # Let's specify one of these.
 
-def make_grid_priors(ages, times, grid_priors, hyper_priors):
-    shuffle(ages)
-    shuffle(times)
+def make_grid_priors(ages, times, grid_priors, hyper_priors, smooth_id=7):
     age = pd.DataFrame(dict(
         age_id=list(range(0, len(ages) * 2, 2)),  # non-consecutive
-        age=ages,  # Shuffle so we don't depend on order by accident.
+        age=ages,  # Use the given order.
     ))
     time = pd.DataFrame(dict(
         time_id=list(range(0, len(times) * 3, 3)),  # non-consecutive
-        time=times,  # Shuffle so we don't depend on order by accident.
+        time=times,  # Use the given order.
     ))
     prior = pd.DataFrame(dict(
         prior_id=list(range(7)),
@@ -47,7 +45,7 @@ def make_grid_priors(ages, times, grid_priors, hyper_priors):
         mean=0,
         std=0.1,
         eta=0,
-        # If the hyperpriors are nan, then these entries are garbage, but
+        # If the hyper-priors are nan, then these entries are garbage, but
         # nothing references them.
         density_id=[grid_priors["value"], grid_priors["dage"], grid_priors["dtime"],
                     hyper_priors["value"], hyper_priors["dage"], hyper_priors["dtime"], 0],
@@ -57,8 +55,8 @@ def make_grid_priors(ages, times, grid_priors, hyper_priors):
     prior.loc[6]["upper"] = 0.5
 
     smooth = pd.DataFrame(dict(
-        smooth_id=[7],  # Always with smooth_id=7.
-        smooth_name=["test"],
+        smooth_id=[smooth_id],
+        smooth_name=[f"test_{smooth_id}"],
         n_age=[len(ages)],
         n_time=[len(times)],
         mulstd_value_prior_id=[3 if not isnan(hyper_priors["value"]) else nan],
@@ -72,9 +70,15 @@ def make_grid_priors(ages, times, grid_priors, hyper_priors):
         dage_prior_id=1,
         dtime_prior_id=2,
         smooth_id=7,
-        age_id=ages * len(times),
-        time_id=[y for s in [[x] * len(ages) for x in times] for y in s]
+        age_id=np.tile(age.age_id.values, len(times)),
+        time_id=np.repeat(time.time_id.values, len(ages)),
     ))
+    # Set impossible dage and dtime to nan
+    no_dage = age.loc[age.age.idxmax()].age_id
+    no_dtime = time.loc[time.time.idxmax()].time_id
+    smooth_grid.loc[smooth_grid.age_id == no_dage, "dage_prior_id"] = nan
+    smooth_grid.loc[smooth_grid.time_id == no_dtime, "dtime_prior_id"] = nan
+
     dismod_file = SimpleNamespace(
         age=age, time=time, prior=prior, smooth=smooth, smooth_grid=smooth_grid
     )
@@ -115,8 +119,7 @@ def vars_from_priors(dismod_file):
 def make_bilinear_function(ages, times, corners):
     """This is a nice way to make a plane in space. It behaves like Brad's
     when outside the domain. Stays constant."""
-    sp = SmoothBivariateSpline(
-        ages * 2, [times[0], times[0], times[1], times[1]], corners, kx=1, ky=1)
+    sp = SmoothBivariateSpline(np.tile(ages, 2), np.repeat(times, 2), corners, kx=1, ky=1)
 
     def bilinear_f(age, time):
         return sp(age, time)[0, 0]
@@ -126,14 +129,17 @@ def make_bilinear_function(ages, times, corners):
 
 def draws_at_value(mean, std, cnt):
     """Generates evenly-spaced draws that will have nearly the desired
-    mean and std. These are ordered."""
+    mean and std. These are ordered. Why? This takes away the possibility
+    that randomly-generated draws will not have the desired mean and std."""
     return norm.isf(np.linspace(0.01, 0.99, cnt), loc=mean, scale=std)
 
 
 def test_make_grid_priors():
     """Testing the tests"""
+    ages = [0, 1, 5, 10, 20, 40]
+    shuffle(ages)  # We can choose to make these out of order.
     dismod_file = make_grid_priors(
-        ages=[0, 1, 5, 10, 20, 40],
+        ages=ages,
         times=[1990, 1995, 2000],
         grid_priors=dict(value=1, dage=0, dtime=0),
         hyper_priors=dict(value=0, dage=3, dtime=0),
@@ -176,4 +182,31 @@ def test_point_grid():
         fit_var_value=draws,
         sample_index=list(range(cnt))
     ))
-    estimate_single_grid(draws_df, dismod_file, 7)
+    smooth, smooth_grid, prior = estimate_single_grid(draws_df, dismod_file, 7)
+    assert len(smooth) == 1
+    assert len(smooth_grid) == 1
+    assert len(prior) == 1  # The value and three const.
+
+
+def test_expand_priors():
+    """different grids to expand"""
+    point_db = make_grid_priors(
+        ages=[40],
+        times=[1990],
+        grid_priors=dict(value=2, dage=1, dtime=1),
+        hyper_priors=dict(value=nan, dage=nan, dtime=nan),
+    )
+    assert len(point_db.smooth_grid) == 1, "there is one grid point"
+    assert point_db.smooth_grid.value_prior_id.notna().bool()
+    assert point_db.smooth_grid.dage_prior_id.isna().bool()
+    assert point_db.smooth_grid.dtime_prior_id.isna().bool()
+
+    expanded = expand_priors(point_db.smooth, point_db.smooth_grid, point_db.prior)
+    assert len(expanded) == 6
+    assert len(expanded[expanded.density_id.notna()]) == 1
+    smooth, smooth_grid, priors = reduce_priors(point_db.smooth, expanded)
+    assert len(smooth_grid) == 1
+    assert len(priors) == 1
+    assert isnan(smooth.loc[0, "mulstd_value_prior_id"])
+    assert isnan(smooth.loc[0, "mulstd_dage_prior_id"])
+    assert isnan(smooth.loc[0, "mulstd_dtime_prior_id"])
