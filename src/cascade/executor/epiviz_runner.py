@@ -404,7 +404,7 @@ def main(args):
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
-        sampled_fits = fit_fixed_effect_samples(ec, None)
+        sampled_fits = fit_fixed_effect_samples(ec, 1)
         estimate_priors_from_posterior_draws(mc, ec, sampled_fits)
         run_dismod_predict(ec.dismodfile)
 
