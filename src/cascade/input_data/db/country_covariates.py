@@ -3,7 +3,7 @@
 
 from cascade.core.db import db_queries
 
-from cascade.core import getLoggers, logged
+from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -25,7 +25,7 @@ def country_covariates(covariate_id, demographics, gbd_round_id):
             `location_id`, `age_group_id`, `year_id`, `sex_id`,
             and `mean_value`.
     """
-    covariates_df = logged(CODELOG)(db_queries.get_covariate_estimates)(
+    covariates_df = db_queries.get_covariate_estimates(
         covariate_id,
         location_id=demographics["location_ids"],
         age_group_id=demographics["age_group_ids"],

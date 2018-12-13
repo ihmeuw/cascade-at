@@ -10,9 +10,11 @@ import pandas as pd
 
 def _var_grid_iterator(var_df):
     r"""Iterate over grids in the var table, returning the type of grid and the
-    sub-section of the var table corresponding to that grid. There are
+    sub-section of the var table corresponding to that grid.
 
-     * There is an MRF for every (``rate_id``, ``node_id``) combination.
+     * There is an MRF for every (``rate_id``, ``node_id``) combination,
+       where the node is the parent or its children, none of the other
+       nodes in the node table.
        These are :math:`(\iota, \rho, \chi, \omega)` for each location.
      * There is an MRF for every (``covariate_id``, ``var_type``, ``integrand``)
        combination. These are the same covariate
@@ -105,7 +107,7 @@ def estimate_priors_from_posterior_draws(draws, model_context, execution_context
 
      * the Markov Random Field (MRF) for each rate.
      * the MRF for the covariates, :math:`(\alpha,\beta,\gamma)`
-     * the MRF for child effects
+     * the MRF for random effects
 
     Each MRF includes hyper-priors :math:`\lambda` on the standard deviations,
     and most of the priors are the value priors, age differences, and

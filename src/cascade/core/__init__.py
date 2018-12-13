@@ -1,3 +1,3 @@
-from cascade.core.log import getLoggers, logged
+from cascade.core.log import getLoggers
 
-__all__ = ["getLoggers", "logged"]
+__all__ = ["getLoggers"]
