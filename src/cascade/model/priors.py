@@ -2,7 +2,7 @@ from functools import total_ordering
 
 import numpy as np
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 # A description of how dismod interprets these distributions and their parameters can be found here:

@@ -8,10 +8,9 @@ import pytest
 
 @pytest.mark.parametrize("sexes", [1, 2])
 def test_add_mortality_data(ihme, sexes):
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5)
-    ec.policies = dict(use_weighted_age_group_midpoints=0)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6)
     mc = ModelContext()
-    mc.policies = dict(estimate_emr_from_prevalence=0)
+    mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
         columns=["time_upper", "time_lower", "age_upper", "age_lower", "measure", "hold_out"]
     )
@@ -27,10 +26,9 @@ def test_add_mortality_data(ihme, sexes):
 
 @pytest.mark.parametrize("sexes", [1, 2])
 def test_add_omega_constraint(ihme, sexes):
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5)
-    ec.policies = dict(use_weighted_age_group_midpoints=0)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6)
     mc = ModelContext()
-    mc.policies = dict(estimate_emr_from_prevalence=0)
+    mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
         {"time_lower": [1970.0],
          "time_upper": [1971.0],

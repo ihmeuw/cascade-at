@@ -1,6 +1,6 @@
 from cascade.dismod.db.metadata import DensityEnum
-
 from cascade.core import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
