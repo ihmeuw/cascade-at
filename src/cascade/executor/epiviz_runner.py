@@ -420,6 +420,9 @@ def main(args):
 
 
 def entry():
+    readable_by_all = 0o0002
+    os.umask(readable_by_all)
+
     parser = DMArgumentParser("Run DismodAT from Epiviz")
     parser.add_argument("db_file_path")
     parser.add_argument("--settings-file")
