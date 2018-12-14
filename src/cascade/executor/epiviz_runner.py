@@ -421,6 +421,9 @@ def main(args):
 
 
 def entry():
+    readable_by_all = 0o0002
+    os.umask(readable_by_all)
+
     parser = DMArgumentParser("Run DismodAT from Epiviz")
     parser.add_argument("db_file_path")
     parser.add_argument("--settings-file")
@@ -429,7 +432,10 @@ def entry():
     parser.add_argument("--pdb", action="store_true")
     args = parser.parse_args()
 
-    CODELOG.debug(args)
+    CODELOG.debug(f"args: {args}")
+    if "JOB_ID" in os.environ:
+        MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
+
     try:
         main(args)
     except SettingsError as e:
