@@ -238,6 +238,7 @@ def model_context_from_settings(execution_context, settings):
 
 
 def write_dismod_file(mc, ec, db_file_path):
+    MATHLOG.info(f"Writing dismod database to {db_file_path}")
     dismod_file = model_to_dismod_file(mc, ec)
     dismod_file.engine = _get_engine(Path(db_file_path))
     dismod_file.flush()
