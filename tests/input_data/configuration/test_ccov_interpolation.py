@@ -3,11 +3,24 @@ import pytest
 import numpy as np
 import pandas as pd
 
+from cascade.core.context import ExecutionContext
 from cascade.input_data.configuration.construct_country import (
     assign_interpolated_covariate_values,
     compute_covariate_age_interval,
     compute_covariate_age_time_dimensions,
     get_covariate_data_by_sex,)
+
+
+@pytest.fixture
+def execution_context():
+    defaults = {
+        "gbd_round_id": 5,
+        "database": "dismod-at-dev",
+    }
+    execution_context = ExecutionContext()
+    execution_context.parameters = defaults
+
+    return execution_context
 
 
 @pytest.fixture
@@ -70,6 +83,7 @@ def covariates_1():
     covariates_1["mean_value"] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0]
+    covariates_1["covariate_id"] = 26
 
     return covariates_1
 
@@ -116,6 +130,7 @@ def covariates_2():
                                   2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                                   2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                                   2, 2, 2, 2, 2, 2, 2, 2]
+    covariates_2["covariate_id"] = 26
     covariates_2["avg_age"] = covariates_2[["age_lower", "age_upper"]].mean(axis=1)
     covariates_2["avg_time"] = covariates_2[["time_lower", "time_upper"]].mean(axis=1)
 
@@ -164,6 +179,7 @@ def covariates_3():
                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                   0, 0, 0, 0, 0, 0, 0, 0]
+    covariates_3["covariate_id"] = 26
 
     return covariates_3
 
@@ -281,38 +297,35 @@ def test_get_covariate_data_by_sex(covariates_1, covariates_2, covariates_3, mea
     pd.testing.assert_series_equal(cov_data_2[NEITHER]["mean_value"], mean_value_covs_2, check_names=False)
 
 
-def test_assign_interpolated_covariate_values_sex_both_1d(measurements_1, covariates_1, covariate_column_1):
+def test_assign_interpolated_covariate_values_sex_both_1d(ihme, measurements_1, covariates_1,
+                                                          covariate_column_1, execution_context):
     """
     covariates have multiple time values, only one age group, and only both_sexes (no female, no male)
     measurements have all three sexes (female, male, both), and multiple age groups and time values
     """
-    sex = pd.Series()
-
-    cov_col = assign_interpolated_covariate_values(measurements_1, sex, covariates_1)
+    cov_col = assign_interpolated_covariate_values(measurements_1, covariates_1, execution_context)
 
     pd.testing.assert_series_equal(covariate_column_1, cov_col)
 
 
-def test_assign_interpolated_covariate_values_sex_mf_1d(measurements_2, covariates_2, covariate_column_2):
+def test_assign_interpolated_covariate_values_sex_mf_1d(ihme, measurements_2, covariates_2,
+                                                        covariate_column_2, execution_context):
     """
     covariates have multiple time values, only one age group, and two sexes (female, male)
     measurements have only both_sexes (no female, no male), and multiple age groups and time values
     """
-    sex = pd.Series()
+    cov_col = assign_interpolated_covariate_values(measurements_2, covariates_2, execution_context)
 
-    cov_col = assign_interpolated_covariate_values(measurements_2, sex, covariates_2)
     pd.testing.assert_series_equal(covariate_column_2, cov_col)
 
 
-def test_assign_interpolated_covariate_values_sex_both_2d(measurements_1, covariates_3, covariate_column_3):
+def test_assign_interpolated_covariate_values_sex_both_2d(ihme, measurements_1, covariates_3,
+                                                          covariate_column_3, execution_context):
     """
     covariates have multiple time values, two age groups, and only both_sexes (no female, no male)
     measurements have all three sexes (female, male, both), and multiple age groups and time values
     measurements have one age group which is missing from the middle of the covariate overall age interval
     """
-
-    sex = pd.Series()
-
-    cov_col = assign_interpolated_covariate_values(measurements_1, sex, covariates_3)
+    cov_col = assign_interpolated_covariate_values(measurements_1, covariates_3, execution_context)
 
     pd.testing.assert_series_equal(covariate_column_3, cov_col, check_exact=False)

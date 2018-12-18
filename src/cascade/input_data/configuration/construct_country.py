@@ -11,11 +11,12 @@ from scipy.interpolate import griddata
 
 import intervals as it
 
+from cascade.core import getLoggers
+from cascade.core.db import ezfuncs
 from cascade.input_data import InputDataError
 from cascade.input_data.db.country_covariates import country_covariates
 from cascade.input_data.db.demographics import get_all_age_spans
 from cascade.input_data.configuration.construct_study import CovariateRecords
-from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -99,15 +100,13 @@ def covariate_records_from_settings(model_context, execution_context,
         MATHLOG.info(f"Adding {covariate_name} using "
                      f"covariate_to_measurements_nearest_favoring_same_year()")
         if measurements is not None:
-            observations_column = covariate_to_measurements_nearest_favoring_same_year(
-                measurements, study_covariate_records.measurements["sex"], ccov_ranges_df)
+            observations_column = assign_interpolated_covariate_values(measurements, ccov_ranges_df, execution_context)
             observations_column.name = covariate_name
         else:
             observations_column = None
 
         if avgint is not None:
-            avgint_column = covariate_to_measurements_nearest_favoring_same_year(
-                avgint, study_covariate_records.average_integrand_cases["sex"], ccov_ranges_df)
+            avgint_column = assign_interpolated_covariate_values(measurements, ccov_ranges_df, execution_context)
             avgint_column.name = covariate_name
         else:
             avgint_column = None
@@ -267,7 +266,7 @@ def compute_covariate_age_interval(covariates):
     return age_interval
 
 
-def assign_interpolated_covariate_values(measurements, sex, covariates):
+def assign_interpolated_covariate_values(measurements, covariates, execution_context):
     """
     Compute a column of covariate values to assign to the measurements.
 
@@ -275,10 +274,10 @@ def assign_interpolated_covariate_values(measurements, sex, covariates):
         measurements (pd.DataFrame):
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``. All others are ignored.
-        sex (pd.Series): The sex covariate as [-0.5, 0, 0.5], corresponding to the measurements.
         covariates (pd.DataFrame):
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``, ``sex``, and ``value``.
+        execution_context: Context for execution of this program.
     Returns:
         pd.Series: One row for every row in the measurements.
     """
@@ -291,7 +290,16 @@ def assign_interpolated_covariate_values(measurements, sex, covariates):
 
     # find a matching covariate value for each measurement
     covariate_column = compute_interpolated_covariate_values_by_sex(
-        measurements, covariates, covar_at_dims, covar_age_interval)
+        measurements, covariates, covar_at_dims)
+
+    # if the covariate is binary, make sure the assigned values are only 0 or 1
+    covariate_id = covariates.loc[0, "covariate_id"]
+    covariate_column = check_and_handle_binary_covariate(covariate_id, covariate_column,
+                                                         execution_context)
+
+    # set missings using covar_age_interval
+    meas_mean_age_in_age_interval = [i in covar_age_interval for i in measurements["avg_age"]]
+    covariate_column = pd.Series(np.where(meas_mean_age_in_age_interval, covariate_column, np.nan))
 
     return covariate_column
 
@@ -316,7 +324,7 @@ def get_measurement_data_by_sex(measurements):
 
 
 def compute_interpolated_covariate_values_by_sex(
-        measurements, covariates, covar_at_dims, covar_age_interval):
+        measurements, covariates, covar_at_dims):
     """
     Use the measurements data by sex as input to the corresponding interpolator
     to assign a covariate value to the measurement.
@@ -370,13 +378,19 @@ def compute_interpolated_covariate_values_by_sex(
 
     covariate_column = pd.Series(cov_col, index=cov_index).sort_index()
 
-    # if the covariate is binary, round the interpolated values
-    # use shared.covariate.dichotomous and not shared.covariate.inactive?
-    # covariate_column = pd.Series(cov_col, index=cov_index).sort_index().round()
+    return covariate_column
 
-    # set missings using covar_age_interval
-    meas_mean_age_in_age_interval = [i in covar_age_interval for i in measurements["avg_age"]]
-    covariate_column = pd.Series(np.where(meas_mean_age_in_age_interval, covariate_column, np.nan))
+
+def check_and_handle_binary_covariate(covariate_id, covariate_column, execution_context):
+    """Check the dichotomous value from shared.covariate to check if the covariate is binary.
+    If it is, make sure the assigned value is only 0 or 1.
+    """
+    result_df = ezfuncs.query(f"select dichotomous from shared.covariate where covariate_id={covariate_id}",
+                              conn_def=execution_context.parameters.database)
+
+    if result_df.dichotomous[0] == 1:
+        covariate_column[covariate_column <= .5] = 0
+        covariate_column[covariate_column > .5] = 1
 
     return covariate_column
 
