@@ -1,7 +1,10 @@
 from cascade.executor.epiviz_runner import add_mortality_data, add_omega_constraint
 from cascade.testing_utilities import make_execution_context
 from cascade.core.context import ModelContext
+import cascade.input_data.db.mortality
+from cascade.model.priors import Constant
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -40,3 +43,36 @@ def test_add_omega_constraint(ihme, sexes):
     add_omega_constraint(mc, ec, sexes)
     assert not mc.input_data.observations.empty
     assert mc.rates.omega.parent_smooth is not None
+
+
+def test_omega_constraint_as_effect(ihme, monkeypatch):
+    """Assert that the omega constraint is an effect"""
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6)
+    mc = ModelContext()
+    mc.parameters.location_id = 6
+    mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
+    mc.input_data.observations = pd.DataFrame(
+        {"time_lower": [1970.0],
+         "time_upper": [1971.0],
+         "age_lower": [0.0],
+         "age_upper": [1.0],
+         "measure": "prevalence",
+         "hold_out": [0],
+         })
+
+    asdr = cascade.input_data.db.mortality.get_age_standardized_death_rate_data(ec)
+    parent_id = mc.parameters.location_id
+    print(f"asdr columns {asdr.columns}")
+    parent_asdr = asdr[asdr.location_id == parent_id][["age_group_id", "time_lower", "meas_value"]]
+    without_mean = asdr.drop("meas_value", axis=1)
+    same_means = without_mean.merge(parent_asdr, how="left", on=["age_group_id", "time_lower"])
+
+    def same_omegas(execution_context):
+        return same_means
+
+    monkeypatch.setattr(cascade.input_data.db.mortality, "get_age_standardized_death_rate_data", same_omegas)
+
+    add_omega_constraint(mc, ec, 1)
+    child_omegas = mc.rates.omega.child_smoothings
+    for p in child_omegas[0][1].value_priors.priors:
+        assert isinstance(p, Constant) and np.isclose(p.value, 0.0)

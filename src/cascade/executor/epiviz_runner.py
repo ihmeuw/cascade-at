@@ -91,10 +91,21 @@ def add_mortality_data(model_context, execution_context, sex_id):
 
 
 def add_omega_constraint(model_context, execution_context, sex_id):
-    """
+    r"""
     Adds a constraint to other-cause mortality rate. Removes mtother,
     mtall, and mtspecific from observation data. Uses
     :py:func:`cascade.input_data.configuration.builder.build_constraint` to make smoothing priors.
+
+    Child constraints are constrained random effects, so they are offsets
+    from the parent omega constraint, as
+
+    .. math::
+
+        \omega_c(a,t) = \omega_p(a,t) e^{u_c(a,t)}
+
+    It is the :math:`u_c` that we put into the child smoothings. We define
+    these grids so that all grid points match. At each grid point,
+    :math:`u_c=\log (c/p)` with c for child, p for parent.
     """
     MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
     MATHLOG.debug("Assigning standard error from measured upper and lower.")
