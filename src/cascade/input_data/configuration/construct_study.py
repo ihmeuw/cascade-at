@@ -10,6 +10,7 @@ import pandas as pd
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.covariate_records import CovariateRecords
 from cascade.input_data.db.study_covariates import get_study_covariates, covariate_ids_to_names
+from cascade.core.db import dataframe_from_disk
 from cascade.core.log import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -120,7 +121,10 @@ def add_special_study_covariates(covariate_records, model_context, sex_id):
 
 def get_bundle_study_covariates(model_context, bundle_id, execution_context, tier):
     # Sparse data is specified as a list of seq IDs that have a particular study covariate.
-    sparse_covariate_data = get_study_covariates(execution_context, bundle_id, tier=tier)
+    if execution_context.parameters.bundle_study_covariates_file:
+        sparse_covariate_data = dataframe_from_disk(execution_context.parameters.bundle_study_covariates_file)
+    else:
+        sparse_covariate_data = get_study_covariates(execution_context, bundle_id, tier=tier)
     unique_ids = list(sorted(sparse_covariate_data.study_covariate_id.unique()))
     records = CovariateRecords("study")
     id_to_name = covariate_ids_to_names(execution_context, unique_ids)
