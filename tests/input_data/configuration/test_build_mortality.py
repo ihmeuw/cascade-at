@@ -3,6 +3,7 @@ from cascade.testing_utilities import make_execution_context
 from cascade.core.context import ModelContext
 import cascade.input_data.db.mortality
 from cascade.model.priors import Constant
+from cascade.input_data.db.locations import get_descendents
 
 import numpy as np
 import pandas as pd
@@ -47,9 +48,12 @@ def test_add_omega_constraint(ihme, sexes):
 
 def test_omega_constraint_as_effect(ihme, monkeypatch):
     """Assert that the omega constraint is an effect"""
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6)
+    parent_id = 6
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=parent_id)
+    children = get_descendents(ec, children_only=True)
+    assert len(children) > 0
     mc = ModelContext()
-    mc.parameters.location_id = 6
+    mc.parameters.location_id = parent_id
     mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
         {"time_lower": [1970.0],
@@ -61,11 +65,12 @@ def test_omega_constraint_as_effect(ihme, monkeypatch):
          })
 
     asdr = cascade.input_data.db.mortality.get_age_standardized_death_rate_data(ec)
-    parent_id = mc.parameters.location_id
-    print(f"asdr columns {asdr.columns}")
-    parent_asdr = asdr[asdr.location_id == parent_id][["age_group_id", "time_lower", "meas_value"]]
-    without_mean = asdr.drop("meas_value", axis=1)
-    same_means = without_mean.merge(parent_asdr, how="left", on=["age_group_id", "time_lower"])
+    asdr.location_id = parent_id
+    child_asdr = [asdr.assign(location_id=child_id) for child_id in children]
+    child_asdr.append(asdr)
+    same_means = pd.concat(child_asdr, axis=0)
+    assert len(same_means) > 0
+    assert len(same_means[same_means.location_id == parent_id]) > 0
 
     def same_omegas(execution_context):
         return same_means
