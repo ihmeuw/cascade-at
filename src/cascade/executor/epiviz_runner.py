@@ -309,7 +309,7 @@ def make_fixed_effect_samples(execution_context, num_samples):
 
 
 @asyncio.coroutine
-def _fit_fixed_effect_sample(db_path, sample_id, sem):
+def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
     yield from sem.acquire()
     try:
         with TemporaryDirectory() as d:
@@ -318,40 +318,45 @@ def _fit_fixed_effect_sample(db_path, sample_id, sem):
             dismod_file = DismodFile(_get_engine(temp_dm_path))
             yield from async_run_dismod(dismod_file, "set", "start_var", "truth_var")
             yield from async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
+            yield from async_run_dismod(dismod_file, "predict", "fit_var")
 
             fit = dismod_file.fit_var
             fit["sample_index"] = sample_id
-        return fit
+
+            predict = dismod_file.predict
+            predict["sample_index"] = sample_id
+        return (fit, predict)
     finally:
         sem.release()
 
 
 @asyncio.coroutine
-def _async_fit_fixed_effect_samples(num_processes, dismodfile, samples):
+def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, samples):
     sem = asyncio.Semaphore(num_processes)
     jobs = []
     for sample in samples:
-        jobs.append(_fit_fixed_effect_sample(
+        jobs.append(_fit_and_predict_fixed_effect_sample(
             dismodfile,
             sample,
             sem
         ))
     log_level = logging.root.level
-    logging.root.setLevel(logging.CRITICAL)
     math_root = logging.getLogger("cascade.math")
     math_log_level = math_root.level
-    math_root.setLevel(logging.CRITICAL)
+    if num_processes > 1:
+        logging.root.setLevel(logging.CRITICAL)
+        math_root.setLevel(logging.CRITICAL)
     try:
-        fits = yield from asyncio.gather(*jobs)
+        results = yield from asyncio.gather(*jobs)
     finally:
         logging.root.setLevel(log_level)
         logging.getLogger("cascade.math").setLevel(math_log_level)
-    return fits
+    return results
 
 
-def fit_fixed_effect_samples(execution_context, num_processes):
+def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
     if execution_context.dismodfile.engine.url.database == ":memory:":
-        raise ValueError("Cannot run fit_fixed_effect_samples on an in-memory database")
+        raise ValueError("Cannot run fit_and_predict_fixed_effect_samples on an in-memory database")
 
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
 
@@ -359,12 +364,17 @@ def fit_fixed_effect_samples(execution_context, num_processes):
     MATHLOG.info(f"Calculating {len(samples)} fixed effect samples")
     CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
     loop = asyncio.get_event_loop()
-    fits = loop.run_until_complete(
-        _async_fit_fixed_effect_samples(num_processes, execution_context.dismodfile.engine.url.database, samples)
+    results = loop.run_until_complete(
+        _async_fit_and_predict_fixed_effect_samples(
+            actual_processes,
+            execution_context.dismodfile.engine.url.database,
+            samples
+        )
     )
     CODELOG.info("Done generating fixed effect samples")
 
-    return pd.concat(fits)
+    fit, predict = zip(*results)
+    return pd.concat(fit), pd.concat(predict)
 
 
 def has_random_effects(model):
@@ -408,6 +418,13 @@ def main(args):
         sampled_fits = fit_fixed_effect_samples(ec, 1)
         estimate_priors_from_posterior_draws(mc, ec, sampled_fits)
         run_dismod_predict(ec.dismodfile)
+
+        num_samples = mc.policies["number_of_fixed_effect_samples"]
+        make_fixed_effect_samples(ec, num_samples)
+        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec, 4)
+
+        ec.dismodfile.predict = sampled_predict.drop("predict_id", 1).reset_index(drop=True)
+        ec.dismodfile.flush()
 
         if not args.no_upload:
             MATHLOG.debug(f"Uploading results to epiviz")

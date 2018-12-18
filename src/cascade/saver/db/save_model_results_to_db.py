@@ -50,7 +50,7 @@ def _normalize_draws_df(draws_df, execution_context):
 
     if not np.allclose(draws.time_lower, draws.time_upper):
         raise ValueError(
-            "There are integrands over time intervals but we only " "know how to upload integrands for a point in time."
+            "There are integrands over time intervals but we only know how to upload integrands for a point in time."
         )
 
     expected_years = sorted(get_years(execution_context))
