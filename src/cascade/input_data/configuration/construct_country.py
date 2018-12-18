@@ -278,6 +278,7 @@ def assign_interpolated_covariate_values(measurements, covariates, execution_con
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``, ``sex``, and ``value``.
         execution_context: Context for execution of this program.
+
     Returns:
         pd.Series: One row for every row in the measurements.
     """
@@ -306,8 +307,10 @@ def assign_interpolated_covariate_values(measurements, covariates, execution_con
 
 def get_measurement_data_by_sex(measurements):
     """Split the measurement data by sex values found in the measurements.
+
     Args:
         measurements (pandas.DataFrame): data for a specific measurement
+
     Returns:
         dict: possible sex keys (-0.5, 0, 0.1, 0.5) and measurement data as values
     """
@@ -400,8 +403,10 @@ def get_covariate_data_by_sex(covariates):
        This checks which are present, and selects the applicable covariate data
        for each sex type.  If (female, male) are present, then both is computed as the
        average.  If (both) is present, it is assigned to female and male.
+
     Args:
         covariates (pandas.DataFrame): data for a specific covariate_id
+
     Returns:
         dict: sex keys (-0.5, 0, 0.1, 0.5) and covariate data as values
     """
