@@ -8,8 +8,8 @@ from numpy import nan
 import pandas as pd
 
 
-def _var_grid_iterator(var_df):
-    r"""Iterate over grids in the var table, returning the type of grid and the
+def random_field_iterator(var_df):
+    r"""Iterate over random fields in the var table, returning the type of grid and the
     sub-section of the var table corresponding to that grid.
 
      * There is an MRF for every (``rate_id``, ``node_id``) combination,
@@ -21,16 +21,6 @@ def _var_grid_iterator(var_df):
        applied to the measured value, measured stdev, or the rate. These are the
        covariates :math:`(\alpha, \beta, \gamma)`.
 
-    This function validates that we have an exhaustive list of what is in
-    a ``smooth_grid``.
-
-    .. note::
-
-        This walks the var table, but it could find all smooth grids by
-        looking at the rate table and mulcov table. Are all smooth grids
-        in the var table? It looks like even rates that are constrained
-        to be constant are in the var table.
-
     Args:
         var_df (pd.DataFrame): The DB.var table from the Dismod-AT database.
 
@@ -38,51 +28,26 @@ def _var_grid_iterator(var_df):
         (str, (int, int), pd.DataFrame): the kind of grid, its unique
         identifier, and the grid itself.
     """
-    for smooth_id, sub_grid_df in var_df.groupby("smooth_id"):
-        rate_grids = sub_grid_df[
-            (sub_grid_df.var_type == "rate") & (sub_grid_df.rate_id >= 0)][
-            ["node_id", "rate_id"]].drop_duplicates()
-        meas_value_full = sub_grid_df[(sub_grid_df.var_type == "mulcov_meas_value") & (sub_grid_df.covariate_id >= 0)]
-        meas_value = meas_value_full[["integrand_id", "covariate_id"]].drop_duplicates()
-        meas_std_full = sub_grid_df[(sub_grid_df.var_type == "mulcov_meas_std") & (sub_grid_df.covariate_id >= 0)]
-        meas_std = meas_std_full[["integrand_id", "covariate_id"]].drop_duplicates()
-        rate_value_full = sub_grid_df[(sub_grid_df.var_type == "mulcov_rate_value") & (sub_grid_df.covariate_id >= 0)]
-        rate_value = rate_value_full[["rate_id", "covariate_id"]].drop_duplicates()
+    # groupby ignores every record where any of the keys are Null, so it
+    # only gets the rates.
+    for rate_index, sub_grid_df in var_df.groupby(["smooth_id", "rate_id", "node_id"]):
+        smooth_id, rate_id, node_id = rate_index
+        yield "rate", (smooth_id, rate_id, node_id), sub_grid_df
 
-        categories = [rate_grids, meas_value, meas_std, rate_value]
-        category_cnt = sum([not test_kind.empty for test_kind in categories])
-        if category_cnt > 1:
-            raise RuntimeError(
-                f"The var table for smooth_id={smooth_id} should have only one kind "
-                f"but seems to have multiple kinds: rate? {not rate_grids.empty} meas value {not meas_value.empty} "
-                f"meas std? {not meas_std.empty} rate_value {not rate_value.empty}"
-            )
-        elif category_cnt == 0:
-            raise RuntimeError(
-                f"Cannot figure out why smooth_id={smooth_id} isn't one of "
-                f"a rate or a covariate multiplier")
-        # else: It's OK
-
-        if not rate_grids.empty:
-            node_id, rate_id = [int(rid) for rid in rate_grids.iloc[0]]
-            yield "rate", (smooth_id, rate_id, node_id), sub_grid_df
-
-        elif not meas_value.empty:
-            integrand_id, covariate_id = [int(meas_id) for meas_id in meas_value.iloc[0]]
-            yield "meas_value", (smooth_id, integrand_id, covariate_id), sub_grid_df
-
-        elif not meas_std.empty:
-            integrand_id, covariate_id = [int(std_id) for std_id in
-                                          meas_std.iloc[0]]
-            yield "meas_std", (smooth_id, integrand_id, covariate_id), sub_grid_df
-
-        elif not rate_value.empty:
-            rate_id, covariate_id = [int(rval_id) for rval_id in
-                                     rate_value.iloc[0]]
-            yield "rate_value", (smooth_id, rate_id, covariate_id), sub_grid_df
-
+    for integrand_index, sub_grid_df in var_df.groupby(["smooth_id", "integrand_id", "covariate_id"]):
+        smooth_id, integrand_id, covariate_id = integrand_index
+        var_type = sub_grid_df.iloc[0].var_type
+        if var_type == "mulcov_meas_value":
+            kind = "meas_value"
+        elif var_type == "mulcov_meas_std":
+            kind = "meas_std"
         else:
-            raise RuntimeError(f"Grid has unknown type for smooth_id={smooth_id}")
+            raise RuntimeError(f"Unknown var_type {var_type} in var table")
+        yield kind, (smooth_id, integrand_id, covariate_id), sub_grid_df
+
+    for alpha_index, sub_grid_df in var_df.groupby(["smooth_id", "rate_id", "covariate_id"]):
+        smooth_id, rate_id, covariate_id = alpha_index
+        yield "rate_value", (smooth_id, rate_id, covariate_id), sub_grid_df
 
 
 def estimate_priors_from_posterior_draws(draws, model_context, execution_context):
@@ -139,7 +104,7 @@ def estimate_priors_from_posterior_draws(draws, model_context, execution_context
     smooths = list()
     grids = list()
     priors = list()
-    for smooth_kind, smooth_params, grid_vars in _var_grid_iterator(db.var):
+    for smooth_kind, smooth_params, grid_vars in random_field_iterator(db.var):
         smooth_id = smooth_params[0]
         smooth, smooth_grid, prior = estimate_single_grid(draws, db, smooth_id)
         smooths.append(smooth)

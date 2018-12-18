@@ -11,7 +11,8 @@ from scipy.interpolate import SmoothBivariateSpline
 import pandas as pd
 
 from cascade.model.operations import (
-    estimate_single_grid, expand_priors, reduce_priors, concatenate_grids_and_priors
+    estimate_single_grid, expand_priors, reduce_priors, concatenate_grids_and_priors,
+    random_field_iterator
 )
 
 
@@ -133,6 +134,33 @@ def draws_at_value(mean, std, cnt):
     mean and std. These are ordered. Why? This takes away the possibility
     that randomly-generated draws will not have the desired mean and std."""
     return norm.isf(np.linspace(0.01, 0.99, cnt), loc=mean, scale=std)
+
+
+def test_var_grid_iterator():
+    # parent rate 0, parent rate 1,
+    # child 1 rate 0, child 2 rate 0, with shared smooth grid
+    # child 1 rate 1, different smooth grid.
+    # Note there can be two rates with the _same smooth id_ but different nodes.
+    var_df = pd.DataFrame(dict(
+        var_id=[0, 1, 2, 3, 4, 5, 6, 7],
+        smooth_id=[0, 1, 2, 2, 3, 4, 5, 6],
+        var_type=["rate", "rate", "rate", "rate", "rate", "mulcov_meas_value",
+                  "mulcov_rate_value", "mulcov_meas_std"],
+        node_id=[0, 0, 1, 2, 1, nan, nan, nan],
+        rate_id=[0, 1, 0, 0, 1, nan, 2, nan],
+        integrand_id=[nan, nan, nan, nan, nan, 7, nan, 6],
+        covariate_id=[nan, nan, nan, nan, nan, 8, 9, 10],
+    ))
+    assert len(list(random_field_iterator(var_df))) == 8
+    for kind, index, grid in random_field_iterator(var_df.iloc[[0]]):
+        assert kind == "rate"
+        assert index[0] == 0
+    for kind, index, grid in random_field_iterator(var_df.iloc[2:4]):
+        assert index[0] == 2
+    a = list()
+    for kind, index, grid in random_field_iterator(var_df):
+        a.append((kind, index[0], index[1], index[2]))
+    assert len(set(a)) == 8, "two are alike"
 
 
 def test_array_grid():
