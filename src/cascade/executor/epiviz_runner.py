@@ -36,7 +36,6 @@ from cascade.input_data.configuration.builder import (
     random_effects_from_epiviz,
     build_constraint,
 )
-from cascade.model.operations import estimate_priors_from_posterior_draws
 
 from cascade.core import getLoggers
 
@@ -434,12 +433,6 @@ def main(args):
         run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
         MATHLOG.info(f"Successfully fit parent")
-
-        num_samples = mc.policies["number_of_fixed_effect_samples"]
-        make_fixed_effect_samples(ec, num_samples)
-        sampled_fits = fit_fixed_effect_samples(ec, 1)
-        estimate_priors_from_posterior_draws(mc, ec, sampled_fits)
-        run_dismod_predict(ec.dismodfile)
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
