@@ -4,6 +4,7 @@ import pandas as pd
 
 from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import METRIC_IDS, MEASURE_IDS, GBDDataError
+from cascade.input_data.db.locations import get_descendents
 
 
 from cascade.core.log import getLoggers
@@ -60,16 +61,17 @@ def _gbd_process_version_id_from_cod_version(cod_version):
 def _get_csmr_data(execution_context):
 
     cause_id = execution_context.parameters.add_csmr_cause
-    parent_loc = execution_context.parameters.location_id
 
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
     process_version_id = _gbd_process_version_id_from_cod_version(execution_context.parameters.cod_version)
 
+    location_and_children = get_descendents(execution_context, children_only=True, include_parent=True)
+
     csmr = db_queries.get_outputs(
         topic="cause",
+        location_id=location_and_children,
         cause_id=cause_id,
-        location_id=parent_loc,
         metric_id=METRIC_IDS["per_capita_rate"],
         year_id="all",
         age_group_id="most_detailed",

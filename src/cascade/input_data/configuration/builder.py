@@ -56,6 +56,8 @@ def initial_context_from_epiviz(configuration):
     context.parameters.location_id = configuration.model.drill_location
     context.parameters.rate_case = configuration.model.rate_case
     context.parameters.minimum_meas_cv = configuration.model.minimum_meas_cv
+    context.parameters.global_data_eta = configuration.eta.data
+    context.parameters.ode_step_size = configuration.model.ode_step_size
 
     context.policies = policies_from_settings(configuration)
 
@@ -238,7 +240,7 @@ def make_smooth(configuration, smooth_configuration, name_prefix=None):
     return Smooth(value, d_age, d_time, name=smooth_name)
 
 
-def build_constraint(constraint):
+def build_constraint(constraint, name=None):
     """
     This makes a smoothing grid where the mean value is set to a given
     set of values. If records in the constraint have age-spans or time-spans,
@@ -265,7 +267,7 @@ def build_constraint(constraint):
     # TODO: change the PriorGrid API to handle this elegantly
     for _, row in midpoint_constraint.iterrows():
         value_prior[row["age"], row["time"]].prior = Constant(row["mean"])
-    return Smooth(value_prior, smoothing_prior, smoothing_prior)
+    return Smooth(value_prior, smoothing_prior, smoothing_prior, name=name)
 
 
 def fixed_effects_from_epiviz(model_context, execution_context, configuration):
@@ -307,6 +309,7 @@ def random_effects_from_epiviz(model_context, configuration):
                 raise SettingsError(f"Unspported rate {rate_name}")
             rate = getattr(model_context.rates, rate_name)
             location = smoothing_config.location
+
             rate.child_smoothings.append(
                 (location, make_smooth(configuration, smoothing_config, name_prefix=rate_name))
             )

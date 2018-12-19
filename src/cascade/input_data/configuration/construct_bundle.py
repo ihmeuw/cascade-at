@@ -18,6 +18,14 @@ def _normalize_measures(data):
     gbd_measure_id_to_integrand = make_integrand_map()
     if any(data.measure_id == 6):
         MATHLOG.warn(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
+
+    if any(data.measure_id == 17):
+        MATHLOG.info(
+            f"Found case fatality rate, measure_id=17, in data. Ignoring it because it does not "
+            f"map to a dismodat integrand and cannot be used by the model."
+        )
+        data = data[data.measure_id != 17]
+
     try:
         data["measure"] = data.measure_id.apply(lambda k: gbd_measure_id_to_integrand[k].name)
     except KeyError as ke:
@@ -84,6 +92,7 @@ def bundle_to_observations(config, bundle_df):
             "measure": bundle_df["measure"],
             "node_id": pd.Series(location_id, dtype=np.int),
             "density": DensityEnum.gaussian,
+            "eta": config.global_data_eta or np.nan,
             "weight": weight_method,
             "age_lower": bundle_df["age_lower"],
             "age_upper": bundle_df["age_upper"] + demographic_interval_specification,

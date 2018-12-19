@@ -129,6 +129,10 @@ def _get_bundle_data(execution_context, bundle_id, tier=3, exclude_outliers=True
             c,
             params={"bundle_id": bundle_id, "mvid": execution_context.parameters.model_version_id})
         MATHLOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id} from '{database}'")
+        if exclude_outliers:
+            MATHLOG.debug("This excludes rows marked as outliers as well as those marked as group review")
+        else:
+            MATHLOG.debug("This excludes rows marked group review")
 
     return bundle_data
 
