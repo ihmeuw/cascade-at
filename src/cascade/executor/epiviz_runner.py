@@ -20,7 +20,8 @@ from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3
 from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level
 from cascade.input_data.db.asdr import load_asdr_to_t3
-from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
+import cascade.input_data.db.mortality
+from cascade.input_data.db.mortality import get_cause_specific_mortality_data
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
@@ -91,15 +92,28 @@ def add_mortality_data(model_context, execution_context, sex_id):
 
 
 def add_omega_constraint(model_context, execution_context, sex_id):
-    """
+    r"""
     Adds a constraint to other-cause mortality rate. Removes mtother,
     mtall, and mtspecific from observation data. Uses
     :py:func:`cascade.input_data.configuration.builder.build_constraint` to make smoothing priors.
+
+    Child constraints are constrained random effects, so they are offsets
+    from the parent omega constraint, as
+
+    .. math::
+
+        \omega_c(a,t) = \omega_p(a,t) e^{u_c(a,t)}
+
+    It is the :math:`u_c` that we put into the child smoothings. We define
+    these grids so that all grid points match. At each grid point,
+    :math:`u_c=\log (c/p)` with c for child, p for parent.
     """
-    MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
-    MATHLOG.debug("Assigning standard error from measured upper and lower.")
+    MATHLOG.debug(f"Add omega constraint from age-standardized death rate data. "
+                  f"Assigning standard error from measured upper and lower.")
+    # Call this the long way so it can be monkeypatched in testing.
     asdr = meas_bounds_to_stdev(
-        age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
+        age_groups_to_ranges(execution_context,
+                             cascade.input_data.db.mortality.get_age_standardized_death_rate_data(execution_context))
     )
     asdr["measure"] = "mtall"
     asdr = asdr.rename(columns={"location_id": "node_id"})
@@ -116,9 +130,17 @@ def add_omega_constraint(model_context, execution_context, sex_id):
 
     children = get_descendents(execution_context, children_only=True)  # noqa: F841
     children_asdr = asdr.query("node_id in @children")
+    # Transform the children to be the random effect for the rate.
+    parent_value = parent_asdr[["age_lower", "time_lower", "mean"]].rename({"mean": "parent_mean"}, axis=1)
+    parent_and_child = children_asdr.merge(parent_value, how="left", on=["age_lower", "time_lower"])
+    # This could result in an Inf value, but that's a legal value, so...
+    children_effects = parent_and_child.assign(
+        mean=np.log(parent_and_child["mean"] / parent_and_child["parent_mean"])
+    ).drop("parent_mean", axis=1)
+
     model_context.rates.omega.child_smoothings = [
         (node_id, build_constraint(child_asdr))
-        for node_id, child_asdr in children_asdr.groupby('node_id')
+        for node_id, child_asdr in children_effects.groupby('node_id')
     ]
     MATHLOG.debug(
         f"Add {children_asdr.shape[0]} omega constraints from "
