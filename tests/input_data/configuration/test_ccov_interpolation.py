@@ -273,7 +273,6 @@ def test_get_covariate_data_by_sex(covariates_1, covariates_2, covariates_3, mea
     FEMALE = -0.5
     MALE = 0.5
     BOTH = 0
-    NEITHER = 0.1
 
     cov_data_1 = get_covariate_data_by_sex(covariates_1)
     cov_data_2 = get_covariate_data_by_sex(covariates_2)
@@ -281,20 +280,14 @@ def test_get_covariate_data_by_sex(covariates_1, covariates_2, covariates_3, mea
 
     pd.testing.assert_frame_equal(cov_data_1[FEMALE], cov_data_1[BOTH])
     pd.testing.assert_frame_equal(cov_data_1[MALE], cov_data_1[BOTH])
-    pd.testing.assert_frame_equal(cov_data_1[NEITHER], cov_data_1[BOTH])
 
     pd.testing.assert_frame_equal(cov_data_3[FEMALE], cov_data_3[BOTH])
     pd.testing.assert_frame_equal(cov_data_3[MALE], cov_data_3[BOTH])
-    pd.testing.assert_frame_equal(cov_data_3[NEITHER], cov_data_3[BOTH])
 
     if not cov_data_2[MALE].empty and not cov_data_2[FEMALE].empty:
         assert not cov_data_2[BOTH].empty
 
-    if not cov_data_2[MALE].empty and not cov_data_2[FEMALE].empty:
-        assert not cov_data_2[NEITHER].empty
-
     pd.testing.assert_series_equal(cov_data_2[BOTH]["mean_value"], mean_value_covs_2, check_names=False)
-    pd.testing.assert_series_equal(cov_data_2[NEITHER]["mean_value"], mean_value_covs_2, check_names=False)
 
 
 def test_assign_interpolated_covariate_values_sex_both_1d(ihme, measurements_1, covariates_1,

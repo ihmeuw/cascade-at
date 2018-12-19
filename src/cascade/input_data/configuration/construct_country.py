@@ -23,7 +23,6 @@ CODELOG, MATHLOG = getLoggers(__name__)
 FEMALE = -0.5
 MALE = 0.5
 BOTH = 0
-NEITHER = 0.1
 
 
 def unique_country_covariate_transform(configuration):
@@ -312,11 +311,11 @@ def get_measurement_data_by_sex(measurements):
         measurements (pandas.DataFrame): data for a specific measurement
 
     Returns:
-        dict: possible sex keys (-0.5, 0, 0.1, 0.5) and measurement data as values
+        dict: possible sex keys (-0.5, 0, 0.5) and measurement data as values
     """
     measurements_by_sex = {}
 
-    for sex in (FEMALE, MALE, BOTH, NEITHER):
+    for sex in (FEMALE, MALE, BOTH):
 
         measurements_sex = measurements[measurements["x_sex"] == sex]
 
@@ -408,7 +407,7 @@ def get_covariate_data_by_sex(covariates):
         covariates (pandas.DataFrame): data for a specific covariate_id
 
     Returns:
-        dict: sex keys (-0.5, 0, 0.1, 0.5) and covariate data as values
+        dict: sex keys (-0.5, 0, 0.5) and covariate data as values
     """
 
     covariates_by_sex = {}
@@ -418,7 +417,6 @@ def get_covariate_data_by_sex(covariates):
         covariates_by_sex[FEMALE] = covariates
         covariates_by_sex[MALE] = covariates
         covariates_by_sex[BOTH] = covariates
-        covariates_by_sex[NEITHER] = covariates
     elif (len(sex_values) == 2) and (-0.5 in sex_values) and (0.5 in sex_values):
         covariates_by_sex[FEMALE] = covariates[covariates["x_sex"] == FEMALE]
         covariates_by_sex[MALE] = covariates[covariates["x_sex"] == MALE]
@@ -431,7 +429,6 @@ def get_covariate_data_by_sex(covariates):
         covariates_both["avg_age"] = covariates_both["avg_age_x"]
         covariates_both["avg_time"] = covariates_both["avg_time_x"]
         covariates_by_sex[BOTH] = covariates_both
-        covariates_by_sex[NEITHER] = covariates_both
     else:
         raise ValueError(f"Unexpected values for x_sex in covariates data.  Expected 3 or (1,2), found {sex_values}")
 
