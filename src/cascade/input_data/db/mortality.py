@@ -38,7 +38,7 @@ def get_excess_mortality_data(execution_context):
     return data
 
 
-def get_cause_specific_mortality_data(execution_context):
+def get_frozen_cause_specific_mortality_data(execution_context):
     """
     The year range is from start of year to end of year, so these
     measurements have a year duration. To make point data, take

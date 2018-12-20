@@ -22,7 +22,7 @@ from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
 from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level
 from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
 from cascade.input_data.db.mortality import (
-    get_cause_specific_mortality_data, get_frozen_age_standardized_death_rate_data,
+    get_frozen_cause_specific_mortality_data, get_frozen_age_standardized_death_rate_data,
     normalize_mortality_data
 )
 from cascade.input_data.emr import add_emr_from_prevalence
@@ -77,7 +77,7 @@ def add_mortality_data(model_context, execution_context, sex_id):
     MATHLOG.debug("Assigning standard error from measured upper and lower.")
 
     if execution_context.parameters.tier == 3:
-        raw_csmr = normalize_mortality_data(get_cause_specific_mortality_data(execution_context))
+        raw_csmr = normalize_mortality_data(get_frozen_cause_specific_mortality_data(execution_context))
     else:
         raw_csmr = normalize_mortality_data(get_csmr_data(execution_context))
 

@@ -91,7 +91,10 @@ def _upload_asdr_data_to_tier_3(execution_context, cursor, model_version_id, asd
         age_group_set_id=AGE_GROUP_SET_ID, gbd_round_id=execution_context.parameters.gbd_round_id
     )[["age_group_id", "age_group_years_start", "age_group_years_end"]]
 
-    age_group_data.columns = ["age_group_id", "age_lower", "age_upper"]
+    age_group_data = age_group_data.rename(columns={
+        "age_group_years_start": "age_lower",
+        "age_group_years_end": "age_upper"
+    })
 
     asdr_data = asdr_data.merge(age_group_data, how="left", on="age_group_id")
     asdr_data = asdr_data.where(pd.notnull(asdr_data), None)
