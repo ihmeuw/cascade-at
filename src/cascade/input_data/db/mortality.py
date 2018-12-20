@@ -18,14 +18,13 @@ def get_excess_mortality_data(execution_context):
      SELECT
                 model_version_dismod_id as data_id,
                 location_id,
-                year_start as time_lower,
-                year_end + 1 as time_upper,
-                age_start as age_lower,
-                age_end as age_upper,
+                year_start,
+                age_start,
+                age_end,
                 sex_id,
-                mean as meas_value,
-                lower as meas_lower,
-                upper as meas_upper,
+                mean,
+                lower,
+                upper,
                 standard_error
             FROM
                 epi.t3_model_version_emr t3_emr
@@ -39,7 +38,7 @@ def get_excess_mortality_data(execution_context):
     return data
 
 
-def get_cause_specific_mortality_data(execution_context):
+def get_frozen_cause_specific_mortality_data(execution_context):
     """
     The year range is from start of year to end of year, so these
     measurements have a year duration. To make point data, take
@@ -50,13 +49,12 @@ def get_cause_specific_mortality_data(execution_context):
     query = """
             SELECT
                 location_id,
-                year_id as time_lower,
-                year_id + 1 as time_upper,
+                year_id
                 age_group_id,
                 sex_id,
-                mean as meas_value,
-                lower as meas_lower,
-                upper as meas_upper
+                mean,
+                lower,
+                upper
             FROM
                 epi.t3_model_version_csmr
             WHERE model_version_id = %(model_version_id)s
@@ -68,7 +66,7 @@ def get_cause_specific_mortality_data(execution_context):
     return data
 
 
-def get_age_standardized_death_rate_data(execution_context):
+def get_frozen_age_standardized_death_rate_data(execution_context):
     """
     The year range is from start of year to end of year, so these
     measurements have a year duration. To make point data, take
@@ -79,13 +77,12 @@ def get_age_standardized_death_rate_data(execution_context):
     query = """
             SELECT
                 location_id,
-                year_id as time_lower,
-                year_id + 1 as time_upper,
+                year_id
                 age_group_id,
                 sex_id,
-                mean as meas_value,
-                lower as meas_lower,
-                upper as meas_upper
+                mean,
+                lower,
+                upper
             FROM
                 epi.t3_model_version_asdr
             WHERE model_version_id = %(model_version_id)s
@@ -95,3 +92,14 @@ def get_age_standardized_death_rate_data(execution_context):
         data = pd.read_sql(query, c, params={"model_version_id": model_version_id})
 
     return data
+
+
+def normalize_mortality_data(df):
+    df = df.rename(columns={
+        "mean": "meas_value",
+        "lower": "meas_lower",
+        "upper": "meas_upper",
+        "year_id": "time_lower",
+    })
+    df["time_upper"] = df.time_lower + 1
+    return df

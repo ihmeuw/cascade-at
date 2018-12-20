@@ -58,7 +58,7 @@ def _gbd_process_version_id_from_cod_version(cod_version):
     return result[0]
 
 
-def _get_csmr_data(execution_context):
+def get_csmr_data(execution_context):
 
     cause_id = execution_context.parameters.add_csmr_cause
 
@@ -130,7 +130,7 @@ def load_csmr_to_t3(execution_context) -> bool:
     else:
         CODELOG.info(f"Uploading csmr data for model_version_id {model_version_id} on '{database}'")
 
-        csmr_data = _get_csmr_data(execution_context)
+        csmr_data = get_csmr_data(execution_context)
 
         with cursor(execution_context) as c:
             _upload_csmr_data_to_tier_3(c, model_version_id, csmr_data)

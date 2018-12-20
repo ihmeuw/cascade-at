@@ -6,6 +6,8 @@ have consistency and a single chokepoint for that access.
 import importlib
 from contextlib import contextmanager
 
+import pandas as pd
+
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -128,3 +130,14 @@ def latest_model_version(execution_context):
         else:
             raise RuntimeError(
                 f"No model version for modelable entity id {model_id} in database.")
+
+
+def dataframe_from_disk(path):
+    """ Load the file at `path` as a pandas dataframe.
+    """
+    if any(path.endswith(extension) for extension in [".hdf", ".h5", ".hdf5", ".he5"]):
+        return pd.read_hdf(path)
+    elif path.endswith(".csv"):
+        return pd.read_csv(path)
+    else:
+        raise ValueError(f"Unknown file format for bundle: {path}")

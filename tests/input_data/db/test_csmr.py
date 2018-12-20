@@ -6,7 +6,7 @@ def test_load_csmr_to_t3_did_upload(mock_execution_context, mock_database_access
     mock_check = mocker.patch("cascade.input_data.db.csmr._csmr_in_t3")
     mock_check.return_value = False
 
-    mock_get_csmr_data = mocker.patch("cascade.input_data.db.csmr._get_csmr_data")
+    mock_get_csmr_data = mocker.patch("cascade.input_data.db.csmr.get_csmr_data")
     mock_upload_csmr_data = mocker.patch("cascade.input_data.db.csmr._upload_csmr_data_to_tier_3")
 
     assert load_csmr_to_t3(mock_execution_context)

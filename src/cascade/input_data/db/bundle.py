@@ -130,9 +130,11 @@ def _get_bundle_data(execution_context, bundle_id, tier=3, exclude_outliers=True
             params={"bundle_id": bundle_id, "mvid": execution_context.parameters.model_version_id})
         MATHLOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id} from '{database}'")
         if exclude_outliers:
-            MATHLOG.debug("This excludes rows marked as outliers as well as those marked as group review")
+            # The modelers input the group_review flag as group_review=0 but then elmo transforms it to
+            # input_type_id = 6 which is what we actually filter on above.
+            MATHLOG.debug("This excludes rows marked as outliers as well as those marked group_review=0")
         else:
-            MATHLOG.debug("This excludes rows marked group review")
+            MATHLOG.debug("This excludes rows marked group_review=0")
 
     return bundle_data
 

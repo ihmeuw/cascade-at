@@ -10,6 +10,8 @@ import shutil
 import pandas as pd
 import numpy as np
 
+import cascade
+from cascade.core.db import dataframe_from_disk
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.stats import meas_bounds_to_stdev
@@ -17,11 +19,13 @@ from cascade.executor.argument_parser import DMArgumentParser
 from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
-from cascade.input_data.db.csmr import load_csmr_to_t3
+from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
 from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level
-from cascade.input_data.db.asdr import load_asdr_to_t3
-import cascade.input_data.db.mortality
-from cascade.input_data.db.mortality import get_cause_specific_mortality_data
+from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
+from cascade.input_data.db.mortality import (
+    get_frozen_cause_specific_mortality_data,
+    normalize_mortality_data
+)
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
@@ -72,8 +76,13 @@ def add_mortality_data(model_context, execution_context, sex_id):
     MATHLOG.debug(f"Creating a set of mtspecific observations from IHME CSMR database.")
     MATHLOG.debug("Assigning standard error from measured upper and lower.")
 
+    if execution_context.parameters.tier == 3:
+        raw_csmr = normalize_mortality_data(get_frozen_cause_specific_mortality_data(execution_context))
+    else:
+        raw_csmr = normalize_mortality_data(get_csmr_data(execution_context))
+
     csmr = meas_bounds_to_stdev(
-        age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
+        age_groups_to_ranges(execution_context, raw_csmr)
     )
     csmr["measure"] = "mtspecific"
     csmr = csmr.rename(columns={"location_id": "node_id"})
@@ -107,12 +116,19 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     these grids so that all grid points match. At each grid point,
     :math:`u_c=\log (c/p)` with c for child, p for parent.
     """
-    MATHLOG.debug(f"Add omega constraint from age-standardized death rate data. "
-                  f"Assigning standard error from measured upper and lower.")
-    # Call this the long way so it can be monkeypatched in testing.
+    MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
+
+    if execution_context.parameters.tier == 3:
+        raw_asdr = normalize_mortality_data(
+            # Call this the long way so it can be monkeypatched in testing.
+            cascade.input_data.db.mortality.get_frozen_age_standardized_death_rate_data(execution_context)
+        )
+    else:
+        raw_asdr = normalize_mortality_data(get_asdr_data(execution_context))
+
     asdr = meas_bounds_to_stdev(
-        age_groups_to_ranges(execution_context,
-                             cascade.input_data.db.mortality.get_age_standardized_death_rate_data(execution_context))
+        age_groups_to_ranges(execution_context, raw_asdr)
     )
     asdr["measure"] = "mtall"
     asdr = asdr.rename(columns={"location_id": "node_id"})
@@ -152,50 +168,26 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.input_data.observations = pd.concat([observations, asdr], ignore_index=True, sort=True)
 
 
-def model_context_from_settings(execution_context, settings):
-    """
-     1. Freeze the measurement bundle, which means that we make a copy of the
-        input measurement data and study covariates for safe-keeping
-        in case there is later question about what data was used.
+def prepare_data(execution_context, settings):
+    if execution_context.parameters.tier == 3:
+        freeze_bundle(execution_context, execution_context.parameters.bundle_id)
 
-     2. Retrieve the measurement bundle and its study covariates
-        and convert it into data on the model, as described in
-        :ref:`convert-bundle-to-measurement-data`.
+        if execution_context.parameters.add_csmr_cause is not None:
+            MATHLOG.info(
+                f"Cause {execution_context.parameters.add_csmr_cause} "
+                "selected as CSMR source, freezing it's data if it has not already been frozen."
+            )
+            load_csmr_to_t3(execution_context)
+        load_asdr_to_t3(execution_context)
 
-     3. Add mortality data. This is cause-specific mortality
-        data, and it is added as "mtspecific" in the Dismod-AT measurements.
-        This data has a "measurement upper" and "measurement lower"
-        which are converted into a standard error with a Gaussian
-        prior.
-
-     4. Add other-cause mortality as a constraint on the system, meaning
-        the age-standardized death rate is used to construct both
-        measurement data for mtall, with priors determined from
-        "measurement upper" and "measurement lower", but also a constraint
-        on omega, the underlying rate for other-cause mortality, so that
-        Dismod-AT will accept this as a given in the problem.
-
-     5. Create Average Integrand Cases, which are the list of
-        desired outputs from Dismod-AT to show in graphs in EpiViz-AT.
-
-     6. Construct all Fixed Effects. These are defined in
-        https://bradbell.github.io/dismod_at/doc/model_variables.htm.
-
-     7. Construct all Random Effects.
-    """
-    model_context = initial_context_from_epiviz(settings)
-
-    freeze_bundle(execution_context, execution_context.parameters.bundle_id)
-    if execution_context.parameters.add_csmr_cause is not None:
-        MATHLOG.info(
-            f"Cause {execution_context.parameters.add_csmr_cause} "
-            "selected as CSMR source, freezing it's data if it has not already been frozen."
+    if execution_context.parameters.bundle_file:
+        bundle = dataframe_from_disk(execution_context.parameters.bundle_file)
+    else:
+        bundle = normalized_bundle_from_database(
+            execution_context,
+            bundle_id=execution_context.parameters.bundle_id,
+            tier=execution_context.parameters.tier
         )
-        load_csmr_to_t3(execution_context)
-    load_asdr_to_t3(execution_context)
-    execution_context.parameters.tier = 3
-
-    bundle = normalized_bundle_from_database(execution_context, bundle_id=model_context.parameters.bundle_id)
 
     location_and_descendents = get_descendents(execution_context, include_parent=True)  # noqa: F841
 
@@ -231,6 +223,44 @@ def model_context_from_settings(execution_context, settings):
                 f"Measures marked for exclusion: {measures_to_exclude}. "
                 f"{len(bundle)} rows remaining."
             )
+
+    return bundle
+
+
+def model_context_from_settings(execution_context, settings):
+    """
+     1. Freeze the measurement bundle, which means that we make a copy of the
+        input measurement data and study covariates for safe-keeping
+        in case there is later question about what data was used.
+
+     2. Retrieve the measurement bundle and its study covariates
+        and convert it into data on the model, as described in
+        :ref:`convert-bundle-to-measurement-data`.
+
+     3. Add mortality data. This is cause-specific mortality
+        data, and it is added as "mtspecific" in the Dismod-AT measurements.
+        This data has a "measurement upper" and "measurement lower"
+        which are converted into a standard error with a Gaussian
+        prior.
+
+     4. Add other-cause mortality as a constraint on the system, meaning
+        the age-standardized death rate is used to construct both
+        measurement data for mtall, with priors determined from
+        "measurement upper" and "measurement lower", but also a constraint
+        on omega, the underlying rate for other-cause mortality, so that
+        Dismod-AT will accept this as a given in the problem.
+
+     5. Create Average Integrand Cases, which are the list of
+        desired outputs from Dismod-AT to show in graphs in EpiViz-AT.
+
+     6. Construct all Fixed Effects. These are defined in
+        https://bradbell.github.io/dismod_at/doc/model_variables.htm.
+
+     7. Construct all Random Effects.
+    """
+    model_context = initial_context_from_epiviz(settings)
+
+    bundle = prepare_data(execution_context, settings)
 
     observations = bundle_to_observations(model_context.parameters, bundle)
     model_context.input_data.observations = observations
@@ -314,8 +344,6 @@ def async_run_dismod(dismod_file, command, *args):
 
 def run_dismod_fit(dismod_file, with_random_effects):
     random_or_fixed = "both" if with_random_effects else "fixed"
-    # FIXME: both doesn't work. Something about actually having parents in the node table
-    random_or_fixed = "fixed"
 
     run_dismod(dismod_file, "fit", random_or_fixed)
 
@@ -419,12 +447,19 @@ def main(args):
      5. Put that data into a file and run Dismod-AT on that file.
     """
     ec = make_execution_context()
+
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
 
     if settings.model.drill != "drill":
         raise NotImplementedError("Only 'drill' mode is currently supported")
 
     add_settings_to_execution_context(ec, settings)
+    if args.skip_cache:
+        ec.parameters.tier = 2
+    else:
+        ec.parameters.tier = 3
+    ec.parameters.bundle_file = args.bundle_file
+    ec.parameters.bundle_study_covariates_file = args.bundle_study_covariates_file
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
@@ -461,6 +496,9 @@ def entry():
     parser.add_argument("--settings-file")
     parser.add_argument("--no-upload", action="store_true")
     parser.add_argument("--db-only", action="store_true")
+    parser.add_argument("-b", "--bundle-file")
+    parser.add_argument("-s", "--bundle-study-covariates-file")
+    parser.add_argument("--skip-cache", action="store_true")
     parser.add_argument("--pdb", action="store_true")
     args = parser.parse_args()
 
@@ -469,6 +507,9 @@ def entry():
         MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
 
     try:
+        if args.skip_cache:
+            args.no_upload = True
+
         main(args)
     except SettingsError as e:
         MATHLOG.error(str(e))

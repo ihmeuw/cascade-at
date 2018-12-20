@@ -5,7 +5,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline, LSQBivariateSpline
 import numpy as np
 import pandas as pd
 
-from cascade.input_data.db.mortality import get_cause_specific_mortality_data
+from cascade.input_data.db.mortality import get_frozen_cause_specific_mortality_data, normalize_mortality_data
 from cascade.input_data.db.demographics import age_groups_to_ranges, get_years_from_lower_age_to_mean_age
 from cascade.stats import meas_bounds_to_stdev
 
@@ -182,7 +182,7 @@ def add_emr_from_prevalence(model_context, execution_context):
     """
     prevalence = _prepare_prevalence(model_context.input_data.observations)
     MATHLOG.debug("Calculating excess mortality using: EMR=CSMR/prevalence from {len(prevalence)} observations")
-    csmr = get_cause_specific_mortality_data(execution_context)
+    csmr = normalize_mortality_data(get_frozen_cause_specific_mortality_data(execution_context))
     csmr = _prepare_csmr(execution_context, csmr, model_context.policies["use_weighted_age_group_midpoints"])
 
     emr = _calculate_emr_from_csmr_and_prevalence(csmr, prevalence)
