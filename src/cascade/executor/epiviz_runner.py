@@ -10,6 +10,7 @@ import shutil
 import pandas as pd
 import numpy as np
 
+import cascade
 from cascade.core.db import dataframe_from_disk
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
@@ -22,7 +23,7 @@ from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
 from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level
 from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
 from cascade.input_data.db.mortality import (
-    get_frozen_cause_specific_mortality_data, get_frozen_age_standardized_death_rate_data,
+    get_frozen_cause_specific_mortality_data,
     normalize_mortality_data
 )
 from cascade.input_data.emr import add_emr_from_prevalence
@@ -39,7 +40,6 @@ from cascade.input_data.configuration.builder import (
     random_effects_from_epiviz,
     build_constraint,
 )
-from cascade.model.operations import estimate_priors_from_posterior_draws
 
 from cascade.core import getLoggers
 
@@ -100,16 +100,30 @@ def add_mortality_data(model_context, execution_context, sex_id):
 
 
 def add_omega_constraint(model_context, execution_context, sex_id):
-    """
+    r"""
     Adds a constraint to other-cause mortality rate. Removes mtother,
     mtall, and mtspecific from observation data. Uses
     :py:func:`cascade.input_data.configuration.builder.build_constraint` to make smoothing priors.
+
+    Child constraints are constrained random effects, so they are offsets
+    from the parent omega constraint, as
+
+    .. math::
+
+        \omega_c(a,t) = \omega_p(a,t) e^{u_c(a,t)}
+
+    It is the :math:`u_c` that we put into the child smoothings. We define
+    these grids so that all grid points match. At each grid point,
+    :math:`u_c=\log (c/p)` with c for child, p for parent.
     """
     MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
     MATHLOG.debug("Assigning standard error from measured upper and lower.")
 
     if execution_context.parameters.tier == 3:
-        raw_asdr = normalize_mortality_data(get_frozen_age_standardized_death_rate_data(execution_context))
+        raw_asdr = normalize_mortality_data(
+            # Call this the long way so it can be monkeypatched in testing.
+            cascade.input_data.db.mortality.get_frozen_age_standardized_death_rate_data(execution_context)
+        )
     else:
         raw_asdr = normalize_mortality_data(get_asdr_data(execution_context))
 
@@ -131,9 +145,17 @@ def add_omega_constraint(model_context, execution_context, sex_id):
 
     children = get_descendents(execution_context, children_only=True)  # noqa: F841
     children_asdr = asdr.query("node_id in @children")
+    # Transform the children to be the random effect for the rate.
+    parent_value = parent_asdr[["age_lower", "time_lower", "mean"]].rename({"mean": "parent_mean"}, axis=1)
+    parent_and_child = children_asdr.merge(parent_value, how="left", on=["age_lower", "time_lower"])
+    # This could result in an Inf value, but that's a legal value, so...
+    children_effects = parent_and_child.assign(
+        mean=np.log(parent_and_child["mean"] / parent_and_child["parent_mean"])
+    ).drop("parent_mean", axis=1)
+
     model_context.rates.omega.child_smoothings = [
         (node_id, build_constraint(child_asdr))
-        for node_id, child_asdr in children_asdr.groupby('node_id')
+        for node_id, child_asdr in children_effects.groupby('node_id')
     ]
     MATHLOG.debug(
         f"Add {children_asdr.shape[0]} omega constraints from "
@@ -336,7 +358,7 @@ def make_fixed_effect_samples(execution_context, num_samples):
 
 
 @asyncio.coroutine
-def _fit_fixed_effect_sample(db_path, sample_id, sem):
+def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
     yield from sem.acquire()
     try:
         with TemporaryDirectory() as d:
@@ -345,40 +367,45 @@ def _fit_fixed_effect_sample(db_path, sample_id, sem):
             dismod_file = DismodFile(_get_engine(temp_dm_path))
             yield from async_run_dismod(dismod_file, "set", "start_var", "truth_var")
             yield from async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
+            yield from async_run_dismod(dismod_file, "predict", "fit_var")
 
             fit = dismod_file.fit_var
             fit["sample_index"] = sample_id
-        return fit
+
+            predict = dismod_file.predict
+            predict["sample_index"] = sample_id
+        return (fit, predict)
     finally:
         sem.release()
 
 
 @asyncio.coroutine
-def _async_fit_fixed_effect_samples(num_processes, dismodfile, samples):
+def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, samples):
     sem = asyncio.Semaphore(num_processes)
     jobs = []
     for sample in samples:
-        jobs.append(_fit_fixed_effect_sample(
+        jobs.append(_fit_and_predict_fixed_effect_sample(
             dismodfile,
             sample,
             sem
         ))
     log_level = logging.root.level
-    logging.root.setLevel(logging.CRITICAL)
     math_root = logging.getLogger("cascade.math")
     math_log_level = math_root.level
-    math_root.setLevel(logging.CRITICAL)
+    if num_processes > 1:
+        logging.root.setLevel(logging.CRITICAL)
+        math_root.setLevel(logging.CRITICAL)
     try:
-        fits = yield from asyncio.gather(*jobs)
+        results = yield from asyncio.gather(*jobs)
     finally:
         logging.root.setLevel(log_level)
         logging.getLogger("cascade.math").setLevel(math_log_level)
-    return fits
+    return results
 
 
-def fit_fixed_effect_samples(execution_context, num_processes):
+def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
     if execution_context.dismodfile.engine.url.database == ":memory:":
-        raise ValueError("Cannot run fit_fixed_effect_samples on an in-memory database")
+        raise ValueError("Cannot run fit_and_predict_fixed_effect_samples on an in-memory database")
 
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
 
@@ -386,12 +413,17 @@ def fit_fixed_effect_samples(execution_context, num_processes):
     MATHLOG.info(f"Calculating {len(samples)} fixed effect samples")
     CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
     loop = asyncio.get_event_loop()
-    fits = loop.run_until_complete(
-        _async_fit_fixed_effect_samples(num_processes, execution_context.dismodfile.engine.url.database, samples)
+    results = loop.run_until_complete(
+        _async_fit_and_predict_fixed_effect_samples(
+            actual_processes,
+            execution_context.dismodfile.engine.url.database,
+            samples
+        )
     )
     CODELOG.info("Done generating fixed effect samples")
 
-    return pd.concat(fits)
+    fit, predict = zip(*results)
+    return pd.concat(fit), pd.concat(predict)
 
 
 def has_random_effects(model):
@@ -439,9 +471,10 @@ def main(args):
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
-        sampled_fits = fit_fixed_effect_samples(ec, 1)
-        estimate_priors_from_posterior_draws(mc, ec, sampled_fits)
-        run_dismod_predict(ec.dismodfile)
+        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec, 4)
+
+        ec.dismodfile.predict = sampled_predict.drop("predict_id", 1).reset_index(drop=True)
+        ec.dismodfile.flush()
 
         if not args.no_upload:
             MATHLOG.debug(f"Uploading results to epiviz")

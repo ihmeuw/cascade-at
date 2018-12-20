@@ -379,7 +379,7 @@ class DataSubset(Base):
     __readonly__ = True
 
     data_subset_id = Column(Integer(), primary_key=True, autoincrement=False)
-    data_id = Column(None, ForeignKey("data.data_id"), nullable=False)
+    data_id = Column(Integer(), ForeignKey("data.data_id"), nullable=False)
 
 
 class DependVar(Base):
@@ -521,7 +521,7 @@ class DataSim(Base):
 
     data_sim_id = Column(Integer(), primary_key=True, autoincrement=False)
     simulate_index = Column(Integer(), nullable=False)
-    data_subset_id = Column(None, ForeignKey("data_subset_table.data_subset_id"), nullable=False)
+    data_subset_id = Column(Integer(), ForeignKey("data_subset_table.data_subset_id"), nullable=False)
     data_sim_value = Column(Float(), nullable=False)
     data_sim_delta = Column(Float(), nullable=False)
 
