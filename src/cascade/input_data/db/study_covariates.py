@@ -8,6 +8,7 @@ There is one case where a nonzero covariate is not 1. That is the "delta"
 covariate.
 """
 import pandas as pd
+import numpy as np
 
 from cascade.core.db import connection, cursor
 from cascade.core.log import getLoggers
@@ -69,7 +70,7 @@ def covariate_ids_to_names(execution_context, study_covariate_ids):
         where study_covariate_id in %(covariate_ids)s
         """
         with cursor(execution_context) as c:
-            c.execute(query, args={"covariate_ids": study_covariate_ids})
+            c.execute(query, args={"covariate_ids": np.array(study_covariate_ids).astype(int).tolist()})
             covariate_mapping = dict(list(c))
 
     else:
@@ -77,5 +78,3 @@ def covariate_ids_to_names(execution_context, study_covariate_ids):
         covariate_mapping = {}
 
     return covariate_mapping
-
-

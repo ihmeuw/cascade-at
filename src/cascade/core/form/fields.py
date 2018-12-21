@@ -4,6 +4,7 @@ mostly useful field types.
 from cascade.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
 
 from cascade.core.log import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -42,13 +43,16 @@ class FormList(Form):
         for i, inner_source in enumerate(source):
             form = self._inner_form_constructor()
             form._name = str(i)
+            form._container = self
             form.process_source(inner_source)
             forms.append(form)
         self._forms = forms
 
     def validate_and_normalize(self, instance=None, root=None):
         return [
-            (f"[{i}].{p}", f"[{i}].{h}", e) for i, form in enumerate(self) for (p, h, e) in form.validate_and_normalize(self, root=root)
+            (f"[{i}].{p}", f"[{i}].{h}", e)
+            for i, form in enumerate(self)
+            for (p, h, e) in form.validate_and_normalize(self, root=root)
         ]
 
     def __get__(self, instance, owner):
@@ -110,7 +114,7 @@ class OptionField(SimpleTypeField):
         return new_value, None
 
 
-class StringListField(SimpleTypeField):
+class ListField(SimpleTypeField):
     """ A field which takes a string containing values demarcated by some
     separator and transforms them into a homogeneous list of items of an
     expected type.
@@ -125,17 +129,9 @@ class StringListField(SimpleTypeField):
         super().__init__(constructor, *args, **kwargs)
         self.separator = separator
 
-    def _validate_and_normalize(self, instance, value):
+    def _validate_and_normalize(self, instance, values):
         errors = []
         new_values = []
-
-        if isinstance(value, str):
-            values = value.split(self.separator)
-        else:
-            # This case hits when there's only a single numerical value in the
-            # list because Epiviz switches from strings to the actual numerical
-            # type in that case.
-            values = [value]
 
         for item in values:
             new_value, error = super()._validate_and_normalize(instance, item)
@@ -146,3 +142,16 @@ class StringListField(SimpleTypeField):
         if errors:
             return None, "Errors in items: [" + ", ".join(errors) + "]"
         return new_values, None
+
+
+class StringListField(ListField):
+    def _validate_and_normalize(self, instance, value):
+        if isinstance(value, str):
+            values = value.split(self.separator)
+        else:
+            # This case hits when there's only a single numerical value in the
+            # list because Epiviz switches from strings to the actual numerical
+            # type in that case.
+            values = [value]
+
+        return super()._validate_and_normalize(instance, values)

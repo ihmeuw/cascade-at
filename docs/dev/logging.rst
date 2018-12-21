@@ -79,7 +79,32 @@ lifetimes on disk, too.
 |Error       | Has to be addressed in order to complete this Cascade run.             |
 +------------+------------------------------------------------------------------------+
 
+Mathlog statements should have the following.
 
+1.  Put MATHLOG statements in places where you have context on the data
+    the function affects. This often means the log statement is in the
+    caller.
+
+2.  Include in the log statement summary stats like the number of rows,
+    names of variables, things that inform about *this run*.
+
+3.  If something was a choice, indicate how a modeler made that choice,
+    and hence how she could unmake it, so refer to the EpiViz selection.
+
+
+Alec proposes we could construct a hierarchical and narrative MATHLOG
+which reads, for the modeler, like::
+
+    Preparing model:
+       Downloading input data:
+           ...
+       Constructing model representation:
+           Adding mortality data from GBD:
+               Assigning standard error based on bounds
+               ...
+       Running dismodat
+
+We could write this as a streamable HTML document.
 
 .. _fault-failure:
 

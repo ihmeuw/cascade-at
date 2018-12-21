@@ -13,3 +13,5 @@ Executor Functionality
 
 .. autofunction:: cascade.executor.multiprocess.graph_do
 
+.. automodule:: cascade.executor.epiviz_runner
+    :members:

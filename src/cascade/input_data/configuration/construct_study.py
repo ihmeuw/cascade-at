@@ -10,9 +10,11 @@ import pandas as pd
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.covariate_records import CovariateRecords
 from cascade.input_data.db.study_covariates import get_study_covariates, covariate_ids_to_names
+from cascade.core.db import dataframe_from_disk
 from cascade.core.log import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
+
 
 def unique_study_covariate_transform(configuration):
     """
@@ -77,10 +79,11 @@ def _normalize_covariate_data(observations, study_covariates, id_to_name):
     # Rename seq to covariate_sequence_number because if there is ever a
     # ovariate with the same name, then it will collide, and seq is too short
     # not to collide.
-    return full.drop(columns=[dc for dc in full.columns if dc not in keep_cols]).rename(columns={"seq": "covariate_sequence_number"})
+    return full.drop(columns=[dc for dc in full.columns if dc not in keep_cols]).rename(
+        columns={"seq": "covariate_sequence_number"})
 
 
-def add_special_study_covariates(covariate_records, model_context):
+def add_special_study_covariates(covariate_records, model_context, sex_id):
     """
     Adds the following covariates to the covariate records: one, sex.
     These are special and have to happen after avgints are defined.
@@ -97,11 +100,14 @@ def add_special_study_covariates(covariate_records, model_context):
     sex_assignment = {1: 0.5, 2: -0.5, 3: 0.0, 4: 0.0}
     sex_col = observations.sex_id.apply(sex_assignment.get)
     covariate_records.measurements = covariate_records.measurements.assign(sex=sex_col)
+    # covariate_records.average_integrand_cases. These are set when making avgints.
     covariate_records.average_integrand_cases = covariate_records.average_integrand_cases.assign(
         sex=average_integrand_cases.sex_id.apply(sex_assignment.get)
     )
-    # covariate_records.average_integrand_cases. These are set when making avgints.
-    covariate_records.id_to_reference[0] = 0.0
+    covariate_records.id_to_reference[0] = sex_assignment[sex_id]
+    # This max difference means a sex of male gets male and both, a sex of
+    # female gets female and both, and a sex of both gets all data.
+    covariate_records.id_to_max_difference[0] = 0.75
     covariate_records.id_to_name[0] = "sex"
 
     covariate_records.measurements = covariate_records.measurements.assign(
@@ -115,7 +121,10 @@ def add_special_study_covariates(covariate_records, model_context):
 
 def get_bundle_study_covariates(model_context, bundle_id, execution_context, tier):
     # Sparse data is specified as a list of seq IDs that have a particular study covariate.
-    sparse_covariate_data = get_study_covariates(execution_context, bundle_id, tier=tier)
+    if execution_context.parameters.bundle_study_covariates_file:
+        sparse_covariate_data = dataframe_from_disk(execution_context.parameters.bundle_study_covariates_file)
+    else:
+        sparse_covariate_data = get_study_covariates(execution_context, bundle_id, tier=tier)
     unique_ids = list(sorted(sparse_covariate_data.study_covariate_id.unique()))
     records = CovariateRecords("study")
     id_to_name = covariate_ids_to_names(execution_context, unique_ids)

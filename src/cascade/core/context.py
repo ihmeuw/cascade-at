@@ -13,6 +13,7 @@ class ExecutionContext:
     model executes. This includes paths to data sources, information about
     cluster resources etc.
     """
+    __slots__ = ["_parameters_parameters", "dismodfile"]
 
     parameters = ParameterProperty()
 
@@ -50,7 +51,10 @@ class _IntegrandCovariateMultiplier:
 
 
 class ModelContext:
-    __slots__ = ["parameters", "input_data", "rates", "average_integrand_cases", "integrand_covariate_multipliers"]
+    __slots__ = [
+        "parameters", "input_data", "rates", "policies",
+        "average_integrand_cases", "integrand_covariate_multipliers"
+    ]
     """
     This is a container for all inputs, parametrization and data, necessary
     to run the model for a node in the hierarchy. It does not include any
@@ -62,6 +66,7 @@ class ModelContext:
         self.parameters = _ModelParameters()
         self.input_data = InputData()
         self.rates = _Rates()
+        self.policies = {}
         self.average_integrand_cases = None
         self.integrand_covariate_multipliers = {
             integrand.name: _IntegrandCovariateMultiplier(integrand.name) for integrand in IntegrandEnum

@@ -79,7 +79,7 @@ def execution_context_no_dismodfile():
                 "db_env": "dev"}
     execution_context_no_dismodfile = ExecutionContext()
     execution_context_no_dismodfile.parameters = defaults
-    execution_context_no_dismodfile._dismodfile = None
+    execution_context_no_dismodfile.dismodfile = None
 
     return execution_context_no_dismodfile
 

@@ -21,7 +21,7 @@ Then::
     # Or use the one below if you have a Github account.
     # git clone git@github.com:ihmeuw/cascade.git
     cd cascade
-    pip install .[ihme_requirements,testing]
+    pip install .[documentation,ihme_databases,testing]
     python setup.py develop
     cd tests && pytest
 

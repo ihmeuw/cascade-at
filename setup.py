@@ -6,7 +6,7 @@ setup(
     packages=PEP420PackageFinder.find("src"),
     package_data={"cascade.executor": ["data/*.toml"]},
     package_dir={"": "src"},
-    install_requires=["numpy", "pandas", "scipy", "toml", "sqlalchemy", "networkx", "tables"],
+    install_requires=["numpy", "pandas", "scipy", "toml", "sqlalchemy", "networkx", "tables", "python-intervals"],
     extras_require={
         "testing": ["hypothesis", "pytest", "pytest-mock"],
         "documentation": ["sphinx", "sphinx_rtd_theme", "sphinx-autobuild", "sphinxcontrib-napoleon"],

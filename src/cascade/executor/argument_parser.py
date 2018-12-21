@@ -13,6 +13,8 @@ import tempfile
 
 import pkg_resources
 
+from cascade.executor.math_log import MathLogFormatter
+
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -178,8 +180,16 @@ class BaseArgumentParser(ArgumentParser):
 
     @staticmethod
     def _logging_configure_mathlog(mvid, epiviz_log_dir):
-        # If the script is started with a model version ID, then it's
-        # probably being run under EpiViz and should make a math log.
+        """
+        The mathlog is shown in the EpiViz GUI in a web browser, so it has
+        less detail about the code. On error, we can check the CODELOG.
+
+        Args:
+            mvid: If the script is started with a model version ID, then it's
+                probably being run under EpiViz and should make a math log.
+            epiviz_log_dir (Path): Directory in which to make the file.
+
+        """
         if mvid is None:
             logging.warning(f"There is no mvid, so will not write a mathlog.")
             return
@@ -208,9 +218,8 @@ class BaseArgumentParser(ArgumentParser):
             logging.warning(f"Could not write to math log at {log_file} even though "
                             f"directory {math_log_dir} exists: {mhe}")
             return
-        fmt = "%(levelname)s %(asctime)s %(funcName)s: %(message)s"
-        datefmt = "%y-%m-%d %H:%M:%S"
-        math_handler.setFormatter(logging.Formatter(fmt, datefmt))
+        # The br is an HTML tag to add a line break.
+        math_handler.setFormatter(MathLogFormatter())
         math_handler.setLevel(logging.DEBUG)
         math_logger = logging.getLogger(f"{__name__.split('.')[0]}.math")
         math_logger.addHandler(math_handler)
@@ -220,7 +229,8 @@ class BaseArgumentParser(ArgumentParser):
     @staticmethod
     def _logging_individual_modules(logmod, modlevel):
         """Set a list of modules to a particular logging level."""
-        if not logmod: return
+        if not logmod:
+            return
 
         module_log_level = getattr(logging, modlevel.upper(), modlevel)
         if not isinstance(module_log_level, int):

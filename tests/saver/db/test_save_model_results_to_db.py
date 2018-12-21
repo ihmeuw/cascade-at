@@ -3,7 +3,6 @@ import pytest
 
 from cascade.dismod.db.wrapper import DismodFile
 from cascade.core.context import ExecutionContext
-import cascade.saver.db.save_model_results_to_db
 from cascade.saver.db.save_model_results_to_db import (
     _normalize_draws_df,
     _write_temp_draws_file_and_upload_model_results,
@@ -27,7 +26,7 @@ def execution_context():
         [{"node_id": 0, "c_location_id": 102, "node_name": "102", "parent": None}]
     )
     execution_context.dismodfile.covariate = pd.DataFrame(
-        [{"covariate_id": 0, "covariate_name": "sex", "reference": 0.0, "max_difference": None}]
+        [{"covariate_id": 0, "covariate_name": "s_sex_identity", "reference": 0.0, "max_difference": None}]
     )
     execution_context.parameters = defaults
 
@@ -79,11 +78,6 @@ def save_results_fake(input_dir, input_file_pattern, modelable_entity_id, model_
 
 def to_hdf_fake(file_path, key, *pargs, **kwargs):
     pass
-
-
-@pytest.fixture
-def fake_save_results_at(monkeypatch):
-    monkeypatch.setattr(cascade.saver.db.save_model_results_to_db, "save_results_at", save_results_fake)
 
 
 @pytest.fixture
@@ -154,16 +148,22 @@ def test_normalize_draws_df(pre_normalized_draws_df, draws_df, execution_context
 
 
 def test_write_temp_draws_file_and_upload_model_results_no_hdf_no_sr_call(
-    draws_df, execution_context, fake_save_results_at, fake_write_hdf
+    draws_df, execution_context, fake_write_hdf
 ):
 
-    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
+    model_version_id = _write_temp_draws_file_and_upload_model_results(
+        draws_df,
+        execution_context,
+        saver=save_results_fake
+    )
 
     assert model_version_id == 1234
 
 
-def test_write_temp_draws_file_and_upload_model_results_no_sr_call(draws_df, execution_context, fake_save_results_at):
+def test_write_temp_draws_file_and_upload_model_results_no_sr_call(draws_df, execution_context):
 
-    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df, execution_context)
+    model_version_id = _write_temp_draws_file_and_upload_model_results(draws_df,
+                                                                       execution_context,
+                                                                       saver=save_results_fake)
 
     assert model_version_id == 1234

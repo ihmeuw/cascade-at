@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# "${ENVIRONMENT_NAME}" is passed in and should be dev or prod
 MVID=$1
 if [ "x${MVID}" = "x" ]; then
     echo Must supply model version ID.
@@ -30,7 +30,8 @@ if [ "${DEBUG}" = 1 ]; then
 else
     RUNNER="dmcascade"
 fi
-DB_DIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename $0).XXXXXXXXXXXX")
+DB_DIR="/ihme/epi/at_cascade/prod/${MVID}"
+mkdir -p $DB_DIR
 source "${EPI_DIR}/bin/activate"
-echo "${RUNNER}" "$DB_DIR/model.db" --mvid "${MVID}" --epi-environment "${ENVIRONMENT_NAME}"
-"${RUNNER}" "$DB_DIR/model.db" --mvid "${MVID}" --epi-environment "${ENVIRONMENT_NAME}"
+echo "${RUNNER}" "$DB_DIR/model.db" --mvid "${MVID}"
+"${RUNNER}" "$DB_DIR/model.db" --mvid "${MVID}"

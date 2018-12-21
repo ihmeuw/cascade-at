@@ -18,6 +18,14 @@ def _normalize_measures(data):
     gbd_measure_id_to_integrand = make_integrand_map()
     if any(data.measure_id == 6):
         MATHLOG.warn(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
+
+    if any(data.measure_id == 17):
+        MATHLOG.info(
+            f"Found case fatality rate, measure_id=17, in data. Ignoring it because it does not "
+            f"map to a dismodat integrand and cannot be used by the model."
+        )
+        data = data[data.measure_id != 17]
+
     try:
         data["measure"] = data.measure_id.apply(lambda k: gbd_measure_id_to_integrand[k].name)
     except KeyError as ke:
@@ -40,12 +48,16 @@ def _normalize_sex(data):
 
 
 def _normalize_bundle_data(data):
-    """Normalize bundle columns, strip extra columns and index on `seq`
+    """Normalize bundle columns, strip extra columns and index on `seq`.
+    Change measures to string names. Add sex as string names.
+    Assign ``hold_out`` column.
     """
     data = _normalize_measures(data)
     data = _normalize_sex(data)
+    data = data.assign(hold_out=0)
 
-    cols = ["seq", "measure", "mean", "sex", "sex_id", "standard_error", "age_start", "age_end", "year_start", "year_end", "location_id"]
+    cols = ["seq", "measure", "mean", "sex", "sex_id", "standard_error", "hold_out",
+            "age_start", "age_end", "year_start", "year_end", "location_id"]
 
     return data[cols].rename(columns={"age_start": "age_lower", "age_end": "age_upper",
                                       "year_start": "time_lower", "year_end": "time_upper"})
@@ -78,8 +90,9 @@ def bundle_to_observations(config, bundle_df):
     return pd.DataFrame(
         {
             "measure": bundle_df["measure"],
-            "node_id": location_id,
+            "node_id": pd.Series(location_id, dtype=np.int),
             "density": DensityEnum.gaussian,
+            "eta": config.global_data_eta or np.nan,
             "weight": weight_method,
             "age_lower": bundle_df["age_lower"],
             "age_upper": bundle_df["age_upper"] + demographic_interval_specification,
@@ -90,6 +103,7 @@ def bundle_to_observations(config, bundle_df):
             "standard_error": bundle_df["standard_error"],
             "sex_id": bundle_df["sex_id"],
             "seq": bundle_df["seq"],
+            "hold_out": bundle_df["hold_out"],
         }
     )
 

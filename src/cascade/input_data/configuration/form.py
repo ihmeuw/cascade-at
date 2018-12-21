@@ -10,10 +10,21 @@ The Configuration class is the root of the form.
 """
 import numpy as np
 
-from cascade.core.form import Form, IntField, FloatField, StrField, StringListField, OptionField, FormList, Dummy
+from cascade.core.form import (
+    Form,
+    IntField,
+    FloatField,
+    StrField,
+    StringListField,
+    ListField,
+    OptionField,
+    FormList,
+    Dummy,
+)
 from cascade.model import priors
 
 from cascade.core.log import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -27,7 +38,9 @@ class SmoothingPrior(Form):
     age_upper = FloatField(nullable=True, display="Age upper")
     time_lower = FloatField(nullable=True, display="Time lower")
     time_upper = FloatField(nullable=True, display="Time upper")
-    density = OptionField(["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density")
+    density = OptionField(
+        ["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density"
+    )
     min = FloatField(nullable=True, default=float("-inf"), display="Min")
     mean = FloatField(nullable=True, display="Mean")
     max = FloatField(nullable=True, default=float("inf"), display="Max")
@@ -35,7 +48,7 @@ class SmoothingPrior(Form):
     nu = FloatField(nullable=True)
     eta = FloatField(nullable=True)
 
-    def _full_form_validation(self, root):
+    def _full_form_validation(self, root):  # noqa: C901 too complex
         errors = []
 
         if not self.is_field_unset("age_lower") and not self.is_field_unset("age_lower"):
@@ -49,11 +62,20 @@ class SmoothingPrior(Form):
             lower = self.min
             upper = self.max
             mean = self.mean
-            if mean is None:
-                if np.isinf(lower) or np.isinf(upper):
-                    mean = max(lower, 0)
+            if mean is None and (np.isinf(lower) or np.isinf(upper)):
+                mean = max(lower, 0)
             std = self.std
-            nu = self.nu
+
+            if self.nu is None:
+                if self.density == "students" and not root.is_field_unset("students_dof"):
+                    nu = root.students_dof.priors
+                elif self.density == "log_students" and not root.is_field_unset("log_students_dof"):
+                    nu = root.log_students_dof.priors
+                else:
+                    nu = None
+            else:
+                nu = self.nu
+
             if self.eta is None:
                 if not root.is_field_unset("eta"):
                     eta = root.eta.priors
@@ -69,7 +91,7 @@ class SmoothingPrior(Form):
             elif self.density == "laplace":
                 self.prior_object = priors.Laplace(mean, std, lower, upper)
             elif self.density == "students":
-                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper, eta)
+                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper)
             elif self.density == "log_gaussian":
                 self.prior_object = priors.LogGaussian(mean, std, eta, lower, upper)
             elif self.density == "log_laplace":
@@ -101,6 +123,39 @@ class Smoothing(Form):
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
+
+    def _full_form_validation(self, root):
+        errors = []
+
+        if self.rate == "pini":
+            if not self.is_field_unset("age_grid") and len(self.age_grid) != 1:
+                errors.append("Pini must have exactly one age point")
+        else:
+            age_grid = self.age_grid or root.model.default_age_grid
+            if len(age_grid) > 1 and self.default.is_field_unset("dage"):
+                errors.append("You must supply a default age diff prior if the smoothing has extent over age")
+
+        time_grid = self.time_grid or root.model.default_time_grid
+        if len(time_grid) > 1 and self.default.is_field_unset("dtime"):
+            errors.append("You must supply a default time diff prior if the smoothing has extent over time")
+
+        if self._container._name == "rate":
+            # This validation only makes sense for Fixed Effects not Random Effects
+            # TODO This repeats validation logic in cascade.model.rates but I don't see a good way to bring that in here
+            is_negative = True
+            is_positive = True
+            for prior in [self.default.value] + [p for p in self.detail or [] if p.prior_type == "value"]:
+                is_negative = is_negative and prior.min == 0 and prior.max == 0
+                is_positive = is_positive and prior.min > 0
+                if prior.min < 0:
+                    errors.append("Rates must be constrained to be >= 0 at all points. Add or correct the lower bound")
+                    break
+
+            if self.rate in ["iota", "rho"]:
+                if not (is_negative or is_positive):
+                    errors.append(f"Rate {self.rate} must be either fully positive or constrained to zero")
+
+        return errors
 
 
 class StudyCovariate(Form):
@@ -151,19 +206,44 @@ class Model(Form):
     drill = OptionField(["cascade", "drill"], display="Drill")
     drill_location = IntField(display="Drill location")
     drill_sex = OptionField([1, 2], constructor=int, nullable=True, display="Drill sex")
+    birth_prev = OptionField([0, 1], constructor=int, nullable=True, default=0, display="Prevalence at birth")
     default_age_grid = StringListField(constructor=float, display="(Cascade) Age grid")
     default_time_grid = StringListField(constructor=float, display="(Cascade) Time grid")
-    rate_case = OptionField(
-        ["iota_zero_rho_pos", "iota_pos_rho_zero", "iota_zero_rho_zero", "iota_pos_rho_pos"],
-        nullable=True,
-        default="iota_pos_rho_zero",
-        display="(Advanced) Rate case",
-    )
+    constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
+    exclude_data_for_param = ListField(constructor=int, nullable=True, display="Exclude data for parameter")
+    ode_step_size = FloatField(display="ODE step size")
+    split_sex = OptionField(["most_detailed", "1", "2", "3", "4", "5"], display="Split sex (Being used as Drill Start)")
+
+    rate_case = Dummy()
+
+    def _full_form_validation(self, root):
+        errors = []
+
+        if self.drill == "drill":
+            if self.is_field_unset("drill_location"):
+                errors.append("For a drill, please specify Drill location.")
+            if self.is_field_unset("drill_sex"):
+                errors.append("For a drill, please specify Drill sex.")
+
+        return errors
 
 
 class Eta(Form):
     priors = FloatField(nullable=True)
     data = FloatField(nullable=True)
+
+
+class StudentsDOF(Form):
+    priors = FloatField(nullable=True)
+    data = FloatField(nullable=True)
+
+
+class Policies(Form):
+    estimate_emr_from_prevalence = OptionField(
+        [0, 1], constructor=int, default=0, display="Estimate EMR from prevalance", nullable=True
+    )
+    use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
+    number_of_fixed_effect_samples = IntField(default=10, nullable=True)
 
 
 class Configuration(Form):
@@ -180,15 +260,19 @@ class Configuration(Form):
                 print(f"Ready to configure a model for {form.model.modelable_entity_id}")
 
     """
-    model = Model(display="Model")
+
+    model = Model(display="Model", validation_priority=5)
+    policies = Policies(display="Policies")
     gbd_round_id = IntField(display="GBD Round ID")
     random_effect = FormList(Smoothing, nullable=True, display="Random effects")
     rate = FormList(Smoothing, display="Rates")
     study_covariate = FormList(StudyCovariate, display="Study covariates")
     country_covariate = FormList(CountryCovariate, display="Country covariates")
-    eta = Eta()
+    eta = Eta(validation_priority=5)
+    students_dof = StudentsDOF(validation_priority=5)
+    log_students_dof = StudentsDOF(validation_priority=5)
+    csmr_cod_output_version_id = IntField()
 
-    csmr_cod_output_version_id = Dummy()
     csmr_mortality_output_version_id = Dummy()
     location_set_version_id = Dummy()
     min_cv = FormList(Dummy)
@@ -199,8 +283,6 @@ class Configuration(Form):
     print_level = Dummy()
     accept_after_max_steps = Dummy()
     tolerance = Dummy()
-    students_dof = Dummy()
-    log_students_dof = Dummy()
     data_eta_by_integrand = Dummy()
     data_density_by_integrand = Dummy()
     config_version = Dummy()

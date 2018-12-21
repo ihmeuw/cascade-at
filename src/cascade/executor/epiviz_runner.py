@@ -1,20 +1,33 @@
 import os
+import logging
+import asyncio
 from pathlib import Path
 from pprint import pformat
+from bdb import BdbQuit
+from tempfile import TemporaryDirectory
+import shutil
 
 import pandas as pd
 import numpy as np
 
+import cascade
+from cascade.core.db import dataframe_from_disk
+from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.dismod.db.wrapper import DismodFile, _get_engine
+from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.input_data.db.demographics import age_groups_to_ranges
-from cascade.dismod.db.wrapper import _get_engine
-from cascade.dismod.db.metadata import DensityEnum
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
-from cascade.input_data.db.csmr import load_csmr_to_t3
-from cascade.input_data.db.asdr import load_asdr_to_t3
-from cascade.input_data.db.mortality import get_cause_specific_mortality_data, get_age_standardized_death_rate_data
-from cascade.executor.dismod_runner import run_and_watch, DismodATException
+from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
+from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level
+from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
+from cascade.input_data.db.mortality import (
+    get_frozen_cause_specific_mortality_data,
+    normalize_mortality_data
+)
+from cascade.input_data.emr import add_emr_from_prevalence
+from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
@@ -25,9 +38,11 @@ from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
     fixed_effects_from_epiviz,
     random_effects_from_epiviz,
-    build_constraint)
+    build_constraint,
+)
 
 from cascade.core import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -40,68 +55,176 @@ def add_settings_to_execution_context(ec, settings):
         bundle_id=settings.model.bundle_id,
         add_csmr_cause=settings.model.add_csmr_cause,
         location_id=settings.model.drill_location,
+        cod_version=settings.csmr_cod_output_version_id,
     )
     for param, value in to_append.items():
         setattr(ec.parameters, param, value)
 
-
-def meas_bounds_to_stdev(df):
-    r"""
-    Given data that includes a measurement upper bound and measurement lower
-    bound, assume those are 95% confidence intervals. Convert them to
-    standard error using:
-
-    .. math::
-
-        \mbox{stderr} = \frac{\mbox{upper} - \mbox{lower}}{2 1.96}
-
-    Standard errors become Gaussian densities.
-    Replace any zero values with :math:`10^{-9}`.
-    """
-    MATHLOG.debug("Assigning standard error from measured upper and lower.")
-    df["standard_error"] = (df.meas_upper - df.meas_lower) / (2 * 1.96)
-    df["standard_error"] = df.standard_error.replace({0: 1e-9})
-    df = df.rename(columns={"meas_value": "mean"})
-    df["density"] = DensityEnum.gaussian
-    df["weight"] = "constant"
-    return df.drop(["meas_lower", "meas_upper"], axis=1)
+    # FIXME: We are using split sex to represent the drill start because
+    # there isn't an entry for it in the GUI yet.
+    ec.parameters.drill_start = location_id_from_location_and_level(
+        ec, settings.model.drill_location, settings.model.split_sex
+    )
 
 
-def add_mortality_data(model_context, execution_context):
+def add_mortality_data(model_context, execution_context, sex_id):
     """
     Gets cause-specific mortality rate and adds that data as an ``mtspecific``
     measurement by appending it to the bundle. Uses ranges for ages and years.
     This doesn't determine point-data values.
     """
     MATHLOG.debug(f"Creating a set of mtspecific observations from IHME CSMR database.")
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
+
+    if execution_context.parameters.tier == 3:
+        raw_csmr = normalize_mortality_data(get_frozen_cause_specific_mortality_data(execution_context))
+    else:
+        raw_csmr = normalize_mortality_data(get_csmr_data(execution_context))
+
     csmr = meas_bounds_to_stdev(
-        age_groups_to_ranges(execution_context, get_cause_specific_mortality_data(execution_context))
+        age_groups_to_ranges(execution_context, raw_csmr)
     )
     csmr["measure"] = "mtspecific"
     csmr = csmr.rename(columns={"location_id": "node_id"})
-    model_context.input_data.observations = pd.concat([model_context.input_data.observations, csmr], ignore_index=True)
+    csmr = csmr.query(f"sex_id == @sex_id")
+    MATHLOG.debug(f"Creating a set of {csmr.shape[0]} mtspecific observations from IHME CSMR database.")
+    csmr = csmr.assign(hold_out=0)
+
+    model_context.input_data.observations = pd.concat(
+        [model_context.input_data.observations, csmr], ignore_index=True, sort=True
+    )
+
+    if model_context.policies["estimate_emr_from_prevalence"]:
+        MATHLOG.debug(f"estimate_emr_from_prevalence policy is selected")
+        add_emr_from_prevalence(model_context, execution_context)
 
 
-def add_omega_constraint(model_context, execution_context):
-    """
+def add_omega_constraint(model_context, execution_context, sex_id):
+    r"""
     Adds a constraint to other-cause mortality rate. Removes mtother,
-    mtall, and mtspecific from observation data.
+    mtall, and mtspecific from observation data. Uses
+    :py:func:`cascade.input_data.configuration.builder.build_constraint` to make smoothing priors.
+
+    Child constraints are constrained random effects, so they are offsets
+    from the parent omega constraint, as
+
+    .. math::
+
+        \omega_c(a,t) = \omega_p(a,t) e^{u_c(a,t)}
+
+    It is the :math:`u_c` that we put into the child smoothings. We define
+    these grids so that all grid points match. At each grid point,
+    :math:`u_c=\log (c/p)` with c for child, p for parent.
     """
     MATHLOG.debug(f"Add omega constraint from age-standardized death rate data.")
+    MATHLOG.debug("Assigning standard error from measured upper and lower.")
+
+    if execution_context.parameters.tier == 3:
+        raw_asdr = normalize_mortality_data(
+            # Call this the long way so it can be monkeypatched in testing.
+            cascade.input_data.db.mortality.get_frozen_age_standardized_death_rate_data(execution_context)
+        )
+    else:
+        raw_asdr = normalize_mortality_data(get_asdr_data(execution_context))
+
     asdr = meas_bounds_to_stdev(
-        age_groups_to_ranges(execution_context, get_age_standardized_death_rate_data(execution_context))
+        age_groups_to_ranges(execution_context, raw_asdr)
     )
     asdr["measure"] = "mtall"
     asdr = asdr.rename(columns={"location_id": "node_id"})
-    min_time = np.min(list(model_context.input_data.times))  # noqa: F841
-    max_time = np.max(list(model_context.input_data.times))  # noqa: F841
-    asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
-    model_context.rates.omega.parent_smooth = build_constraint(asdr)
+    asdr = asdr.query(f"sex_id == @sex_id")
+    if model_context.input_data.times:  # The times are a set so can be tested this way.
+        min_time = np.min(list(model_context.input_data.times))  # noqa: F841
+        max_time = np.max(list(model_context.input_data.times))  # noqa: F841
+        # The % 5 is to exclude annual data points.
+        asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
 
-    # Ensure that the index is after the observation index so that the seq numbers are preserved.
-    mask = model_context.input_data.observations.measure == "mtall"
-    model_context.input_data.constraints = pd.concat([model_context.input_data.observations[mask], asdr], ignore_index=True)
-    model_context.input_data.observations = model_context.input_data.observations[~mask]
+    parent_asdr = asdr[asdr.node_id == model_context.parameters.location_id]
+    model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
+    MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
+
+    children = get_descendents(execution_context, children_only=True)  # noqa: F841
+    children_asdr = asdr.query("node_id in @children")
+    # Transform the children to be the random effect for the rate.
+    parent_value = parent_asdr[["age_lower", "time_lower", "mean"]].rename({"mean": "parent_mean"}, axis=1)
+    parent_and_child = children_asdr.merge(parent_value, how="left", on=["age_lower", "time_lower"])
+    # This could result in an Inf value, but that's a legal value, so...
+    children_effects = parent_and_child.assign(
+        mean=np.log(parent_and_child["mean"] / parent_and_child["parent_mean"])
+    ).drop("parent_mean", axis=1)
+
+    model_context.rates.omega.child_smoothings = [
+        (node_id, build_constraint(child_asdr))
+        for node_id, child_asdr in children_effects.groupby('node_id')
+    ]
+    MATHLOG.debug(
+        f"Add {children_asdr.shape[0]} omega constraints from "
+        f"age-standardized death rate data to the children."
+    )
+
+    observations = model_context.input_data.observations
+    observations.loc[observations.measure == "mtall", "hold_out"] = 1
+    asdr = asdr.assign(hold_out=1)
+    model_context.input_data.observations = pd.concat([observations, asdr], ignore_index=True, sort=True)
+
+
+def prepare_data(execution_context, settings):
+    if execution_context.parameters.tier == 3:
+        freeze_bundle(execution_context, execution_context.parameters.bundle_id)
+
+        if execution_context.parameters.add_csmr_cause is not None:
+            MATHLOG.info(
+                f"Cause {execution_context.parameters.add_csmr_cause} "
+                "selected as CSMR source, freezing it's data if it has not already been frozen."
+            )
+            load_csmr_to_t3(execution_context)
+        load_asdr_to_t3(execution_context)
+
+    if execution_context.parameters.bundle_file:
+        bundle = dataframe_from_disk(execution_context.parameters.bundle_file)
+    else:
+        bundle = normalized_bundle_from_database(
+            execution_context,
+            bundle_id=execution_context.parameters.bundle_id,
+            tier=execution_context.parameters.tier
+        )
+
+    location_and_descendents = get_descendents(execution_context, include_parent=True)  # noqa: F841
+
+    bundle = bundle.query("location_id in @location_and_descendents")
+    MATHLOG.info(f"Filtering bundle to the current location and it's descendents. {len(bundle)} rows remaining.")
+
+    stderr_mask = bundle.standard_error > 0
+    if (~stderr_mask).sum() > 0:
+        MATHLOG.warn(
+            f"Filtering {(~stderr_mask).sum()} rows where standard error == 0 out of bundle. "
+            f"{stderr_mask.sum()} rows remaining."
+        )
+
+    rr_mask = bundle.measure != "relrisk"
+    mask = stderr_mask & rr_mask
+    if (~rr_mask).sum() > 0:
+        MATHLOG.info(
+            f"Filtering {(~rr_mask).sum()} rows of relative risk data out of bundle. "
+            f"{mask.sum()} rows remaining."
+        )
+
+    bundle = bundle[mask]
+
+    measures_to_exclude = settings.model.exclude_data_for_param
+    if measures_to_exclude:
+        integrand_map = make_integrand_map()
+        measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude]
+        mask = bundle.measure.isin(measures_to_exclude)
+        if mask.sum() > 0:
+            bundle = bundle[~mask]
+            MATHLOG.info(
+                f"Filtering {mask.sum()} rows of of data where the measure has been excluded. "
+                f"Measures marked for exclusion: {measures_to_exclude}. "
+                f"{len(bundle)} rows remaining."
+            )
+
+    return bundle
 
 
 def model_context_from_settings(execution_context, settings):
@@ -137,28 +260,25 @@ def model_context_from_settings(execution_context, settings):
     """
     model_context = initial_context_from_epiviz(settings)
 
-    freeze_bundle(execution_context, execution_context.parameters.bundle_id)
-    load_csmr_to_t3(execution_context)
-    load_asdr_to_t3(execution_context)
-    execution_context.parameters.tier = 3
+    bundle = prepare_data(execution_context, settings)
 
-    bundle = normalized_bundle_from_database(
-        execution_context, bundle_id=model_context.parameters.bundle_id
-    )
-    bundle = bundle.query("location_id == @execution_context.parameters.location_id")
     observations = bundle_to_observations(model_context.parameters, bundle)
     model_context.input_data.observations = observations
 
-    mask = model_context.input_data.observations.standard_error > 0
-    mask &= model_context.input_data.observations.measure != "relrisk"
-    if mask.any():
-        remove_cnt = mask.sum()
-        MATHLOG.warning(f"removing {remove_cnt} rows from bundle where standard_error == 0.0")
-        model_context.input_data.observations = model_context.input_data.observations[mask]
+    if execution_context.parameters.add_csmr_cause is not None:
+        MATHLOG.info(f"Cause {execution_context.parameters.add_csmr_cause} selected as CSMR source, loading it's data.")
+        add_mortality_data(model_context, execution_context, settings.model.drill_sex)
+    else:
+        MATHLOG.info(f"No cause selected as CSMR source so no CSMR data will be added to the bundle.")
 
-    add_mortality_data(model_context, execution_context)
-    add_omega_constraint(model_context, execution_context)
-    model_context.average_integrand_cases = make_average_integrand_cases_from_gbd(execution_context)
+    if settings.model.constrain_omega:
+        add_omega_constraint(model_context, execution_context, settings.model.drill_sex)
+
+    cases = make_average_integrand_cases_from_gbd(
+        execution_context, [settings.model.drill_sex], include_birth_prevalence=bool(settings.model.birth_prev)
+    )
+    cases = make_average_integrand_cases_from_gbd(execution_context, [settings.model.drill_sex])
+    model_context.average_integrand_cases = cases
 
     fixed_effects_from_epiviz(model_context, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
@@ -169,36 +289,141 @@ def model_context_from_settings(execution_context, settings):
 
 
 def write_dismod_file(mc, ec, db_file_path):
+    MATHLOG.info(f"Writing dismod database to {db_file_path}")
     dismod_file = model_to_dismod_file(mc, ec)
     dismod_file.engine = _get_engine(Path(db_file_path))
     dismod_file.flush()
     return dismod_file
 
 
-def run_dismod(dismod_file, with_random_effects):
+def _get_dismod_db_path(dismod_file):
     dm_file_path = dismod_file.engine.url.database
     if dm_file_path == ":memory:":
         raise ValueError("Cannot run dismodat on an in-memory database")
+    return dm_file_path
+
+
+def _check_dismod_command(dismod_file, command):
+    dismod_file.refresh()
+    if f"end {command}" not in dismod_file.log.message.iloc[-1]:
+        raise DismodATException(f"DismodAt failed to complete '{command}' command")
+
+
+def run_dismod(dismod_file, command, *args):
+    dm_file_path = _get_dismod_db_path(dismod_file)
 
     command_prefix = ["dmdismod", dm_file_path]
 
-    run_and_watch(command_prefix + ["init"], False, 1)
-    dismod_file.refresh()
-    if "end init" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'init' command")
+    run_and_watch(command_prefix + [command] + list(args), False, 1)
 
+    _check_dismod_command(dismod_file, command)
+
+
+@asyncio.coroutine
+def async_run_dismod(dismod_file, command, *args):
+    dm_file_path = _get_dismod_db_path(dismod_file)
+
+    command_prefix = ["dmdismod", dm_file_path]
+
+    yield from async_run_and_watch(command_prefix + [command] + list(args), False, 1)
+
+    try:
+        # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
+        # It does this even if all output is supressed. Other programs don't cause this problem
+        # even if they have lots of output. This is the least invasive way I've found
+        # of ensuring that the environment is usable after this runs
+        yield from async_run_and_watch(["stty", "sane"], False, 1)
+    except DismodATException:
+        # in some environments (inside a qsub) stty fails but in those
+        # environments the problem with mangled terminals doesn't come
+        # up, so just ignore it
+        pass
+
+    _check_dismod_command(dismod_file, command)
+
+
+def run_dismod_fit(dismod_file, with_random_effects):
     random_or_fixed = "both" if with_random_effects else "fixed"
-    # FIXME: both doesn't work. Something about actually having parents in the node table
-    random_or_fixed = "fixed"
-    run_and_watch(command_prefix + ["fit", random_or_fixed], False, 1)
-    dismod_file.refresh()
-    if "end fit" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'fit' command")
 
-    run_and_watch(command_prefix + ["predict", "fit_var"], False, 1)
-    dismod_file.refresh()
-    if "end predict" not in dismod_file.log.message.iloc[-1]:
-        raise DismodATException("DismodAt failed to complete 'predict' command")
+    run_dismod(dismod_file, "fit", random_or_fixed)
+
+
+def run_dismod_predict(dismod_file):
+    run_dismod(dismod_file, "predict", "fit_var")
+
+
+def make_fixed_effect_samples(execution_context, num_samples):
+    run_dismod(execution_context.dismodfile, "set", "truth_var", "fit_var")
+    run_dismod(execution_context.dismodfile, "simulate", str(num_samples))
+
+
+@asyncio.coroutine
+def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
+    yield from sem.acquire()
+    try:
+        with TemporaryDirectory() as d:
+            temp_dm_path = Path(d) / "sample.db"
+            shutil.copy2(db_path, temp_dm_path)
+            dismod_file = DismodFile(_get_engine(temp_dm_path))
+            yield from async_run_dismod(dismod_file, "set", "start_var", "truth_var")
+            yield from async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
+            yield from async_run_dismod(dismod_file, "predict", "fit_var")
+
+            fit = dismod_file.fit_var
+            fit["sample_index"] = sample_id
+
+            predict = dismod_file.predict
+            predict["sample_index"] = sample_id
+        return (fit, predict)
+    finally:
+        sem.release()
+
+
+@asyncio.coroutine
+def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, samples):
+    sem = asyncio.Semaphore(num_processes)
+    jobs = []
+    for sample in samples:
+        jobs.append(_fit_and_predict_fixed_effect_sample(
+            dismodfile,
+            sample,
+            sem
+        ))
+    log_level = logging.root.level
+    math_root = logging.getLogger("cascade.math")
+    math_log_level = math_root.level
+    if num_processes > 1:
+        logging.root.setLevel(logging.CRITICAL)
+        math_root.setLevel(logging.CRITICAL)
+    try:
+        results = yield from asyncio.gather(*jobs)
+    finally:
+        logging.root.setLevel(log_level)
+        logging.getLogger("cascade.math").setLevel(math_log_level)
+    return results
+
+
+def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
+    if execution_context.dismodfile.engine.url.database == ":memory:":
+        raise ValueError("Cannot run fit_and_predict_fixed_effect_samples on an in-memory database")
+
+    samples = execution_context.dismodfile.data_sim.simulate_index.unique()
+
+    actual_processes = min(len(samples), num_processes)
+    MATHLOG.info(f"Calculating {len(samples)} fixed effect samples")
+    CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
+    loop = asyncio.get_event_loop()
+    results = loop.run_until_complete(
+        _async_fit_and_predict_fixed_effect_samples(
+            actual_processes,
+            execution_context.dismodfile.engine.url.database,
+            samples
+        )
+    )
+    CODELOG.info("Done generating fixed effect samples")
+
+    fit, predict = zip(*results)
+    return pd.concat(fit), pd.concat(predict)
 
 
 def has_random_effects(model):
@@ -222,34 +447,73 @@ def main(args):
      5. Put that data into a file and run Dismod-AT on that file.
     """
     ec = make_execution_context()
+
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+
+    if settings.model.drill != "drill":
+        raise NotImplementedError("Only 'drill' mode is currently supported")
+
     add_settings_to_execution_context(ec, settings)
+    if args.skip_cache:
+        ec.parameters.tier = 2
+    else:
+        ec.parameters.tier = 3
+    ec.parameters.bundle_file = args.bundle_file
+    ec.parameters.bundle_study_covariates_file = args.bundle_study_covariates_file
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
 
     if not args.db_only:
-        run_dismod(ec.dismodfile, has_random_effects(mc))
+        run_dismod(ec.dismodfile, "init")
+        run_dismod_fit(ec.dismodfile, has_random_effects(mc))
+        MATHLOG.info(f"Successfully fit parent")
+
+        num_samples = mc.policies["number_of_fixed_effect_samples"]
+        make_fixed_effect_samples(ec, num_samples)
+        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec, 4)
+
+        ec.dismodfile.predict = sampled_predict.drop("predict_id", 1).reset_index(drop=True)
+        ec.dismodfile.flush()
 
         if not args.no_upload:
+            MATHLOG.debug(f"Uploading results to epiviz")
             save_model_results(ec)
+        else:
+            MATHLOG.debug(f"Skipping results upload because 'no-upload' was selected")
+    else:
+        MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
+
+    MATHLOG.debug(f"Completed successfully")
 
 
 def entry():
+    readable_by_all = 0o0002
+    os.umask(readable_by_all)
+
     parser = DMArgumentParser("Run DismodAT from Epiviz")
     parser.add_argument("db_file_path")
     parser.add_argument("--settings-file")
     parser.add_argument("--no-upload", action="store_true")
     parser.add_argument("--db-only", action="store_true")
+    parser.add_argument("-b", "--bundle-file")
+    parser.add_argument("-s", "--bundle-study-covariates-file")
+    parser.add_argument("--skip-cache", action="store_true")
     parser.add_argument("--pdb", action="store_true")
     args = parser.parse_args()
 
-    CODELOG.debug(args)
+    CODELOG.debug(f"args: {args}")
+    if "JOB_ID" in os.environ:
+        MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
+
     try:
+        if args.skip_cache:
+            args.no_upload = True
+
         main(args)
     except SettingsError as e:
         MATHLOG.error(str(e))
-        MATHLOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
+        CODELOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
         error_lines = list()
         for error_spot, human_spot, error_message in e.form_errors:
             if args.settings_file is not None:
@@ -259,6 +523,8 @@ def entry():
             error_lines.append(f"\t{error_location}: {error_message}")
         MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
         exit(1)
+    except BdbQuit:
+        pass
     except Exception:
         if args.pdb:
             import pdb
