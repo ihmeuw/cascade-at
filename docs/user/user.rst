@@ -9,4 +9,5 @@ User Manual
    dismodat
    rates
    covariates
+   dmres2csv
    dmsr2csv
