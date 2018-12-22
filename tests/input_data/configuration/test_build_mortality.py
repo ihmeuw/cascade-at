@@ -12,7 +12,7 @@ import pytest
 
 @pytest.mark.parametrize("sexes", [1, 2])
 def test_add_mortality_data(ihme, sexes):
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6, tier=3)
     mc = ModelContext()
     mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
@@ -30,7 +30,7 @@ def test_add_mortality_data(ihme, sexes):
 
 @pytest.mark.parametrize("sexes", [1, 2])
 def test_add_omega_constraint(ihme, sexes):
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6, tier=3)
     mc = ModelContext()
     mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
@@ -49,7 +49,7 @@ def test_add_omega_constraint(ihme, sexes):
 def test_omega_constraint_as_effect(ihme, monkeypatch):
     """Assert that the omega constraint is an effect"""
     parent_id = 6
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=parent_id)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=parent_id, tier=3)
     children = get_descendents(ec, children_only=True)
     assert len(children) > 0
     mc = ModelContext()
@@ -64,7 +64,7 @@ def test_omega_constraint_as_effect(ihme, monkeypatch):
          "hold_out": [0],
          })
 
-    asdr = cascade.input_data.db.mortality.get_age_standardized_death_rate_data(ec)
+    asdr = cascade.input_data.db.mortality.get_frozen_age_standardized_death_rate_data(ec)
     asdr.location_id = parent_id
     child_asdr = [asdr.assign(location_id=child_id) for child_id in children]
     child_asdr.append(asdr)
@@ -75,7 +75,7 @@ def test_omega_constraint_as_effect(ihme, monkeypatch):
     def same_omegas(execution_context):
         return same_means
 
-    monkeypatch.setattr(cascade.input_data.db.mortality, "get_age_standardized_death_rate_data", same_omegas)
+    monkeypatch.setattr(cascade.input_data.db.mortality, "get_frozen_age_standardized_death_rate_data", same_omegas)
 
     add_omega_constraint(mc, ec, 1)
     child_omegas = mc.rates.omega.child_smoothings

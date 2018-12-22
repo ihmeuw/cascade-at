@@ -49,7 +49,7 @@ def get_frozen_cause_specific_mortality_data(execution_context):
     query = """
             SELECT
                 location_id,
-                year_id
+                year_id,
                 age_group_id,
                 sex_id,
                 mean,
@@ -77,7 +77,7 @@ def get_frozen_age_standardized_death_rate_data(execution_context):
     query = """
             SELECT
                 location_id,
-                year_id
+                year_id,
                 age_group_id,
                 sex_id,
                 mean,
@@ -95,11 +95,15 @@ def get_frozen_age_standardized_death_rate_data(execution_context):
 
 
 def normalize_mortality_data(df):
-    df = df.rename(columns={
+    rename_columns = {
         "mean": "meas_value",
         "lower": "meas_lower",
         "upper": "meas_upper",
         "year_id": "time_lower",
-    })
+    }
+    if not set(rename_columns.keys()).issubset(set(df.columns)):
+        missing = ", ".join(str(c) for c in sorted(set(rename_columns.keys()) - set(df.columns)))
+        raise RuntimeError(f"Mortality data missing columns. Missing {missing}.")
+    df = df.rename(columns=rename_columns)
     df["time_upper"] = df.time_lower + 1
     return df
