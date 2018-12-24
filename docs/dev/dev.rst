@@ -10,3 +10,4 @@ Developer Manual
    testing
    logging
    dismod_at_shape
+   versioning

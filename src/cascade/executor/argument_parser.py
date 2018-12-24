@@ -97,10 +97,15 @@ class BaseArgumentParser(ArgumentParser):
         This version instead raises an exception which we can catch,
         use to write an error, and then exit.
         """
-        if message:
+        if status == 0:
+            sys.exit(status)
+
+        elif message:
             super()._print_message(message, sys.stderr)
+
         else:
             message = "Exiting due to bad arguments: {}".format(sys.argv)
+
         CODELOG.error(message)
         raise ArgumentException(message, status)
 

@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 from pprint import pformat
 from bdb import BdbQuit
+from pkg_resources import get_distribution, DistributionNotFound
 from tempfile import TemporaryDirectory
 import shutil
 
@@ -502,6 +503,12 @@ def entry():
     args = parser.parse_args()
 
     CODELOG.debug(f"args: {args}")
+    try:
+        software_version = get_distribution("cascade").version
+    except DistributionNotFound:
+        # package is not installed
+        software_version = "unavailable"
+    MATHLOG.debug(f"Cascade version {software_version}.")
     if "JOB_ID" in os.environ:
         MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
 
