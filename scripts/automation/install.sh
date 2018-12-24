@@ -56,7 +56,7 @@ fi
 # Download the Cascade project from github
 
 CASCADE_HOME=/ihme/code/dismod_at
-CASCADE_DEVELOP_DIR=${CASCADE_HOME}/cascade_develop
+CASCADE_DEVELOP_DIR=${CASCADE_HOME}/clone_for_install
 
 GITHUB="https://github.com/ihmeuw/cascade.git"
 
@@ -95,8 +95,10 @@ if [ "$?" -ne "0" ]; then
     exit 7
 fi
 
-# Install the virtual environment to be the "current" if the tests pass
-(cd "${CASCADE_DEVELOP_DIR}/tests" && pytest)
+# Install the virtual environment to be the "current" if the tests pass.
+# Run testing without writing *.pyc to the __pycache__.
+PYTHONDONTWRITEBYTECODE=1
+(cd "${CASCADE_DEVELOP_DIR}/tests" && python -m pytest -p no:cacheprovider --ihme)
 
 if [ "$?" -eq "0" ]; then
     for softlink in prod dev current
@@ -121,3 +123,10 @@ if ! [ -f "${DISMOD_AT_PATH}" ] ; then
     exit 1
 fi
 echo "The physical path of the DISMOD_AT executable is ${DISMOD_AT_PATH}."
+
+# Generate pyc files for everything before freezing code for other users.
+python -m compileall "${ENV}"
+# Ensure umask is correct for all files touched so another person
+# can install and maintain code.
+chmod -R g+rwX,a+rX "${CASCADE_DEVELOP_DIR}"
+chmod -R g+rwX,a+rX "${ENV}"
