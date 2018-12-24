@@ -277,7 +277,6 @@ def model_context_from_settings(execution_context, settings):
     cases = make_average_integrand_cases_from_gbd(
         execution_context, [settings.model.drill_sex], include_birth_prevalence=bool(settings.model.birth_prev)
     )
-    cases = make_average_integrand_cases_from_gbd(execution_context, [settings.model.drill_sex])
     model_context.average_integrand_cases = cases
 
     fixed_effects_from_epiviz(model_context, execution_context, settings)
