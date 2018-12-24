@@ -30,17 +30,17 @@ def location_id_from_location_and_level(execution_context, location_id, target_l
     """ Find the location which is above location_id at the target level in the hierarchy
 
     Args:
-    location_id: the location to search up from
-    target_level: A level in the hierarchy where 1==global and larger numbers are more detailed
-                  and the string "most_detailed" indicates the most detailed level.
+        location_id: the location to search up from
+        target_level: A level in the hierarchy where 1==global and larger numbers are more detailed
+                      and the string "most_detailed" indicates the most detailed level.
 
     Raises:
-    ValueError if location_id is itself above target_level in the hierarchy
+        ValueError if location_id is itself above target_level in the hierarchy
 
     NOTE:
-    This makes some assumptions about what level will be selectable in epiviz which could change
-    in the future. There may be a more future-proof version of this that loads stuff out of the
-    epi.cascade_level table instead of hard coding it.
+        This makes some assumptions about what level will be selectable in epiviz which could change
+        in the future. There may be a more future-proof version of this that loads stuff out of the
+        epi.cascade_level table instead of hard coding it.
     """
     hierarchy = get_location_hierarchy_from_gbd(execution_context)
     node = hierarchy.get_node_by_id(location_id)
@@ -61,4 +61,4 @@ def location_id_from_location_and_level(execution_context, location_id, target_l
             level_name = {1: "Global", 2: "Super Region", 3: "Region", 4: "Country", 5: "Subnational 1"}[target_level]
             raise ValueError(f"Level '{level_name}' selected but current location is higher in the hierarchy than that")
 
-    return node.id
+    return [node.id]

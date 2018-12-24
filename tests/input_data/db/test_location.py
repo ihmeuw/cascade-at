@@ -95,11 +95,11 @@ def test_get_descendents__include_parent(mock_locations):
 
 def test_location_id_from_location_and_level__happy_path(mock_locations):
     ec = make_execution_context()
-    assert location_id_from_location_and_level(ec, 0, 1) == 0
-    assert location_id_from_location_and_level(ec, 7, 1) == 0
-    assert location_id_from_location_and_level(ec, 7, 2) == 2
-    assert location_id_from_location_and_level(ec, 4, 2) == 1
-    assert location_id_from_location_and_level(ec, 7, "most_detailed") == 7
+    assert location_id_from_location_and_level(ec, 0, 1) == [0]
+    assert location_id_from_location_and_level(ec, 7, 1) == [0]
+    assert location_id_from_location_and_level(ec, 7, 2) == [2]
+    assert location_id_from_location_and_level(ec, 4, 2) == [1]
+    assert location_id_from_location_and_level(ec, 7, "most_detailed") == [7]
 
 
 def test_location_id_from_location_and_level__too_low(mock_locations):

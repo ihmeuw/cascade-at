@@ -1,4 +1,4 @@
-"""This module prvides basic database access tools.
+"""This module provides basic database access tools.
 
 All other code which accesses the external databases should do so through the context managers defined here so we
 have consistency and a single chokepoint for that access.
