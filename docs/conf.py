@@ -63,7 +63,6 @@ author = "Cascade Team"
 #
 # The full version, including alpha/beta/rc tags.
 release = get_distribution('cascade').version
-# for example take major/minor
 # The short X.Y version.
 version = '.'.join(release.split('.')[:2])
 
