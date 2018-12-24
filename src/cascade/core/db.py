@@ -93,6 +93,7 @@ def connection(execution_context=None, database=None):
     connection = ezfuncs.get_connection(database)
     yield connection
     connection.commit()
+    connection.close()
 
 
 def model_version_exists(execution_context):
