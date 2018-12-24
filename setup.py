@@ -2,10 +2,11 @@ from setuptools import setup, PEP420PackageFinder
 
 setup(
     name="cascade",
-    version="0.0.1",
     packages=PEP420PackageFinder.find("src"),
     package_data={"cascade.executor": ["data/*.toml"]},
     package_dir={"": "src"},
+    use_scm_version=True,
+    setup_requires=["setuptools_scm"],
     install_requires=["numpy", "pandas", "scipy", "toml", "sqlalchemy", "networkx", "tables", "python-intervals"],
     extras_require={
         "testing": ["hypothesis", "pytest", "pytest-mock"],
