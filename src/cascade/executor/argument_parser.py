@@ -102,10 +102,11 @@ class BaseArgumentParser(ArgumentParser):
 
         elif message:
             super()._print_message(message, sys.stderr)
-            CODELOG.error(message)
 
         else:
             message = "Exiting due to bad arguments: {}".format(sys.argv)
+
+        CODELOG.error(message)
         raise ArgumentException(message, status)
 
     @staticmethod
