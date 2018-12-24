@@ -27,12 +27,17 @@ def get_descendents(execution_context, children_only=False, include_parent=False
 
 
 def location_id_from_location_and_level(execution_context, location_id, target_level):
-    """ Find the location which is above location_id at the target level in the hierarchy
+    """ Find the set of locations from the destination location to
+    the ``target_level`` above that location.
 
     Args:
         location_id: the location to search up from
         target_level: A level in the hierarchy where 1==global and larger numbers are more detailed
                       and the string "most_detailed" indicates the most detailed level.
+
+    Returns:
+        List[int]: The list of locations from the top level to the given
+                   location.
 
     Raises:
         ValueError if location_id is itself above target_level in the hierarchy
@@ -43,10 +48,11 @@ def location_id_from_location_and_level(execution_context, location_id, target_l
         epi.cascade_level table instead of hard coding it.
     """
     hierarchy = get_location_hierarchy_from_gbd(execution_context)
-    node = hierarchy.get_node_by_id(location_id)
+    drill = list()
+    drill.append(hierarchy.get_node_by_id(location_id))
 
     if target_level == "most_detailed":
-        if node.children:
+        if drill[-1].children:
             raise ValueError("Most detailed level selected but current location is higher in the hierarchy than that")
     else:
         target_level = int(target_level)
@@ -55,10 +61,10 @@ def location_id_from_location_and_level(execution_context, location_id, target_l
         # central comp uses a system where global == 0
         normalized_target = target_level - 1
 
-        while hierarchy.get_nodelvl_by_id(node.id) > normalized_target:
-            node = node.parent
-        if hierarchy.get_nodelvl_by_id(node.id) != normalized_target:
+        while hierarchy.get_nodelvl_by_id(drill[-1].id) > normalized_target:
+            drill.append(drill[-1].parent)
+        if hierarchy.get_nodelvl_by_id(drill[-1].id) != normalized_target:
             level_name = {1: "Global", 2: "Super Region", 3: "Region", 4: "Country", 5: "Subnational 1"}[target_level]
             raise ValueError(f"Level '{level_name}' selected but current location is higher in the hierarchy than that")
 
-    return [node.id]
+    return [location.id for location in reversed(drill)]
