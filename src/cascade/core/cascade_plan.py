@@ -1,7 +1,9 @@
 """
 Specification for a whole cascade.
 """
-from cascade.input_data.db.locations import get_location_hierarchy_from_gbd, location_id_from_location_and_level
+import networkx as nx
+
+from cascade.input_data.db.locations import location_hierarchy, location_id_from_location_and_level
 from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -39,7 +41,11 @@ class CascadePlan:
         settings = configuration.settings
         self.policies = settings.policies
 
-        self.location_hierarchy = get_location_hierarchy_from_gbd(execution_context)
+        self.locations = location_hierarchy(execution_context)
         starting_level = settings.model.split_sex
         end_location = settings.model.drill_location
-        location_id_from_location_and_level(execution_context, end_location, starting_level)
+        drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
+        tasks = [(drill_location, 0) for drill_location in drill]
+        task_pairs = list(zip(tasks[:-1], tasks[1:]))
+        self.task_graph = nx.DiGraph()
+        self.task_graph.add_edges_from(task_pairs)

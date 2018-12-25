@@ -1,8 +1,8 @@
+import networkx as nx
 import pytest
 
 from cascade.testing_utilities import make_execution_context
-
-from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level
+from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level, location_hierarchy
 
 
 class MockLocation:
@@ -53,10 +53,12 @@ class MockLocation:
 
 @pytest.fixture
 def mock_locations(mocker):
-    locations = mocker.patch("cascade.input_data.db.locations.get_location_hierarchy_from_gbd")
-    nodes = {0: [1, 2], 1: [3, 4], 2: [5, 6], 3: [], 4: [], 5: [], 6: [7], 7: []}
-    locations.return_value = MockLocation(0, nodes)
-    return locations
+    locations = mocker.patch("cascade.input_data.db.locations.location_hierarchy")
+    G = nx.DiGraph()
+    G.add_nodes_from(list(range(8)))
+    G.add_edges_from([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6), (6, 7)])
+    assert len(G.nodes) == 8
+    locations.return_value = G
 
 
 def test_get_descendents__all_descendents(mock_locations):
@@ -118,3 +120,20 @@ def test_location_id_from_location_and_level__too_low(mock_locations):
 
     with pytest.raises(Exception):
         location_id_from_location_and_level(ec, 2, 3)
+
+
+def test_location_hierarchy_networkx(ihme):
+    ec = make_execution_context(gbd_round_id=5)
+    locs = location_hierarchy(ec)
+    assert nx.is_directed_acyclic_graph(locs)
+    assert nx.dag_longest_path_length(locs) == 6
+    assert nx.dag_longest_path(locs)[0] == 1
+    assert locs.nodes[1]["level"] == 0
+    assert locs.nodes[13]["location_name"] == "Malaysia"
+
+
+def test_ancestors_level(ihme):
+    ec = make_execution_context(gbd_round_id=5)
+    locs = location_hierarchy(ec)
+    drill = list(nx.topological_sort(nx.subgraph(locs, nbunch=nx.ancestors(locs, 491))))
+    assert drill == [1, 4, 5, 6]

@@ -1,5 +1,6 @@
 import pytest
 
+import networkx as nx
 import pandas as pd
 import numpy as np
 from pandas.util.testing import assert_frame_equal
@@ -44,14 +45,15 @@ class LocationNode:
 
 @pytest.fixture
 def mock_get_location_hierarchy_from_gbd(mocker):
-    get_location_hierarchy_from_gbd = mocker.patch("cascade.dismod.serialize.get_location_hierarchy_from_gbd")
-    the_uk = LocationNode("United Kingdom", 1004, [])
-    europe = LocationNode("Europe", 10, [the_uk])
-    earth = LocationNode("Earth", 42, [europe])
-    the_uk.root = earth
-    europe.root = earth
-    earth.root = earth
-    get_location_hierarchy_from_gbd.return_value = earth
+    location_hierarchy = mocker.patch("cascade.dismod.serialize.location_hierarchy")
+    g = nx.DiGraph()
+    g.add_nodes_from([
+        (1004, dict(location_name="United Kingdom")),
+        (10, dict(location_name="Europe")),
+        (42, dict(location_name="Earth")),
+    ])
+    g.add_edges_from([(42, 10), (10, 1004)])
+    location_hierarchy.return_value = g
 
 
 def make_data(integrands):

@@ -5,6 +5,7 @@ from numbers import Real
 import time
 import sys
 
+import networkx as nx
 import numpy as np
 import pandas as pd
 
@@ -12,7 +13,7 @@ from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
 from cascade.model.priors import Constant
 from cascade.model.grids import unique_floats
-from cascade.input_data.db.locations import get_location_hierarchy_from_gbd
+from cascade.input_data.db.locations import location_hierarchy
 
 from cascade.core.log import getLoggers
 
@@ -138,17 +139,25 @@ def make_log_table():
     )
 
 
-def rec_build_nodes_table(node, parent):
-    parent_id = parent.id if parent is not None else np.NaN
-    result = [{"node_name": node.info["location_name_short"], "c_location_id": node.id, "parent": parent_id}]
-    for child in node.level_n_descendants(1):
-        result += rec_build_nodes_table(child, node)
-    return result
+def parent_of(location_graph, node):
+    try:
+        return next(location_graph.predecessors(node))
+    except StopIteration:
+        return np.nan
+
+
+def rec_build_nodes_table(locations):
+    nodes = list(nx.lexicographical_topological_sort(locations))
+    return pd.DataFrame(dict(
+        node_name=[locations.nodes[nidx]["location_name"] for nidx in nodes],
+        parent=[parent_of(locations, n) for n in nodes],
+        c_location_id=nodes,
+    ))
 
 
 def make_node_table(execution_context):
-    locations = get_location_hierarchy_from_gbd(execution_context)
-    table = pd.DataFrame(rec_build_nodes_table(locations.root, None), columns=["node_name", "parent", "c_location_id"])
+    locations = location_hierarchy(execution_context)
+    table = rec_build_nodes_table(locations)
     table["node_id"] = table.index
 
     def location_to_node_func(location_id):
