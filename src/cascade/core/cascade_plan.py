@@ -37,15 +37,20 @@ class CascadePlan:
         self.location_hierarchy = None
         self.locations_for_run = None
 
-    def from_epiviz_configuration(self, execution_context, configuration):
-        settings = configuration.settings
-        self.policies = settings.policies
+    @classmethod
+    def from_epiviz_configuration(cls, execution_context, settings):
+        plan = cls()
+        plan.policies = settings.policies
 
-        self.locations = location_hierarchy(execution_context)
+        plan.locations = location_hierarchy(execution_context)
         starting_level = settings.model.split_sex
         end_location = settings.model.drill_location
         drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
+        print(f"drill {drill}")
         tasks = [(drill_location, 0) for drill_location in drill]
         task_pairs = list(zip(tasks[:-1], tasks[1:]))
-        self.task_graph = nx.DiGraph()
-        self.task_graph.add_edges_from(task_pairs)
+        plan.task_graph = nx.DiGraph()
+        plan.task_graph.add_edges_from(task_pairs)
+        # Add a custom graph attribute to record the tree root.
+        plan.task_graph.graph["root"] = tasks[0]
+        return plan
