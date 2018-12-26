@@ -19,44 +19,50 @@ All the kinds of objects:
 """
 from itertools import product, repeat
 
-from cascade.model.grids import AgeTimeGrid, PriorGrid
-from cascade.model.priors import _Prior
-
 
 PRIOR_KINDS = ["value", "dage", "dtime"]
 
 
 class RandomField:
-    def __init__(self, age_time_grid, grid_priors=None):
+    def __init__(self, age_time_grid, prior_grid=None):
         """
-
         Args:
             age_time_grid (AgeTimeGrid): The supporting grid.
-            priors (dict[str,PriorGrid]): Three priors at every grid point.
+            prior_grid (dict[str,PriorGrid]): Three priors at every grid point.
+                                               Includes mulstd priors.
         """
         self.age_time_grid = age_time_grid
-        self.grid_priors = grid_priors
+        self.prior_grid = prior_grid
 
 
 class PartsContainer:
+    """The Model has five kinds of random fields, but if we take the
+    vars from the model, the vars split into the same five kinds. This class
+    is responsible for organizing data into those five kinds and iterating
+    over them, for a Model or for vars, or for priors, whatever."""
     def __init__(self, nonzero_rates, child_location):
+        # Key is the rate as a string.
         self.rate = dict(zip(nonzero_rates, repeat(None)))
+        # Key is tuple (rate, location_id)
         self.random_effect = dict(zip(product(nonzero_rates, child_location), repeat(None)))
+        # Key is (covariate, rate), both as strings.
         self.alpha = dict()
+        # Key is (covariate, integrand), both as strings.
         self.beta = dict()
+        # Key is (covariate, integrand), both as strings.
         self.gamma = dict()
 
     def by_field(self):
         for k, v in self.rate:
-            yield k, v
+            yield "rate", k, v
         for k, v in self.random_effect:
-            yield k, v
+            yield "random_effect", k, v
         for k, v in self.alpha:
-            yield k, v
+            yield "alpha", k, v
         for k, v in self.beta:
-            yield k, v
+            yield "beta", k, v
         for k, v in self.gamma:
-            yield k, v
+            yield "gamma", k, v
 
 
 class Model:
@@ -69,29 +75,31 @@ class Model:
         self.locations = locations
         self.parent_location = parent_location
         self.child_location = set(locations.successors(parent_location))
-        self.covariates = dict()  # from name to Covariate
+        self.covariates = list()  # of class Covariate
 
         self.parts = PartsContainer(nonzero_rates, self.child_location)
 
     def write(self, writer):
         writer.start_model(self.nonzero_rates, self.parent_location, self.child_location)
         for which, field_at in self.parts.by_field():
-            writer.write_ages_and_times(field_at.age_time_grid)
-        for k, covariate in self.covariates.items():
-            writer.write_covariate(k, covariate)
+            at_grid = field_at.age_time_grid
+            writer.write_ages_and_times(at_grid.ages, at_grid.times)
+        writer.write_covariate(self.covariates)
         writer.write_locations(self.locations)
 
-        for k, v in self.rate:
-            writer.write_rate(k, v)
-        for k, v in self.random_effect:
-            writer.write_random_effect(k, v)
-        for k, v in self.alpha:
-            writer.write_mulcov("alpha", k, v)
-        for k, v in self.beta:
-            writer.write_mulcov("beta", k, v)
-        for k, v in self.gamma:
-            writer.write_mulcov("gamma", k, v)
-
+        for kind, key, write_field in self.parts.by_field():
+            if kind == "rate":
+                writer.write_rate(key, write_field)
+            elif kind == "random_effect":
+                writer.write_random_effect(key, write_field)
+            elif kind == "alpha":
+                writer.write_mulcov("alpha", key, write_field)
+            elif kind == "beta":
+                writer.write_mulcov("beta", key, write_field)
+            elif kind == "gamma":
+                writer.write_mulcov("gamma", key, write_field)
+            else:
+                raise RuntimeError(f"Unknown kind of field {kind}")
 
     @property
     def rate(self):

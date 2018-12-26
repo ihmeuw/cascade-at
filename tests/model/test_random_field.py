@@ -1,11 +1,14 @@
 import networkx as nx
+import pytest
 
 from cascade.model.priors import Gaussian, Uniform
 from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.random_field import Model, RandomField
+from cascade.dismod.model_writer import ModelWriter
 
 
-def test_make_model():
+@pytest.fixture
+def basic_model():
     nonzero_rates = ["iota", "chi", "omega"]
     locations = nx.DiGraph()
     locations.add_edges_from([(1, 2), (1, 3), (1, 4)])
@@ -32,3 +35,9 @@ def test_make_model():
     m.rate["omega"] = RandomField(dense_age_time, rate_priors)
     m.rate["iota"] = RandomField(dense_age_time, rate_priors)
     m.rate["chi"] = RandomField(dense_age_time, rate_priors)
+    return m
+
+
+def test_write_rate(basic_model):
+    writer = ModelWriter()
+    basic_model.write(writer)
