@@ -19,20 +19,27 @@ All the kinds of objects:
 """
 from itertools import product, repeat
 
+from cascade.model.grids import AgeTimeGrid, PriorGrid
+
 
 PRIOR_KINDS = ["value", "dage", "dtime"]
 
 
 class RandomField:
-    def __init__(self, age_time_grid, prior_grid=None):
+    def __init__(self, age_time_grid, priors=None):
         """
         Args:
             age_time_grid (AgeTimeGrid): The supporting grid.
-            prior_grid (dict[str,PriorGrid]): Three priors at every grid point.
-                                               Includes mulstd priors.
+            priors (dict[str,PriorGrid]): Three priors at every grid point.
+                                          Includes mulstd priors.
         """
+        assert isinstance(age_time_grid, AgeTimeGrid)
+        for key, value in priors.items():
+            assert key in ["value", "dage", "dtime"]
+            assert isinstance(value, PriorGrid)
+
         self.age_time_grid = age_time_grid
-        self.prior_grid = prior_grid
+        self.priors = priors
 
 
 class PartsContainer:
