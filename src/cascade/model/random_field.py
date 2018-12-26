@@ -46,6 +46,18 @@ class PartsContainer:
         self.beta = dict()
         self.gamma = dict()
 
+    def by_field(self):
+        for k, v in self.rate:
+            yield k, v
+        for k, v in self.random_effect:
+            yield k, v
+        for k, v in self.alpha:
+            yield k, v
+        for k, v in self.beta:
+            yield k, v
+        for k, v in self.gamma:
+            yield k, v
+
 
 class Model:
     def __init__(self, nonzero_rates, locations, parent_location):
@@ -60,6 +72,26 @@ class Model:
         self.covariates = dict()  # from name to Covariate
 
         self.parts = PartsContainer(nonzero_rates, self.child_location)
+
+    def write(self, writer):
+        writer.start_model(self.nonzero_rates, self.parent_location, self.child_location)
+        for which, field_at in self.parts.by_field():
+            writer.write_ages_and_times(field_at.age_time_grid)
+        for k, covariate in self.covariates.items():
+            writer.write_covariate(k, covariate)
+        writer.write_locations(self.locations)
+
+        for k, v in self.rate:
+            writer.write_rate(k, v)
+        for k, v in self.random_effect:
+            writer.write_random_effect(k, v)
+        for k, v in self.alpha:
+            writer.write_mulcov("alpha", k, v)
+        for k, v in self.beta:
+            writer.write_mulcov("beta", k, v)
+        for k, v in self.gamma:
+            writer.write_mulcov("gamma", k, v)
+
 
     @property
     def rate(self):
