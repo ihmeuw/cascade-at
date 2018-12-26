@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 
 import cascade
+from cascade.core.cascade_plan import CascadePlan
 from cascade.core.db import dataframe_from_disk
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
@@ -454,6 +455,8 @@ def main(args):
         raise NotImplementedError("Only 'drill' mode is currently supported")
 
     add_settings_to_execution_context(ec, settings)
+    CascadePlan.from_epiviz_configuration(ec, settings)
+
     if args.skip_cache:
         ec.parameters.tier = 2
     else:
