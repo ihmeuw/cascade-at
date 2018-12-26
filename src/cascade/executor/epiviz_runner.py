@@ -65,7 +65,7 @@ def add_settings_to_execution_context(ec, settings):
     # there isn't an entry for it in the GUI yet.
     ec.parameters.drill_start = location_id_from_location_and_level(
         ec, settings.model.drill_location, settings.model.split_sex
-    )
+    )[0]
 
 
 def add_mortality_data(model_context, execution_context, sex_id):
@@ -460,6 +460,7 @@ def main(args):
         ec.parameters.tier = 3
     ec.parameters.bundle_file = args.bundle_file
     ec.parameters.bundle_study_covariates_file = args.bundle_study_covariates_file
+
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
