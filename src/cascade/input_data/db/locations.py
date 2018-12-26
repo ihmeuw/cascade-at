@@ -27,10 +27,7 @@ def location_hierarchy(execution_context):
     location_df = db_queries.get_location_metadata(
         location_set_id=35, gbd_round_id=execution_context.parameters.gbd_round_id)
     G = nx.DiGraph()
-    G.add_nodes_from([
-        (int(row.location_id), row._asdict())
-        for row in location_df.itertuples()
-    ])
+    G.add_nodes_from([(int(row.location_id), row._asdict()) for row in location_df.itertuples()])
     # GBD encodes the global node as having itself as a parent.
     G.add_edges_from([(int(row.parent_id), int(row.location_id))
                       for row in location_df[location_df.location_id != 1].itertuples()])
@@ -45,8 +42,8 @@ def get_descendents(execution_context, children_only=False, include_parent=False
 
     Args:
         execution_context:
-        children_only:
-        include_parent:
+        children_only (bool): Exclude children of the children and below.
+        include_parent (bool): Add the parent location to return results.
 
     Returns:
         set of location IDs
@@ -79,7 +76,7 @@ def location_id_from_location_and_level(execution_context, location_id, target_l
                       Must be 1 or greater.
 
     Returns:
-        List[int]: The list of locations from the top level to the given
+        List[int]: The list of locations from the drill start to the given
                    location.
 
     Raises:

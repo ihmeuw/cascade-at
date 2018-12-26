@@ -12,7 +12,6 @@ import pandas as pd
 import numpy as np
 
 import cascade
-from cascade.core.cascade_plan import CascadePlan
 from cascade.core.db import dataframe_from_disk
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
@@ -462,7 +461,6 @@ def main(args):
     ec.parameters.bundle_file = args.bundle_file
     ec.parameters.bundle_study_covariates_file = args.bundle_study_covariates_file
 
-    CascadePlan.from_epiviz_configuration(ec, settings)
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)

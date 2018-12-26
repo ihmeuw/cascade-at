@@ -139,25 +139,21 @@ def make_log_table():
     )
 
 
-def parent_of(location_graph, node):
+def _parent_of(location_graph, node):
     try:
         return next(location_graph.predecessors(node))
     except StopIteration:
         return np.nan
 
 
-def rec_build_nodes_table(locations):
-    nodes = list(nx.lexicographical_topological_sort(locations))
-    return pd.DataFrame(dict(
-        node_name=[locations.nodes[nidx]["location_name"] for nidx in nodes],
-        parent=[parent_of(locations, n) for n in nodes],
-        c_location_id=nodes,
-    ))
-
-
 def make_node_table(execution_context):
     locations = location_hierarchy(execution_context)
-    table = rec_build_nodes_table(locations)
+    nodes = list(nx.lexicographical_topological_sort(locations))
+    table = pd.DataFrame(dict(
+        node_name=[locations.nodes[nidx]["location_name"] for nidx in nodes],
+        parent=[_parent_of(locations, n) for n in nodes],
+        c_location_id=nodes,
+    ))
     table["node_id"] = table.index
 
     def location_to_node_func(location_id):
