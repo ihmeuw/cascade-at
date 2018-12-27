@@ -58,6 +58,7 @@ def initial_context_from_epiviz(configuration):
     context.parameters.minimum_meas_cv = configuration.model.minimum_meas_cv
     context.parameters.global_data_eta = configuration.eta.data
     context.parameters.ode_step_size = configuration.model.ode_step_size
+    context.parameters.additional_ode_steps = configuration.model.additional_ode_steps
 
     context.policies = policies_from_settings(configuration)
 
