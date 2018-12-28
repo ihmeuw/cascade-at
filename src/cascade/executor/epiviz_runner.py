@@ -171,6 +171,12 @@ def add_omega_constraint(model_context, execution_context, sex_id):
 
 
 def add_age_steps(model_context):
+    smallest_step = model_context.parameters.ode_step_size
+    added = compute_age_steps(smallest_step)
+    model_context.parameters.additional_age_steps = added
+
+
+def compute_age_steps(smallest_step):
     """We will add age steps to whatever they have given. The GBD chooses
     age step sizes of 0, 7 days, 28 days, 1 year, 5 years. These look roughly
     like a pattern of multiplying by 4, so 1 week, 4 weeks 16 weeks, 64 weeks.
@@ -181,16 +187,18 @@ def add_age_steps(model_context):
     of 4, just to be safe.
     So an ODE step size of 1 year gives (0.015625, 0.0625, 0.25).
     An ODE step size of 5 years gives [0.0049, 0.019, 0.078, 0.31, 1.25].
+
+    If the smallest step is under 7/365, then no additional age steps
+    are returned.
     """
-    smallest_step = model_context.parameters.ode_step_size
     minimum_step_size = 7 / 365
     geometric_growth = 2
     minimum_step_count = np.log(smallest_step / minimum_step_size) / np.log(geometric_growth)
     chosen_step_count = math.ceil(minimum_step_count)
     delta = smallest_step / geometric_growth**chosen_step_count
     added = np.array([delta * geometric_growth**i for i in range(chosen_step_count)])
-    model_context.parameters.additional_age_steps = added
     MATHLOG.info(f"Adding ages to ODE integration: {added}")
+    return added
 
 
 def prepare_data(execution_context, settings):
