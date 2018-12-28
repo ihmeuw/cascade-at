@@ -173,7 +173,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
 def add_age_steps(model_context):
     smallest_step = model_context.parameters.ode_step_size
     added = compute_age_steps(smallest_step)
-    model_context.parameters.additional_age_steps = added
+    model_context.parameters.additional_ode_steps = added
 
 
 def compute_age_steps(smallest_step):
