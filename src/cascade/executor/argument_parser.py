@@ -7,8 +7,7 @@ from getpass import getuser
 import logging.handlers
 import os
 from pathlib import Path
-from secrets import choice
-import string
+from secrets import token_urlsafe
 import sys
 
 import pkg_resources
@@ -164,8 +163,7 @@ class BaseArgumentParser(ArgumentParser):
 
         # On collision, this will fail to write a code log.
         # Not using tempfile because it insists on secure mode flags.
-        uniquish = ''.join(choice(string.ascii_letters) for _ in range(8))
-        fname = datetime.datetime.now().strftime(f"%Y%m%d-%H%M%S{uniquish}.log")
+        fname = datetime.datetime.now().strftime(f"%Y%m%d-%H%M%S{token_urlsafe(8)}.log")
         code_log_path = user_code_dir / fname
         try:
             code_handler = logging.StreamHandler(
