@@ -1,5 +1,6 @@
 import getpass
 import logging
+import os
 from pathlib import Path
 import pkg_resources
 import pytest
@@ -69,6 +70,7 @@ def test_math_log(tmpdir):
 
 
 def test_code_log(tmpdir):
+    previous_umask = os.umask(0o002)
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
     parser.parse_args(["--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
@@ -80,10 +82,14 @@ def test_code_log(tmpdir):
     codelog.error("errorhuml")
     close_all_handlers()
 
+    os.umask(previous_umask)
+
     base_dir = tmp_dir / getpass.getuser() / "cascade"
     logs = list(base_dir.glob("*.log"))
     print(logs)
     code_log = logs[0].read_text().splitlines()
+    # It must be world-readable
+    assert os.stat(logs[0]).st_mode & stat.S_IROTH > 0
     assert any("infofuml" in in_line.strip() for in_line in code_log)
     assert any(in_line.strip().endswith("warningfol") for in_line in code_log)
     assert any(in_line.strip().endswith("errorhuml") for in_line in code_log)
