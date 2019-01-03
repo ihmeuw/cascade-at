@@ -7,11 +7,11 @@ from getpass import getuser
 import logging.handlers
 import os
 from pathlib import Path
+from secrets import token_urlsafe
 import sys
-import toml
-import tempfile
 
 import pkg_resources
+import toml
 
 from cascade.executor.math_log import MathLogFormatter
 
@@ -157,17 +157,17 @@ class BaseArgumentParser(ArgumentParser):
                                 f"Not making a log file for code log.")
                 return
 
-        fname = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        try:
-            log_file_descriptor, code_log_path = tempfile.mkstemp(
-                suffix=".log", prefix=fname, dir=user_code_dir, text=True)
-        except (OSError, PermissionError) as ose:
-            logging.warning(f"Could not write to file in {user_code_dir} to make a log. {ose}")
+        if not os.access(str(user_code_dir), os.W_OK):
+            logging.warning(f"Could not write to file in {user_code_dir} to make a log")
             return
 
-        os.close(log_file_descriptor)
+        # On collision, this will fail to write a code log.
+        # Not using tempfile because it insists on secure mode flags.
+        fname = datetime.datetime.now().strftime(f"%Y%m%d-%H%M%S{token_urlsafe(8)}.log")
+        code_log_path = user_code_dir / fname
         try:
-            code_handler = logging.FileHandler(code_log_path)
+            code_handler = logging.StreamHandler(
+                open(os.open(str(code_log_path), os.O_CREAT | os.O_WRONLY, 0o644), "w"))
         except (OSError, PermissionError) as fhe:
             logging.warning(f"Could not write to file {code_log_path} so no code log: {fhe}")
             return
@@ -214,11 +214,13 @@ class BaseArgumentParser(ArgumentParser):
             logging.warning(f"Could not make mathlog directory {math_log_dir} "
                             f"even though epiviz log dir {epiviz_log_dir} exists: {ose}")
             return
+        if not os.access(str(math_log_dir), os.W_OK):
+            logging.warning(f"Could not write log to {math_log_dir}")
+            return
 
         log_file = math_log_dir / "log.log"
         try:
-            append_to_math_log = "a"
-            math_handler = logging.FileHandler(str(log_file), append_to_math_log)
+            math_handler = logging.StreamHandler(open(os.open(str(log_file), os.O_CREAT | os.O_WRONLY, 0o644), "w"))
         except (OSError, PermissionError) as mhe:
             logging.warning(f"Could not write to math log at {log_file} even though "
                             f"directory {math_log_dir} exists: {mhe}")
