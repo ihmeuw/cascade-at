@@ -7,8 +7,9 @@ from getpass import getuser
 import logging.handlers
 import os
 from pathlib import Path
+from secrets import choice
+import string
 import sys
-from uuid import uuid4
 
 import pkg_resources
 import toml
@@ -163,7 +164,7 @@ class BaseArgumentParser(ArgumentParser):
 
         # On collision, this will fail to write a code log.
         # Not using tempfile because it insists on secure mode flags.
-        uniquish = uuid4().hex[:8]
+        uniquish = ''.join(choice(string.ascii_letters) for _ in range(8))
         fname = datetime.datetime.now().strftime(f"%Y%m%d-%H%M%S{uniquish}.log")
         code_log_path = user_code_dir / fname
         try:
