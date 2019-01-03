@@ -540,7 +540,7 @@ def entry():
             traceback.print_exc()
             pdb.post_mortem()
         else:
-            CODELOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
+            MATHLOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
             raise
 
 
