@@ -170,14 +170,9 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.input_data.observations = pd.concat([observations, asdr], ignore_index=True, sort=True)
 
 
-def add_age_steps(model_context):
-    smallest_step = model_context.parameters.ode_step_size
-    added = compute_age_steps(smallest_step)
-    model_context.parameters.additional_ode_steps = added
-
-
 def compute_age_steps(smallest_step):
-    """We will add age steps to whatever they have given. The GBD chooses
+    """We will add age steps to the ODE steps that are for "every 1 year" or
+    "every 5 years," as given by the settings. The GBD chooses
     age step sizes of 0, 7 days, 28 days, 1 year, 5 years. These look roughly
     like a pattern of multiplying by 4, so 1 week, 4 weeks 16 weeks, 64 weeks.
     Let's play with the numbers to respect that organization.
@@ -312,7 +307,7 @@ def model_context_from_settings(execution_context, settings):
     )
     model_context.average_integrand_cases = cases
 
-    add_age_steps(model_context)
+    model_context.parameters.additional_ode_steps = compute_age_steps(model_context.parameters.ode_step_size)
     fixed_effects_from_epiviz(model_context, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
