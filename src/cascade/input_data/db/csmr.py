@@ -83,7 +83,7 @@ def get_csmr_data(execution_context):
 
     csmr = csmr[csmr["val"].notnull()]
 
-    csmr.rename(columns={"val": "mean"})
+    csmr = csmr.rename(columns={"val": "mean"})
 
     return csmr
 
@@ -108,6 +108,16 @@ def _upload_csmr_data_to_tier_3(cursor, model_version_id, csmr_data):
     """
 
     csmr_data = csmr_data.where(pd.notnull(csmr_data), None)
+
+    csmr_data = csmr_data[[
+        "year_id",
+        "location_id",
+        "sex_id",
+        "age_group_id",
+        "mean",
+        "lower",
+        "upper",
+    ]]
     cursor.executemany(insert_query, csmr_data.values.tolist())
 
     CODELOG.debug(f"uploaded {len(csmr_data)} lines of csmr data")

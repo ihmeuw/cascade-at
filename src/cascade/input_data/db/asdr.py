@@ -51,18 +51,6 @@ def get_asdr_data(execution_context):
 
     asdr = asdr[asdr["mean"].notnull()]
 
-    ordered_cols = [
-        "year_id",
-        "location_id",
-        "sex_id",
-        "age_group_id",
-        "mean",
-        "upper",
-        "lower",
-    ]
-
-    asdr = asdr[ordered_cols]
-
     return asdr
 
 
@@ -77,11 +65,11 @@ def _upload_asdr_data_to_tier_3(execution_context, cursor, model_version_id, asd
             location_id,
             sex_id,
             age_group_id,
-            age_upper,
-            age_lower,
             mean,
             upper,
-            lower
+            lower,
+            age_upper,
+            age_lower
         ) VALUES (
             {model_version_id}, {", ".join(["%s"]*9)}
         )
@@ -95,9 +83,23 @@ def _upload_asdr_data_to_tier_3(execution_context, cursor, model_version_id, asd
         "age_group_years_start": "age_lower",
         "age_group_years_end": "age_upper"
     })
-
     asdr_data = asdr_data.merge(age_group_data, how="left", on="age_group_id")
     asdr_data = asdr_data.where(pd.notnull(asdr_data), None)
+
+    ordered_cols = [
+        "year_id",
+        "location_id",
+        "sex_id",
+        "age_group_id",
+        "mean",
+        "upper",
+        "lower",
+        "age_upper",
+        "age_lower",
+    ]
+
+    asdr_data = asdr_data[ordered_cols]
+
     cursor.executemany(insert_query, asdr_data.values.tolist())
 
     CODELOG.debug(f"uploaded {len(asdr_data)} lines of asdr data")
