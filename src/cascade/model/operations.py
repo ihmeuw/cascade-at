@@ -50,6 +50,10 @@ def random_field_iterator(var_df):
         yield "rate_value", (smooth_id, rate_id, covariate_id), sub_grid_df
 
 
+def set_priors_on_model_context(model_context, posterior_draws):
+    pass
+
+
 def estimate_priors_from_posterior_draws(draws, model_context, execution_context):
     r"""
     Given a dataframe of sampled outcomes from a previous run of DismodAT,

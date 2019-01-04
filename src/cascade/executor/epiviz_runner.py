@@ -29,6 +29,7 @@ from cascade.input_data.db.mortality import (
     get_frozen_cause_specific_mortality_data,
     normalize_mortality_data
 )
+from cascade.model.operations import set_priors_on_model_context
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
@@ -509,10 +510,12 @@ def main(args):
     MATHLOG.debug(f"Completed successfully")
 
 
-def one_location_set(ec, settings, posteriors):
+def one_location_set(ec, settings, posterior_draws):
     """Solve a parent with its children as random effects."""
     mc = model_context_from_settings(ec, settings)
+    set_priors_on_model_context(mc, posterior_draws)
     ec.dismodfile = write_dismod_file(mc, ec, ec.parameters.db_file_path)
+    sampled_fit = None
     if not ec.parameters.db_only:
         run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
@@ -536,7 +539,7 @@ def one_location_set(ec, settings, posteriors):
     else:
         MATHLOG.debug(
             f"Only creating the base db file because 'db-only' was selected")
-    return posteriors
+    return sampled_fit
 
 
 def entry():
