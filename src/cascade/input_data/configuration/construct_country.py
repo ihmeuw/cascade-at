@@ -427,6 +427,8 @@ def get_covariate_data_by_sex(covariates):
         covariates_both["avg_time"] = covariates_both["avg_time_x"]
         covariates_by_sex[BOTH] = covariates_both
     else:
-        raise ValueError(f"Unexpected values for sex_id in covariates data.  Expected 3 or (1,2), found {sex_values}")
+        raise ValueError(
+            f"Unexpected values for sex_id in covariates data.  Expected (3,4) or (1,2), found {sex_values}"
+        )
 
     return covariates_by_sex
