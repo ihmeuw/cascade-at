@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+import math
 from pathlib import Path
 from pprint import pformat
 from bdb import BdbQuit
@@ -170,6 +171,32 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.input_data.observations = pd.concat([observations, asdr], ignore_index=True, sort=True)
 
 
+def compute_age_steps(smallest_step):
+    """We will add age steps to the ODE steps that are for "every 1 year" or
+    "every 5 years," as given by the settings. The GBD chooses
+    age step sizes of 0, 7 days, 28 days, 1 year, 5 years. These look roughly
+    like a pattern of multiplying by 4, so 1 week, 4 weeks 16 weeks, 64 weeks.
+    Let's play with the numbers to respect that organization.
+
+    This means there are two magic numbers: The smallest step must be less
+    than 7 days, and all steps are 2 times the size of the last step, instead
+    of 4, just to be safe.
+    So an ODE step size of 1 year gives (0.015625, 0.0625, 0.25).
+    An ODE step size of 5 years gives [0.0049, 0.019, 0.078, 0.31, 1.25].
+
+    If the smallest step is under 7/365, then no additional age steps
+    are returned.
+    """
+    minimum_step_size = 7 / 365
+    geometric_growth = 2
+    minimum_step_count = np.log(smallest_step / minimum_step_size) / np.log(geometric_growth)
+    chosen_step_count = math.ceil(minimum_step_count)
+    delta = smallest_step / geometric_growth**chosen_step_count
+    added = np.array([delta * geometric_growth**i for i in range(chosen_step_count)])
+    MATHLOG.info(f"Adding ages to ODE integration: {added}")
+    return added
+
+
 def prepare_data(execution_context, settings):
     if execution_context.parameters.tier == 3:
         freeze_bundle(execution_context, execution_context.parameters.bundle_id)
@@ -281,6 +308,7 @@ def model_context_from_settings(execution_context, settings):
     )
     model_context.average_integrand_cases = cases
 
+    model_context.parameters.additional_ode_steps = compute_age_steps(model_context.parameters.ode_step_size)
     fixed_effects_from_epiviz(model_context, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
@@ -543,7 +571,7 @@ def entry():
             traceback.print_exc()
             pdb.post_mortem()
         else:
-            CODELOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
+            MATHLOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
             raise
 
 

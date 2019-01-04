@@ -61,7 +61,7 @@ def get_descendents(execution_context, children_only=False, include_parent=False
         nodes.remove(location_id)
     # don't include parent and parent isn't in there, so OK.
 
-    return nodes
+    return list(nodes)
 
 
 def location_id_from_location_and_level(execution_context, location_id, target_level):
