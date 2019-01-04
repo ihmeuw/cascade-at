@@ -1,6 +1,8 @@
 #!/bin/bash
 set -x
 umask 0002
+TAG=$(date +'v%y.%m.%d')
+TAGMESSAGE="$2"
 
 # Installs the develop branch of Cascade from github into a virtual environment in
 # /ihme/code/dismod_at/env
@@ -12,7 +14,7 @@ usage() {
     cat <<-EOF
     This installs the develop branch of Cascade into /ihme/code/dismod_at/env.
 
-    Usage: $0 
+    Usage: $0 <message in quotes>
 
 EOF
 }
@@ -64,6 +66,23 @@ if [ -e "${CASCADE_DEVELOP_DIR}" ]; then
     git -C "${CASCADE_DEVELOP_DIR}" pull
 else
     git clone "${GITHUB}" "${CASCADE_DEVELOP_DIR}"    
+fi
+
+# Create a tag for today
+git tag -a "${TAG}" -m "${TAGMESSAGE}"
+if [ "$?" -ne "0" ]
+then
+  # The tag existed, so do it again.
+  git tag -d "${TAG}"
+  git tag -a "${TAG}" -m "${TAGMESSAGE}"
+fi
+
+git push origin "${TAG}"
+if [ "$?" -ne "0" ]
+then
+  # The tag existed on the remote repository
+  git push --delete origin "${TAG}"
+  git push origin "${TAG}"
 fi
 
 # Create the env directory and allocate a new name for the env for this install
@@ -128,5 +147,5 @@ echo "The physical path of the DISMOD_AT executable is ${DISMOD_AT_PATH}."
 python -m compileall "${ENV}"
 # Ensure umask is correct for all files touched so another person
 # can install and maintain code.
-chmod -R g+rwX,a+rX "${CASCADE_DEVELOP_DIR}"
-chmod -R g+rwX,a+rX "${ENV}"
+chmod -f -R g+rwX,a+rX "${CASCADE_DEVELOP_DIR}"
+chmod -f -R g+rwX,a+rX "${ENV}"
