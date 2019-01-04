@@ -655,6 +655,7 @@ def make_option_table(context, location_to_node_func):
         "parent_node_id": f"{location_to_node_func(context.parameters.location_id)}",
         "print_level_fixed": "5",
         "ode_step_size": f"{context.parameters.ode_step_size}",
+        "age_avg_split": " ".join([str(aas) for aas in context.parameters.additional_ode_steps]),
         "quasi_fixed": "false",
     }
 
