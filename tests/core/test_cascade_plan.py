@@ -1,3 +1,5 @@
+import networkx as nx
+
 from cascade.core.parameters import _ParameterHierarchy
 from cascade.core.cascade_plan import CascadePlan
 from cascade.testing_utilities import make_execution_context
@@ -11,4 +13,4 @@ def test_create(ihme):
     )
     c = CascadePlan.from_epiviz_configuration(ec, settings)
     assert len(c.task_graph.nodes) == 2
-    print(c.task_graph.nodes)
+    print(nx.to_edgelist(c.task_graph))

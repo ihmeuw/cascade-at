@@ -33,9 +33,8 @@ class CascadePlan:
         EpiViz-AT uses its settings to parameterize this class. Both
         clients rely on default policies.
         """
-        # The type for this is defined by the ``hierarchy.trees.tree`` class.
-        self.location_hierarchy = None
-        self.locations_for_run = None
+        self.locations = None
+        self.task_graph = None
 
     @classmethod
     def from_epiviz_configuration(cls, execution_context, settings):
@@ -46,9 +45,9 @@ class CascadePlan:
         starting_level = settings.model.split_sex
         end_location = settings.model.drill_location
         drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
-        print(f"drill {drill}")
+        MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
         tasks = [(drill_location, 0) for drill_location in drill]
-        task_pairs = list(zip(tasks[:-1], tasks[1:]))
+        task_pairs = list(zip(tasks[1:], tasks[:-1]))
         plan.task_graph = nx.DiGraph()
         plan.task_graph.add_edges_from(task_pairs)
         # Add a custom graph attribute to record the tree root.

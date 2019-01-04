@@ -489,34 +489,41 @@ def main(args):
         ec.parameters.tier = 2
     else:
         ec.parameters.tier = 3
-    ec.parameters.bundle_file = args.bundle_file
-    ec.parameters.bundle_study_covariates_file = args.bundle_study_covariates_file
+    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file", "bundle_study_covariates_file"]:
+        setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
+    one_location_set(ec, settings)
+
+    MATHLOG.debug(f"Completed successfully")
+
+
+def one_location_set(ec, settings):
+    """Solve a parent with its children as random effects."""
     mc = model_context_from_settings(ec, settings)
-
-    ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
-
-    if not args.db_only:
+    ec.dismodfile = write_dismod_file(mc, ec, ec.parameters.db_file_path)
+    if not ec.parameters.db_only:
         run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
         MATHLOG.info(f"Successfully fit parent")
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
-        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec, 4)
+        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec,
+                                                                            4)
 
-        ec.dismodfile.predict = sampled_predict.drop("predict_id", 1).reset_index(drop=True)
+        ec.dismodfile.predict = sampled_predict.drop("predict_id",
+                                                     1).reset_index(drop=True)
         ec.dismodfile.flush()
 
-        if not args.no_upload:
+        if not ec.parameters.no_upload:
             MATHLOG.debug(f"Uploading results to epiviz")
             save_model_results(ec)
         else:
-            MATHLOG.debug(f"Skipping results upload because 'no-upload' was selected")
+            MATHLOG.debug(
+                f"Skipping results upload because 'no-upload' was selected")
     else:
-        MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
-
-    MATHLOG.debug(f"Completed successfully")
+        MATHLOG.debug(
+            f"Only creating the base db file because 'db-only' was selected")
 
 
 def entry():
