@@ -20,9 +20,10 @@ from cascade.input_data.configuration.construct_study import CovariateRecords
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
-FEMALE = -0.5
-MALE = 0.5
-BOTH = 0
+FEMALE = 2
+MALE = 1
+BOTH = 3
+UNDEFINED = 4
 
 
 def unique_country_covariate_transform(configuration):
@@ -170,7 +171,7 @@ def covariate_to_measurements_nearest_favoring_same_year(measurements, sex, cova
             zip(
                 covariates[["age_lower", "age_upper"]].mean(axis=1) / 240,
                 covariates[["time_lower", "time_upper"]].mean(axis=1),
-                covariates["x_sex"],
+                covariates["sex_id"],
             )
         )
     )
@@ -191,7 +192,6 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
     Converts ``age_group_id`` into ``age_lower`` and ``age_upper`` and
     ``year_id`` into ``time_lower`` and ``time_upper``. This treats the year
     as a range from start of year to start of the next year.
-    Also converts sex_id=[1, 2, 3] into x_sex=[0.5, -0.5, 0].
 
     Args:
         with_ids_df (pd.DataFrame): Has ``age_group_id`` and ``year_id``.
@@ -202,14 +202,12 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
         pd.DataFrame: New pd.DataFrame with four added columns and in the same
             order as the input dataset.
     """
-    sex_df = pd.DataFrame(dict(x_sex=[-0.5, 0, 0.5], sex_id=[2, 3, 1]))
     original_order = with_ids_df.copy()
     # This "original index" guarantees that the order of the output dataset
     # and the index of the output dataset match that of with_ids_df, because
     # the merge reorders everything, including creation of a new index.
     original_order["original_index"] = original_order.index
-    aged = pd.merge(original_order, age_groups_df, on="age_group_id", sort=False)
-    merged = pd.merge(aged, sex_df, on="sex_id")
+    merged = pd.merge(original_order, age_groups_df, on="age_group_id", sort=False)
     if len(merged) != len(with_ids_df):
         # This is a fault in the input data.
         incoming_age_group_ids = set(with_ids_df.age_group_id.unique())
@@ -311,13 +309,12 @@ def get_measurement_data_by_sex(measurements):
         measurements (pandas.DataFrame): data for a specific measurement
 
     Returns:
-        dict: possible sex keys (-0.5, 0, 0.5) and measurement data as values
+        dict: possible sex keys (1, 2, 3, 4) and measurement data as values
     """
     measurements_by_sex = {}
 
-    for sex in (FEMALE, MALE, BOTH):
-
-        measurements_sex = measurements[measurements["x_sex"] == sex]
+    for sex in (FEMALE, MALE, BOTH, UNDEFINED):
+        measurements_sex = measurements[measurements["sex_id"] == sex]
 
         if not measurements_sex.empty:
             measurements_by_sex[sex] = measurements_sex
@@ -407,19 +404,19 @@ def get_covariate_data_by_sex(covariates):
         covariates (pandas.DataFrame): data for a specific covariate_id
 
     Returns:
-        dict: sex keys (-0.5, 0, 0.5) and covariate data as values
+        dict: sex keys (1, 2, 3) and covariate data as values
     """
 
     covariates_by_sex = {}
-    sex_values = covariates["x_sex"].unique()
+    sex_values = set(covariates["sex_id"].unique())
 
-    if (len(sex_values) == 1) and (0 in sex_values):
+    if not sex_values.difference({BOTH, UNDEFINED}):
         covariates_by_sex[FEMALE] = covariates
         covariates_by_sex[MALE] = covariates
         covariates_by_sex[BOTH] = covariates
-    elif (len(sex_values) == 2) and (-0.5 in sex_values) and (0.5 in sex_values):
-        covariates_by_sex[FEMALE] = covariates[covariates["x_sex"] == FEMALE]
-        covariates_by_sex[MALE] = covariates[covariates["x_sex"] == MALE]
+    elif sex_values == {MALE, FEMALE}:
+        covariates_by_sex[FEMALE] = covariates[covariates["sex_id"] == FEMALE]
+        covariates_by_sex[MALE] = covariates[covariates["sex_id"] == MALE]
         covariates_both = covariates_by_sex[FEMALE].merge(
             covariates_by_sex[MALE],
             on=["age_lower", "age_upper", "time_lower", "time_upper"],
@@ -430,6 +427,6 @@ def get_covariate_data_by_sex(covariates):
         covariates_both["avg_time"] = covariates_both["avg_time_x"]
         covariates_by_sex[BOTH] = covariates_both
     else:
-        raise ValueError(f"Unexpected values for x_sex in covariates data.  Expected 3 or (1,2), found {sex_values}")
+        raise ValueError(f"Unexpected values for sex_id in covariates data.  Expected 3 or (1,2), found {sex_values}")
 
     return covariates_by_sex

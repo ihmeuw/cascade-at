@@ -13,6 +13,41 @@ from cascade.input_data.db.study_covariates import get_study_covariates
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
+BUNDLE_COLUMNS = [
+    "bundle_id",
+    "seq",
+    "request_id",
+    "input_type_id",
+    "nid",
+    "underlying_nid",
+    "location_id",
+    "sex_id",
+    "year_start",
+    "year_end",
+    "age_start",
+    "age_end",
+    "measure_id",
+    "source_type_id",
+    "sampling_type_id",
+    "representative_id",
+    "urbanicity_type_id",
+    "recall_type_id",
+    "recall_type_value",
+    "unit_type_id",
+    "unit_value_as_published",
+    "uncertainty_type_id",
+    "uncertainty_type_value",
+    "mean",
+    "lower",
+    "upper",
+    "standard_error",
+    "effective_sample_size",
+    "sample_size",
+    "cases",
+    "design_effect",
+    "outlier_type_id",
+]
+
 
 def _bundle_is_frozen(execution_context):
     """Checks if data for the current model_version_id already exists in tier 3.
@@ -84,38 +119,7 @@ def _get_bundle_data(execution_context, bundle_id, tier=3, exclude_outliers=True
 
     query = f"""
     SELECT
-         bundle_id ,
-         seq ,
-         request_id ,
-         input_type_id ,
-         nid ,
-         underlying_nid ,
-         location_id,
-         sex_id ,
-         year_start ,
-         year_end ,
-         age_start,
-         age_end ,
-         measure_id ,
-         source_type_id ,
-         sampling_type_id,
-         representative_id ,
-         urbanicity_type_id ,
-         recall_type_id ,
-         recall_type_value ,
-         unit_type_id ,
-         unit_value_as_published ,
-         uncertainty_type_id ,
-         uncertainty_type_value ,
-         mean ,
-         lower ,
-         upper ,
-         standard_error ,
-         effective_sample_size ,
-         sample_size ,
-         cases ,
-         design_effect,
-         outlier_type_id
+        {", ".join(BUNDLE_COLUMNS)}
         FROM
          {table}
         WHERE
@@ -146,38 +150,7 @@ def _upload_bundle_data_to_tier_3(cursor, model_version_id, bundle_data):
     insert_query = f"""
     INSERT INTO epi.t3_model_version_dismod (
         model_version_id,
-        bundle_id ,
-        seq ,
-        request_id ,
-        input_type_id ,
-        nid ,
-        underlying_nid ,
-        location_id,
-        sex_id ,
-        year_start ,
-        year_end ,
-        age_start,
-        age_end ,
-        measure_id ,
-        source_type_id ,
-        sampling_type_id,
-        representative_id ,
-        urbanicity_type_id ,
-        recall_type_id ,
-        recall_type_value ,
-        unit_type_id ,
-        unit_value_as_published ,
-        uncertainty_type_id ,
-        uncertainty_type_value ,
-        mean ,
-        lower ,
-        upper ,
-        standard_error ,
-        effective_sample_size ,
-        sample_size ,
-        cases ,
-        design_effect,
-        outlier_type_id
+        {", ".join(BUNDLE_COLUMNS)}
     ) VALUES (
         {model_version_id}, {", ".join(["%s"]*32)}
     )
