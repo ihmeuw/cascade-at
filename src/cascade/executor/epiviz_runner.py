@@ -221,7 +221,8 @@ def prepare_data(execution_context, settings):
     location_and_descendents = get_descendents(execution_context, include_parent=True)  # noqa: F841
 
     bundle = bundle.query("location_id in @location_and_descendents")
-    MATHLOG.info(f"Filtering bundle to the current location and it's descendents. {len(bundle)} rows remaining.")
+    location_id = execution_context.parameters.location_id
+    MATHLOG.info(f"Filtering bundle to location {location_id} and its descendents. {len(bundle)} rows remaining.")
 
     stderr_mask = bundle.standard_error > 0
     if (~stderr_mask).sum() > 0:
@@ -320,7 +321,15 @@ def model_context_from_settings(execution_context, settings):
 def write_dismod_file(mc, ec, db_file_path):
     MATHLOG.info(f"Writing dismod database to {db_file_path}")
     dismod_file = model_to_dismod_file(mc, ec)
-    dismod_file.engine = _get_engine(Path(db_file_path))
+    db_file = Path(db_file_path)
+    if db_file.exists():
+        MATHLOG.info(f"Deleting existing db file {db_file}.")
+        try:
+            db_file.unlink()
+        except OSError:
+            MATHLOG.error(f"Cannot delete {db_file} in preparation for writing a new dismod file.")
+            raise
+    dismod_file.engine = _get_engine(db_file)
     dismod_file.flush()
     return dismod_file
 
@@ -483,7 +492,7 @@ def main(args):
         raise NotImplementedError("Only 'drill' mode is currently supported")
 
     add_settings_to_execution_context(ec, settings)
-    CascadePlan.from_epiviz_configuration(ec, settings)
+    plan = CascadePlan.from_epiviz_configuration(ec, settings)
 
     if args.skip_cache:
         ec.parameters.tier = 2
@@ -492,12 +501,15 @@ def main(args):
     for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file", "bundle_study_covariates_file"]:
         setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
-    one_location_set(ec, settings)
+    posteriors = None
+    for task in plan.tasks:
+        ec.parameters.location_id = task[0]
+        posteriors = one_location_set(ec, settings, posteriors)
 
     MATHLOG.debug(f"Completed successfully")
 
 
-def one_location_set(ec, settings):
+def one_location_set(ec, settings, posteriors):
     """Solve a parent with its children as random effects."""
     mc = model_context_from_settings(ec, settings)
     ec.dismodfile = write_dismod_file(mc, ec, ec.parameters.db_file_path)
@@ -524,6 +536,7 @@ def one_location_set(ec, settings):
     else:
         MATHLOG.debug(
             f"Only creating the base db file because 'db-only' was selected")
+    return posteriors
 
 
 def entry():

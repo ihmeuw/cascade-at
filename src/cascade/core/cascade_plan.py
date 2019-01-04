@@ -36,6 +36,10 @@ class CascadePlan:
         self.locations = None
         self.task_graph = None
 
+    @property
+    def tasks(self):
+        return nx.lexicographical_topological_sort(self.task_graph)
+
     @classmethod
     def from_epiviz_configuration(cls, execution_context, settings):
         plan = cls()
@@ -47,7 +51,7 @@ class CascadePlan:
         drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
         MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
         tasks = [(drill_location, 0) for drill_location in drill]
-        task_pairs = list(zip(tasks[1:], tasks[:-1]))
+        task_pairs = list(zip(tasks[:-1], tasks[1:]))
         plan.task_graph = nx.DiGraph()
         plan.task_graph.add_edges_from(task_pairs)
         # Add a custom graph attribute to record the tree root.
