@@ -1,4 +1,4 @@
-"""This module prvides basic database access tools.
+"""This module provides basic database access tools.
 
 All other code which accesses the external databases should do so through the context managers defined here so we
 have consistency and a single chokepoint for that access.
@@ -61,7 +61,6 @@ age_spans = ModuleProxy("db_queries.get_age_metadata")
 db_tools = ModuleProxy("db_tools")
 ezfuncs = ModuleProxy("db_tools.ezfuncs")
 save_results = ModuleProxy("save_results")
-dbtrees = ModuleProxy("hierarchies.dbtrees")
 
 
 @contextmanager

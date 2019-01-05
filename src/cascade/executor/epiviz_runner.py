@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+import math
 from pathlib import Path
 from pprint import pformat
 from bdb import BdbQuit
@@ -12,7 +13,6 @@ import pandas as pd
 import numpy as np
 
 import cascade
-from cascade.core.db import dataframe_from_disk
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.stats import meas_bounds_to_stdev
@@ -29,7 +29,11 @@ from cascade.input_data.db.mortality import (
 )
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
-from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
+from cascade.input_data.configuration.construct_bundle import (
+    normalized_bundle_from_database,
+    normalized_bundle_from_disk,
+    bundle_to_observations
+)
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
@@ -65,7 +69,7 @@ def add_settings_to_execution_context(ec, settings):
     # there isn't an entry for it in the GUI yet.
     ec.parameters.drill_start = location_id_from_location_and_level(
         ec, settings.model.drill_location, settings.model.split_sex
-    )
+    )[0]
 
 
 def add_mortality_data(model_context, execution_context, sex_id):
@@ -169,6 +173,32 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.input_data.observations = pd.concat([observations, asdr], ignore_index=True, sort=True)
 
 
+def compute_age_steps(smallest_step):
+    """We will add age steps to the ODE steps that are for "every 1 year" or
+    "every 5 years," as given by the settings. The GBD chooses
+    age step sizes of 0, 7 days, 28 days, 1 year, 5 years. These look roughly
+    like a pattern of multiplying by 4, so 1 week, 4 weeks 16 weeks, 64 weeks.
+    Let's play with the numbers to respect that organization.
+
+    This means there are two magic numbers: The smallest step must be less
+    than 7 days, and all steps are 2 times the size of the last step, instead
+    of 4, just to be safe.
+    So an ODE step size of 1 year gives (0.015625, 0.0625, 0.25).
+    An ODE step size of 5 years gives [0.0049, 0.019, 0.078, 0.31, 1.25].
+
+    If the smallest step is under 7/365, then no additional age steps
+    are returned.
+    """
+    minimum_step_size = 7 / 365
+    geometric_growth = 2
+    minimum_step_count = np.log(smallest_step / minimum_step_size) / np.log(geometric_growth)
+    chosen_step_count = math.ceil(minimum_step_count)
+    delta = smallest_step / geometric_growth**chosen_step_count
+    added = np.array([delta * geometric_growth**i for i in range(chosen_step_count)])
+    MATHLOG.info(f"Adding ages to ODE integration: {added}")
+    return added
+
+
 def prepare_data(execution_context, settings):
     if execution_context.parameters.tier == 3:
         freeze_bundle(execution_context, execution_context.parameters.bundle_id)
@@ -182,7 +212,7 @@ def prepare_data(execution_context, settings):
         load_asdr_to_t3(execution_context)
 
     if execution_context.parameters.bundle_file:
-        bundle = dataframe_from_disk(execution_context.parameters.bundle_file)
+        bundle = normalized_bundle_from_disk(execution_context.parameters.bundle_file)
     else:
         bundle = normalized_bundle_from_database(
             execution_context,
@@ -280,6 +310,7 @@ def model_context_from_settings(execution_context, settings):
     )
     model_context.average_integrand_cases = cases
 
+    model_context.parameters.additional_ode_steps = compute_age_steps(model_context.parameters.ode_step_size)
     fixed_effects_from_epiviz(model_context, execution_context, settings)
     random_effects_from_epiviz(model_context, settings)
 
@@ -460,6 +491,7 @@ def main(args):
         ec.parameters.tier = 3
     ec.parameters.bundle_file = args.bundle_file
     ec.parameters.bundle_study_covariates_file = args.bundle_study_covariates_file
+
     mc = model_context_from_settings(ec, settings)
 
     ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
@@ -539,7 +571,7 @@ def entry():
             traceback.print_exc()
             pdb.post_mortem()
         else:
-            CODELOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
+            MATHLOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
             raise
 
 
