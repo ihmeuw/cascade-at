@@ -1,4 +1,5 @@
 from textwrap import dedent
+import warnings
 
 from scipy.interpolate import InterpolatedUnivariateSpline, LSQBivariateSpline
 
@@ -83,12 +84,14 @@ def _make_interpolators(csmr):
     """
     mean = {}
     stderr = {}
-    mean["both"] = LSQBivariateSpline(
-        csmr.age, csmr.time, csmr["mean"], sorted(csmr.age.unique()), sorted(csmr.time.unique()), kx=1, ky=1
-    )
-    stderr["both"] = LSQBivariateSpline(
-        csmr.age, csmr.time, csmr.standard_error, sorted(csmr.age.unique()), sorted(csmr.time.unique()), kx=1, ky=1
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", module="scipy.interpolate")
+        mean["both"] = LSQBivariateSpline(
+            csmr.age, csmr.time, csmr["mean"], sorted(csmr.age.unique()), sorted(csmr.time.unique()), kx=1, ky=1
+        )
+        stderr["both"] = LSQBivariateSpline(
+            csmr.age, csmr.time, csmr.standard_error, sorted(csmr.age.unique()), sorted(csmr.time.unique()), kx=1, ky=1
+        )
 
     csmr_by_age = csmr.sort_values("age").groupby("age").mean().reset_index()
     mean["age"] = InterpolatedUnivariateSpline(csmr_by_age.age, csmr_by_age["mean"], k=1)
@@ -105,7 +108,7 @@ def _emr_from_sex_and_node_specific_csmr_and_prevalence(csmr, prevalence):
     mean_interp, stderr_interp = _make_interpolators(csmr)
 
     emr = prevalence[["age_lower", "age_upper", "time_lower", "time_upper", "sex_id", "node_id", "density", "weight"]]
-    emr["measure"] = "mtexcess"
+    emr = emr.assign(measure="mtexcess")
 
     def emr_mean(prevalence_measurement):
         time_is_point = prevalence_measurement.time_lower == prevalence_measurement.time_upper
