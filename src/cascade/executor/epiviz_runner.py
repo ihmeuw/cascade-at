@@ -13,7 +13,6 @@ import pandas as pd
 import numpy as np
 
 import cascade
-from cascade.core.db import dataframe_from_disk
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.stats import meas_bounds_to_stdev
@@ -30,7 +29,11 @@ from cascade.input_data.db.mortality import (
 )
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
-from cascade.input_data.configuration.construct_bundle import normalized_bundle_from_database, bundle_to_observations
+from cascade.input_data.configuration.construct_bundle import (
+    normalized_bundle_from_database,
+    normalized_bundle_from_disk,
+    bundle_to_observations
+)
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
@@ -209,7 +212,7 @@ def prepare_data(execution_context, settings):
         load_asdr_to_t3(execution_context)
 
     if execution_context.parameters.bundle_file:
-        bundle = dataframe_from_disk(execution_context.parameters.bundle_file)
+        bundle = normalized_bundle_from_disk(execution_context.parameters.bundle_file)
     else:
         bundle = normalized_bundle_from_database(
             execution_context,
