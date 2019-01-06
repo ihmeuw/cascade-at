@@ -23,8 +23,35 @@ from math import nan
 import numpy as np
 import pandas as pd
 
+from cascade.dismod.db.metadata import DensityEnum
+
 
 PRIOR_KINDS = ["value", "dage", "dtime"]
+
+
+class PriorView:
+    """Slices to access priors with Distribution objects."""
+    def __init__(self, parent, kind):
+        self._kind = kind
+        self._parent = parent
+        self.param_names = ["density_id", "mean", "std", "lower", "upper", "eta", "nu"]
+
+    def __setitem__(self, at_slice, value):
+        """
+        Args:
+            at_slice (slice, slice): What to change, as integer offset into ages and times.
+            value (priors.Prior): The prior to set, containing dictionary of
+                                  parameters.
+        """
+        ages = self._parent.ages[at_slice[0]]
+        times = self._parent.times[at_slice[1]]
+        to_set = value.parameters()
+        to_set["density_id"] = DensityEnum[to_set["density"]].value
+        self._parent.priors.loc[
+            np.in1d(self._parent.priors.age, ages) & np.in1d(self._parent.priors.time, times)
+            & (self._parent.priors.kind == self._kind),
+            self.param_names
+        ] = [to_set[setp] if setp in to_set else nan for setp in self.param_names]
 
 
 class RandomField:
@@ -35,6 +62,7 @@ class RandomField:
         """
         self.ages = np.array(age_time_grid[0], dtype=np.float)
         self.times = np.array(age_time_grid[1], dtype=np.float)
+        self.parameter_columns = ["density_id", "mean", "lower", "upper", "std", "nu", "eta"]
         age_time = np.array(list(product(sorted(self.ages), sorted(self.times))))
         one_priors = pd.DataFrame(dict(
             prior_name=None,
@@ -42,9 +70,9 @@ class RandomField:
             age=age_time[:, 0],
             time=age_time[:, 1],
             density_id=nan,
-            mean=0.5,
-            lower=0.0,
-            upper=0.0,
+            mean=nan,
+            lower=nan,
+            upper=nan,
             std=nan,
             nu=nan,
             eta=nan,
@@ -52,6 +80,18 @@ class RandomField:
         one_priors = one_priors.append({"age": nan, "time": nan, "kind": "value", "name": None}, ignore_index=True)
         self.priors = pd.concat([one_priors, one_priors.assign(kind="dage"), one_priors.assign(kind="dtime")])
         self.priors = self.priors.reset_index(drop=True)
+
+    @property
+    def value(self):
+        return PriorView(self, "value")
+
+    @property
+    def dage(self):
+        return PriorView(self, "dage")
+
+    @property
+    def dtime(self):
+        return PriorView(self, "dtime")
 
 
 class FieldDraw:

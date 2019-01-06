@@ -7,6 +7,7 @@ import pytest
 
 from cascade.dismod.model_writer import DismodSession
 from cascade.model.covariates import Covariate
+from cascade.model.priors import Uniform, Gaussian
 from cascade.model.random_field import Model, RandomField, FieldDraw
 
 
@@ -16,27 +17,21 @@ def basic_model():
     locations = nx.DiGraph()
     locations.add_edges_from([(1, 2), (1, 3), (1, 4)])
     parent_location = 1
+    eta = 1e-3
 
     model = Model(nonzero_rates, locations, parent_location)
     model.covariates = [Covariate("traffic", reference=0.0)]
 
     covariate_age_time = ([40], [2000])
     traffic = RandomField(covariate_age_time)
-    traffic.priors.loc[traffic.priors.kind == "value", "density_id"] = 1
-    traffic.priors.loc[traffic.priors.kind == "value", "mean"] = 0.1
-
+    traffic.value[:, :] = Gaussian(lower=-1, upper=1, mean=0.00, standard_deviation=0.3, eta=eta)
     model.alpha[("traffic", "iota")] = traffic
 
     dense_age_time = (np.linspace(0, 120, 13), np.linspace(1990, 2015, 8))
     rate_grid = RandomField(dense_age_time)
-    rate_grid.priors.loc[rate_grid.priors.kind == "value", "upper"] = 1
-    rate_grid.priors.loc[rate_grid.priors.kind == "value", "lower"] = .0001
-    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "density_id"] = 1
-    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "lower"] = 0.0001
-    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "upper"] = 0.5
-    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "density_id"] = 1
-    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "lower"] = 0.0001
-    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "upper"] = 0.4
+    rate_grid.value[:, :] = Uniform(lower=1e-6, upper=0.3, mean=0.001, eta=eta)
+    rate_grid.dage[:, :] = Uniform(lower=-1, upper=1, mean=0.0, eta=eta)
+    rate_grid.dtime[:, :] = Gaussian(lower=-1, upper=1, mean=0.0, standard_deviation=0.3, eta=eta)
 
     model.rate["omega"] = rate_grid
     model.rate["iota"] = rate_grid
