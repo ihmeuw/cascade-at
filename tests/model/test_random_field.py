@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from cascade.dismod.model_writer import DismodSession
+from cascade.model.covariates import Covariate
 from cascade.model.random_field import Model, RandomField, FieldDraw
 
 
@@ -17,6 +18,7 @@ def basic_model():
     parent_location = 1
 
     model = Model(nonzero_rates, locations, parent_location)
+    model.covariates = [Covariate("traffic", reference=0.0)]
 
     covariate_age_time = ([40], [2000])
     traffic = RandomField(covariate_age_time)
@@ -25,7 +27,7 @@ def basic_model():
 
     model.alpha[("traffic", "iota")] = traffic
 
-    dense_age_time = (np.linspace(0, 120, 13), np.linspace(1990, 2015, 7))
+    dense_age_time = (np.linspace(0, 120, 13), np.linspace(1990, 2015, 8))
     rate_grid = RandomField(dense_age_time)
     rate_grid.priors.loc[rate_grid.priors.kind == "value", "upper"] = 1
     rate_grid.priors.loc[rate_grid.priors.kind == "value", "lower"] = .0001
@@ -50,5 +52,5 @@ def test_write_rate(basic_model):
         name=["global"],
         parent=[nan],
         c_location_id=[1],
-    )))
+    )), "rftest.db")
     session.write(basic_model)

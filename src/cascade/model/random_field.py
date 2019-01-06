@@ -49,8 +49,9 @@ class RandomField:
             nu=nan,
             eta=nan,
         ))
-        one_priors.append({"age": nan, "time": nan, "kind": "value"}, ignore_index=True)
+        one_priors = one_priors.append({"age": nan, "time": nan, "kind": "value", "name": None}, ignore_index=True)
         self.priors = pd.concat([one_priors, one_priors.assign(kind="dage"), one_priors.assign(kind="dtime")])
+        self.priors = self.priors.reset_index(drop=True)
 
 
 class FieldDraw:

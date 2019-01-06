@@ -3,13 +3,14 @@ Writes a Model to a Dismod File.
 """
 from math import nan
 from numbers import Real
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from cascade.core.log import getLoggers
 from cascade.dismod.db.metadata import DensityEnum
-from cascade.dismod.db.wrapper import DismodFile
+from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.dismod.serialize import (
     enum_to_dataframe, default_integrand_names, make_log_table, simplest_weight
 )
@@ -18,13 +19,15 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class DismodSession:
-    def __init__(self, locations):
+    def __init__(self, locations, filename):
         """
 
         Args:
             locations (pd.DataFrame): Initialize here because data refers to this.
         """
         self.dismod_file = DismodFile()
+        self._filename = Path(filename)
+        self.dismod_file.engine = _get_engine(self._filename)
         columns = dict(
             node_name=locations.name,
             parent=locations.parent,
@@ -48,6 +51,10 @@ class DismodSession:
         writer = ModelWriter(self)
         model.write(writer)
         writer.close()
+        self.flush()
+
+    def flush(self):
+        self.dismod_file.flush()
 
 
 class ModelWriter:
@@ -70,10 +77,12 @@ class ModelWriter:
         self._mulcov_rows = list()  # List of dictionaries for covariate multipliers.
         self._rate_id = dict()  # The rate ids with the primary rates.
         self._nslist = dict()  # rate to integer
-        self._nslist_pair = dict()  # From nslist rate to list of (node, smooth)
-        self._covariate_id = lambda x: nan
+        self._nslist_pair_rows = list()  # list of nslist id, node, and smooth
+        self._covariate_id_func = lambda x: nan
+        self._integrand_id_func = lambda x: nan
         self._flushed = False
         self._children = None
+        self._mulcov_name_to_type = dict(alpha="rate_value", beta="meas_value", gamma="meas_std")
 
     def basic_db_setup(self):
         """These things are true for all databases."""
@@ -110,9 +119,9 @@ class ModelWriter:
 
     def write_covariate(self, covariates):
         self._dismod_file.covariate = self._dismod_file.empty_table("covariate")
-        CODELOG.debug(f"Covariate types {self._dismod_file.covariate.dtypes}")
+        CODELOG.debug(f"covariates {', '.join(c.name for c in covariates)}")
         self._dismod_file.covariate, cov_col_id_func, covariate_renames = _make_covariate_table(covariates)
-        self._covariate_id = cov_col_id_func
+        self._covariate_id_func = cov_col_id_func
 
     def write_rate(self, rate_name, random_field):
         """A rate needs a smooth, which has priors and ages/times."""
@@ -135,48 +144,67 @@ class ModelWriter:
         else:
             grid_name = f"{rate_name}_re_{child_location}"
         smooth_id = self.add_random_field(grid_name, random_field)
+        rate_row = {
+            "rate_id": len(self._rate_rows),
+            "rate_name": rate_name,
+            "parent_smooth_id": nan,
+            "child_smooth_id": nan,
+            "child_nslist_id": nan,
+        }
         if child_location is None:
-            self._rate_rows.append(
-                {
-                    "rate_id": len(self._rate_rows),
-                    "rate_name": rate_name,
-                    "parent_smooth_id": nan,
-                    "child_smooth_id": smooth_id,
-                    "child_nslist_id": nan,
-                }
-            )
+            rate_row["child_smooth_id"] = smooth_id
+            self._rate_rows.append(rate_row)
         else:
             node_id = self._session.location_func(child_location)
-            if rate_name in self._nslist:
-                self._nslist_pair[rate_name].append((node_id, smooth_id))
+            if rate_name not in self._nslist:
+                ns_id = len(self._nslist)
+                self._nslist[rate_name] = ns_id
+                rate_row["child_nslist_id"] = ns_id
+                self._rate_rows.append(rate_row)
             else:
-                self._nslist[rate_name] = len(self._nslist)
-                self._nslist_pair[rate_name] = [(node_id, smooth_id)]
+                ns_id = self._nslist[rate_name]
+            self._nslist_pair_rows.append(dict(
+                nslist_pair_id=len(self._nslist_pair_rows),
+                nslist_id=ns_id,
+                node_id=node_id,
+                smooth_id=smooth_id,
+            ))
 
     def write_mulcov(self, kind, covariate, rate_or_integrand, random_field):
         self._flush_ages_times_locations()
-        print(f"write_mulcov {kind} {covariate} {rate_or_integrand}")
+        CODELOG.debug(f"write_mulcov {kind} {covariate} {rate_or_integrand}")
         grid_name = f"{kind}_{rate_or_integrand}_{covariate}"
-        smooth_id = self.add_random_field(grid_name, random_field)
+        row = {
+            "mulcov_id": len(self._mulcov_rows),
+            "mulcov_type": self._mulcov_name_to_type[kind],
+            "rate_id": nan,
+            "integrand_id": nan,
+            "covariate_id": self._covariate_id_func(covariate),
+            "smooth_id": self.add_random_field(grid_name, random_field),
+        }
         if kind == "alpha":
-            self._mulcov_rows.append(
-                {
-                    "mulcov_id": len(self._mulcov_rows),
-                    "mulcov_type": "rate_value",
-                    "rate_id": self._rate_id[rate_or_integrand],
-                    "integrand_id": nan,
-                    "covariate_id": nan,
-                    "smooth_id": smooth_id,
-                }
-            )
+            row.update(dict(rate_id=self._rate_id[rate_or_integrand]))
+        elif kind in ("beta", "gamma"):
+            row.update(dict(integrand_id=self._integrand_id_func(rate_or_integrand)))
+        else:
+            raise RuntimeError(f"Unknown mulcov type {kind}")
+        self._mulcov_rows.append(row)
 
     def write_weight(self, name, field_draw):
         # FIXME: The weight implementation has to create its own grid. Much simpler.
         self._dismod_file.weight, self._dismod_file.weight_grid = simplest_weight()
 
     def close(self):
-        # Write nslists.
-        pass
+        self._dismod_file.mulcov = pd.DataFrame(self._mulcov_rows)
+        self._dismod_file.rate = pd.DataFrame(self._rate_rows)
+        self._dismod_file.nslist = pd.DataFrame.from_records(
+            data=list(self._nslist.items()),
+            columns=["nslist_name", "nslist_id"]
+        )
+        self._dismod_file.nslist_pair = pd.DataFrame(
+            self._nslist_pair_rows,
+            columns=["nslist_pair_id", "nslist_id", "node_id", "smooth_id"]
+        )
 
     def add_random_field(self, grid_name, random_field):
         """Save a new Random Field."""
@@ -206,9 +234,9 @@ class ModelWriter:
         smooth_row["n_age"] = len(prior_table.age_id.unique())
         smooth_row["n_time"] = len(prior_table.time_id.unique())
         for prior_kind in ["value", "dage", "dtime"]:
-            smooth_row[f"mulstd_{prior_kind}_prior_id"] = prior_table.loc[
+            smooth_row[f"mulstd_{prior_kind}_prior_id"] = int(prior_table.loc[
                 prior_table.age.isna() & (prior_table.kind == prior_kind)
-                ]
+                ].prior_id)
         if self._dismod_file.smooth.empty:
             smooth_row["smooth_id"] = 0
             self._dismod_file.smooth = self._dismod_file.empty_table("smooth").append(smooth_row, ignore_index=True)
@@ -232,14 +260,13 @@ class ModelWriter:
             lambda pid: f"{grid_name}_{pid}"
         )
         # Assign age_id and time_id for age and time.
-        complete_table = pd.merge_asof(complete_table.sort_values("age"), self._dismod_file.age, on="age")
-        complete_table = pd.merge_asof(complete_table.sort_values("time"), self._dismod_file.time, on="time")
+        complete_table = self._fix_ages_times(complete_table)
         # Make sure the index still matches the order in the priors list
         priors_columns = [
             "prior_id", "prior_name", "lower", "upper", "mean", "std", "eta", "nu", "density_id"
         ]
         prior_table = complete_table.sort_values(by="prior_id").reset_index(drop=True)[priors_columns]
-        if self._dismod_file.prior.empty:
+        if not self._dismod_file.prior.empty:
             self._dismod_file.prior = self._dismod_file.prior.append(prior_table)
         else:
             self._dismod_file.prior = prior_table
@@ -255,6 +282,27 @@ class ModelWriter:
         unique_times.sort()
         self._dismod_file.time = pd.DataFrame(dict(time_id=range(len(unique_times)), time=unique_times))
         self._flushed = True
+
+    def _integrand_id_func(self, name):
+        return int(self._dismod_file.integrand.query("integrand_name==@name").integrand_id)
+
+    def _fix_ages_times(self, df):
+        """Given a Pandas df with age and time columns, assign age_id and time_id
+        columns using a nearest match. Keep the same order. Allow nan ages
+        or times."""
+        assert "age" in df.columns
+        assert "time" in df.columns
+        df = df.assign(save_idx=df.index)
+        for dat in ["age", "time"]:
+            col_id = f"{dat}_id"
+            sort_by = df.sort_values(dat)
+            in_grid = sort_by[dat].notna()
+            at_table = getattr(self._dismod_file, dat)
+            aged = pd.merge_asof(sort_by[in_grid], at_table, on=dat, direction="nearest")
+            df = df.merge(aged[["save_idx", col_id]], on="save_idx", how="left")
+        assert "age_id" in df.columns
+        assert "time_id" in df.columns
+        return df.drop("save_idx", axis=1)
 
 
 def _make_covariate_table(covariates):

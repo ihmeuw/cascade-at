@@ -255,7 +255,12 @@ class DismodFile:
             return False
 
         table = self._table_data[table_name]
-        table_hash = pd.util.hash_pandas_object(table)
+        try:
+            table_hash = pd.util.hash_pandas_object(table)
+        except TypeError as te:
+            if "mutable" in str(te):
+                CODELOG.warning(f"table {table_name} dtypes {table.dtypes}")
+            raise RuntimeError(f"The table {table_name} has unexpected value while saving.") from te
 
         is_new = table_name not in self._table_hash
         if not is_new:
