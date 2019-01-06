@@ -27,6 +27,9 @@ class DismodSession:
         """
         self.dismod_file = DismodFile()
         self._filename = Path(filename)
+        if self._filename.exists():
+            MATHLOG.info(f"{self._filename} exists so overwriting it.")
+            self._filename.unlink()
         self.dismod_file.engine = _get_engine(self._filename)
         columns = dict(
             node_name=locations.name,
@@ -226,9 +229,9 @@ class ModelWriter:
         smooth_row["n_age"] = len(prior_table.age_id.unique())
         smooth_row["n_time"] = len(prior_table.time_id.unique())
         for prior_kind in ["value", "dage", "dtime"]:
-            smooth_row[f"mulstd_{prior_kind}_prior_id"] = int(prior_table.loc[
-                prior_table.age.isna() & (prior_table.kind == prior_kind)
-                ].prior_id)
+            mulstd_row = prior_table.loc[prior_table.age.isna() & (prior_table.kind == prior_kind)]
+            if all(mulstd_row.density_id.notna()):
+                smooth_row[f"mulstd_{prior_kind}_prior_id"] = int(mulstd_row.prior_id)
         if self._dismod_file.smooth.empty:
             smooth_row["smooth_id"] = 0
             self._dismod_file.smooth = self._dismod_file.empty_table("smooth").append(smooth_row, ignore_index=True)
@@ -258,6 +261,9 @@ class ModelWriter:
             "prior_id", "prior_name", "lower", "upper", "mean", "std", "eta", "nu", "density_id"
         ]
         prior_table = complete_table.sort_values(by="prior_id").reset_index(drop=True)[priors_columns]
+        # Dismod-AT requires all priors to have densities and reasonable parameters, even
+        # if they aren't used. Change them here so they don't infect our code.
+        prior_table.loc[prior_table.density_id.isna(), ["density_id", "mean", "lower", "upper"]] = [0, 0, -1, 1]
         if not self._dismod_file.prior.empty:
             self._dismod_file.prior = self._dismod_file.prior.append(prior_table)
         else:

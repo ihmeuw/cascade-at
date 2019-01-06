@@ -35,7 +35,12 @@ def basic_model():
 
     model.rate["omega"] = rate_grid
     model.rate["iota"] = rate_grid
-    model.rate["chi"] = rate_grid
+
+    chi_grid = RandomField(dense_age_time)
+    chi_grid.value[:, :] = Uniform(lower=1e-6, upper=0.3, mean=0.004, eta=eta)
+    chi_grid.dage[:, :] = Uniform(lower=-.9, upper=.9, mean=0.0, eta=eta)
+    chi_grid.dtime[:, :] = Gaussian(lower=-.8, upper=.8, mean=0.0, standard_deviation=0.4, eta=eta)
+    model.rate["chi"] = chi_grid
 
     model.weights["constant"] = FieldDraw(([40], [2000]))
     model.weights["constant"].values.loc[:, "mean"] = 1.0
