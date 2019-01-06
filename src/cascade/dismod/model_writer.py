@@ -98,6 +98,14 @@ class ModelWriter:
         # known IDs early.
         self._dismod_file.integrand["minimum_meas_cv"] = nan
 
+        self._dismod_file.rate = pd.DataFrame(dict(
+            rate_id=list(range(5)),  # Must be 5, in this order.
+            rate_name=["pini", "iota", "rho", "chi", "omega"],
+            parent_smooth_id=nan,
+            child_smooth_id=nan,
+            child_nslist_id=nan,
+        ))
+
         # Defaults, empty, b/c Brad makes them empty even if there are none.
         for create_name in ["nslist", "nslist_pair", "mulcov", "smooth_grid", "smooth"]:
             setattr(self._dismod_file, create_name, self._dismod_file.empty_table(create_name))
@@ -106,8 +114,8 @@ class ModelWriter:
     def start_model(self, nonzero_rates, children):
         """To start the model, tell me enough to know the sizes almost all of
         the tables by telling me the rate count and child random effect count."""
-        self._rate_id = dict((y, x) for (x, y) in enumerate(sorted(nonzero_rates)))
         self._children = children
+        self.basic_db_setup()
 
     def write_ages_and_times(self, ages, times):
         """
@@ -127,15 +135,7 @@ class ModelWriter:
         """A rate needs a smooth, which has priors and ages/times."""
         self._flush_ages_times_locations()
         smooth_id = self.add_random_field(rate_name, random_field)
-        self._rate_rows.append(
-            {
-                "rate_id": self._rate_id[rate_name],
-                "rate_name": rate_name,
-                "parent_smooth_id": smooth_id,
-                "child_smooth_id": nan,
-                "child_nslist_id": nan,
-            }
-        )
+        self._dismod_file.rate.loc[self._rate_id_func(rate_name), "parent_smooth_id"] = smooth_id
 
     def write_random_effect(self, rate_name, child_location, random_field):
         self._flush_ages_times_locations()
@@ -144,25 +144,18 @@ class ModelWriter:
         else:
             grid_name = f"{rate_name}_re_{child_location}"
         smooth_id = self.add_random_field(grid_name, random_field)
-        rate_row = {
-            "rate_id": len(self._rate_rows),
-            "rate_name": rate_name,
-            "parent_smooth_id": nan,
-            "child_smooth_id": nan,
-            "child_nslist_id": nan,
-        }
+        rate_id = self._rate_id_func(rate_name)
+        CODELOG.debug(f"random effect {rate_name} {child_location} {smooth_id}")
         if child_location is None:
-            rate_row["child_smooth_id"] = smooth_id
-            self._rate_rows.append(rate_row)
+            self._dismod_file.rate.loc[rate_id, "child_smooth_id"] = smooth_id
         else:
             node_id = self._session.location_func(child_location)
             if rate_name not in self._nslist:
                 ns_id = len(self._nslist)
                 self._nslist[rate_name] = ns_id
-                rate_row["child_nslist_id"] = ns_id
-                self._rate_rows.append(rate_row)
             else:
                 ns_id = self._nslist[rate_name]
+            self._dismod_file.rate.loc[rate_id, "child_nslist_id"] = ns_id
             self._nslist_pair_rows.append(dict(
                 nslist_pair_id=len(self._nslist_pair_rows),
                 nslist_id=ns_id,
@@ -183,7 +176,7 @@ class ModelWriter:
             "smooth_id": self.add_random_field(grid_name, random_field),
         }
         if kind == "alpha":
-            row.update(dict(rate_id=self._rate_id[rate_or_integrand]))
+            row.update(dict(rate_id=self._rate_id_func(rate_or_integrand)))
         elif kind in ("beta", "gamma"):
             row.update(dict(integrand_id=self._integrand_id_func(rate_or_integrand)))
         else:
@@ -196,7 +189,6 @@ class ModelWriter:
 
     def close(self):
         self._dismod_file.mulcov = pd.DataFrame(self._mulcov_rows)
-        self._dismod_file.rate = pd.DataFrame(self._rate_rows)
         self._dismod_file.nslist = pd.DataFrame.from_records(
             data=list(self._nslist.items()),
             columns=["nslist_name", "nslist_id"]
@@ -285,6 +277,9 @@ class ModelWriter:
 
     def _integrand_id_func(self, name):
         return int(self._dismod_file.integrand.query("integrand_name==@name").integrand_id)
+
+    def _rate_id_func(self, name):
+        return int(self._dismod_file.rate.query("rate_name==@name").rate_id)
 
     def _fix_ages_times(self, df):
         """Given a Pandas df with age and time columns, assign age_id and time_id
