@@ -17,29 +17,40 @@ All the kinds of objects:
  * Measurement data
 
 """
-from itertools import product, repeat
+from itertools import product
+from math import nan
 
-from cascade.model.grids import AgeTimeGrid, PriorGrid
+import numpy as np
+import pandas as pd
 
 
 PRIOR_KINDS = ["value", "dage", "dtime"]
 
 
 class RandomField:
-    def __init__(self, age_time_grid, priors=None):
+    def __init__(self, age_time_grid):
         """
         Args:
-            age_time_grid (AgeTimeGrid): The supporting grid.
-            priors (dict[str,PriorGrid]): Three priors at every grid point.
-                                          Includes mulstd priors.
+            age_time_grid (Tuple(set,set)): The supporting grid.
         """
-        assert isinstance(age_time_grid, AgeTimeGrid)
-        for key, value in priors.items():
-            assert key in ["value", "dage", "dtime"]
-            assert isinstance(value, PriorGrid)
-
-        self.age_time_grid = age_time_grid
-        self.priors = priors
+        self.ages = np.array(age_time_grid[0], dtype=np.float)
+        self.times = np.array(age_time_grid[1], dtype=np.float)
+        age_time = np.array(list(product(sorted(self.ages), sorted(self.times))))
+        one_priors = pd.DataFrame(dict(
+            prior_name=None,
+            kind="value",
+            age=age_time[:, 0],
+            time=age_time[:, 1],
+            density_id=nan,
+            mean=0.5,
+            lower=0.0,
+            upper=0.0,
+            std=nan,
+            nu=nan,
+            eta=nan,
+        ))
+        one_priors.append({"age": nan, "time": nan, "kind": "value"}, ignore_index=True)
+        self.priors = pd.concat([one_priors, one_priors.assign(kind="dage"), one_priors.assign(kind="dtime")])
 
 
 class PartsContainer:
@@ -49,9 +60,9 @@ class PartsContainer:
     over them, for a Model or for vars, or for priors, whatever."""
     def __init__(self, nonzero_rates, child_location):
         # Key is the rate as a string.
-        self.rate = dict(zip(nonzero_rates, repeat(None)))
+        self.rate = dict()
         # Key is tuple (rate, location_id)
-        self.random_effect = dict(zip(product(nonzero_rates, child_location), repeat(None)))
+        self.random_effect = dict()
         # Key is (covariate, rate), both as strings.
         self.alpha = dict()
         # Key is (covariate, integrand), both as strings.
@@ -59,17 +70,17 @@ class PartsContainer:
         # Key is (covariate, integrand), both as strings.
         self.gamma = dict()
 
-    def by_field(self):
-        for k, v in self.rate:
-            yield "rate", k, v
-        for k, v in self.random_effect:
-            yield "random_effect", k, v
-        for k, v in self.alpha:
-            yield "alpha", k, v
-        for k, v in self.beta:
-            yield "beta", k, v
-        for k, v in self.gamma:
-            yield "gamma", k, v
+    def items(self):
+        for part_name in ["rate", "random_effect", "alpha", "beta", "gamma"]:
+            for k, v in getattr(self, part_name).items():
+                if isinstance(k, str):
+                    yield [part_name, k], v
+                else:
+                    yield tuple([part_name] + list(k)), v
+
+    def values(self):
+        for part_name in ["rate", "random_effect", "alpha", "beta", "gamma"]:
+            yield from getattr(self, part_name).values()
 
 
 class Model:
@@ -87,24 +98,23 @@ class Model:
         self.parts = PartsContainer(nonzero_rates, self.child_location)
 
     def write(self, writer):
-        writer.start_model(self.nonzero_rates, self.parent_location, self.child_location)
-        for which, field_at in self.parts.by_field():
-            at_grid = field_at.age_time_grid
-            writer.write_ages_and_times(at_grid.ages, at_grid.times)
+        writer.start_model(self.nonzero_rates, self.child_location)
+        for field_at in self.parts.values():
+            writer.write_ages_and_times(field_at.ages, field_at.times)
         writer.write_covariate(self.covariates)
         writer.write_locations(self.locations)
 
-        for kind, key, write_field in self.parts.by_field():
-            if kind == "rate":
-                writer.write_rate(key, write_field)
-            elif kind == "random_effect":
-                writer.write_random_effect(key, write_field)
-            elif kind == "alpha":
-                writer.write_mulcov("alpha", key, write_field)
-            elif kind == "beta":
-                writer.write_mulcov("beta", key, write_field)
-            elif kind == "gamma":
-                writer.write_mulcov("gamma", key, write_field)
+        for kind, write_field in self.parts.items():
+            if kind[0] == "rate":
+                writer.write_rate(kind[1], write_field)
+            elif kind[0] == "random_effect":
+                writer.write_random_effect(kind[1], kind[2], write_field)
+            elif kind[0] == "alpha":
+                writer.write_mulcov("alpha", kind[1], kind[2], write_field)
+            elif kind[0] == "beta":
+                writer.write_mulcov("beta", kind[1], kind[2], write_field)
+            elif kind[0] == "gamma":
+                writer.write_mulcov("gamma", kind[1], kind[2], write_field)
             else:
                 raise RuntimeError(f"Unknown kind of field {kind}")
 

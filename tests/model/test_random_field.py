@@ -1,8 +1,8 @@
 import networkx as nx
+
+import numpy as np
 import pytest
 
-from cascade.model.priors import Gaussian, Uniform
-from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.random_field import Model, RandomField
 from cascade.dismod.model_writer import ModelWriter
 
@@ -14,28 +14,30 @@ def basic_model():
     locations.add_edges_from([(1, 2), (1, 3), (1, 4)])
     parent_location = 1
 
-    m = Model(nonzero_rates, locations, parent_location)
+    model = Model(nonzero_rates, locations, parent_location)
 
-    covariate_age_time = AgeTimeGrid([40], [2000])
-    value = PriorGrid(covariate_age_time)
-    value[:, :].prior = Gaussian(0, 0.1)
+    covariate_age_time = ([40], [2000])
+    traffic = RandomField(covariate_age_time)
+    traffic.priors.loc[traffic.priors.kind == "value", "density_id"] = 1
+    traffic.priors.loc[traffic.priors.kind == "value", "mean"] = 0.1
 
-    m.alpha[("iota", "traffic")] = RandomField(covariate_age_time, dict(value=value))
+    model.alpha[("traffic", "iota")] = traffic
 
-    dense_age_time = AgeTimeGrid.uniform(
-        age_lower=0, age_upper=120, age_step=5, time_lower=1990, time_upper=2015, time_step=5)
-    rate_value_priors = PriorGrid(dense_age_time)
-    rate_value_priors[:, :].prior = Uniform(0, 0.1, 0, 1)
-    rate_dage_priors = PriorGrid(dense_age_time)
-    rate_dage_priors[:, :].prior = Gaussian(0, 0.1)
-    rate_dtime_priors = PriorGrid(dense_age_time)
-    rate_dtime_priors[:, :].prior = Gaussian(0, 0.1)
-    rate_priors = dict(value=rate_value_priors, dage=rate_dage_priors, dtime=rate_dtime_priors)
+    dense_age_time = (np.linspace(0, 120, 13), np.linspace(1990, 2015, 7))
+    rate_grid = RandomField(dense_age_time)
+    rate_grid.priors.loc[rate_grid.priors.kind == "value", "upper"] = 1
+    rate_grid.priors.loc[rate_grid.priors.kind == "value", "lower"] = .0001
+    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "density_id"] = 1
+    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "lower"] = 0.0001
+    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "upper"] = 0.5
+    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "density_id"] = 1
+    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "lower"] = 0.0001
+    rate_grid.priors.loc[rate_grid.priors.kind == "dage", "upper"] = 0.4
 
-    m.rate["omega"] = RandomField(dense_age_time, rate_priors)
-    m.rate["iota"] = RandomField(dense_age_time, rate_priors)
-    m.rate["chi"] = RandomField(dense_age_time, rate_priors)
-    return m
+    model.rate["omega"] = rate_grid
+    model.rate["iota"] = rate_grid
+    model.rate["chi"] = rate_grid
+    return model
 
 
 def test_write_rate(basic_model):

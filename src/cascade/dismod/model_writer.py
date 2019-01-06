@@ -7,12 +7,12 @@ from numbers import Real
 import numpy as np
 import pandas as pd
 
-from cascade.dismod.serialize import (
-    enum_to_dataframe, default_integrand_names, make_log_table, _prior_row, make_smooth_grid_table
-)
+from cascade.core.log import getLoggers
 from cascade.dismod.db.metadata import DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
-from cascade.core.log import getLoggers
+from cascade.dismod.serialize import (
+    enum_to_dataframe, default_integrand_names, make_log_table
+)
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -30,12 +30,13 @@ class ModelWriter:
 
     def __init__(self):
         self._dismod_file = DismodFile()
-        self._ages = set()
-        self._times = set()
+        self._ages = np.empty((0,), dtype=np.float)
+        self._times = np.empty((0,), dtype=np.float)
         self._rate_rows = list()  # List of dictionaries for rates.
         self._mulcov_rows = list()  # List of dictionaries for covariate multipliers.
-        self._rate_id = lambda x: nan
+        self._rate_id = dict()
         self._covariate_id = lambda x: nan
+        self._flushed = False
 
     def basic_db_setup(self):
         """These things are true for all databases."""
@@ -59,15 +60,15 @@ class ModelWriter:
     def start_model(self, nonzero_rates, children):
         """To start the model, tell me enough to know the sizes almost all of
         the tables by telling me the rate count and child random effect count."""
-        pass
+        self._rate_id = dict((y, x) for (x, y) in enumerate(sorted(nonzero_rates)))
 
     def write_ages_and_times(self, ages, times):
         """
         Collects all of the ages and times because they are ordered
         and indexed by Dismod's file format. Can be called multiple times.
         """
-        self._ages |= set(ages)
-        self._times |= set(times)
+        self._ages = np.append(self._ages, ages)
+        self._times = np.append(self._times, times)
 
     def write_covariate(self, covariates):
         self._dismod_file.covariate = self._dismod_file.empty_table("covariate")
@@ -82,10 +83,10 @@ class ModelWriter:
     def write_rate(self, rate_name, random_field):
         """A rate needs a smooth, which has priors and ages/times."""
         self._flush_ages_times_locations()
-        smooth_id = self.add_prior_grid(rate_name, random_field.prior_grid)
+        smooth_id = self.add_random_field(rate_name, random_field)
         self._rate_rows.append(
             {
-                "rate_id": len(self._rate_rows),
+                "rate_id": self._rate_id[rate_name],
                 "rate_name": rate_name,
                 "parent_smooth_id": smooth_id,
                 "child_smooth_id": nan,
@@ -93,11 +94,10 @@ class ModelWriter:
             }
         )
 
-    def write_random_effect(self, rate_location, random_field):
+    def write_random_effect(self, rate_name, child_location, random_field):
         self._flush_ages_times_locations()
-        rate_name, child_location = rate_location
         grid_name = f"{rate_name}_re_{child_location}"
-        smooth_id = self.add_prior_grid(grid_name, random_field.prior_grid)
+        smooth_id = self.add_random_field(grid_name, random_field)
         self._rate_rows.append(
             {
                 "rate_id": len(self._rate_rows),
@@ -108,82 +108,99 @@ class ModelWriter:
             }
         )
 
-    def write_mulcov(self, kind, cov_other, random_field):
+    def write_mulcov(self, kind, covariate, rate_or_integrand, random_field):
         self._flush_ages_times_locations()
-        grid_name = f"{kind}_{cov_other[1]}_{cov_other[0]}"
-        smooth_id = self.add_prior_grid(grid_name, random_field.prior_grid)
+        print(f"write_mulcov {kind} {covariate} {rate_or_integrand}")
+        grid_name = f"{kind}_{rate_or_integrand}_{covariate}"
+        smooth_id = self.add_random_field(grid_name, random_field)
         if kind == "alpha":
             self._mulcov_rows.append(
                 {
                     "mulcov_id": len(self._mulcov_rows),
                     "mulcov_type": "rate_value",
-                    "rate_id": self._rate_id(cov_other[1]),
+                    "rate_id": self._rate_id[rate_or_integrand],
                     "integrand_id": nan,
-                    "covariate_id": self._covariate_id(cov_other[0]),
+                    "covariate_id": nan,
                     "smooth_id": smooth_id,
                 }
             )
 
-    def add_prior_grid(self, grid_name, random_field_priors):
-        """Save a new PriorGrid"""
-        # 1. Start with the priors themselves.
-        all_prior_objects = set()
-        for prior_grid in random_field_priors.values():
-            all_prior_objects.update(prior_grid.priors)
-        sorted_priors = sorted(all_prior_objects)
-        prior_table = pd.DataFrame(
-            [_prior_row(p) for p in sorted_priors],
-            columns=["prior_name", "density_name", "lower", "upper", "mean",
-                     "std", "eta", "nu"],
-        )
-        if self._dismod_file.prior:
-            prior_start_idx = len(self._dismod_file.prior)
+    def add_random_field(self, grid_name, random_field):
+        """Save a new Random Field."""
+        complete_table = self._add_field_priors(grid_name, random_field.priors.copy())
+        smooth_id = self._add_field_smooth(grid_name, complete_table)
+        self._add_field_grid(complete_table, smooth_id)
+        return smooth_id
+
+    def _add_field_grid(self, complete_table, smooth_id):
+        long_table = complete_table.loc[complete_table.age_id.notna()][["age_id", "time_id", "prior_id", "kind"]]
+        grid_table = long_table[["age_id", "time_id"]]
+        for kind in ["value", "dage", "dtime"]:
+            grid_values = long_table.loc[long_table.kind == kind] \
+                .drop("kind", axis="columns") \
+                .rename(columns={"prior_id": f"{kind}_prior_id"})
+            grid_table = grid_table.merge(grid_values, on=["age_id", "time_id"])
+        grid_table = grid_table.sort_values(["age_id", "time_id"], axis=0).reindex()
+        grid_table = grid_table.assign(const_value=nan, smooth_id=smooth_id)
+        if self._dismod_file.smooth_grid.empty:
+            self._dismod_file.smooth_grid = grid_table.assign(smooth_grid_id=grid_table.index)
         else:
-            prior_start_idx = 0
-        prior_table["prior_id"] = prior_table.index + prior_start_idx
-        null_names = prior_table.prior_name.isnull()
-        prior_table.loc[~null_names, "prior_name"] = (
-            prior_table.loc[~null_names, "prior_name"] + "    " +
-            prior_table.loc[~null_names, "prior_id"].astype(str)
+            grid_table = grid_table.assign(smooth_grid_id=grid_table.index + len(self._dismod_file.smooth_grid))
+            self._dismod_file.smooth_grid = self._dismod_file.smooth_grid.append(grid_table, ignore_index=True)
+
+    def _add_field_smooth(self, grid_name, prior_table):
+        smooth_row = dict(smooth_name=grid_name)
+        smooth_row["n_age"] = len(prior_table.age_id.unique())
+        smooth_row["n_time"] = len(prior_table.time_id.unique())
+        for prior_kind in ["value", "dage", "dtime"]:
+            smooth_row[f"mulstd_{prior_kind}_prior_id"] = prior_table.loc[
+                prior_table.age.isna() & (prior_table.kind == prior_kind)
+                ]
+        if self._dismod_file.smooth.empty:
+            smooth_row["smooth_id"] = 0
+            self._dismod_file.smooth = self._dismod_file.empty_table("smooth").append(smooth_row, ignore_index=True)
+        else:
+            smooth_row["smooth_id"] = len(self._dismod_file.smooth)
+            self._dismod_file.smooth = self._dismod_file.smooth.append(smooth_row, ignore_index=True)
+        smooth_id = smooth_row["smooth_id"]
+        return smooth_id
+
+    def _add_field_priors(self, grid_name, complete_table):
+        # Create new prior IDs that don't overlap.
+        complete_table = complete_table.assign(prior_id=complete_table.index + len(self._dismod_file.prior))
+        # Unique, informative names for the priors require care.
+        null_names = complete_table.prior_name.isnull()
+        complete_table.loc[~null_names, "prior_name"] = (
+                complete_table.loc[~null_names, "prior_name"] + "    " +
+                complete_table.loc[~null_names, "prior_id"].astype(str)
         )
-        prior_table.loc[null_names, "prior_name"] = prior_table.loc[
+        complete_table.loc[null_names, "prior_name"] = complete_table.loc[
             null_names, "prior_id"].apply(
             lambda pid: f"{grid_name}_{pid}"
         )
-
-        prior_table["prior_id"] = prior_table.index
-        prior_table = pd.merge(prior_table, self._dismod_file.density, on="density_name")
+        # Assign age_id and time_id for age and time.
+        complete_table = pd.merge_asof(complete_table.sort_values("age"), self._dismod_file.age, on="age")
+        complete_table = pd.merge_asof(complete_table.sort_values("time"), self._dismod_file.time, on="time")
         # Make sure the index still matches the order in the priors list
-        prior_table = prior_table.sort_values(by="prior_id").reset_index(
-            drop=True)
-        if self._dismod_file.prior:
+        priors_columns = [
+            "prior_id", "prior_name", "lower", "upper", "mean", "std", "eta", "nu", "density_id"
+        ]
+        prior_table = complete_table.sort_values(by="prior_id").reset_index(drop=True)[priors_columns]
+        if self._dismod_file.prior.empty:
             self._dismod_file.prior = self._dismod_file.prior.append(prior_table)
         else:
             self._dismod_file.prior = prior_table
-
-        # This function is only relevant for this random field.
-        def prior_id_func(prior):
-            return sorted_priors.index(prior) + prior_start_idx
-
-        # 2. Then make the smooth_grid with the priors.
-        smooth = "smooth representation"
-        grid_table = make_smooth_grid_table(smooth, prior_id_func)
-        grid_table["smooth_id"] = len(self._dismod_file.smooth)
-        grid_table = pd.merge_asof(
-            grid_table.sort_values("age"), self._dismod_file.age, on="age") \
-            .drop("age", "columns")
-        grid_table = pd.merge_asof(
-            grid_table.sort_values("time"), self._dismod_file.time, on="time") \
-            .drop("time", "columns")
-        grid_table = grid_table.sort_values(["time_id", "age_id"])
-
-        # 3. Then add the smooth grid entry.
-        smooth_id = 0
-        return smooth_id
+        return complete_table
 
     def _flush_ages_times_locations(self):
         if self._flushed:
             return
+        unique_ages = self._ages[np.unique(self._ages.round(decimals=14), return_index=True)[1]]
+        unique_ages.sort()
+        self._dismod_file.age = pd.DataFrame(dict(age_id=range(len(unique_ages)), age=unique_ages))
+        unique_times = self._times[np.unique(self._times.round(decimals=14), return_index=True)[1]]
+        unique_times.sort()
+        self._dismod_file.time = pd.DataFrame(dict(time_id=range(len(unique_times)), time=unique_times))
         self._flushed = True
 
 
