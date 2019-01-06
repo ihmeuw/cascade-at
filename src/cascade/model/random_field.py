@@ -53,6 +53,19 @@ class RandomField:
         self.priors = pd.concat([one_priors, one_priors.assign(kind="dage"), one_priors.assign(kind="dtime")])
 
 
+class FieldDraw:
+    def __init__(self, age_time_grid, count=1):
+        self.ages = np.array(age_time_grid[0], dtype=np.float)
+        self.times = np.array(age_time_grid[1], dtype=np.float)
+        age_time = np.array(list(product(sorted(self.ages), sorted(self.times))))
+        self.values = pd.DataFrame(dict(
+            age=np.tile(age_time[:, 0], count),
+            time=np.tile(age_time[:, 1], count),
+            mean=nan,
+            idx=np.repeat(range(count), len(age_time)),
+        ))
+
+
 class PartsContainer:
     """The Model has five kinds of random fields, but if we take the
     vars from the model, the vars split into the same five kinds. This class
@@ -61,7 +74,7 @@ class PartsContainer:
     def __init__(self, nonzero_rates, child_location):
         # Key is the rate as a string.
         self.rate = dict()
-        # Key is tuple (rate, location_id)
+        # Key is tuple (rate, location_id)  # location_id=None means no nslist.
         self.random_effect = dict()
         # Key is (covariate, rate), both as strings.
         self.alpha = dict()
@@ -94,6 +107,7 @@ class Model:
         self.parent_location = parent_location
         self.child_location = set(locations.successors(parent_location))
         self.covariates = list()  # of class Covariate
+        self.weights = dict()
 
         self.parts = PartsContainer(nonzero_rates, self.child_location)
 
@@ -101,8 +115,12 @@ class Model:
         writer.start_model(self.nonzero_rates, self.child_location)
         for field_at in self.parts.values():
             writer.write_ages_and_times(field_at.ages, field_at.times)
+        for weight_value in self.weights.values():
+            writer.write_ages_and_times(weight_value.ages, weight_value.times)
+
         writer.write_covariate(self.covariates)
-        writer.write_locations(self.locations)
+        for name, weight in self.weights.items():
+            writer.write_weight(name, weight)
 
         for kind, write_field in self.parts.items():
             if kind[0] == "rate":

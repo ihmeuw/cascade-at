@@ -11,10 +11,43 @@ from cascade.core.log import getLoggers
 from cascade.dismod.db.metadata import DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
 from cascade.dismod.serialize import (
-    enum_to_dataframe, default_integrand_names, make_log_table
+    enum_to_dataframe, default_integrand_names, make_log_table, simplest_weight
 )
 
 CODELOG, MATHLOG = getLoggers(__name__)
+
+
+class DismodSession:
+    def __init__(self, locations):
+        """
+
+        Args:
+            locations (pd.DataFrame): Initialize here because data refers to this.
+        """
+        self.dismod_file = DismodFile()
+        columns = dict(
+            node_name=locations.name,
+            parent=locations.parent,
+        )
+        # This adds c_location_id, if it's there.
+        for add_column in [c for c in locations.columns if c.startswith("c_")]:
+            columns[add_column] = locations[add_column]
+        table = pd.DataFrame(columns)
+        table["node_id"] = table.index
+
+        def location_to_node_func(location_id):
+            if np.isnan(location_id):
+                return np.nan
+            return np.where(table.c_location_id == location_id)[0][0]
+
+        table["parent"] = table.parent.apply(location_to_node_func)
+        self.dismod_file.node = table
+        self.location_func = location_to_node_func
+
+    def write(self, model):
+        writer = ModelWriter(self)
+        model.write(writer)
+        writer.close()
 
 
 class ModelWriter:
@@ -28,15 +61,19 @@ class ModelWriter:
     fields.
     """
 
-    def __init__(self):
-        self._dismod_file = DismodFile()
+    def __init__(self, session):
+        self._session = session
+        self._dismod_file = session.dismod_file
         self._ages = np.empty((0,), dtype=np.float)
         self._times = np.empty((0,), dtype=np.float)
         self._rate_rows = list()  # List of dictionaries for rates.
         self._mulcov_rows = list()  # List of dictionaries for covariate multipliers.
-        self._rate_id = dict()
+        self._rate_id = dict()  # The rate ids with the primary rates.
+        self._nslist = dict()  # rate to integer
+        self._nslist_pair = dict()  # From nslist rate to list of (node, smooth)
         self._covariate_id = lambda x: nan
         self._flushed = False
+        self._children = None
 
     def basic_db_setup(self):
         """These things are true for all databases."""
@@ -61,6 +98,7 @@ class ModelWriter:
         """To start the model, tell me enough to know the sizes almost all of
         the tables by telling me the rate count and child random effect count."""
         self._rate_id = dict((y, x) for (x, y) in enumerate(sorted(nonzero_rates)))
+        self._children = children
 
     def write_ages_and_times(self, ages, times):
         """
@@ -75,10 +113,6 @@ class ModelWriter:
         CODELOG.debug(f"Covariate types {self._dismod_file.covariate.dtypes}")
         self._dismod_file.covariate, cov_col_id_func, covariate_renames = _make_covariate_table(covariates)
         self._covariate_id = cov_col_id_func
-
-    def write_locations(self, locations):
-        """Skip until other PR is merged in for locations."""
-        pass
 
     def write_rate(self, rate_name, random_field):
         """A rate needs a smooth, which has priors and ages/times."""
@@ -96,17 +130,28 @@ class ModelWriter:
 
     def write_random_effect(self, rate_name, child_location, random_field):
         self._flush_ages_times_locations()
-        grid_name = f"{rate_name}_re_{child_location}"
+        if child_location is None:
+            grid_name = f"{rate_name}_re"
+        else:
+            grid_name = f"{rate_name}_re_{child_location}"
         smooth_id = self.add_random_field(grid_name, random_field)
-        self._rate_rows.append(
-            {
-                "rate_id": len(self._rate_rows),
-                "rate_name": rate_name,
-                "parent_smooth_id": nan,
-                "child_smooth_id": smooth_id,
-                "child_nslist_id": nan,
-            }
-        )
+        if child_location is None:
+            self._rate_rows.append(
+                {
+                    "rate_id": len(self._rate_rows),
+                    "rate_name": rate_name,
+                    "parent_smooth_id": nan,
+                    "child_smooth_id": smooth_id,
+                    "child_nslist_id": nan,
+                }
+            )
+        else:
+            node_id = self._session.location_func(child_location)
+            if rate_name in self._nslist:
+                self._nslist_pair[rate_name].append((node_id, smooth_id))
+            else:
+                self._nslist[rate_name] = len(self._nslist)
+                self._nslist_pair[rate_name] = [(node_id, smooth_id)]
 
     def write_mulcov(self, kind, covariate, rate_or_integrand, random_field):
         self._flush_ages_times_locations()
@@ -124,6 +169,14 @@ class ModelWriter:
                     "smooth_id": smooth_id,
                 }
             )
+
+    def write_weight(self, name, field_draw):
+        # FIXME: The weight implementation has to create its own grid. Much simpler.
+        self._dismod_file.weight, self._dismod_file.weight_grid = simplest_weight()
+
+    def close(self):
+        # Write nslists.
+        pass
 
     def add_random_field(self, grid_name, random_field):
         """Save a new Random Field."""

@@ -1,10 +1,12 @@
-import networkx as nx
+from math import nan
 
+import networkx as nx
 import numpy as np
+import pandas as pd
 import pytest
 
-from cascade.model.random_field import Model, RandomField
-from cascade.dismod.model_writer import ModelWriter
+from cascade.dismod.model_writer import DismodSession
+from cascade.model.random_field import Model, RandomField, FieldDraw
 
 
 @pytest.fixture
@@ -37,9 +39,16 @@ def basic_model():
     model.rate["omega"] = rate_grid
     model.rate["iota"] = rate_grid
     model.rate["chi"] = rate_grid
+
+    model.weights["constant"] = FieldDraw(([40], [2000]))
+    model.weights["constant"].values.loc[:, "mean"] = 1.0
     return model
 
 
 def test_write_rate(basic_model):
-    writer = ModelWriter()
-    basic_model.write(writer)
+    session = DismodSession(pd.DataFrame(dict(
+        name=["global"],
+        parent=[nan],
+        c_location_id=[1],
+    )))
+    session.write(basic_model)
