@@ -77,7 +77,7 @@ else
 fi
 
 if [[ "$cluster_type" == "new_cluster" ]]; then
-  QSUB_CMD="qsub -N dmat_${MVID} -l fthread=10 -l m_mem_free=10G -q all.q -P proj_dismod_at -terse -o ${LOG_FILE} -j y -b y /bin/bash --noprofile --norc ${ROOTEDSCRIPT} ${MVID} ${EPI_ENV} > ${LOG_FILE} 2>&1"
+  QSUB_CMD="qsub -N dmat_${MVID} -l fthread=10 -l m_mem_free=10G -l archive=TRUE -q all.q -P proj_dismod_at -terse -o ${LOG_FILE} -j y -b y /bin/bash --noprofile --norc ${ROOTEDSCRIPT} ${MVID} ${EPI_ENV} > ${LOG_FILE} 2>&1"
 else
   QSUB_CMD="qsub -N dmat_${MVID} -P proj_dismod_at -terse -o ${LOG_FILE} -j y -b y /bin/bash --noprofile --norc ${ROOTEDSCRIPT} ${MVID} ${EPI_ENV} > ${LOG_FILE} 2>&1"
 fi
