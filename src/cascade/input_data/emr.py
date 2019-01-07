@@ -85,7 +85,8 @@ def _make_interpolators(csmr):
     mean = {}
     stderr = {}
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", module="scipy.interpolate")
+        warnings.filterwarnings("ignore", module="scipy.interpolate",
+                                category=UserWarning, message=r"\s*The coefficient")
         mean["both"] = LSQBivariateSpline(
             csmr.age, csmr.time, csmr["mean"], sorted(csmr.age.unique()), sorted(csmr.time.unique()), kx=1, ky=1
         )
