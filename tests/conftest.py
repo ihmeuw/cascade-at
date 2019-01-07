@@ -28,6 +28,8 @@ def pytest_addoption(parser):
     group = parser.getgroup("cascade")
     group.addoption("--ihme", action="store_true",
                     help="run functions requiring access to central comp and Dismod-AT")
+    group.addoption("--signals", action="store_true",
+                    help="run functions requiring access to central comp and Dismod-AT")
 
 
 @pytest.fixture
@@ -44,3 +46,19 @@ class IhmeDbFuncArg:
             pytest.skip(f"specify --ihme to run tests requiring Central Comp databases")
 
         cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = False
+
+
+@pytest.fixture
+def signals(request):
+    return SignalQuietArg(request)
+
+
+class SignalQuietArg:
+    """
+    Some tests kill processes with UNIX signals that, on the Mac so far,
+    cause the OS to try to notify Apple of a problem. This flag turns
+    off those tests.
+    """
+    def __init__(self, request):
+        if request.config.getoption("signals"):
+            pytest.skip(f"specify --signals if using UNIX signals can stop pytest")
