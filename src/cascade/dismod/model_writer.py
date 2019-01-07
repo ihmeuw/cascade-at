@@ -14,6 +14,7 @@ from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.dismod.serialize import (
     enum_to_dataframe, default_integrand_names, make_log_table, simplest_weight
 )
+from cascade.dismod.model_reader import read_vars, read_var_table_as_id
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -41,6 +42,10 @@ class DismodSession:
         self._covariates = dict()  # From covariate name to the x_<number> name.
         for create_name in ["data", "avgint"]:
             setattr(self.dismod_file, create_name, self.dismod_file.empty_table(create_name))
+
+    def get_vars(self, name):
+        var_id = read_var_table_as_id(self.dismod_file)
+        return read_vars(self.dismod_file, var_id, name)
 
     def set_option(self, name, value):
         rate_row = int(self.dismod_file.option[self.dismod_file.option.option_name == name].option_id)

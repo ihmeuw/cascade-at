@@ -18,7 +18,7 @@ All the kinds of objects:
 
 """
 from itertools import product
-from math import nan
+from math import nan, isnan
 
 import numpy as np
 import pandas as pd
@@ -81,6 +81,14 @@ class RandomField:
         self.priors = pd.concat([one_priors, one_priors.assign(kind="dage"), one_priors.assign(kind="dtime")])
         self.priors = self.priors.reset_index(drop=True)
 
+    def __len__(self):
+        mulstd = len(self.priors[self.priors.age.isna() & self.priors.density_id.notna()])
+        return self.ages.shape[0] * self.times.shape[0] * 3 + mulstd
+
+    @property
+    def age_time(self):
+        return (self.ages, self.times)
+
     @property
     def value(self):
         return PriorView(self, "value")
@@ -105,11 +113,10 @@ class FieldDraw:
             mean=nan,
             idx=np.repeat(range(count), len(age_time)),
         ))
-        self.mulstd = pd.DataFrame(dict(
-            kind=np.tile(["value", "age", "time"], count),
-            idx=np.repeat(range(count), 3),
-            mean=nan,
-        ))
+        self.mulstd = dict()  # keys are value, dage, dtime.
+
+    def __len__(self):
+        return self.ages.shape[0] * self.times.shape[0] * 3 + len(self.mulstd)
 
 
 class PartsContainer:
@@ -140,6 +147,23 @@ class PartsContainer:
     def values(self):
         for part_name in ["rate", "random_effect", "alpha", "beta", "gamma"]:
             yield from getattr(self, part_name).values()
+
+    def __len__(self):
+        return sum(len(part) for part in self.values())
+
+    @classmethod
+    def fromtuples(cls, tuples):
+        """
+        Builds a PartsContainer from transformation of the output of items().
+
+        >>> parts2 = PartsContainer.fromtuples((k, transform(v)) for (k, v) in parts1.items())
+        """
+        parts = cls()
+        for k, v in tuples:
+            if k[0] == "rate":
+                parts.rate[k[1]] = v
+            else:
+                getattr(parts, k[0])[tuple(k[1:])] = v
 
 
 class Model:
@@ -202,4 +226,21 @@ class Model:
 
     @property
     def model_variables(self):
-        return PartsContainer()
+        parts = PartsContainer()
+        for rate, rate_rf in self.rate.items():
+            parts.rate[rate] = FieldDraw(rate_rf.age_time)
+        for (re_rate, re_location), re_rf in self.random_effect.items():
+            # There will always be model variables for every child, even if
+            # there is one smoothing for all children.
+            if re_location is None or isnan(re_location):
+                for child in self.child_location:
+                    parts.random_effect[(re_rate, child)] = FieldDraw(re_rf.age_time)
+            else:
+                parts.random_effect[(re_rate, re_location)] = FieldDraw(re_rf.age_time)
+        for alpha, alpha_rf in self.alpha.items():
+            parts.alpha[alpha] = FieldDraw(alpha_rf.age_time)
+        for beta, beta_rf in self.alpha.items():
+            parts.beta[beta] = FieldDraw(beta_rf.age_time)
+        for gamma, gamma_rf in self.alpha.items():
+            parts.gamma[gamma] = FieldDraw(gamma_rf.age_time)
+        return parts

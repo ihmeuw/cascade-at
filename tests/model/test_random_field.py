@@ -4,6 +4,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import pytest
+from subprocess import run
 
 from cascade.dismod.model_writer import DismodSession
 from cascade.model.covariates import Covariate
@@ -49,9 +50,15 @@ def basic_model():
 
 def test_write_rate(basic_model):
     parent_location = 1
+    db_file = "rftest.db"
     session = DismodSession(pd.DataFrame(dict(
         name=["global"],
         parent=[nan],
         c_location_id=[1],
-    )), parent_location, "rftest.db")
+    )), parent_location, db_file)
     session.write(basic_model)
+
+    run(["dmdismod", db_file, "init"])
+
+    scale_vars = session.get_vars("scale")
+    assert len(scale_vars) == len(basic_model)
