@@ -105,6 +105,11 @@ class FieldDraw:
             mean=nan,
             idx=np.repeat(range(count), len(age_time)),
         ))
+        self.mulstd = pd.DataFrame(dict(
+            kind=np.tile(["value", "age", "time"], count),
+            idx=np.repeat(range(count), 3),
+            mean=nan,
+        ))
 
 
 class PartsContainer:
