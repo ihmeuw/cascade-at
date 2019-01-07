@@ -19,11 +19,14 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class DismodSession:
-    def __init__(self, locations, filename):
+    def __init__(self, locations, parent_location, filename):
         """
 
         Args:
             locations (pd.DataFrame): Initialize here because data refers to this.
+            parent_location (int): The session uses parent location to subset
+                                   data, but it isn't in the model.
+            filename (str|Path): Location of the Dismod db to overwrite.
         """
         self.dismod_file = DismodFile()
         self._filename = Path(filename)
@@ -31,6 +34,70 @@ class DismodSession:
             MATHLOG.info(f"{self._filename} exists so overwriting it.")
             self._filename.unlink()
         self.dismod_file.engine = _get_engine(self._filename)
+        self.parent_location = parent_location
+
+        self._create_node_table(locations)
+        self._create_options_table()
+        self._covariates = dict()  # From covariate name to the x_<number> name.
+        for create_name in ["data", "avgint"]:
+            setattr(self.dismod_file, create_name, self.dismod_file.empty_table(create_name))
+
+    def set_option(self, name, value):
+        rate_row = int(self.dismod_file.option[self.dismod_file.option.option_name == name].option_id)
+        self.dismod_file.option.loc[rate_row, "option_value"] = value
+
+    def set_covariates(self, rename_dict):
+        """Both the data and avgints need to have extra columns for covariates.
+        Dismod-AT wants these defined, and at least an empty data and avgint
+        table, before it will write the model. This step updates the list
+        of covariates in the database schema before creating empty tables
+        if necessary."""
+        if set(rename_dict.values()) == set(self._covariates.values()):
+            self._covariates = rename_dict
+            return
+        else:
+            # Only rewrite schema if the x_<integer> list has changed.
+            self._covariates = rename_dict
+        covariate_columns = list(sorted(self._covariates.values()))
+        for create_name in ["data", "avgint"]:
+            empty = self.dismod_file.empty_table(create_name)
+            without = [c for c in empty.columns if not c.startswith("x_")]
+            # The wrapper needs these columns to have a dtype of Real.
+            empty = empty[without].assign(**{cname: np.empty((0,), dtype=np.float) for cname in covariate_columns})
+            self.dismod_file.update_table_columns(create_name, empty)
+            if getattr(self.dismod_file, create_name).empty:
+                CODELOG.debug(f"Writing empty {create_name} table with columns {covariate_columns}")
+                setattr(self.dismod_file, create_name, empty)
+            else:
+                CODELOG.debug(f"Adding to {create_name} table schema the columns {covariate_columns}")
+
+    def _create_options_table(self):
+        # Options in grey were rejected by Dismod-AT despite being in docs.
+        # https://bradbell.github.io/dismod_at/doc/option_table.htm
+        option = pd.DataFrame([
+            dict(option_name="parent_node_id", option_value=str(self.location_func(self.parent_location))),
+            # dict(option_name="meas_std_effect", option_value="add_std_scale_all"),
+            dict(option_name="zero_sum_random", option_value=nan),
+            dict(option_name="data_extra_columns", option_value=nan),
+            dict(option_name="avgint_extra_columns", option_value=nan),
+            dict(option_name="warn_on_stderr", option_value="true"),
+            dict(option_name="ode_step_size", option_value="5.0"),
+            # dict(option_name="age_avg_split", option_value=nan),
+            dict(option_name="random_seed", option_value="0"),
+            dict(option_name="rate_case", option_value="iota_pos_rho_zero"),
+            # dict(option_name="derivative_test", option_value="none"),
+            # dict(option_name="max_num_iter", option_value="100"),
+            # dict(option_name="print_level", option_value=0),
+            # dict(option_name="accept_after_max_steps", option_value="5"),
+            # dict(option_name="tolerance", option_value="1e-8"),
+            dict(option_name="quasi_fixed", option_value="true"),
+            dict(option_name="bound_frac_fixed", option_value="1e-2"),
+            dict(option_name="limited_memory_max_history_fixed", option_value="30"),
+            dict(option_name="bound_random", option_value=nan),
+        ], columns=["option_name", "option_value"])
+        self.dismod_file.option = option.assign(option_id=option.index)
+
+    def _create_node_table(self, locations):
         columns = dict(
             node_name=locations.name,
             parent=locations.parent,
@@ -119,6 +186,9 @@ class ModelWriter:
         the tables by telling me the rate count and child random effect count."""
         self._children = children
         self.basic_db_setup()
+        iota_case = "pos" if "iota" in nonzero_rates else "zero"
+        rho_case = "pos" if "rho" in nonzero_rates else "zero"
+        self._session.set_option("rate_case", f"iota_{iota_case}_rho_{rho_case}")
 
     def write_ages_and_times(self, ages, times):
         """
@@ -133,6 +203,7 @@ class ModelWriter:
         CODELOG.debug(f"covariates {', '.join(c.name for c in covariates)}")
         self._dismod_file.covariate, cov_col_id_func, covariate_renames = _make_covariate_table(covariates)
         self._covariate_id_func = cov_col_id_func
+        self._session.set_covariates(covariate_renames)
 
     def write_rate(self, rate_name, random_field):
         """A rate needs a smooth, which has priors and ages/times."""
@@ -204,7 +275,7 @@ class ModelWriter:
     def add_random_field(self, grid_name, random_field):
         """Save a new Random Field."""
         complete_table = self._add_field_priors(grid_name, random_field.priors.copy())
-        smooth_id = self._add_field_smooth(grid_name, complete_table)
+        smooth_id = self._add_field_smooth(grid_name, complete_table, (len(random_field.ages), len(random_field.times)))
         self._add_field_grid(complete_table, smooth_id)
         return smooth_id
 
@@ -224,10 +295,10 @@ class ModelWriter:
             grid_table = grid_table.assign(smooth_grid_id=grid_table.index + len(self._dismod_file.smooth_grid))
             self._dismod_file.smooth_grid = self._dismod_file.smooth_grid.append(grid_table, ignore_index=True)
 
-    def _add_field_smooth(self, grid_name, prior_table):
+    def _add_field_smooth(self, grid_name, prior_table, age_time_cnt):
         smooth_row = dict(smooth_name=grid_name)
-        smooth_row["n_age"] = len(prior_table.age_id.unique())
-        smooth_row["n_time"] = len(prior_table.time_id.unique())
+        smooth_row["n_age"] = age_time_cnt[0]
+        smooth_row["n_time"] = age_time_cnt[1]
         for prior_kind in ["value", "dage", "dtime"]:
             mulstd_row = prior_table.loc[prior_table.age.isna() & (prior_table.kind == prior_kind)]
             if all(mulstd_row.density_id.notna()):
@@ -333,4 +404,4 @@ def _make_covariate_table(covariates):
         """From the original covariate name to the index in SQL file."""
         return [search.name for search in covariates].index(query_column)
 
-    return covariate_columns, cov_col_id_func, renames.get
+    return covariate_columns, cov_col_id_func, renames

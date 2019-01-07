@@ -105,6 +105,7 @@ def _ordered_by_foreign_key_dependency(schema, tables_to_write):
     Returns:
         Iterates through the tables in an order that is safe for writing.
     """
+    # TODO: This should subset schema.sorted_tables to those tables in tables_to_write.
     dependency_graph = DiGraph()
 
     if set(tables_to_write) - set(schema.tables.keys()):
@@ -181,7 +182,8 @@ class DismodFile:
         attributes.extend(super().__dir__())
         return attributes
 
-    def update_table_columns(self, table_definition, table):
+    def update_table_columns(self, table_name, table):
+        table_definition = self._table_definitions[table_name]
         new_columns = table.columns.difference(table_definition.c.keys())
         new_column_types = {c: table.dtypes[c] for c in new_columns}
 
@@ -226,7 +228,7 @@ class DismodFile:
 
             extra_columns = set(data.columns.difference(table.c.keys()))
             if extra_columns:
-                self.update_table_columns(table, data)
+                self.update_table_columns(table_name, data)
 
             data = data.set_index(f"{table_name}_id", drop=False)
             self._table_hash[table_name] = pd.util.hash_pandas_object(data)
@@ -277,6 +279,7 @@ class DismodFile:
         if self.engine is None:
             raise ValueError("Cannot flush before an engine is set")
         with self.engine.begin() as connection:
+            CODELOG.debug(f"DismodFile has table data for {', '.join(sorted(self._table_data.keys()))}")
             for table_name in _ordered_by_foreign_key_dependency(Base.metadata, self._table_data.keys()):
                 if self._is_dirty(table_name):
                     table = self._table_data[table_name]
@@ -287,7 +290,7 @@ class DismodFile:
 
                     extra_columns = set(table.columns.difference(table_definition.c.keys()))
                     if extra_columns:
-                        self.update_table_columns(table_definition, table)
+                        self.update_table_columns(table_name, table)
 
                     _validate_data(table_definition, table)
 
@@ -304,7 +307,7 @@ class DismodFile:
                         table.index = table.index.astype(np.int64)
                     try:
                         dtypes = {k: v.type for k, v in table_definition.c.items()}
-                        CODELOG.debug(f"table {table_name} types {dtypes}")
+                        CODELOG.debug(f"Writing table {table_name} rows {len(table)} types {dtypes}")
                         table.index.name = None
                         table.to_sql(
                             table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
@@ -313,6 +316,8 @@ class DismodFile:
                         raise
 
                     self._table_hash[table_name] = table_hash
+                else:
+                    CODELOG.debug(f"{table_name} did not need to be written")
 
         self._check_column_types_actually_written()
 

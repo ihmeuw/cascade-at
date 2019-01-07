@@ -16,10 +16,10 @@ def basic_model():
     nonzero_rates = ["iota", "chi", "omega"]
     locations = nx.DiGraph()
     locations.add_edges_from([(1, 2), (1, 3), (1, 4)])
-    parent_location = 1
     eta = 1e-3
 
-    model = Model(nonzero_rates, locations, parent_location)
+    child_locations = list()
+    model = Model(nonzero_rates, child_locations)
     model.covariates = [Covariate("traffic", reference=0.0)]
 
     covariate_age_time = ([40], [2000])
@@ -48,9 +48,10 @@ def basic_model():
 
 
 def test_write_rate(basic_model):
+    parent_location = 1
     session = DismodSession(pd.DataFrame(dict(
         name=["global"],
         parent=[nan],
         c_location_id=[1],
-    )), "rftest.db")
+    )), parent_location, "rftest.db")
     session.write(basic_model)

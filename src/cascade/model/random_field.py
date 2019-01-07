@@ -112,7 +112,7 @@ class PartsContainer:
     vars from the model, the vars split into the same five kinds. This class
     is responsible for organizing data into those five kinds and iterating
     over them, for a Model or for vars, or for priors, whatever."""
-    def __init__(self, nonzero_rates, child_location):
+    def __init__(self):
         # Key is the rate as a string.
         self.rate = dict()
         # Key is tuple (rate, location_id)  # location_id=None means no nslist.
@@ -138,19 +138,17 @@ class PartsContainer:
 
 
 class Model:
-    def __init__(self, nonzero_rates, locations, parent_location):
+    def __init__(self, nonzero_rates, child_location):
         """
         >>> locations = location_hierarchy(execution_context)
         >>> m = Model(["chi", "omega", "iota"], locations, 6)
         """
         self.nonzero_rates = nonzero_rates
-        self.locations = locations
-        self.parent_location = parent_location
-        self.child_location = set(locations.successors(parent_location))
+        self.child_location = child_location
         self.covariates = list()  # of class Covariate
         self.weights = dict()
 
-        self.parts = PartsContainer(nonzero_rates, self.child_location)
+        self.parts = PartsContainer()
 
     def write(self, writer):
         writer.start_model(self.nonzero_rates, self.child_location)
@@ -199,4 +197,4 @@ class Model:
 
     @property
     def model_variables(self):
-        return PartsContainer(self.nonzero_rates, self.child_location)
+        return PartsContainer()
