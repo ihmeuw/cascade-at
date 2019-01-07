@@ -17,7 +17,12 @@ then
     # Custom conda install + environment, for development
     EPI_DIR="$(cat ~/EPIAT_DIR)"
 else
-    EPI_DIR="/ihme/code/dismod_at/env/${SGE_CLUSTER_NAME}"
+    if [[ $SGE_ENV =~ ^prod ]]; then
+	    CLUSTER="prod"
+    else
+	    CLUSTER="dev"
+    fi
+    EPI_DIR="/ihme/code/dismod_at/env/${CLUSTER}"
 fi
 if ! test -d ${EPI_DIR}
 then
