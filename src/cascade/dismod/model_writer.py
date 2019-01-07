@@ -275,13 +275,15 @@ class ModelWriter:
     def add_random_field(self, grid_name, random_field):
         """Save a new Random Field."""
         complete_table = self._add_field_priors(grid_name, random_field.priors.copy())
-        smooth_id = self._add_field_smooth(grid_name, complete_table, (len(random_field.ages), len(random_field.times)))
+        age_cnt, time_cnt = (len(random_field.ages), len(random_field.times))
+        assert len(complete_table) == (age_cnt * time_cnt + 1) * 3
+        smooth_id = self._add_field_smooth(grid_name, complete_table, (age_cnt, time_cnt))
         self._add_field_grid(complete_table, smooth_id)
         return smooth_id
 
     def _add_field_grid(self, complete_table, smooth_id):
         long_table = complete_table.loc[complete_table.age_id.notna()][["age_id", "time_id", "prior_id", "kind"]]
-        grid_table = long_table[["age_id", "time_id"]]
+        grid_table = long_table[["age_id", "time_id"]].sort_values(["age_id", "time_id"]).drop_duplicates()
         for kind in ["value", "dage", "dtime"]:
             grid_values = long_table.loc[long_table.kind == kind] \
                 .drop("kind", axis="columns") \
