@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 import logging
 import asyncio
@@ -7,6 +8,7 @@ from pprint import pformat
 from bdb import BdbQuit
 from pkg_resources import get_distribution, DistributionNotFound
 from tempfile import TemporaryDirectory
+from timeit import default_timer
 import shutil
 
 import pandas as pd
@@ -488,6 +490,7 @@ def main(args):
 
      5. Put that data into a file and run Dismod-AT on that file.
     """
+    start_time = default_timer()
     ec = make_execution_context()
 
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
@@ -506,17 +509,18 @@ def main(args):
         setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
     posteriors = None
-    for task in plan.tasks:
-        ec.parameters.location_id = task[0]
+    for location_id, sub_task_idx in plan.tasks:
+        ec.parameters.location_id = location_id
         posteriors = one_location_set(ec, settings, posteriors)
 
-    MATHLOG.debug(f"Completed successfully")
+    elapsed_time = timedelta(default_timer() - start_time)
+    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
 
 
-def one_location_set(ec, settings, posterior_draws):
+def one_location_set(ec, settings, posterior_draws_of_previous_fit):
     """Solve a parent with its children as random effects."""
     mc = model_context_from_settings(ec, settings)
-    set_priors_on_model_context(mc, posterior_draws)
+    set_priors_on_model_context(mc, posterior_draws_of_previous_fit)
     ec.dismodfile = write_dismod_file(mc, ec, ec.parameters.db_file_path)
     sampled_fit = None
     if not ec.parameters.db_only:
@@ -526,11 +530,9 @@ def one_location_set(ec, settings, posterior_draws):
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
-        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec,
-                                                                            4)
+        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec, 4)
 
-        ec.dismodfile.predict = sampled_predict.drop("predict_id",
-                                                     1).reset_index(drop=True)
+        ec.dismodfile.predict = sampled_predict.drop("predict_id", 1).reset_index(drop=True)
         ec.dismodfile.flush()
 
         if not ec.parameters.no_upload:
