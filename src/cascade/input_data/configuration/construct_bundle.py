@@ -5,6 +5,7 @@ from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
 from cascade.dismod.db.metadata import DensityEnum
+from cascade.core.db import dataframe_from_disk
 from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -126,3 +127,13 @@ def normalized_bundle_from_database(execution_context, bundle_id=None, tier=3):
     bundle = _normalize_bundle_data(bundle)
 
     return bundle
+
+
+def normalized_bundle_from_disk(path):
+    """Load a bundle off disk. It is assumed to be in the same format that dismodODE
+    used and we do a bit of adjusting to get it into the same format as our normalized
+    from database bundles.
+    """
+    bundle = dataframe_from_disk(path)
+    bundle = bundle.rename(columns={"measure": "measure_id"})
+    return _normalize_measures(bundle)
