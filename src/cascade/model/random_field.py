@@ -107,7 +107,7 @@ class FieldDraw:
         self.ages = np.array(age_time_grid[0], dtype=np.float)
         self.times = np.array(age_time_grid[1], dtype=np.float)
         age_time = np.array(list(product(sorted(self.ages), sorted(self.times))))
-        self.values = pd.DataFrame(dict(
+        self.grid = pd.DataFrame(dict(
             age=np.tile(age_time[:, 0], count),
             time=np.tile(age_time[:, 1], count),
             mean=nan,
@@ -164,15 +164,22 @@ class PartsContainer:
                 parts.rate[k[1]] = v
             else:
                 getattr(parts, k[0])[tuple(k[1:])] = v
+        return parts
 
 
 class Model:
-    def __init__(self, nonzero_rates, child_location):
+    """
+    Uses locations as given and translates them into nodes for Dismod-AT.
+    Uses ages and times as given and translates them into ``age_id``
+    and ``time_id`` for Dismod-AT.
+    """
+    def __init__(self, nonzero_rates, parent_location, child_location):
         """
         >>> locations = location_hierarchy(execution_context)
         >>> m = Model(["chi", "omega", "iota"], locations, 6)
         """
         self.nonzero_rates = nonzero_rates
+        self.location_id = parent_location
         self.child_location = child_location
         self.covariates = list()  # of class Covariate
         self.weights = dict()
@@ -203,6 +210,9 @@ class Model:
                 writer.write_mulcov("gamma", kind[1], kind[2], write_field)
             else:
                 raise RuntimeError(f"Unknown kind of field {kind}")
+
+    def __len__(self):
+        return len(self.parts)
 
     @property
     def rate(self):

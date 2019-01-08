@@ -19,8 +19,9 @@ def basic_model():
     locations.add_edges_from([(1, 2), (1, 3), (1, 4)])
     eta = 1e-3
 
+    parent_location = 1
     child_locations = list()
-    model = Model(nonzero_rates, child_locations)
+    model = Model(nonzero_rates, parent_location, child_locations)
     model.covariates = [Covariate("traffic", reference=0.0)]
 
     covariate_age_time = ([40], [2000])
@@ -44,7 +45,7 @@ def basic_model():
     model.rate["chi"] = chi_grid
 
     model.weights["constant"] = FieldDraw(([40], [2000]))
-    model.weights["constant"].values.loc[:, "mean"] = 1.0
+    model.weights["constant"].grid.loc[:, "mean"] = 1.0
     return model
 
 

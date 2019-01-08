@@ -19,27 +19,34 @@ def read_vars(dismod_file, var_ids, which):
     Returns:
         PartsContainer: With means for everything.
     """
-    table = getattr(dismod_file, which)
-    return PartsContainer.fromtuples((k, _read_vars_one_field(table, which, v)) for (k, v) in var_ids.items())
+    var_name = f"{which}_var"
+    table = getattr(dismod_file, var_name)
+    return PartsContainer.fromtuples((k, _read_vars_one_field(table, var_name, v)) for (k, v) in var_ids.items())
 
 
 def _read_vars_one_field(table, name, id_draw):
     id_column = f"{name}_id"
     var_column = f"{name}_id"
     vals = deepcopy(id_draw)
-    vals.values = vals.values.merge(table, left_on="var_id", right_on=id_column, how="left") \
-        .drop("var_id") \
-        .rename(columns={var_column, "mean"})
+    table = table.reset_index(drop=True)
+    with_var = vals.grid.merge(table, left_on="var_id", right_on=id_column, how="left")
+    with_var = with_var.drop(columns=["var_id"])
+    vals.grid = with_var.rename(columns={var_column: "mean"})
+
     for mulstd, mul_id in vals.mulstd.items():
         vals.mulstd[mulstd] = float(table.query("@id_column == @mul_id")[var_column])
+    return vals
 
 
 def read_var_table_as_id(dismod_file):
     """
     This reads the var table in order to find the ids for all of the vars.
-    It puts thos into a PartsContainer which can then decode any table
+    It puts those into a PartsContainer which can then decode any table
     associated with the var table.
     The empty vars come from the Model.model_variables property.
+    This ``var_id`` table has ``age_id`` and ``time_id`` but uses real
+    locations instead of ``node_id``. It's meant for joins with tables
+    in the Dismod file, that are indexed by ``age_id`` and ``time_id``.
     """
     parent_node = read_parent_node(dismod_file)
     child_node = read_child_nodes(dismod_file, read_parent_node(dismod_file))
@@ -65,15 +72,17 @@ def read_var_table_as_id(dismod_file):
         age_ids = np.unique(at_grid_df.age_id.values)
         time_ids = np.unique(at_grid_df.time_id.values)
         draw = FieldDraw((age_ids, time_ids))
-        id_df = draw.values.merge(at_grid_df[["age_id", "time_id", "var_id"]], how="left", on=["age_id", "time_id"])
-        draw.values = id_df
+        # The grid doesn't really have age and time. Should name it properly.
+        id_df = draw.grid.merge(at_grid_df[["age_id", "time_id", "var_id"]],
+                                how="left", right_on=["age_id", "time_id"], left_on=["age", "time"])
+        draw.grid = id_df
 
         for kind in ["value", "dage", "dtime"]:
             match = sub_grid_df.query("var_type == @kind")
             if not match.empty:
                 draw.mulstd[kind] = match.var_id
 
-        setattr(var_ids, part, draw)
+        getattr(var_ids, part)[tuple(rest)] = draw
 
     convert_age_time_to_values(dismod_file, var_ids)
     if len(var_ids) != len(dismod_file.var):
@@ -83,11 +92,11 @@ def read_var_table_as_id(dismod_file):
 
 def convert_age_time_to_values(dismod_file, draw_parts):
     for draw in draw_parts.values():
-        draw.values = draw.values.merge(dismod_file.ages, on="age_id", how="left") \
-            .merge(dismod_file.times, on="time_id", how="left") \
+        draw.values = draw.grid.merge(dismod_file.age, on="age_id", how="left") \
+            .merge(dismod_file.time, on="time_id", how="left") \
             .drop(columns=["age_id", "time_id"])
-        draw.ages = np.sort(np.unique(draw.values.age.values))
-        draw.times = np.sort(np.unique(draw.values.time.values))
+        draw.ages = np.sort(np.unique(draw.grid.age.values))
+        draw.times = np.sort(np.unique(draw.grid.time.values))
 
 
 def read_smooths(dismod_file, child_node):
@@ -116,8 +125,8 @@ def read_smooths(dismod_file, child_node):
 
 
 def read_parent_node(dismod_file):
-    return int(dismod_file.options.query("option_name == 'parent_node_id'").option_value)
+    return int(dismod_file.option.query("option_name == 'parent_node_id'").option_value)
 
 
 def read_child_nodes(dismod_file, parent_node):
-    return dismod_file.node_id[dismod_file.node_id.parent == parent_node].node_id.values
+    return dismod_file.node[dismod_file.node.parent == parent_node].node_id.values
