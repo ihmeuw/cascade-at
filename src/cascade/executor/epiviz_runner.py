@@ -531,6 +531,8 @@ def main(args):
         ec.parameters.location_id = location_id
         ec.parameters.grandparent_location_id = grandparent_location_id
         posteriors = one_location_set(ec, settings, posteriors)
+        posteriors.to_hdf("sampled_re.h5")
+        exit()
         grandparent_location_id = location_id
 
     elapsed_time = timedelta(default_timer() - start_time)

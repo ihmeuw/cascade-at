@@ -2,13 +2,13 @@
 Tests major statistical operations on the model.
 """
 from math import nan, isnan
-from types import SimpleNamespace  # Since Python 3.3
+from types import SimpleNamespace
 
 import numpy as np
-from numpy.random import shuffle
-from scipy.stats import norm
-from scipy.interpolate import SmoothBivariateSpline
 import pandas as pd
+from numpy.random import shuffle
+from scipy.interpolate import SmoothBivariateSpline
+from scipy.stats import norm
 
 from cascade.model.operations import (
     estimate_single_grid, expand_priors, reduce_priors, concatenate_grids_and_priors,
