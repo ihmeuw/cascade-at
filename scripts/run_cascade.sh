@@ -64,7 +64,23 @@ else
 fi
 ROOTEDSCRIPT=`readlink -f "${CALLSCRIPT}"`
 
-QSUB_CMD="qsub -N dmat_${MVID} -P proj_dismod_at -terse -o ${LOG_FILE} -j y -b y /bin/bash --noprofile --norc ${ROOTEDSCRIPT} ${MVID} ${EPI_ENV} > ${LOG_FILE} 2>&1"
+if [ -z $SGE_ENV ]; then
+  echo "Cannot determine new or old cluster configuration based on SGE_ENV value of $SGE_ENV. Defaulting to new_cluster"
+  cluster_type="new_cluster"
+elif [[ "$SGE_ENV" == *el6* ]]; then
+  cluster_type="old_cluster"
+elif [[ "$SGE_ENV" == *el7* ]]; then
+  cluster_type="new_cluster"
+else
+  echo "Cannot determine new or old cluster configuration based on SGE_ENV value of $SGE_ENV. Defaulting to new_cluster"
+  cluster_type="new_cluster"
+fi
+
+if [[ "$cluster_type" == "new_cluster" ]]; then
+  QSUB_CMD="qsub -N dmat_${MVID} -l fthread=10 -l m_mem_free=10G -l archive=TRUE -q all.q -P proj_dismod_at -terse -o ${LOG_FILE} -j y -b y /bin/bash --noprofile --norc ${ROOTEDSCRIPT} ${MVID} ${EPI_ENV} > ${LOG_FILE} 2>&1"
+else
+  QSUB_CMD="qsub -N dmat_${MVID} -P proj_dismod_at -terse -o ${LOG_FILE} -j y -b y /bin/bash --noprofile --norc ${ROOTEDSCRIPT} ${MVID} ${EPI_ENV} > ${LOG_FILE} 2>&1"
+fi
 if [ "${DBG_SUDO}" = 1 ]; then
     sh -c ". /etc/profile.d/sge.sh;${QSUB_CMD}"
 else

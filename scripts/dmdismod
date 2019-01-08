@@ -4,7 +4,7 @@ if [ -e "${SINGULARITY}" ]
 then
     exec singularity exec "${SINGULARITY}" /home/root/prefix/dismod_at/bin/dismod_at $*
 else
-    TARGET_DIR=$(readlink -e $(dirname $1))
+    TARGET_DIR="$( cd "$(dirname $1)" ; pwd -P )"
     TARGET_DB=$(basename $1)
     shift
     set -x

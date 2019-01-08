@@ -54,8 +54,8 @@ def make_grid_priors(ages, times, grid_priors, hyper_priors, smooth_id=7):
                     hyper_priors["value"], hyper_priors["dage"], hyper_priors["dtime"], 0],
     ))
     # Make the last one const. If tests want to make a point const, use prior_id=6.
-    prior.loc[6]["lower"] = 0.5
-    prior.loc[6]["upper"] = 0.5
+    prior.loc[6, "lower"] = 0.5
+    prior.loc[6, "upper"] = 0.5
 
     smooth = pd.DataFrame(dict(
         smooth_id=[smooth_id],
@@ -109,9 +109,8 @@ def vars_from_priors(dismod_file):
             prior = dismod_file.prior.query("prior_id == @odd_id")
             if (prior["upper"] > prior["lower"]).bool():
                 grid_vars = grid_vars.append(pd.DataFrame(
-                    [[f"mulstd_{odd_hyper}"]],
-                    columns=["var_type"],
-                ))
+                    {"var_type": [f"mulstd_{odd_hyper}"]},
+                ), sort=False)
     dismod_file.var = grid_vars.assign(
         var_id=list(range(len(grid_vars))),
         smooth_id=7,
