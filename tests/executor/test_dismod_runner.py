@@ -45,7 +45,7 @@ def test_dmchat_low_priority(dmchat, caplog):
     assert err == "".join(["err" + os.linesep] * 2)
 
 
-def test_dmchat_nonzero(dmchat):
+def test_dmchat_nonzero(dmchat, signals):
     with pytest.raises(Exception):
         dr.run_and_watch([dmchat, "1", "0", "7"], True, 2)
 
