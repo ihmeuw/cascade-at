@@ -452,6 +452,9 @@ def covariate_multiplier_iter(context):
     This iterates through those three places. The same covariate multiplier
     instance can be attached to more than one of those three places, and each
     time it creates a different covariate multiplier set of model variables.
+
+    Returns:
+        (CovariateMultiplier, str, rate | integrand)
     """
     # α according to Dismod-AT
     for rate in context.rates:

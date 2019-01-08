@@ -295,6 +295,8 @@ def model_context_from_settings(execution_context, settings):
      7. Construct all Random Effects.
     """
     model_context = initial_context_from_epiviz(settings)
+    model_context.parameters.location_id = execution_context.parameters.location_id
+    model_context.parameters.grandparent_location_id = execution_context.parameters.grandparent_location_id
 
     bundle = prepare_data(execution_context, settings)
 
@@ -467,7 +469,22 @@ def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
     CODELOG.info("Done generating fixed effect samples")
 
     fit, predict = zip(*results)
-    return pd.concat(fit), pd.concat(predict)
+
+    # Add metadata to the var table so it can be understood by another location.
+    var_table = execution_context.dismodfile.var
+    draws = pd.concat(fit).merge(var_table, left_on="fit_var_id", right_on="var_id", how="left")
+    draws_at = draws.merge(execution_context.dismodfile.age, left_on="age_id", right_on="age_id", how="left") \
+        .merge(execution_context.dismodfile.time, left_on="time_id", right_on="time_id", how="left") \
+        .drop(columns=["age_id", "time_id"])
+    draws_covariate = draws_at.merge(
+        execution_context.dismodfile.covariate_columns[["covariate_id", "covariate_name"]],
+        on="covariate_id", how="left"
+    )
+    draws_location = draws_covariate.merge(
+        execution_context.dismodfile.node[["node_id", "c_location_id"]],
+        on="node_id", how="left"
+    ).drop(columns=["node_id"])
+    return draws_location, pd.concat(predict)
 
 
 def has_random_effects(model):
@@ -509,9 +526,12 @@ def main(args):
         setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
     posteriors = None
+    grandparent_location_id = None
     for location_id, sub_task_idx in plan.tasks:
         ec.parameters.location_id = location_id
+        ec.parameters.grandparent_location_id = grandparent_location_id
         posteriors = one_location_set(ec, settings, posteriors)
+        grandparent_location_id = location_id
 
     elapsed_time = timedelta(default_timer() - start_time)
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")
@@ -539,12 +559,12 @@ def one_location_set(ec, settings, posterior_draws_of_previous_fit):
             MATHLOG.debug(f"Uploading results to epiviz")
             save_model_results(ec)
         else:
-            MATHLOG.debug(
-                f"Skipping results upload because 'no-upload' was selected")
+            MATHLOG.debug(f"Skipping results upload because 'no-upload' was selected")
     else:
-        MATHLOG.debug(
-            f"Only creating the base db file because 'db-only' was selected")
-    return sampled_fit
+        MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
+    drop_residuals = ["residual_value", "residual_dage", "residual_dtime", "lagrange_value",
+                      "lagrange_dage", "lagrange_dtime"]
+    return sampled_fit.drop(columns=drop_residuals)
 
 
 def entry():

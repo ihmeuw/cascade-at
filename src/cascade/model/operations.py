@@ -4,8 +4,13 @@ Statistical operations on the model:
  * Creation of priors from posteriors.
 
 """
-from numpy import nan
+from math import isnan, nan
 import pandas as pd
+
+from cascade.core.log import getLoggers
+from cascade.dismod.db.metadata import RateName, IntegrandEnum
+
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def random_field_iterator(var_df):
@@ -51,7 +56,113 @@ def random_field_iterator(var_df):
 
 
 def set_priors_on_model_context(model_context, posterior_draws):
+    """
+    Given draws from the fit to a previous model, which will the a fit
+    to the parent location, set parameters on this model, which is a
+    child location. The priors set will be:
+
+     * Rates - These are determined by the rate and random effect of
+       the parent.
+
+     * Random Effects - These are not set because the parent cannot inform
+       the random effect of its grandchildren.
+
+     * Covariate Multipliers - These are the alpha, beta, and gamma,
+       and they will be set from parent's draws.
+
+    Any prior distributions that are fixed in the model are not set.
+    If the posterior draw is fixed, then it will be fixed in this model.
+
+    Args:
+        model_context (ModelContext): The Model.
+        posterior_draws (pd.DataFrame): This dataframe has multiple copies of
+            the ``fit_var`` table, each with a different fit for all model
+            variables. The draws also contain merged columns from the ``var``
+            table so that we know what the variables are for.
+
+    Returns:
+        None: It changes priors on the model context.
+    """
+    # Posterior draws are copies of the var table, so they have sections
+    # for each random field. The (smooth_id, node_id) uniquely identifies
+    # each random field in the vars table.
+    grandparent_id = model_context.parameters.grandparent_location_id
+    parent_id = model_context.parameters.location_id
+    local_covariates = model_context.input_data.covariates
+    underlying_rate = dict()
+    random_effect = dict()
+
+    for (smooth_id, location_id), field_df in posterior_draws.groupby(["smooth_id", "location_id"]):
+        # One of the covariate multipliers.
+        traits = field_df.iloc[0]
+        if not isnan(traits.covariate_id):
+            if traits.var_type == "mulcov_rate_value":
+                rate_name = RateName(traits.rate_id).name
+                mulcovs = model_context.rates[rate_name].covariate_multipliers
+            elif traits.var_type == "mulcov_meas_value":
+                integrand_name = IntegrandEnum(traits.integrand_id).name
+                mulcovs = model_context.integrand_covariate_multipliers[integrand_name].value_covariate_multipliers
+            elif traits.var_type == "mulcov_meas_std":
+                integrand_name = IntegrandEnum(traits.integrand_id).name
+                mulcovs = model_context.integrand_covariate_multipliers[integrand_name].std_covariate_multipliers
+            else:
+                raise RuntimeError(f"Var type {traits.var_type} instead of a mulcov.")
+
+            smooth = _covariate_name_to_smooth(traits.covariate_name, local_covariates, mulcovs)
+            if smooth:
+                estimate_at = _estimates_from_one_grid(field_df)
+                _assign_smooth_priors_from_estimates(smooth, estimate_at)
+        else:
+            rate_name = RateName(traits.rate_id).name
+            if traits.location_id == parent_id:
+                random_effect[rate_name] = field_df
+            elif traits.location_id == grandparent_id:
+                underlying_rate[rate_name] = field_df
+            else:
+                pass  # These are random effects that apply to siblings.
+
+    for rate_name in underlying_rate.keys():
+        _assign_smooth_priors_from_random_effect(
+            model_context, rate_name, underlying_rate[rate_name], random_effect.get(rate_name, None))
+
+
+def _assign_smooth_priors_from_random_effect(model_context, rate_name,
+                                             underlying_df, random_effect_df):
     pass
+
+
+def _assign_smooth_priors_from_estimates(smooth, estimate_at):
+    value_priors = smooth.value_priors
+    for row in estimate_at.itertuples():
+        prior = value_priors[row.age, row.time]
+        prior.mean = row.mean
+        prior.std = row.std
+        value_priors[row.age, row.time] = prior
+
+
+def _covariate_name_to_smooth(covariate_name, local_covariates, mulcovs):
+    """Find in this model context the Smooth for a given covariate name."""
+    covariate_objs = [cobj for cobj in local_covariates if cobj.name == covariate_name]
+    if not covariate_objs:
+        return None
+    match_mulcov = [mc for mc in mulcovs if mc.column == covariate_objs[0]]
+    if not match_mulcov:
+        return None
+    return match_mulcov[0].smooth
+
+
+def _estimates_from_one_grid(field_df):
+    """Given a dataframe with all var draws for a single field, return
+    one var table with mean and standard deviation."""
+    # Exclude mulstd to get just the grid values.
+    exclude_mulstd = field_df[~field_df.var_type.str.startswith("mulstd")]
+    grid_df = exclude_mulstd.set_index("fit_var_id")
+    with_at = grid_df[["age", "time"]]
+    var_only = grid_df[["fit_var_value"]].groupby(level=0)
+    with_mean = var_only.mean().rename(columns={"fit_var_value": "mean"})
+    with_std = var_only.std().rename(columns={"fit_var_value": "std"})
+    # This makes columns: ["age", "time", "mean", "std"]
+    return with_at.join(with_mean).join(with_std)
 
 
 def estimate_priors_from_posterior_draws(draws, model_context, execution_context):
