@@ -102,11 +102,9 @@ def _get_bundle_data(execution_context, bundle_id, tier=3, exclude_outliers=True
     """
 
     if tier == 2:
-        database = execution_context.parameters.bundle_database
         table = "epi.bundle_dismod"
         model_version_query = ""
     elif tier == 3:
-        database = execution_context.parameters.database
         table = "epi.t3_model_version_dismod"
         model_version_query = "and model_version_id = %(mvid)s"
     else:
@@ -127,12 +125,12 @@ def _get_bundle_data(execution_context, bundle_id, tier=3, exclude_outliers=True
          input_type_id NOT IN(5,6) and
          outlier_type_id IN {outlier_flags} {model_version_query}
          """
-    with connection(database=database) as c:
+    with connection(execution_context) as c:
         bundle_data = pd.read_sql(
             query,
             c,
             params={"bundle_id": bundle_id, "mvid": execution_context.parameters.model_version_id})
-        MATHLOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id} from '{database}'")
+        MATHLOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id}")
         if exclude_outliers:
             # The modelers input the group_review flag as group_review=0 but then elmo transforms it to
             # input_type_id = 6 which is what we actually filter on above.
@@ -198,14 +196,13 @@ def freeze_bundle(execution_context, bundle_id=None) -> bool:
 
     model_version_id = execution_context.parameters.model_version_id
 
-    database = execution_context.parameters.database
     if _bundle_is_frozen(execution_context):
         CODELOG.info(
-            f"Bundle data for model_version_id {model_version_id} on '{database}' already frozen, doing nothing."
+            f"Bundle data for model_version_id {model_version_id} already frozen, doing nothing."
         )
         return False
     else:
-        CODELOG.info(f"Freezing bundle data for model_version_id {model_version_id} on '{database}'")
+        CODELOG.info(f"Freezing bundle data for model_version_id {model_version_id}")
         if bundle_id is None:
             bundle_id = _get_bundle_id(execution_context)
         bundle_data = _get_bundle_data(execution_context, bundle_id, tier=2, exclude_outliers=False)
