@@ -24,11 +24,9 @@ def get_study_covariates(execution_context, bundle_id, tier=3):
     """
 
     if tier == 2:
-        database = execution_context.parameters.bundle_database
         table = "epi.bundle_dismod_study_covariate"
         mvid_clause = ""
     elif tier == 3:
-        database = execution_context.parameters.database
         table = "epi.t3_model_version_study_covariate"
         mvid_clause = " and model_version_id = %(mvid)s"
     else:
@@ -44,11 +42,11 @@ def get_study_covariates(execution_context, bundle_id, tier=3):
     WHERE
         bundle_id = %(bundle_id)s {mvid_clause}
          """
-    with connection(database=database) as c:
+    with connection(execution_context) as c:
         covariates = pd.read_sql(query, c,
                                  params={"bundle_id": bundle_id, "mvid": execution_context.parameters.model_version_id})
         CODELOG.debug(
-            f"Downloaded {len(covariates)} lines of study covariates for bundle_id {bundle_id} from '{database}'"
+            f"Downloaded {len(covariates)} lines of study covariates for bundle_id {bundle_id}"
         )
 
     return covariates
