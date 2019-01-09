@@ -33,11 +33,13 @@ that come after the database.::
 That gives enough freedom to specify the command list when
 defining the :class:`cascade_at.sequential_batch.Batch`.
 """
+import asyncio
 import functools
 import os
-import asyncio
+import re
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -168,6 +170,9 @@ def run_and_watch(command, single_use_machine, poll_time):
     return result
 
 
+_NONWHITESPACE = re.compile(r"\S")
+
+
 def dismod_report_info(text):
     """This ensures MATHLOG messages have a function name in the log.
     Otherwise, they show <lambda> as the function name.
@@ -179,7 +184,8 @@ def dismod_report_stderr(text):
     """This ensures MATHLOG messages have a function name in the log.
     Otherwise, they show <lambda> as the function name.
     """
-    MATHLOG.warning(text, extra=dict(is_dismod_output=True))
+    if re.search(_NONWHITESPACE, text):
+        MATHLOG.warning(text, extra=dict(is_dismod_output=True))
 
 
 @asyncio.coroutine

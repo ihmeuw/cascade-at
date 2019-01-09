@@ -439,8 +439,8 @@ def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, sampl
     math_root = logging.getLogger("cascade.math")
     math_log_level = math_root.level
     if num_processes > 1:
-        logging.root.setLevel(logging.CRITICAL)
-        math_root.setLevel(logging.CRITICAL)
+        logging.root.setLevel(logging.WARNING)
+        math_root.setLevel(logging.WARNING)
     try:
         results = yield from asyncio.gather(*jobs)
     finally:
@@ -483,7 +483,7 @@ def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
     draws_location = draws_covariate.merge(
         execution_context.dismodfile.node[["node_id", "c_location_id"]],
         on="node_id", how="left"
-    ).drop(columns=["node_id"])
+    ).drop(columns=["node_id"]).rename(columns={"c_location_id": "location_id"})
     return draws_location, pd.concat(predict)
 
 
