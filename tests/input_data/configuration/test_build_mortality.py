@@ -30,8 +30,9 @@ def test_add_mortality_data(ihme, sexes):
 
 @pytest.mark.parametrize("sexes", [1, 2])
 def test_add_omega_constraint(ihme, sexes):
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6, tier=3)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6, tier=2)
     mc = ModelContext()
+    mc.parameters.location_id = ec.parameters.location_id
     mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
         {"time_lower": [1970.0],
