@@ -50,10 +50,6 @@ class CascadePlan:
         end_location = settings.model.drill_location
         drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
         MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
-        if len(drill) > 1:
-            drill_start = drill
-            drill = drill[-1:]
-            MATHLOG.warning(f"Reducing drill nodes to {', '.join(str(d) for d in drill)} from {drill_start}")
         tasks = [(drill_location, 0) for drill_location in drill]
         task_pairs = list(zip(tasks[:-1], tasks[1:]))
         plan.task_graph = nx.DiGraph()

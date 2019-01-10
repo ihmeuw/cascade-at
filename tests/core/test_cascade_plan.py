@@ -16,6 +16,17 @@ def test_create(ihme):
     print(nx.to_edgelist(c.task_graph))
 
 
+def test_single(ihme):
+    ec = make_execution_context(location_id=0, gbd_round_id=5)
+    settings = _ParameterHierarchy(
+        model={"split_sex": 4, "drill_location": 6},
+        policies=dict(),
+    )
+    c = CascadePlan.from_epiviz_configuration(ec, settings)
+    assert len(c.task_graph.nodes) == 1
+    print(nx.to_edgelist(c.task_graph))
+
+
 def test_iterate_tasks(ihme):
     ec = make_execution_context(location_id=0, gbd_round_id=5)
     settings = _ParameterHierarchy(

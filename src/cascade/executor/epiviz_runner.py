@@ -538,18 +538,10 @@ def main(args):
 
     posteriors = None
     grandparent_location_id = None
-    # This is for debugging construction of posteriors.
-    posterior_file = Path("sampled_re.h5")
-    if posterior_file.exists():
-        posteriors = pd.read_hdf(str(posterior_file), "draws")
-        grandparent_location_id = list(plan.tasks)[0][0]
-
     for location_id, sub_task_idx in plan.tasks:
         ec.parameters.location_id = location_id
         ec.parameters.grandparent_location_id = grandparent_location_id
         posteriors = one_location_set(ec, settings, posteriors)
-        posteriors.to_hdf(str(posterior_file), "draws")
-        exit()
         grandparent_location_id = location_id
 
     elapsed_time = timedelta(default_timer() - start_time)
