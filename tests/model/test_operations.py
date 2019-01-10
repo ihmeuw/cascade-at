@@ -13,7 +13,7 @@ from cascade.core.context import ModelContext
 from cascade.dismod.db.metadata import RateName
 import cascade.model.operations
 from cascade.model.operations import (
-    _assign_rate_priors, _assign_mulcov_priors,
+    _assign_rate_priors, _assign_mulcov_priors, _assign_smooth_priors_after_summary,
     _assign_smooth_priors_from_estimates, _covariate_name_to_smooth,
     _estimates_from_one_grid, _dataframe_to_bivariate_spline
 )
@@ -285,3 +285,30 @@ def test_assign_smooth_priors_from_estimates():
     assert np.isclose(vp[10, 2000].prior.mean, -7)
     # Others are untouched.
     assert np.isclose(vp[50, 1995].prior.mean, 0.0)
+
+
+def test_assign_smooth_rate_priors(monkeypatch):
+    """For rates with random effects"""
+    estimates = list()
+
+    def do_nothing(smooth, estimate):
+        estimates.append(estimate)
+
+    # Not testing actual assignment here.
+    monkeypatch.setattr(cascade.model.operations, "_assign_smooth_priors_from_estimates", do_nothing)
+
+    underlying_at = pd.DataFrame(dict(
+        age=[0.0, 0.0, 100.0, 100.0],
+        time=[1990, 2000, 1990, 2000],
+        mean=[0.3, 0.5, 0.7, 0.11],
+        std=[0.03, 0.05, 0.07, 0.022],
+    ))
+    re_at = pd.DataFrame(dict(
+        age=[0.0, 0.0, 100.0, 100.0],
+        time=[1990, 2000, 1990, 2000],
+        mean=[0, 0, 0, 0.0],
+        std=[0.03, 0.05, 0.07, 0.022],
+    ))
+    mc = ModelContext()
+    _assign_smooth_priors_after_summary(mc, "iota", underlying_at, re_at)
+    assert len(estimates) == 1

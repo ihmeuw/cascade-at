@@ -58,7 +58,7 @@ def _assign_rate_priors(model_context, posterior_draws):
     # Posterior draws are copies of the var table, so they have sections
     # for each random field. The (smooth_id, node_id) uniquely identifies
     # each random field in the vars table.
-    for (smooth_id, location_id), field_df in rate_draws.groupby(["smooth_id", "location_id"]):
+    for unique_field, field_df in rate_draws.groupby(["smooth_id", "location_id"]):
         traits = field_df.iloc[0]
         rate_name = RateName(traits.rate_id).name
         # On the odd chance that the draws are for this location, passed into
@@ -78,7 +78,7 @@ def _assign_rate_priors(model_context, posterior_draws):
 def _assign_mulcov_priors(model_context, posterior_draws):
     local_covariates = model_context.input_data.covariates
     mulcov_draws = posterior_draws[posterior_draws.covariate_id.notna()]
-    for (smooth_id, covariate_id), field_df in mulcov_draws.groupby(["smooth_id", "covariate_id"]):
+    for unique_field, field_df in mulcov_draws.groupby(["smooth_id", "covariate_id"]):
         # One of the covariate multipliers.
         traits = field_df.iloc[0]
         if traits.var_type == "mulcov_rate_value":
@@ -103,8 +103,16 @@ def _assign_smooth_priors_from_random_effect(model_context, rate_name, underlyin
     underlying_at = _estimates_from_one_grid(underlying_df)
     if random_effect_df is not None:
         random_effect_at = _estimates_from_one_grid(random_effect_df)
+    else:
+        random_effect_at = None
+    _assign_smooth_priors_after_summary(model_context, rate_name, underlying_at, random_effect_at)
+
+
+def _assign_smooth_priors_after_summary(model_context, rate_name, underlying_at, random_effect_at):
+    if random_effect_at is not None:
         re = _dataframe_to_bivariate_spline(random_effect_at)
-        adjusted_by_effect = underlying_at.apply(lambda row: row.mean * np.exp(re(row.age, row.time)))
+        adjusted_by_effect = underlying_at.apply(
+            lambda row: row["mean"] * np.exp(re(row.age, row.time)), axis="columns")
         rate = underlying_at.assign(mean=adjusted_by_effect)
     else:
         rate = underlying_at
