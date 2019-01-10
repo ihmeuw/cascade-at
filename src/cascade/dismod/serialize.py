@@ -488,8 +488,10 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
     for smooth in smooth_iter(context):
         grid_table = make_smooth_grid_table(smooth, prior_id_func)
         grid_table["smooth_id"] = len(smooths)
-        grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
-        grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
+        grid_table = pd.merge_asof(grid_table.sort_values("age").astype(float),
+                                   age_table, on="age").drop("age", "columns")
+        grid_table = pd.merge_asof(grid_table.sort_values("time").astype(float),
+                                   time_table, on="time").drop("time", "columns")
         grid_table = grid_table.sort_values(["time_id", "age_id"])
 
         if smooth.name is None:
