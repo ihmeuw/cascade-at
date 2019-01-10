@@ -473,10 +473,13 @@ def covariate_multiplier_iter(context):
 def smooth_iter(context):
     """Iterate over every smooth in the context."""
     for rate in context.rates:
-        for smooth in [s for _, s in rate.child_smoothings] + [rate.parent_smooth] if rate.parent_smooth else []:
+        rate_smooths = [s for _, s in rate.child_smoothings] + [rate.parent_smooth] if rate.parent_smooth else []
+        for rate_idx, smooth in enumerate(rate_smooths):
+            CODELOG.debug(f"smooth of {rate} {rate_idx}")
             yield smooth
 
-    for cov_multiplier, _, _ in covariate_multiplier_iter(context):
+    for cov_multiplier, kind, target in covariate_multiplier_iter(context):
+        CODELOG.debug(f"covariate {kind} on {target}")
         yield cov_multiplier.smooth
 
 
@@ -488,10 +491,8 @@ def make_smooth_and_smooth_grid_tables(context, age_table, time_table, prior_id_
     for smooth in smooth_iter(context):
         grid_table = make_smooth_grid_table(smooth, prior_id_func)
         grid_table["smooth_id"] = len(smooths)
-        grid_table = pd.merge_asof(grid_table.sort_values("age").astype(float),
-                                   age_table, on="age").drop("age", "columns")
-        grid_table = pd.merge_asof(grid_table.sort_values("time").astype(float),
-                                   time_table, on="time").drop("time", "columns")
+        grid_table = pd.merge_asof(grid_table.sort_values("age"), age_table, on="age").drop("age", "columns")
+        grid_table = pd.merge_asof(grid_table.sort_values("time"), time_table, on="time").drop("time", "columns")
         grid_table = grid_table.sort_values(["time_id", "age_id"])
 
         if smooth.name is None:

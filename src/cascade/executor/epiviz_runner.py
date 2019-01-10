@@ -149,6 +149,11 @@ def add_omega_constraint(model_context, execution_context, sex_id):
         asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
 
     parent_asdr = asdr[asdr.node_id == model_context.parameters.location_id]
+    if parent_asdr.empty:
+        available = asdr.node_id.unique()
+        MATHLOG.warning(f"There is no ASDR for location {model_context.parameters.location_id}. "
+                        f"Available for {available}")
+        return
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
     MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
 
