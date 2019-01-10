@@ -18,6 +18,7 @@ def test_PriorGrid__development_target():
 
     d_time = PriorGrid(grid)
     d_time[:, :].prior = Gaussian(0, 0.1)
+    assert isinstance(d_time[5, 1995].prior, Gaussian)
 
     # There's a shock in 1995
     d_time[:, 1995].prior = Gaussian(0, 3)

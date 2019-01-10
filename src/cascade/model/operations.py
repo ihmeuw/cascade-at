@@ -4,6 +4,7 @@ Statistical operations on the model:
  * Creation of priors from posteriors.
 
 """
+from copy import copy
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 
@@ -77,12 +78,12 @@ def _assign_rate_priors(model_context, posterior_draws):
 def _assign_mulcov_priors(model_context, posterior_draws):
     local_covariates = model_context.input_data.covariates
     mulcov_draws = posterior_draws[posterior_draws.covariate_id.notna()]
-    for (smooth_id, location_id), field_df in mulcov_draws.groupby(["smooth_id", "location_id"]):
+    for (smooth_id, covariate_id), field_df in mulcov_draws.groupby(["smooth_id", "covariate_id"]):
         # One of the covariate multipliers.
         traits = field_df.iloc[0]
         if traits.var_type == "mulcov_rate_value":
             rate_name = RateName(traits.rate_id).name
-            mulcovs = model_context.rates[rate_name].covariate_multipliers
+            mulcovs = getattr(model_context.rates, rate_name).covariate_multipliers
         elif traits.var_type == "mulcov_meas_value":
             integrand_name = IntegrandEnum(traits.integrand_id).name
             mulcovs = model_context.integrand_covariate_multipliers[integrand_name].value_covariate_multipliers
@@ -124,7 +125,7 @@ def _dataframe_to_bivariate_spline(age_time_df):
     ordered = age_time_df.sort_values(["age", "time"])
     age = np.sort(np.unique(age_time_df.age.values))
     time = np.sort(np.unique(age_time_df.time.values))
-    spline = RectBivariateSpline(age, time, ordered.mean.values, kx=1, ky=1)
+    spline = RectBivariateSpline(age, time, ordered["mean"].values.reshape(len(age), len(time)), kx=1, ky=1)
 
     def bivariate_function(x, y):
         return spline(x, y)[0]
@@ -144,7 +145,10 @@ def _assign_smooth_priors_from_estimates(smooth, estimate_at):
     """
     value_priors = smooth.value_priors
     for row in estimate_at.itertuples():
-        prior = value_priors[row.age, row.time].prior
+        # If we don't copy the prior, then we modify in-place, which changes
+        # the whole grid of priors by accident.
+        prior = copy(value_priors[row.age, row.time].prior)
+        assert prior is not None, f"none at ({row.age}, {row.time})"
         is_constant = "lower" in dir(prior) and prior.lower >= prior.upper
         is_constant |= isinstance(prior, Constant)
         if is_constant:
@@ -154,8 +158,10 @@ def _assign_smooth_priors_from_estimates(smooth, estimate_at):
         std_ok |= row.mean > 0 and row.std / row.mean > MINIMUM_STANDARD_DEVIATION_RELATIVE
 
         if std_ok:
-            prior.mean = row.mean
-            prior.std = row.std
+            if hasattr(prior, "mean"):
+                prior.mean = row.mean
+            if hasattr(prior, "standard_deviation"):
+                prior.standard_deviation = row.std
             value_priors[row.age, row.time].prior = prior
         else:
             value_priors[row.age, row.time].prior = Constant(prior.mean)
