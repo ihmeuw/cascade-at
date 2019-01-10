@@ -449,12 +449,12 @@ def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, sampl
     return results
 
 
-def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
+def fit_and_predict_fixed_effect_samples(execution_context):
     if execution_context.dismodfile.engine.url.database == ":memory:":
         raise ValueError("Cannot run fit_and_predict_fixed_effect_samples on an in-memory database")
 
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
-
+    num_processes = execution_context.parameters.num_processes
     actual_processes = min(len(samples), num_processes)
     MATHLOG.info(f"Calculating {len(samples)} fixed effect samples")
     CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
@@ -472,16 +472,26 @@ def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
 
     # Add metadata to the var table so it can be understood by another location.
     var_table = execution_context.dismodfile.var
-    draws = pd.concat(fit).merge(var_table, left_on="fit_var_id", right_on="var_id", how="left")
-    draws_at = draws.merge(execution_context.dismodfile.age, left_on="age_id", right_on="age_id", how="left") \
-        .merge(execution_context.dismodfile.time, left_on="time_id", right_on="time_id", how="left") \
+    var_table = var_table.reset_index(drop=True)  # var_id is both an index and a column.
+    all_fits = pd.concat(fit)
+    all_fits = all_fits.reset_index(drop=True)  # fit_var_id is both an index and a column.
+    draws = all_fits.merge(var_table, left_on="fit_var_id", right_on="var_id", how="left")
+    age = execution_context.dismodfile.age.reset_index(drop=True)
+    time = execution_context.dismodfile.time.reset_index(drop=True)
+    draws_at = draws.merge(age, left_on="age_id", right_on="age_id", how="left") \
+        .merge(time, left_on="time_id", right_on="time_id", how="left") \
         .drop(columns=["age_id", "time_id"])
-    draws_covariate = draws_at.merge(
-        execution_context.dismodfile.covariate_columns[["covariate_id", "covariate_name"]],
+    covariate = execution_context.dismodfile.covariate
+    # Picking float because some are nan, and it should merge with int.
+    floated = draws_at.assign(covariate_id=draws_at.covariate_id.astype(float))
+    CODELOG.debug(f"covariate dtypes {covariate.dtypes}\ndraws {floated.dtypes}")
+    draws_covariate = floated.merge(
+        covariate[["covariate_id", "covariate_name"]],
         on="covariate_id", how="left"
     )
+    node = execution_context.dismodfile.node
     draws_location = draws_covariate.merge(
-        execution_context.dismodfile.node[["node_id", "c_location_id"]],
+        node[["node_id", "c_location_id"]],
         on="node_id", how="left"
     ).drop(columns=["node_id"]).rename(columns={"c_location_id": "location_id"})
     return draws_location, pd.concat(predict)
@@ -522,16 +532,23 @@ def main(args):
         ec.parameters.tier = 2
     else:
         ec.parameters.tier = 3
-    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file", "bundle_study_covariates_file"]:
+    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
+                     "bundle_study_covariates_file", "num_processes"]:
         setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
     posteriors = None
     grandparent_location_id = None
+    # This is for debugging construction of posteriors.
+    posterior_file = Path("sampled_re.h5")
+    if posterior_file.exists():
+        posteriors = pd.read_hdf(str(posterior_file), "draws")
+        grandparent_location_id = list(plan.tasks)[0][0]
+
     for location_id, sub_task_idx in plan.tasks:
         ec.parameters.location_id = location_id
         ec.parameters.grandparent_location_id = grandparent_location_id
         posteriors = one_location_set(ec, settings, posteriors)
-        posteriors.to_hdf("sampled_re.h5")
+        posteriors.to_hdf(str(posterior_file), "draws")
         exit()
         grandparent_location_id = location_id
 
@@ -552,7 +569,7 @@ def one_location_set(ec, settings, posterior_draws_of_previous_fit):
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
-        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec, 4)
+        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec)
 
         ec.dismodfile.predict = sampled_predict.drop("predict_id", 1).reset_index(drop=True)
         ec.dismodfile.flush()
@@ -581,6 +598,8 @@ def entry():
     parser.add_argument("-b", "--bundle-file")
     parser.add_argument("-s", "--bundle-study-covariates-file")
     parser.add_argument("--skip-cache", action="store_true")
+    parser.add_argument("--num_processes", type=int, default=4,
+                        help="How many suprocesses to start.")
     parser.add_argument("--pdb", action="store_true")
     args = parser.parse_args()
 

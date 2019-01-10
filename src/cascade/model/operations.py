@@ -59,10 +59,13 @@ def _assign_rate_priors(model_context, posterior_draws):
     for (smooth_id, location_id), field_df in rate_draws.groupby(["smooth_id", "location_id"]):
         traits = field_df.iloc[0]
         rate_name = RateName(traits.rate_id).name
-        if traits.location_id == parent_id:
-            random_effect[rate_name] = field_df
-        elif traits.location_id == grandparent_id:
+        # On the odd chance that the draws are for this location, passed into
+        # itself again, the order of these if-then should check first for
+        # the underlying rate because both grandparent and parent will match.
+        if traits.location_id == grandparent_id:
             underlying_rate[rate_name] = field_df
+        elif traits.location_id == parent_id:
+            random_effect[rate_name] = field_df
         else:
             pass  # These are random effects that apply to siblings.
     for rate_name in underlying_rate.keys():
@@ -96,11 +99,15 @@ def _assign_mulcov_priors(model_context, posterior_draws):
 
 def _assign_smooth_priors_from_random_effect(model_context, rate_name, underlying_df, random_effect_df):
     underlying_at = _estimates_from_one_grid(underlying_df)
-    random_effect_at = _estimates_from_one_grid(random_effect_df)
-    re = _dataframe_to_bivariate_spline(random_effect_at)
-    adjusted_by_effect = underlying_at.apply(lambda row: row.mean * np.exp(re(row.age, row.time)))
-    rate = underlying_at.assign(mean=adjusted_by_effect)
-    _assign_smooth_priors_from_estimates(model_context.rates[rate_name].parent_smooth, rate)
+    if random_effect_df is not None:
+        random_effect_at = _estimates_from_one_grid(random_effect_df)
+        re = _dataframe_to_bivariate_spline(random_effect_at)
+        adjusted_by_effect = underlying_at.apply(lambda row: row.mean * np.exp(re(row.age, row.time)))
+        rate = underlying_at.assign(mean=adjusted_by_effect)
+    else:
+        rate = underlying_at
+    rate_obj = getattr(model_context.rates, rate_name)
+    _assign_smooth_priors_from_estimates(rate_obj.parent_smooth, rate)
 
 
 def _dataframe_to_bivariate_spline(age_time_df):
@@ -114,7 +121,9 @@ def _dataframe_to_bivariate_spline(age_time_df):
         function: Of age and time.
     """
     ordered = age_time_df.sort_values(["age", "time"])
-    spline = RectBivariateSpline(*[ordered[n].values for n in ["age", "time", "mean"]], kx=1, ky=1)
+    age = np.sort(np.unique(age_time_df.age.values))
+    time = np.sort(np.unique(age_time_df.time.values))
+    spline = RectBivariateSpline(age, time, ordered.mean.values, kx=1, ky=1)
 
     def bivariate_function(x, y):
         return spline(x, y)[0]
@@ -148,7 +157,8 @@ def _estimates_from_one_grid(field_df):
     # Exclude mulstd to get just the grid values.
     exclude_mulstd = field_df[~field_df.var_type.str.startswith("mulstd")]
     grid_df = exclude_mulstd.set_index("fit_var_id")
-    with_at = grid_df[["age", "time"]]
+    # Gives grid with one age-time for each var_id.
+    with_at = grid_df[["age", "time"]].groupby(level=0).mean()
     var_only = grid_df[["fit_var_value"]].groupby(level=0)
     with_mean = var_only.mean().rename(columns={"fit_var_value": "mean"})
     with_std = var_only.std().rename(columns={"fit_var_value": "std"})
