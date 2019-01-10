@@ -9,6 +9,7 @@ from scipy.interpolate import RectBivariateSpline
 
 from cascade.core.log import getLoggers
 from cascade.dismod.db.metadata import RateName, IntegrandEnum
+from cascade.model.priors import Constant
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -131,13 +132,33 @@ def _dataframe_to_bivariate_spline(age_time_df):
     return bivariate_function
 
 
+MINIMUM_STANDARD_DEVIATION_ABSOLUTE = 1e-6
+MINIMUM_STANDARD_DEVIATION_RELATIVE = 1e-3
+
+
 def _assign_smooth_priors_from_estimates(smooth, estimate_at):
+    """Sets value priors.
+    If the model already set a constant, then leave it as it is.
+    If the incoming posterior has a standard deviation below
+    a threshold, then set the value as a constant.
+    """
     value_priors = smooth.value_priors
     for row in estimate_at.itertuples():
-        prior = value_priors[row.age, row.time]
-        prior.mean = row.mean
-        prior.std = row.std
-        value_priors[row.age, row.time] = prior
+        prior = value_priors[row.age, row.time].prior
+        is_constant = "lower" in dir(prior) and prior.lower >= prior.upper
+        is_constant |= isinstance(prior, Constant)
+        if is_constant:
+            continue
+
+        std_ok = row.std > MINIMUM_STANDARD_DEVIATION_ABSOLUTE
+        std_ok |= row.mean > 0 and row.std / row.mean > MINIMUM_STANDARD_DEVIATION_RELATIVE
+
+        if std_ok:
+            prior.mean = row.mean
+            prior.std = row.std
+            value_priors[row.age, row.time].prior = prior
+        else:
+            value_priors[row.age, row.time].prior = Constant(prior.mean)
 
 
 def _covariate_name_to_smooth(covariate_name, local_covariates, mulcovs):
