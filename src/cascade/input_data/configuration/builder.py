@@ -53,7 +53,7 @@ def initial_context_from_epiviz(configuration):
     context.parameters.modelable_entity_id = configuration.model.modelable_entity_id
     context.parameters.bundle_id = configuration.model.bundle_id
     context.parameters.gbd_round_id = configuration.gbd_round_id
-    context.parameters.location_id = configuration.model.drill_location
+    context.parameters.parent_location_id = configuration.model.drill_location
     context.parameters.rate_case = configuration.model.rate_case
     context.parameters.minimum_meas_cv = configuration.model.minimum_meas_cv
     context.parameters.global_data_eta = configuration.eta.data

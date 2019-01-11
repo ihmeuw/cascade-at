@@ -61,6 +61,8 @@ class CascadePlan:
             starting_level = settings.model.split_sex
             end_location = settings.model.drill_location
             drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
+            # Disabling drill setting on previous interface. Remove this elif.
+            drill = drill[-1:]
         else:
             MATHLOG.error(f"Looking for drill start and finish and cannot find "
                           f"drill location start and end.")

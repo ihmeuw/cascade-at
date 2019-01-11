@@ -152,7 +152,7 @@ def test_assign_rate_priors__finds_grids(monkeypatch):
     ))
     mc = ModelContext()
     mc.parameters.grandparent_location_id = 0
-    mc.parameters.location_id = 1
+    mc.parameters.parent_location_id = 1
     _assign_rate_priors(mc, var_df)
 
     rate0 = RateName(0).name
@@ -162,7 +162,7 @@ def test_assign_rate_priors__finds_grids(monkeypatch):
     assert rate1 in inputs
     assert inputs[rate1][1] is not None
 
-    mc.parameters.location_id = 2
+    mc.parameters.parent_location_id = 2
     inputs.clear()
     _assign_rate_priors(mc, var_df)
 
@@ -199,7 +199,7 @@ def test_assign_mulcov_priors__finds_grids(monkeypatch):
     ))
     mc = ModelContext()
     mc.input_data.covariates = None
-    mc.parameters.location_id = 1
+    mc.parameters.parent_location_id = 1
     _assign_mulcov_priors(mc, var_df)
     assert "traffic" in inputs
     assert "foo" in inputs

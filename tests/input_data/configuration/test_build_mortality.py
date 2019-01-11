@@ -12,7 +12,7 @@ import pytest
 
 @pytest.mark.parametrize("sexes", [1, 2])
 def test_add_mortality_data(ihme, sexes):
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=6, tier=3)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, parent_location_id=6, tier=3)
     mc = ModelContext()
     mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
@@ -30,9 +30,9 @@ def test_add_mortality_data(ihme, sexes):
 
 @pytest.mark.parametrize("sexes", [1, 2])
 def test_add_omega_constraint(ihme, sexes):
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=491, tier=3)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, parent_location_id=491, tier=3)
     mc = ModelContext()
-    mc.parameters.location_id = ec.parameters.location_id
+    mc.parameters.parent_location_id = ec.parameters.parent_location_id
     mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
         {"time_lower": [1970.0],
@@ -50,11 +50,11 @@ def test_add_omega_constraint(ihme, sexes):
 def test_omega_constraint_as_effect(ihme, monkeypatch):
     """Assert that the omega constraint is an effect"""
     parent_id = 6
-    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, location_id=parent_id, tier=3)
+    ec = make_execution_context(model_version_id=265976, gbd_round_id=5, parent_location_id=parent_id, tier=3)
     children = get_descendents(ec, children_only=True)
     assert len(children) > 0
     mc = ModelContext()
-    mc.parameters.location_id = parent_id
+    mc.parameters.parent_location_id = parent_id
     mc.policies = dict(estimate_emr_from_prevalence=0, use_weighted_age_group_midpoints=0)
     mc.input_data.observations = pd.DataFrame(
         {"time_lower": [1970.0],

@@ -62,33 +62,33 @@ def mock_locations(mocker):
 
 
 def test_get_descendents__all_descendents(mock_locations):
-    ec = make_execution_context(location_id=0)
+    ec = make_execution_context(parent_location_id=0)
     # descendents of global
     assert set(get_descendents(ec)) == set(range(1, 8))
 
-    ec = make_execution_context(location_id=7)
+    ec = make_execution_context(parent_location_id=7)
     # descendents of a leaf (ie. nothing)
     assert set(get_descendents(ec)) == set()
 
 
 def test_get_descendents__only_children(mock_locations):
-    ec = make_execution_context(location_id=0)
+    ec = make_execution_context(parent_location_id=0)
     # children of global
     assert set(get_descendents(ec, children_only=True)) == {1, 2}
 
-    ec = make_execution_context(location_id=5)
+    ec = make_execution_context(parent_location_id=5)
     # children of a leaf
     assert set(get_descendents(ec, children_only=True)) == set()
 
 
 def test_get_descendents__include_parent(mock_locations):
-    ec = make_execution_context(location_id=0)
+    ec = make_execution_context(parent_location_id=0)
     # descendents of global and iteslf
     assert set(get_descendents(ec, include_parent=True)) == set(range(0, 8))
     # children of global and iteslf
     assert set(get_descendents(ec, children_only=True, include_parent=True)) == {0, 1, 2}
 
-    ec = make_execution_context(location_id=5)
+    ec = make_execution_context(parent_location_id=5)
     # descendents of a leaf and itself
     assert set(get_descendents(ec, include_parent=True, children_only=True)) == {5}
     # children of a leaf and itself

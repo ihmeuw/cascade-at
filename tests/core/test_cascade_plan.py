@@ -6,7 +6,7 @@ from cascade.testing_utilities import make_execution_context
 
 
 def test_create(ihme):
-    ec = make_execution_context(location_id=0, gbd_round_id=5)
+    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     settings = _ParameterHierarchy(
         model={"split_sex": 3, "drill_location": 6},
         policies=dict(),
@@ -17,7 +17,7 @@ def test_create(ihme):
 
 
 def test_single(ihme):
-    ec = make_execution_context(location_id=0, gbd_round_id=5)
+    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     settings = _ParameterHierarchy(
         model={"split_sex": 4, "drill_location": 6},
         policies=dict(),
@@ -28,7 +28,7 @@ def test_single(ihme):
 
 
 def test_create_start_finish(ihme):
-    ec = make_execution_context(location_id=0, gbd_round_id=5)
+    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     settings = _ParameterHierarchy(
         model={"split_sex": 3, "drill_location_start": 4, "drill_location_end": 6},
         policies=dict(),
@@ -39,7 +39,7 @@ def test_create_start_finish(ihme):
 
 
 def test_single_start_finish(ihme):
-    ec = make_execution_context(location_id=0, gbd_round_id=5)
+    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     settings = _ParameterHierarchy(
         model={"split_sex": 4, "drill_location_start": 6, "drill_location_end": 6},
         policies=dict(),
@@ -50,7 +50,7 @@ def test_single_start_finish(ihme):
 
 
 def test_iterate_tasks(ihme):
-    ec = make_execution_context(location_id=0, gbd_round_id=5)
+    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     settings = _ParameterHierarchy(
         model={"split_sex": 2, "drill_location": 6},
         policies=dict(),

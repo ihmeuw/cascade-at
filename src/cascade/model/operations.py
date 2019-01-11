@@ -51,7 +51,7 @@ def set_priors_on_model_context(model_context, posterior_draws):
 
 def _assign_rate_priors(model_context, posterior_draws):
     grandparent_id = model_context.parameters.grandparent_location_id
-    parent_id = model_context.parameters.location_id
+    parent_id = model_context.parameters.parent_location_id
     underlying_rate = dict()
     random_effect = dict()
     rate_draws = posterior_draws[posterior_draws.covariate_id.isna()]

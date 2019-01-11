@@ -48,7 +48,7 @@ def get_descendents(execution_context, children_only=False, include_parent=False
     Returns:
         set of location IDs
     """
-    location_id = execution_context.parameters.location_id
+    location_id = execution_context.parameters.parent_location_id
     locations = location_hierarchy(execution_context)
     if children_only:
         nodes = set(locations.successors(location_id))

@@ -16,7 +16,7 @@ def test_make_average_integrand_cases_from_gbd(mocker):
     )
     get_years.return_value = [1990, 1995, 2000]
 
-    ec = make_execution_context(location_id=180)
+    ec = make_execution_context(parent_location_id=180)
 
     average_integrand_cases = make_average_integrand_cases_from_gbd(ec, [1, 2])
 
@@ -43,7 +43,7 @@ def test_make_average_integrand_cases_from_gbd__with_birth_prevalence(mocker):
     )
     get_years.return_value = [1990, 1995, 2000]
 
-    ec = make_execution_context(location_id=180)
+    ec = make_execution_context(parent_location_id=180)
 
     average_integrand_cases = make_average_integrand_cases_from_gbd(ec, [1, 2], include_birth_prevalence=True)
 

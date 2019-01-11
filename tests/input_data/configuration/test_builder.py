@@ -97,7 +97,7 @@ def test_initial_context_from_epiviz(base_config):
     mc = initial_context_from_epiviz(base_config)
     assert mc.parameters.modelable_entity_id == 12345
     assert mc.parameters.gbd_round_id == 5
-    assert mc.parameters.location_id == 123
+    assert mc.parameters.parent_location_id == 123
 
 
 def test_make_smooth(base_config):

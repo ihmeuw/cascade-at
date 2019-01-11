@@ -22,7 +22,7 @@ class ExecutionContext:
 
 
 class _ModelParameters:
-    location_id = -1
+    parent_location_id = -1
     cascade = ParameterProperty()
     node = ParameterProperty()
 

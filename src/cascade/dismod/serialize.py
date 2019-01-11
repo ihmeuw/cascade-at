@@ -658,7 +658,7 @@ def make_covariate_table(context):
 def make_option_table(context, location_to_node_func):
     options = {
         "rate_case": _infer_rate_case(context),
-        "parent_node_id": f"{location_to_node_func(context.parameters.location_id)}",
+        "parent_node_id": f"{location_to_node_func(context.parameters.parent_location_id)}",
         "print_level_fixed": "5",
         "ode_step_size": f"{context.parameters.ode_step_size}",
         "age_avg_split": " ".join([str(aas) for aas in context.parameters.additional_ode_steps]),

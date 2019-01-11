@@ -150,10 +150,10 @@ def add_omega_constraint(model_context, execution_context, sex_id):
         # The % 5 is to exclude annual data points.
         asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
 
-    parent_asdr = asdr[asdr.node_id == model_context.parameters.location_id]
+    parent_asdr = asdr[asdr.node_id == model_context.parameters.parent_location_id]
     if parent_asdr.empty:
         available = asdr.node_id.unique()
-        MATHLOG.warning(f"There is no ASDR for location {model_context.parameters.location_id}. "
+        MATHLOG.warning(f"There is no ASDR for location {model_context.parameters.parent_location_id}. "
                         f"Available for {available}")
         return
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
@@ -234,7 +234,7 @@ def prepare_data(execution_context, settings):
     location_and_descendents = get_descendents(execution_context, include_parent=True)  # noqa: F841
 
     bundle = bundle.query("location_id in @location_and_descendents")
-    location_id = execution_context.parameters.location_id
+    location_id = execution_context.parameters.parent_location_id
     MATHLOG.info(f"Filtering bundle to location {location_id} and its descendents. {len(bundle)} rows remaining.")
 
     stderr_mask = bundle.standard_error > 0
@@ -302,7 +302,7 @@ def model_context_from_settings(execution_context, settings):
      7. Construct all Random Effects.
     """
     model_context = initial_context_from_epiviz(settings)
-    model_context.parameters.location_id = execution_context.parameters.location_id
+    model_context.parameters.parent_location_id = execution_context.parameters.parent_location_id
     model_context.parameters.grandparent_location_id = execution_context.parameters.grandparent_location_id
 
     bundle = prepare_data(execution_context, settings)
@@ -545,11 +545,11 @@ def main(args):
 
     posteriors = None
     grandparent_location_id = None
-    for location_id, sub_task_idx in plan.tasks:
-        ec.parameters.location_id = location_id
+    for parent_location_id, sub_task_idx in plan.tasks:
+        ec.parameters.parent_location_id = parent_location_id
         ec.parameters.grandparent_location_id = grandparent_location_id
         posteriors = one_location_set(ec, settings, posteriors)
-        grandparent_location_id = location_id
+        grandparent_location_id = parent_location_id
 
     elapsed_time = timedelta(default_timer() - start_time)
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")
