@@ -3,8 +3,12 @@ Specification for a whole cascade.
 """
 import networkx as nx
 
-from cascade.input_data.db.locations import location_hierarchy, location_id_from_location_and_level
 from cascade.core import getLoggers
+from cascade.input_data import InputDataError
+from cascade.input_data.db.locations import (
+    location_hierarchy, location_id_from_location_and_level, location_id_from_start_and_finish
+)
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -46,9 +50,21 @@ class CascadePlan:
         plan.policies = settings.policies
 
         plan.locations = location_hierarchy(execution_context)
-        starting_level = settings.model.split_sex
-        end_location = settings.model.drill_location
-        drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
+        if hasattr(settings.model, "drill_location_start") and \
+                settings.model.drill_location_start and settings.model.drill_location_end:
+            try:
+                drill = location_id_from_start_and_finish(
+                    execution_context, settings.model.drill_location_start, settings.model.drill_location_end)
+            except ValueError as ve:
+                raise InputDataError(f"Location parameter is wrong in settings.") from ve
+        elif settings.model.drill_location:
+            starting_level = settings.model.split_sex
+            end_location = settings.model.drill_location
+            drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
+        else:
+            MATHLOG.error(f"Looking for drill start and finish and cannot find "
+                          f"drill location start and end.")
+            raise InputDataError(f"Missing drill location start and end.")
         MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
         tasks = [(drill_location, 0) for drill_location in drill]
         task_pairs = list(zip(tasks[:-1], tasks[1:]))

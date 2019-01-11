@@ -17,7 +17,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 def set_priors_on_model_context(model_context, posterior_draws):
     """
-    Given draws from the fit to a previous model, which will the a fit
+    Given draws from the fit to a previous model, which will be a fit
     to the parent location, set parameters on this model, which is a
     child location. The priors set will be:
 

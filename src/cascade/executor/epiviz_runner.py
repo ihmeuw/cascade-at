@@ -63,7 +63,9 @@ def add_settings_to_execution_context(ec, settings):
         gbd_round_id=settings.gbd_round_id,
         bundle_id=settings.model.bundle_id,
         add_csmr_cause=settings.model.add_csmr_cause,
-        location_id=settings.model.drill_location,
+        drill_location_start=settings.model.drill_location_start,
+        drill_location_end=settings.model.drill_location_end,
+        parent_location_id=settings.model.drill_location,
         cod_version=settings.csmr_cod_output_version_id,
     )
     for param, value in to_append.items():
