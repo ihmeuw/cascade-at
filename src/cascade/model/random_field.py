@@ -17,6 +17,7 @@ All the kinds of objects:
  * Measurement data
 
 """
+from collections import UserDict
 from itertools import product
 from math import nan, isnan
 
@@ -119,11 +120,13 @@ class FieldDraw:
         return self.ages.shape[0] * self.times.shape[0] * 3 + len(self.mulstd)
 
 
-class PartsContainer:
+class DismodGroups(UserDict):
     """The Model has five kinds of random fields, but if we take the
     vars from the model, the vars split into the same five kinds. This class
     is responsible for organizing data into those five kinds and iterating
     over them, for a Model or for vars, or for priors, whatever."""
+    GROUPS = ["rate", "random_effect", "alpha", "beta", "gamma"]
+
     def __init__(self):
         # Key is the rate as a string.
         self.rate = dict()
@@ -135,39 +138,10 @@ class PartsContainer:
         self.beta = dict()
         # Key is (covariate, integrand), both as strings.
         self.gamma = dict()
-
-    def items(self):
-        for part_name in ["rate", "random_effect", "alpha", "beta", "gamma"]:
-            for k, v in getattr(self, part_name).items():
-                if isinstance(k, str):
-                    yield [part_name, k], v
-                else:
-                    yield tuple([part_name] + list(k)), v
-
-    def values(self):
-        for part_name in ["rate", "random_effect", "alpha", "beta", "gamma"]:
-            yield from getattr(self, part_name).values()
-
-    def __len__(self):
-        return sum(len(part) for part in self.values())
-
-    @classmethod
-    def fromtuples(cls, tuples):
-        """
-        Builds a PartsContainer from transformation of the output of items().
-
-        >>> parts2 = PartsContainer.fromtuples((k, transform(v)) for (k, v) in parts1.items())
-        """
-        parts = cls()
-        for k, v in tuples:
-            if k[0] == "rate":
-                parts.rate[k[1]] = v
-            else:
-                getattr(parts, k[0])[tuple(k[1:])] = v
-        return parts
+        super().__init__({k: getattr(self, k) for k in self.GROUPS})
 
 
-class Model:
+class Model(DismodGroups):
     """
     Uses locations as given and translates them into nodes for Dismod-AT.
     Uses ages and times as given and translates them into ``age_id``
@@ -178,18 +152,18 @@ class Model:
         >>> locations = location_hierarchy(execution_context)
         >>> m = Model(["chi", "omega", "iota"], locations, 6)
         """
+        super().__init__()
         self.nonzero_rates = nonzero_rates
         self.location_id = parent_location
         self.child_location = child_location
         self.covariates = list()  # of class Covariate
         self.weights = dict()
 
-        self.parts = PartsContainer()
-
     def write(self, writer):
         writer.start_model(self.nonzero_rates, self.child_location)
-        for field_at in self.parts.values():
-            writer.write_ages_and_times(field_at.ages, field_at.times)
+        for group in self.values():
+            for grid in group.values():
+                writer.write_ages_and_times(grid.ages, grid.times)
         for weight_value in self.weights.values():
             writer.write_ages_and_times(weight_value.ages, weight_value.times)
 
@@ -197,46 +171,22 @@ class Model:
         for name, weight in self.weights.items():
             writer.write_weight(name, weight)
 
-        for kind, write_field in self.parts.items():
-            if kind[0] == "rate":
-                writer.write_rate(kind[1], write_field)
-            elif kind[0] == "random_effect":
-                writer.write_random_effect(kind[1], kind[2], write_field)
-            elif kind[0] == "alpha":
-                writer.write_mulcov("alpha", kind[1], kind[2], write_field)
-            elif kind[0] == "beta":
-                writer.write_mulcov("beta", kind[1], kind[2], write_field)
-            elif kind[0] == "gamma":
-                writer.write_mulcov("gamma", kind[1], kind[2], write_field)
+        for group_name, group in self.items():
+            if group_name == "rate":
+                for rate_name, grid in group.items():
+                    writer.write_rate(rate_name, grid)
+            elif group_name == "random_effect":
+                for (covariate, rate_name), grid in group.items():
+                    writer.write_random_effect(covariate, rate_name, grid)
+            elif group_name in {"alpha", "beta", "gamma"}:
+                for (covariate, target), grid in group.items():
+                    writer.write_mulcov(group_name, covariate, target, grid)
             else:
-                raise RuntimeError(f"Unknown kind of field {kind}")
-
-    def __len__(self):
-        return len(self.parts)
-
-    @property
-    def rate(self):
-        return self.parts.rate
-
-    @property
-    def random_effect(self):
-        return self.parts.random_effect
-
-    @property
-    def alpha(self):
-        return self.parts.alpha
-
-    @property
-    def beta(self):
-        return self.parts.beta
-
-    @property
-    def gamma(self):
-        return self.parts.gamma
+                raise RuntimeError(f"Unknown kind of field {group_name}")
 
     @property
     def model_variables(self):
-        parts = PartsContainer()
+        parts = DismodGroups()
         for rate, rate_rf in self.rate.items():
             parts.rate[rate] = FieldDraw(rate_rf.age_time)
         for (re_rate, re_location), re_rf in self.random_effect.items():

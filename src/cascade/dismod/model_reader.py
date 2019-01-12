@@ -3,7 +3,7 @@ from math import isnan
 import numpy as np
 
 from cascade.core.log import getLoggers
-from cascade.model.random_field import FieldDraw, PartsContainer
+from cascade.model.random_field import FieldDraw, DismodGroups
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -13,15 +13,21 @@ def read_vars(dismod_file, var_ids, which):
 
     Args:
         dismod_file:
-        var_ids (PartsContainer): The output of ``read_var_table_as_id``.
+        var_ids (DismodGroups): The output of ``read_var_table_as_id``.
         which (str): Could be "start_var", "truth_var", "scale_var", "fit_var".
 
     Returns:
-        PartsContainer: With means for everything.
+        DismodGroups: With means for everything.
     """
     var_name = f"{which}_var"
     table = getattr(dismod_file, var_name)
-    return PartsContainer.fromtuples((k, _read_vars_one_field(table, var_name, v)) for (k, v) in var_ids.items())
+    if table.empty:
+        raise AttributeError(f"Dismod file has no data in {var_name} table.")
+    vars = DismodGroups()
+    for group_name, group in var_ids.items():
+        for key, value in group.items():
+            vars[group_name][key] = _read_vars_one_field(table, var_name, value)
+    return vars
 
 
 def _read_vars_one_field(table, name, id_draw):
@@ -41,7 +47,7 @@ def _read_vars_one_field(table, name, id_draw):
 def read_var_table_as_id(dismod_file):
     """
     This reads the var table in order to find the ids for all of the vars.
-    It puts those into a PartsContainer which can then decode any table
+    It puts those into a DismodGroups which can then decode any table
     associated with the var table.
     The empty vars come from the Model.model_variables property.
     This ``var_id`` table has ``age_id`` and ``time_id`` but uses real
@@ -53,21 +59,22 @@ def read_var_table_as_id(dismod_file):
 
     # The var table has a random field for each smooth_id, except for the
     # random effects. It doesn't identify which random field each smooth id
-    # goes with, so we first make the PartsContainer structure of smooths
+    # goes with, so we first make the DismodGroups structure of smooths
     # and then invert it in order to read the vars table.
     smooths = read_smooths(dismod_file, child_node)
 
+    # The inverted smooth is a map from the smooth id back to the DismodGroup.
     inverted_smooth = dict()
-    for parts_key, smooth_invert in smooths.items():
-        if parts_key[0] == "random_effect":
-            child_node = parts_key[2]
-            inverted_smooth[(smooth_invert, child_node)] = parts_key
-        else:
-            inverted_smooth[(smooth_invert, parent_node)] = parts_key
+    for group_name, group in smooths.items():
+        for key, smooth_value in group.items():
+            if group_name == "random_effect":
+                child_node = key[1]
+                inverted_smooth[(smooth_value, child_node)] = (group_name, key)
+            else:
+                inverted_smooth[(smooth_value, parent_node)] = (group_name, key)
 
-    var_ids = PartsContainer()
+    var_ids = DismodGroups()
     for (smooth_id, node_id), sub_grid_df in dismod_file.var.groupby(["smooth_id", "node_id"]):
-        part, *rest = inverted_smooth[(smooth_id, node_id)]
         at_grid_df = sub_grid_df[sub_grid_df.age_id.notna() & sub_grid_df.time_id.notna()]
         age_ids = np.unique(at_grid_df.age_id.values)
         time_ids = np.unique(at_grid_df.time_id.values)
@@ -82,7 +89,8 @@ def read_var_table_as_id(dismod_file):
             if not match.empty:
                 draw.mulstd[kind] = match.var_id
 
-        getattr(var_ids, part)[tuple(rest)] = draw
+        group_name, key = inverted_smooth[(smooth_id, node_id)]
+        var_ids[group_name][key] = draw
 
     convert_age_time_to_values(dismod_file, var_ids)
     if len(var_ids) != len(dismod_file.var):
@@ -91,17 +99,26 @@ def read_var_table_as_id(dismod_file):
 
 
 def convert_age_time_to_values(dismod_file, draw_parts):
-    for draw in draw_parts.values():
-        draw.values = draw.grid.merge(dismod_file.age, on="age_id", how="left") \
-            .merge(dismod_file.time, on="time_id", how="left") \
-            .drop(columns=["age_id", "time_id"])
-        draw.ages = np.sort(np.unique(draw.grid.age.values))
-        draw.times = np.sort(np.unique(draw.grid.time.values))
+    for group in draw_parts.values():
+        for draw in group.values():
+            draw.values = draw.grid.merge(dismod_file.age, on="age_id", how="left") \
+                .merge(dismod_file.time, on="time_id", how="left") \
+                .drop(columns=["age_id", "time_id"])
+            draw.ages = np.sort(np.unique(draw.grid.age.values))
+            draw.times = np.sort(np.unique(draw.grid.time.values))
 
 
 def read_smooths(dismod_file, child_node):
-    smooths = PartsContainer()
-    for rate_row in dismod_file.rate.itertuples():
+    """Construct a DismodGroups where the value is the ID of the smooth table
+    for that group. This will be very helpful for interpreting the var table."""
+    smooths = DismodGroups()
+    _read_rate_smooths(child_node, dismod_file.nslist_pair, dismod_file.rate, smooths)
+    _read_mulcov_smooths(dismod_file.mulcov, smooths)
+    return smooths
+
+
+def _read_rate_smooths(child_node, nslist_pair_table, rate_table, smooths):
+    for rate_row in rate_table.itertuples():
         if not isnan(rate_row.parent_smooth_id):
             smooths.rate[rate_row.rate_name] = rate_row.parent_smooth_id
         if not isnan(rate_row.child_smooth_id):
@@ -109,10 +126,13 @@ def read_smooths(dismod_file, child_node):
             for child in child_node:
                 smooths.random_effect[(rate_row.rate_name, child)] = rate_row.child_smooth_id
         if not isnan(rate_row.child_nslist_id):
-            child_df = dismod_file.nslist_pair_id[dismod_file.nslist_pair_id.nslist_id == rate_row.child_nslist_id]
+            child_df = nslist_pair_table[nslist_pair_table.nslist_id == rate_row.child_nslist_id]
             for ns_row in child_df.itertuples():
                 smooths.random_effect[(rate_row.rate_name, ns_row.node_id)] = ns_row.smooth_id
-    for mulcov_row in dismod_file.mulcov.itertuples():
+
+
+def _read_mulcov_smooths(mulcov_table, smooths):
+    for mulcov_row in mulcov_table.itertuples():
         if mulcov_row.mulcov_type == "rate_value":
             smooths.alpha[(mulcov_row.covariate_id, mulcov_row.rate_id)] = mulcov_row.smooth_id
         elif mulcov_row.mulcov_type == "meas_value":
@@ -121,7 +141,6 @@ def read_smooths(dismod_file, child_node):
             smooths.gamma[(mulcov_row.covariate_id, mulcov_row.integrand_id)] = mulcov_row.smooth_id
         else:
             raise RuntimeError(f"Unknown mulcov type {mulcov_row.mulcov_type}")
-    return smooths
 
 
 def read_parent_node(dismod_file):

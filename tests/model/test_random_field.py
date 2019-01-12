@@ -3,10 +3,10 @@ from math import nan
 import networkx as nx
 import numpy as np
 import pandas as pd
+from pathlib import Path
 import pytest
-from subprocess import run
 
-from cascade.dismod.model_writer import DismodSession
+from cascade.dismod.session import DismodSession
 from cascade.model.covariates import Covariate
 from cascade.model.priors import Uniform, Gaussian
 from cascade.model.random_field import Model, RandomField, FieldDraw
@@ -50,16 +50,20 @@ def basic_model():
 
 
 def test_write_rate(basic_model):
-    parent_location = 1
-    db_file = "rftest.db"
-    session = DismodSession(pd.DataFrame(dict(
+    locations = pd.DataFrame(dict(
         name=["global"],
         parent=[nan],
         c_location_id=[1],
-    )), parent_location, db_file)
-    session.write(basic_model)
+    ))
+    parent_location = 1
+    db_file = Path("rftest.db")
+    session = DismodSession(locations, parent_location, db_file)
 
-    run(["dmdismod", db_file, "init"])
+    data = None
+    vars = session.fit(basic_model, data)
+    for name in basic_model:
+        for key, grid in basic_model[name].items():
+            field = vars[name][key]
+            print(f"{name}, {key} {len(grid)}, {len(field)}")
 
-    scale_vars = session.get_vars("scale")
-    assert len(scale_vars) == len(basic_model)
+    assert len(vars) == len(basic_model)
