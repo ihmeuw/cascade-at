@@ -12,6 +12,7 @@ from cascade.dismod.db.metadata import DensityEnum
 from cascade.dismod.serialize import (
     enum_to_dataframe, default_integrand_names, make_log_table, simplest_weight
 )
+from cascade.dismod.model import WeightEnum
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -156,9 +157,24 @@ class ModelWriter:
             raise RuntimeError(f"Unknown mulcov type {kind}")
         self._mulcov_rows.append(row)
 
-    def write_weight(self, name, field_draw):
-        # FIXME: The weight implementation has to create its own grid. Much simpler.
-        self._dismod_file.weight, self._dismod_file.weight_grid = simplest_weight()
+    def write_weights(self, weights):
+        """Always write 3 weights in same order."""
+        names = [w.name for w in WeightEnum]
+        weight_table = pd.DataFrame(dict(
+            weight_id=[w.value for w in WeightEnum],
+            weight_name=names,
+            n_age=[len(weights[name].ages) for name in names],
+            n_time=[len(weights[name].times) for name in names],
+        ))
+        grids = list()
+        for w in WeightEnum:
+            one_grid = weights[w.name].grid[["age", "time", "mean"]].rename(columns={"mean", "weight"})
+            grids.append(one_grid.assign(weight_id=w.value))
+        total = self._fix_ages_times(pd.concat(grids))
+        total.reset_index(drop=True)
+        total["weight_grid_id"] = total.index
+        self._dismod_file.weight = weight_table
+        self._dismod_file.weight_grid = total
 
     def close(self):
         self._dismod_file.mulcov = pd.DataFrame(self._mulcov_rows)

@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.dismod.db.metadata import DensityEnum
+from cascade.model.priors import Uniform
 
 PRIOR_KINDS = ["value", "dage", "dtime"]
 
@@ -104,3 +105,18 @@ class SmoothGrid:
     @property
     def dtime(self):
         return _PriorView(self, "dtime")
+
+
+def smooth_grid_from_var(var):
+    """
+
+    Args:
+        var (Var): A single var grid.
+
+    Returns:
+        SmoothGrid: A single smooth grid with Uniform distributions.
+    """
+    smooth_grid = SmoothGrid(var.age_time)
+    smooth_grid[:, :] = Uniform(-5, 5, 0)
+    smooth_grid.priors["mean"] = var.grid["mean"]
+    return smooth_grid

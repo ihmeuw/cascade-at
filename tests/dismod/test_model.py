@@ -8,7 +8,8 @@ import pytest
 
 from cascade.model.covariates import Covariate
 from cascade.model.priors import Uniform, Gaussian
-from cascade.dismod import Session, Model, SmoothGrid, Var
+from cascade.dismod import Session, Model, DismodGroups, SmoothGrid, Var
+from cascade.stats.compartmental import total_mortality_solution, siler_default
 
 
 @pytest.fixture
@@ -68,3 +69,42 @@ def test_write_rate(basic_model):
     # By 3 because there are three priors for every value,
     # and this model has no mulstds.
     assert 3 * vars.count() == basic_model.count()
+
+
+def test_predict():
+    iota = Var(([0, 20, 120], [2000]))
+    iota.grid[iota.grid.age == 0].mean = 0.0
+    iota.grid[iota.grid.age == 20].mean = 0.02
+    iota.grid[iota.grid.age == 120].mean = 0.02
+
+    chi = Var([20], [2000])
+    chi.grid.mean = 0.01
+
+    mortality = total_mortality_solution(siler_default())
+    omega = Var([np.linspace(0, 120, 121), [2000]])
+    omega.grid.mean = mortality(omega.grid.age.values)
+
+    model_variables = DismodGroups()
+    model_variables.rate["iota"] = iota
+    model_variables.rate["chi"] = chi
+    model_variables.rate["omega"] = omega
+
+    locations = pd.DataFrame(dict(
+        name=["global"],
+        parent=[nan],
+        c_location_id=[1],
+    ))
+    parent_location = 1
+    db_file = Path("rftest.db")
+    session = Session(locations, parent_location, db_file)
+
+    avgints = pd.DataFrame(dict(
+        integrand="prevalence",
+        location=parent_location,
+        age_lower=np.linspace(0, 120, 121),
+        age_upper=np.linspace(0, 120, 121),
+        time_lower=2000,
+        time_upper=2000,
+    ))
+
+    data = session.predict(model_variables, avgints)

@@ -75,12 +75,15 @@ def read_var_table_as_id(dismod_file):
             else:
                 inverted_smooth[(smooth_value, parent_node)] = (group_name, key)
 
+    # This groupby to separate the smooth grids is split into two levels because
+    # the second level is node_id, which is nan for mulcovs, and groupby
+    # excludes rows with nans in the keys.
     var_ids = DismodGroups()
     for smooth_id, sub_grid_df in dismod_file.var.groupby(["smooth_id"]):
         if sub_grid_df[sub_grid_df.var_type == "rate"].empty:
             _add_one_field_to_vars(inverted_smooth, parent_node, smooth_id, sub_grid_df, var_ids)
         else:
-            # Multiple random effects, identified as "rates," can share as smooth.
+            # Multiple random effects, identified as "rates," can share a smooth.
             for node_id, re_grid_df in sub_grid_df.groupby(["node_id"]):
                 _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, re_grid_df, var_ids)
 
@@ -95,7 +98,7 @@ def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var
     age_ids = np.unique(at_grid_df.age_id.values)
     time_ids = np.unique(at_grid_df.time_id.values)
     draw = Var((age_ids, time_ids))
-    # The grid doesn't really have age and time. Should name it properly.
+    # The grid doesn't really have age and time. It really has age_id and time_id.
     id_df = draw.grid.merge(at_grid_df[["age_id", "time_id", "var_id"]],
                             how="left", right_on=["age_id", "time_id"], left_on=["age", "time"])
     draw.grid = id_df

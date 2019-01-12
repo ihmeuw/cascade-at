@@ -1,28 +1,42 @@
-from math import isnan
+from enum import Enum
 
 from cascade.dismod.dismod_groups import DismodGroups
 from cascade.dismod.var import Var
+from cascade.dismod.smooth_grid import smooth_grid_from_var
+
+
+class WeightEnum(Enum):
+    susceptible = 0
+    with_condition = 1
+    total = 2
 
 
 class Model(DismodGroups):
     """
+    A DismodGroups container of SmoothGrid.
+
     Uses locations as given and translates them into nodes for Dismod-AT.
     Uses ages and times as given and translates them into ``age_id``
     and ``time_id`` for Dismod-AT.
     """
-    def __init__(self, nonzero_rates, parent_location, child_location):
+    def __init__(self, nonzero_rates, parent_location, child_location, weights=None):
         """
         >>> locations = location_hierarchy(execution_context)
-        >>> m = Model(["chi", "omega", "iota"], locations, 6)
+        >>> m = Model(["chi", "omega", "iota"], 6, locations)
         """
         super().__init__()
         self.nonzero_rates = nonzero_rates
         self.location_id = parent_location
         self.child_location = child_location
         self.covariates = list()  # of class Covariate
-        self.weights = dict()
+        # There are always three weights, susceptible, with_condition, and total.
+        if weights:
+            self.weights = weights
+        else:
+            self.weights = dict()
 
     def write(self, writer):
+        self._ensure_weights()
         writer.start_model(self.nonzero_rates, self.child_location)
         for group in self.values():
             for grid in group.values():
@@ -31,9 +45,7 @@ class Model(DismodGroups):
             writer.write_ages_and_times(weight_value.ages, weight_value.times)
 
         writer.write_covariate(self.covariates)
-        for name, weight in self.weights.items():
-            writer.write_weight(name, weight)
-
+        writer.write_weights(self.weights)
         for group_name, group in self.items():
             if group_name == "rate":
                 for rate_name, grid in group.items():
@@ -47,23 +59,42 @@ class Model(DismodGroups):
             else:
                 raise RuntimeError(f"Unknown kind of field {group_name}")
 
-    @property
-    def model_variables(self):
-        parts = DismodGroups()
-        for rate, rate_rf in self.rate.items():
-            parts.rate[rate] = Var(rate_rf.age_time)
-        for (re_rate, re_location), re_rf in self.random_effect.items():
-            # There will always be model variables for every child, even if
-            # there is one smoothing for all children.
-            if re_location is None or isnan(re_location):
-                for child in self.child_location:
-                    parts.random_effect[(re_rate, child)] = Var(re_rf.age_time)
-            else:
-                parts.random_effect[(re_rate, re_location)] = Var(re_rf.age_time)
-        for alpha, alpha_rf in self.alpha.items():
-            parts.alpha[alpha] = Var(alpha_rf.age_time)
-        for beta, beta_rf in self.alpha.items():
-            parts.beta[beta] = Var(beta_rf.age_time)
-        for gamma, gamma_rf in self.alpha.items():
-            parts.gamma[gamma] = Var(gamma_rf.age_time)
-        return parts
+    def _ensure_weights(self):
+        """If weights weren't made, then make them. Must be done after
+        there is data in the Model."""
+        # Find an age and time already in the model because adding an
+        # age and time outside the model can change the integration ranges.
+        arbitrary_grid = next(self.rate.values())
+        arbitrary_age_time = arbitrary_grid.age_time
+        one_age_time = [(arbitrary_age_time[0][0:1], arbitrary_age_time[1][0:1])]
+
+        for kind in (weight.name for weight in WeightEnum):
+            if kind not in self.weights:
+                self.weights[kind] = Var(one_age_time)
+                self.weights[kind].grid.mean = 1.0
+
+
+def model_from_vars(vars, parent_location, weights=None):
+    """
+    Given values across all rates, construct a model with loose priors
+    in order to be able to predict from those rates.
+
+    Args:
+        vars (DismodGroups[Var]): Values on grids.
+        parent_location (int): A parent location, because that isn't
+            in the keys.
+        weights (Dict[Var]): Population weights for integrands.
+
+    Returns:
+        Model: with Uniform distributions everywhere and no mulstd.
+    """
+    child_locations = [k[1] for k in vars.random_effect.keys()]
+    nonzero_rates = list(vars.rate.keys())
+    model = Model(nonzero_rates, parent_location, child_locations, weights)
+
+    # Maybe there is something special for handling random effects.
+    for group_name, group in vars:
+        for key, var in group.items():
+            model[group_name][key] = smooth_grid_from_var(var)
+
+    return model

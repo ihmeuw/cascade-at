@@ -10,6 +10,7 @@ from cascade.core import getLoggers
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.dismod.model_reader import read_var_table_as_id, read_vars
 from cascade.dismod.model_writer import ModelWriter
+from cascade.dismod.model import model_from_vars
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -52,6 +53,24 @@ class Session:
 
         scale_vars = self.get_vars("scale")
         return scale_vars
+
+    def predict(self, vars, avgint, weights=None):
+        model = model_from_vars(vars, weights)
+        self.write(model)
+        self.write_avgint(avgint)
+        with self._close_db_while_running():
+            completed_process = run(["dmdismod", str(self._filename), "init"], stdout=PIPE, stderr=PIPE)
+            if completed_process.returncode != 0:
+                print(completed_process.stdout, completed_process.stderr)
+            assert completed_process.returncode == 0
+        self.write_vars(vars, "truth_vars")
+        with self._close_db_while_running():
+            completed_process = run(["dmdismod", str(self._filename), "predict", "truth"], stdout=PIPE, stderr=PIPE)
+            if completed_process.returncode != 0:
+                print(completed_process.stdout, completed_process.stderr)
+            assert completed_process.returncode == 0
+
+        return self.get_predict()
 
     def get_vars(self, name):
         var_id = read_var_table_as_id(self.dismod_file)
