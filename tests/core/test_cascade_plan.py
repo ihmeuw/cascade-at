@@ -12,7 +12,7 @@ def test_create(ihme):
         policies=dict(),
     )
     c = CascadePlan.from_epiviz_configuration(ec, settings)
-    assert len(c.task_graph.nodes) == 2
+    assert len(c.task_graph.nodes) == 1  # Because the old method is locked.
     print(nx.to_edgelist(c.task_graph))
 
 
@@ -62,4 +62,4 @@ def test_iterate_tasks(ihme):
         assert t[0] > last  # Only true in a drill
         last = t[0]
         cnt += 1
-    assert cnt == 3
+    assert cnt == 1  # Because the old method is locked.
