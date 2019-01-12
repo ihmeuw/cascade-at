@@ -4,7 +4,8 @@ import numpy as np
 
 from cascade.core import getLoggers
 from cascade.dismod.db.metadata import RateName, IntegrandEnum
-from cascade.model.random_field import Var, DismodGroups
+from cascade.dismod.var import Var
+from cascade.dismod.dismod_groups import DismodGroups
 
 CODELOG, MATHLOG = getLoggers(__name__)
 

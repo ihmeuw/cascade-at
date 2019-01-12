@@ -14,7 +14,7 @@ from cascade.dismod.model_writer import ModelWriter
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-class DismodSession:
+class Session:
     def __init__(self, locations, parent_location, filename):
         """
         A session represents a connection with a Dismod-AT backend through

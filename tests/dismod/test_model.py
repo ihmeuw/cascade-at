@@ -6,10 +6,9 @@ import pandas as pd
 from pathlib import Path
 import pytest
 
-from cascade.dismod.session import DismodSession
 from cascade.model.covariates import Covariate
 from cascade.model.priors import Uniform, Gaussian
-from cascade.model.random_field import Model, SmoothGrid, Var
+from cascade.dismod import Session, Model, SmoothGrid, Var
 
 
 @pytest.fixture
@@ -57,7 +56,7 @@ def test_write_rate(basic_model):
     ))
     parent_location = 1
     db_file = Path("rftest.db")
-    session = DismodSession(locations, parent_location, db_file)
+    session = Session(locations, parent_location, db_file)
 
     data = None
     vars = session.fit(basic_model, data)
