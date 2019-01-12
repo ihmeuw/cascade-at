@@ -31,7 +31,7 @@ from cascade.dismod.db.metadata import DensityEnum
 PRIOR_KINDS = ["value", "dage", "dtime"]
 
 
-class PriorView:
+class _PriorView:
     """Slices to access priors with Distribution objects."""
     def __init__(self, parent, kind):
         self._kind = kind
@@ -56,9 +56,11 @@ class PriorView:
         ] = [to_set[setp] if setp in to_set else nan for setp in self.param_names]
 
 
-class RandomField:
+class SmoothGrid:
     def __init__(self, age_time_grid):
         """
+        The Smooth Grid is a set of priors on an age-time grid.
+
         Args:
             age_time_grid (Tuple(set,set)): The supporting grid.
         """
@@ -88,7 +90,7 @@ class RandomField:
         return self.ages.shape[0] * self.times.shape[0] * 3 + mulstd
 
     def __str__(self):
-        return f"RandomField({len(self.ages), len(self.times)})"
+        return f"SmoothGrid({len(self.ages), len(self.times)})"
 
     @property
     def age_time(self):
@@ -96,18 +98,19 @@ class RandomField:
 
     @property
     def value(self):
-        return PriorView(self, "value")
+        return _PriorView(self, "value")
 
     @property
     def dage(self):
-        return PriorView(self, "dage")
+        return _PriorView(self, "dage")
 
     @property
     def dtime(self):
-        return PriorView(self, "dtime")
+        return _PriorView(self, "dtime")
 
 
-class FieldDraw:
+class Var:
+    """A Var is a set of values of a random field on a SmoothGrid."""
     def __init__(self, age_time_grid, count=1):
         self.ages = np.array(age_time_grid[0], dtype=np.float)
         self.times = np.array(age_time_grid[1], dtype=np.float)
@@ -124,18 +127,19 @@ class FieldDraw:
         return self.ages.shape[0] * self.times.shape[0] + len(self.mulstd)
 
     def __str__(self):
-        return f"FieldDraw({len(self.ages), len(self.times)})"
+        return f"Var({len(self.ages), len(self.times)})"
 
 
 class DismodGroups(UserDict):
-    """The Model has five kinds of random fields, but if we take the
-    vars from the model, the vars split into the same five kinds. This class
-    is responsible for organizing data into those five kinds and iterating
-    over them, for a Model or for vars, or for priors, whatever."""
+    """Dismod-AT documentation discusses five kinds of groups of
+    model variables (https://bradbell.github.io/dismod_at/doc/model_variables.htm).
+    This class represents that grouping as a set of dictionaries, where the
+    values can either be SmoothGrids or RandomFields or whatever is classified
+    according to groups of model variables.
+    """
     GROUPS = ["rate", "random_effect", "alpha", "beta", "gamma"]
 
     def __init__(self):
-        self._frozen = False
         # Key is the rate as a string.
         self.rate = dict()
         # Key is tuple (rate, location_id)  # location_id=None means no nslist.
@@ -146,10 +150,14 @@ class DismodGroups(UserDict):
         self.beta = dict()
         # Key is (covariate, integrand), both as strings.
         self.gamma = dict()
+        self._frozen = False
         super().__init__({k: getattr(self, k) for k in self.GROUPS})
         self._frozen = True
 
     def __setitem__(self, key, item):
+        """
+        This keeps us from treating this class as a dictionary by accident.
+        """
         if self._frozen:
             raise ValueError("Cannot set property on a DismodGroups object.")
         else:
@@ -219,19 +227,19 @@ class Model(DismodGroups):
     def model_variables(self):
         parts = DismodGroups()
         for rate, rate_rf in self.rate.items():
-            parts.rate[rate] = FieldDraw(rate_rf.age_time)
+            parts.rate[rate] = Var(rate_rf.age_time)
         for (re_rate, re_location), re_rf in self.random_effect.items():
             # There will always be model variables for every child, even if
             # there is one smoothing for all children.
             if re_location is None or isnan(re_location):
                 for child in self.child_location:
-                    parts.random_effect[(re_rate, child)] = FieldDraw(re_rf.age_time)
+                    parts.random_effect[(re_rate, child)] = Var(re_rf.age_time)
             else:
-                parts.random_effect[(re_rate, re_location)] = FieldDraw(re_rf.age_time)
+                parts.random_effect[(re_rate, re_location)] = Var(re_rf.age_time)
         for alpha, alpha_rf in self.alpha.items():
-            parts.alpha[alpha] = FieldDraw(alpha_rf.age_time)
+            parts.alpha[alpha] = Var(alpha_rf.age_time)
         for beta, beta_rf in self.alpha.items():
-            parts.beta[beta] = FieldDraw(beta_rf.age_time)
+            parts.beta[beta] = Var(beta_rf.age_time)
         for gamma, gamma_rf in self.alpha.items():
-            parts.gamma[gamma] = FieldDraw(gamma_rf.age_time)
+            parts.gamma[gamma] = Var(gamma_rf.age_time)
         return parts

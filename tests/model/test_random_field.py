@@ -9,7 +9,7 @@ import pytest
 from cascade.dismod.session import DismodSession
 from cascade.model.covariates import Covariate
 from cascade.model.priors import Uniform, Gaussian
-from cascade.model.random_field import Model, RandomField, FieldDraw
+from cascade.model.random_field import Model, SmoothGrid, Var
 
 
 @pytest.fixture
@@ -25,12 +25,12 @@ def basic_model():
     model.covariates = [Covariate("traffic", reference=0.0)]
 
     covariate_age_time = ([40], [2000])
-    traffic = RandomField(covariate_age_time)
+    traffic = SmoothGrid(covariate_age_time)
     traffic.value[:, :] = Gaussian(lower=-1, upper=1, mean=0.00, standard_deviation=0.3, eta=eta)
     model.alpha[("traffic", "iota")] = traffic
 
     dense_age_time = (np.linspace(0, 120, 13), np.linspace(1990, 2015, 8))
-    rate_grid = RandomField(dense_age_time)
+    rate_grid = SmoothGrid(dense_age_time)
     rate_grid.value[:, :] = Uniform(lower=1e-6, upper=0.3, mean=0.001, eta=eta)
     rate_grid.dage[:, :] = Uniform(lower=-1, upper=1, mean=0.0, eta=eta)
     rate_grid.dtime[:, :] = Gaussian(lower=-1, upper=1, mean=0.0, standard_deviation=0.3, eta=eta)
@@ -38,13 +38,13 @@ def basic_model():
     model.rate["omega"] = rate_grid
     model.rate["iota"] = rate_grid
 
-    chi_grid = RandomField(dense_age_time)
+    chi_grid = SmoothGrid(dense_age_time)
     chi_grid.value[:, :] = Uniform(lower=1e-6, upper=0.3, mean=0.004, eta=eta)
     chi_grid.dage[:, :] = Uniform(lower=-.9, upper=.9, mean=0.0, eta=eta)
     chi_grid.dtime[:, :] = Gaussian(lower=-.8, upper=.8, mean=0.0, standard_deviation=0.4, eta=eta)
     model.rate["chi"] = chi_grid
 
-    model.weights["constant"] = FieldDraw(([40], [2000]))
+    model.weights["constant"] = Var(([40], [2000]))
     model.weights["constant"].grid.loc[:, "mean"] = 1.0
     return model
 

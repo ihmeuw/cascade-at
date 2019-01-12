@@ -4,7 +4,7 @@ import numpy as np
 
 from cascade.core import getLoggers
 from cascade.dismod.db.metadata import RateName, IntegrandEnum
-from cascade.model.random_field import FieldDraw, DismodGroups
+from cascade.model.random_field import Var, DismodGroups
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -93,7 +93,7 @@ def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var
     at_grid_df = sub_grid_df[sub_grid_df.age_id.notna() & sub_grid_df.time_id.notna()]
     age_ids = np.unique(at_grid_df.age_id.values)
     time_ids = np.unique(at_grid_df.time_id.values)
-    draw = FieldDraw((age_ids, time_ids))
+    draw = Var((age_ids, time_ids))
     # The grid doesn't really have age and time. Should name it properly.
     id_df = draw.grid.merge(at_grid_df[["age_id", "time_id", "var_id"]],
                             how="left", right_on=["age_id", "time_id"], left_on=["age", "time"])

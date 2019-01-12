@@ -17,6 +17,9 @@ CODELOG, MATHLOG = getLoggers(__name__)
 class DismodSession:
     def __init__(self, locations, parent_location, filename):
         """
+        A session represents a connection with a Dismod-AT backend through
+        a single Dismod-AT db file, the sqlite file it uses for input and
+        output.
 
         Args:
             locations (pd.DataFrame): Initialize here because data refers to this.
