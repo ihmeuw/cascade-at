@@ -25,6 +25,14 @@ class ModelWriter:
 
     For naming in the DismodFile, this chooses names based on the random
     fields.
+
+    Assumptions this ModelWriter makes, on top of what Dismod-AT requires:
+
+     * Locations have a ``c_location_id`` member that ``maps node_id``
+       to ``location_id``.
+     * Covariates have a ``c_covariate_name`` that records the name used
+       by the modeler, instead of the ``x_0`` style name.
+     * Rates and integrands are always in the same order.
     """
 
     def __init__(self, session):

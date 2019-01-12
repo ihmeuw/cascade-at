@@ -78,6 +78,13 @@ class Age(Base):
     age = Column(Float, unique=True, nullable=False)
 
 
+class AgeAvg(Base):
+    __tablename__ = "age_avg"
+
+    age_avg_id = Column(Integer(), primary_key=True, autoincrement=False)
+    age = Column(Float, unique=True, nullable=False)
+
+
 class Time(Base):
     __tablename__ = "time"
 
