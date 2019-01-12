@@ -86,7 +86,7 @@ def covariate_records_from_settings(model_context, execution_context,
     for covariate_id in unique_country_covariate(configuration):
         demographics = dict(
             age_group_ids="all", year_ids="all", sex_ids="all",
-            location_ids=[model_context.parameters.location_id]
+            location_ids=[model_context.parameters.parent_location_id]
         )
         ccov_df = country_covariates(covariate_id, demographics,
                                      execution_context.parameters.gbd_round_id)

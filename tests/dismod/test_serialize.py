@@ -89,7 +89,7 @@ def constraints():
 def base_context(observations, constraints):
     context = ModelContext()
     context.parameters.rate_case = "iota_pos_rho_zero"
-    context.parameters.location_id = 42
+    context.parameters.parent_location_id = 42
     context.parameters.ode_step_size = 5
     context.parameters.additional_ode_steps = [0.019, 0.25, 0.5]
     context.parameters.minimum_meas_cv = 0
@@ -135,7 +135,7 @@ def base_context(observations, constraints):
 
 
 def test_development_target(base_context, mock_get_location_hierarchy_from_gbd):
-    ec = make_execution_context(location_id=180)
+    ec = make_execution_context(parent_location_id=180)
     dm = model_to_dismod_file(base_context, ec)
     e = _get_engine(None)
     dm.engine = e

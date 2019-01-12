@@ -79,7 +79,7 @@ def bundle_to_observations(config, bundle_df):
     if "location_id" in bundle_df.columns:
         location_id = bundle_df["location_id"]
     else:
-        location_id = np.full(len(bundle_df), config.location_id, dtype=np.int)
+        location_id = np.full(len(bundle_df), config.parent_location_id, dtype=np.int)
 
     # assume using demographic notation because this bundle uses it.
     demographic_interval_specification = 0
