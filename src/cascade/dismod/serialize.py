@@ -452,6 +452,9 @@ def covariate_multiplier_iter(context):
     This iterates through those three places. The same covariate multiplier
     instance can be attached to more than one of those three places, and each
     time it creates a different covariate multiplier set of model variables.
+
+    Returns:
+        (CovariateMultiplier, str, rate | integrand)
     """
     # α according to Dismod-AT
     for rate in context.rates:
@@ -470,10 +473,13 @@ def covariate_multiplier_iter(context):
 def smooth_iter(context):
     """Iterate over every smooth in the context."""
     for rate in context.rates:
-        for smooth in [s for _, s in rate.child_smoothings] + [rate.parent_smooth] if rate.parent_smooth else []:
+        rate_smooths = [s for _, s in rate.child_smoothings] + [rate.parent_smooth] if rate.parent_smooth else []
+        for rate_idx, smooth in enumerate(rate_smooths):
+            CODELOG.debug(f"smooth of {rate} {rate_idx}")
             yield smooth
 
-    for cov_multiplier, _, _ in covariate_multiplier_iter(context):
+    for cov_multiplier, kind, target in covariate_multiplier_iter(context):
+        CODELOG.debug(f"covariate {kind} on {target}")
         yield cov_multiplier.smooth
 
 
@@ -652,7 +658,7 @@ def make_covariate_table(context):
 def make_option_table(context, location_to_node_func):
     options = {
         "rate_case": _infer_rate_case(context),
-        "parent_node_id": f"{location_to_node_func(context.parameters.location_id)}",
+        "parent_node_id": f"{location_to_node_func(context.parameters.parent_location_id)}",
         "print_level_fixed": "5",
         "ode_step_size": f"{context.parameters.ode_step_size}",
         "age_avg_split": " ".join([str(aas) for aas in context.parameters.additional_ode_steps]),

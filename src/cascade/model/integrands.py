@@ -32,7 +32,7 @@ def make_average_integrand_cases_from_gbd(execution_context, sexes, include_birt
             "time_lower": time_lower,
             "time_upper": time_upper,
             "weight_id": weight_id,
-            "node_id": execution_context.parameters.location_id,
+            "node_id": execution_context.parameters.parent_location_id,
             "sex_id": sex_id,
         }
         for integrand in IntegrandEnum
@@ -50,7 +50,7 @@ def make_average_integrand_cases_from_gbd(execution_context, sexes, include_birt
                 "time_lower": time_lower,
                 "time_upper": time_upper,
                 "weight_id": weight_id,
-                "node_id": execution_context.parameters.location_id,
+                "node_id": execution_context.parameters.parent_location_id,
                 "sex_id": sex_id,
             }
             for time_lower, time_upper in time_ranges

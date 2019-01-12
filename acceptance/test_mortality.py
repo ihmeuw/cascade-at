@@ -50,7 +50,7 @@ def test_asdr_data():
     data = data.loc[data.integrand_id == IntegrandEnum.mtall.value]
 
     expected = get_envelope(
-        location_id=execution_context.parameters.location_id,
+        location_id=execution_context.parameters.parent_location_id,
         year_id="all",
         gbd_round_id=execution_context.parameters.gbd_round_id,
         age_group_id="all",
@@ -86,7 +86,7 @@ def test_csmr_data():
     expected = get_outputs(
         topic="cause",
         cause_id=execution_context.parameters.add_csmr_cause,
-        location_id=execution_context.parameters.location_id,
+        location_id=execution_context.parameters.parent_location_id,
         metric_id=3,
         year_id="all",
         age_group_id="most_detailed",

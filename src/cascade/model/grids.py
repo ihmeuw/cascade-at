@@ -107,15 +107,16 @@ def _validate_region(grid, lower_age, upper_age, lower_time, upper_time):
 
 class _RegionView:
     """Represents a slice into a PriorGrid and exposes a way to query or set
-    the prior over that slice.
-
-    Args:
-        parent: The PriorGrid this _RegionView references
-        age_slice: The region in age space
-        time_slice: The region in time space
-    """
+    the prior over that slice."""
+    __slots__ = ["_parent", "_age_slice", "_time_slice"]
 
     def __init__(self, parent, age_slice, time_slice):
+        """
+        Args:
+            parent: The PriorGrid this _RegionView references
+            age_slice: The region in age space
+            time_slice: The region in time space
+        """
         self._parent = parent
         self._age_slice = age_slice
         self._time_slice = time_slice

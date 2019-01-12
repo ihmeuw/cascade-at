@@ -182,7 +182,7 @@ def construct_database(input_path, output_path, non_zero_rates):
     model_context = ModelContext()
     model_context.parameters.bundle_id = 3209
     model_context.parameters.tier_idx = 2
-    model_context.parameters.location_id = 26
+    model_context.parameters.parent_location_id = 26
     model_context.parameters.non_zero_rates = non_zero_rates
 
     # Get the bundle and process it.

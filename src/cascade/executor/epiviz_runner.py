@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 import logging
 import asyncio
@@ -7,12 +8,14 @@ from pprint import pformat
 from bdb import BdbQuit
 from pkg_resources import get_distribution, DistributionNotFound
 from tempfile import TemporaryDirectory
+from timeit import default_timer
 import shutil
 
 import pandas as pd
 import numpy as np
 
 import cascade
+from cascade.core.cascade_plan import CascadePlan
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.stats import meas_bounds_to_stdev
@@ -27,6 +30,7 @@ from cascade.input_data.db.mortality import (
     get_frozen_cause_specific_mortality_data,
     normalize_mortality_data
 )
+from cascade.model.operations import set_priors_on_model_context
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
 from cascade.input_data.configuration.construct_bundle import (
@@ -59,7 +63,9 @@ def add_settings_to_execution_context(ec, settings):
         gbd_round_id=settings.gbd_round_id,
         bundle_id=settings.model.bundle_id,
         add_csmr_cause=settings.model.add_csmr_cause,
-        location_id=settings.model.drill_location,
+        drill_location_start=settings.model.drill_location_start,
+        drill_location_end=settings.model.drill_location_end,
+        parent_location_id=settings.model.drill_location,
         cod_version=settings.csmr_cod_output_version_id,
     )
     for param, value in to_append.items():
@@ -144,7 +150,12 @@ def add_omega_constraint(model_context, execution_context, sex_id):
         # The % 5 is to exclude annual data points.
         asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
 
-    parent_asdr = asdr[asdr.node_id == model_context.parameters.location_id]
+    parent_asdr = asdr[asdr.node_id == model_context.parameters.parent_location_id]
+    if parent_asdr.empty:
+        available = asdr.node_id.unique()
+        MATHLOG.warning(f"There is no ASDR for location {model_context.parameters.parent_location_id}. "
+                        f"Available for {available}")
+        return
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
     MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
 
@@ -223,7 +234,8 @@ def prepare_data(execution_context, settings):
     location_and_descendents = get_descendents(execution_context, include_parent=True)  # noqa: F841
 
     bundle = bundle.query("location_id in @location_and_descendents")
-    MATHLOG.info(f"Filtering bundle to the current location and it's descendents. {len(bundle)} rows remaining.")
+    location_id = execution_context.parameters.parent_location_id
+    MATHLOG.info(f"Filtering bundle to location {location_id} and its descendents. {len(bundle)} rows remaining.")
 
     stderr_mask = bundle.standard_error > 0
     if (~stderr_mask).sum() > 0:
@@ -290,6 +302,8 @@ def model_context_from_settings(execution_context, settings):
      7. Construct all Random Effects.
     """
     model_context = initial_context_from_epiviz(settings)
+    model_context.parameters.parent_location_id = execution_context.parameters.parent_location_id
+    model_context.parameters.grandparent_location_id = execution_context.parameters.grandparent_location_id
 
     bundle = prepare_data(execution_context, settings)
 
@@ -322,7 +336,15 @@ def model_context_from_settings(execution_context, settings):
 def write_dismod_file(mc, ec, db_file_path):
     MATHLOG.info(f"Writing dismod database to {db_file_path}")
     dismod_file = model_to_dismod_file(mc, ec)
-    dismod_file.engine = _get_engine(Path(db_file_path))
+    db_file = Path(db_file_path)
+    if db_file.exists():
+        MATHLOG.info(f"Deleting existing db file {db_file}.")
+        try:
+            db_file.unlink()
+        except OSError:
+            MATHLOG.error(f"Cannot delete {db_file} in preparation for writing a new dismod file.")
+            raise
+    dismod_file.engine = _get_engine(db_file)
     dismod_file.flush()
     return dismod_file
 
@@ -424,8 +446,8 @@ def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, sampl
     math_root = logging.getLogger("cascade.math")
     math_log_level = math_root.level
     if num_processes > 1:
-        logging.root.setLevel(logging.CRITICAL)
-        math_root.setLevel(logging.CRITICAL)
+        logging.root.setLevel(logging.WARNING)
+        math_root.setLevel(logging.WARNING)
     try:
         results = yield from asyncio.gather(*jobs)
     finally:
@@ -434,12 +456,12 @@ def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, sampl
     return results
 
 
-def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
+def fit_and_predict_fixed_effect_samples(execution_context):
     if execution_context.dismodfile.engine.url.database == ":memory:":
         raise ValueError("Cannot run fit_and_predict_fixed_effect_samples on an in-memory database")
 
     samples = execution_context.dismodfile.data_sim.simulate_index.unique()
-
+    num_processes = execution_context.parameters.num_processes
     actual_processes = min(len(samples), num_processes)
     MATHLOG.info(f"Calculating {len(samples)} fixed effect samples")
     CODELOG.info(f"Starting parallel fixed effect sample generation using {actual_processes} processes")
@@ -454,7 +476,32 @@ def fit_and_predict_fixed_effect_samples(execution_context, num_processes):
     CODELOG.info("Done generating fixed effect samples")
 
     fit, predict = zip(*results)
-    return pd.concat(fit), pd.concat(predict)
+
+    # Add metadata to the var table so it can be understood by another location.
+    var_table = execution_context.dismodfile.var
+    var_table = var_table.reset_index(drop=True)  # var_id is both an index and a column.
+    all_fits = pd.concat(fit)
+    all_fits = all_fits.reset_index(drop=True)  # fit_var_id is both an index and a column.
+    draws = all_fits.merge(var_table, left_on="fit_var_id", right_on="var_id", how="left")
+    age = execution_context.dismodfile.age.reset_index(drop=True)
+    time = execution_context.dismodfile.time.reset_index(drop=True)
+    draws_at = draws.merge(age, left_on="age_id", right_on="age_id", how="left") \
+        .merge(time, left_on="time_id", right_on="time_id", how="left") \
+        .drop(columns=["age_id", "time_id"])
+    covariate = execution_context.dismodfile.covariate
+    # Picking float because some are nan, and it should merge with int.
+    floated = draws_at.assign(covariate_id=draws_at.covariate_id.astype(float))
+    CODELOG.debug(f"covariate dtypes {covariate.dtypes}\ndraws {floated.dtypes}")
+    draws_covariate = floated.merge(
+        covariate[["covariate_id", "covariate_name"]],
+        on="covariate_id", how="left"
+    )
+    node = execution_context.dismodfile.node
+    draws_location = draws_covariate.merge(
+        node[["node_id", "c_location_id"]],
+        on="node_id", how="left"
+    ).drop(columns=["node_id"]).rename(columns={"c_location_id": "location_id"})
+    return draws_location, pd.concat(predict)
 
 
 def has_random_effects(model):
@@ -477,6 +524,7 @@ def main(args):
 
      5. Put that data into a file and run Dismod-AT on that file.
     """
+    start_time = default_timer()
     ec = make_execution_context()
 
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
@@ -485,38 +533,56 @@ def main(args):
         raise NotImplementedError("Only 'drill' mode is currently supported")
 
     add_settings_to_execution_context(ec, settings)
+    plan = CascadePlan.from_epiviz_configuration(ec, settings)
+
     if args.skip_cache:
         ec.parameters.tier = 2
     else:
         ec.parameters.tier = 3
-    ec.parameters.bundle_file = args.bundle_file
-    ec.parameters.bundle_study_covariates_file = args.bundle_study_covariates_file
+    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
+                     "bundle_study_covariates_file", "num_processes"]:
+        setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
+    posteriors = None
+    grandparent_location_id = None
+    for parent_location_id, sub_task_idx in plan.tasks:
+        ec.parameters.parent_location_id = parent_location_id
+        ec.parameters.grandparent_location_id = grandparent_location_id
+        posteriors = one_location_set(ec, settings, posteriors)
+        grandparent_location_id = parent_location_id
+
+    elapsed_time = timedelta(default_timer() - start_time)
+    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
+
+
+def one_location_set(ec, settings, posterior_draws_of_previous_fit):
+    """Solve a parent with its children as random effects."""
     mc = model_context_from_settings(ec, settings)
-
-    ec.dismodfile = write_dismod_file(mc, ec, args.db_file_path)
-
-    if not args.db_only:
+    set_priors_on_model_context(mc, posterior_draws_of_previous_fit)
+    ec.dismodfile = write_dismod_file(mc, ec, ec.parameters.db_file_path)
+    sampled_fit = None
+    if not ec.parameters.db_only:
         run_dismod(ec.dismodfile, "init")
         run_dismod_fit(ec.dismodfile, has_random_effects(mc))
         MATHLOG.info(f"Successfully fit parent")
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
-        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec, 4)
+        sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec)
 
         ec.dismodfile.predict = sampled_predict.drop("predict_id", 1).reset_index(drop=True)
         ec.dismodfile.flush()
 
-        if not args.no_upload:
+        if not ec.parameters.no_upload:
             MATHLOG.debug(f"Uploading results to epiviz")
             save_model_results(ec)
         else:
             MATHLOG.debug(f"Skipping results upload because 'no-upload' was selected")
     else:
         MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
-
-    MATHLOG.debug(f"Completed successfully")
+    drop_residuals = ["residual_value", "residual_dage", "residual_dtime", "lagrange_value",
+                      "lagrange_dage", "lagrange_dtime"]
+    return sampled_fit.drop(columns=drop_residuals)
 
 
 def entry():
@@ -531,6 +597,8 @@ def entry():
     parser.add_argument("-b", "--bundle-file")
     parser.add_argument("-s", "--bundle-study-covariates-file")
     parser.add_argument("--skip-cache", action="store_true")
+    parser.add_argument("--num_processes", type=int, default=4,
+                        help="How many suprocesses to start.")
     parser.add_argument("--pdb", action="store_true")
     args = parser.parse_args()
 

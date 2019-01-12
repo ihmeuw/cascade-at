@@ -48,7 +48,7 @@ def get_descendents(execution_context, children_only=False, include_parent=False
     Returns:
         set of location IDs
     """
-    location_id = execution_context.parameters.location_id
+    location_id = execution_context.parameters.parent_location_id
     locations = location_hierarchy(execution_context)
     if children_only:
         nodes = set(locations.successors(location_id))
@@ -62,6 +62,37 @@ def get_descendents(execution_context, children_only=False, include_parent=False
     # don't include parent and parent isn't in there, so OK.
 
     return list(nodes)
+
+
+def location_id_from_start_and_finish(execution_context, start, finish):
+    """ Find the set of locations from a parent to a child.
+
+    Args:
+        execution_context:
+        start (int): location ID at which to start the cascade
+        finish (int): location ID of a descendant of the start, possibly
+                      the same location ID as the start, itself.
+
+    Returns:
+        List[int]: The list of locations from the drill start to the given
+                   location.
+
+    Raises:
+        ValueError if finish isn't a descendant of the start.
+    """
+    start = int(start)
+    finish = int(finish)
+    locations = location_hierarchy(execution_context)
+    try:
+        drill_nodes = nx.ancestors(locations, finish) | {finish}
+    except nx.NetworkXError as nxe:
+        raise ValueError(f"Location {finish} isn't in the location set.") from nxe
+    drill_to_top = list(nx.topological_sort(nx.subgraph(locations, nbunch=drill_nodes)))
+    try:
+        drill = drill_to_top[drill_to_top.index(start):]
+    except ValueError as ve:
+        raise ValueError(f"Location {start} isn't an ancestor of location {finish}.") from ve
+    return drill
 
 
 def location_id_from_location_and_level(execution_context, location_id, target_level):

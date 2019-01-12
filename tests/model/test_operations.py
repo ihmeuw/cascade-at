@@ -2,34 +2,26 @@
 Tests major statistical operations on the model.
 """
 from math import nan, isnan
-from types import SimpleNamespace  # Since Python 3.3
+from types import SimpleNamespace
 
 import numpy as np
-from numpy.random import shuffle
-from scipy.stats import norm
-from scipy.interpolate import SmoothBivariateSpline
 import pandas as pd
+from scipy.interpolate import SmoothBivariateSpline
+from scipy.stats import norm
 
+from cascade.core.context import ModelContext
+from cascade.dismod.db.metadata import RateName
+import cascade.model.operations
 from cascade.model.operations import (
-    estimate_single_grid, expand_priors, reduce_priors, concatenate_grids_and_priors,
-    random_field_iterator
+    _assign_rate_priors, _assign_mulcov_priors, _assign_smooth_priors_after_summary,
+    _assign_smooth_priors_from_estimates, _covariate_name_to_smooth,
+    _estimates_from_one_grid, _dataframe_to_bivariate_spline
 )
+from cascade.model.grids import AgeTimeGrid, PriorGrid
+from cascade.model.covariates import Covariate, CovariateMultiplier
+from cascade.model.rates import Smooth
+from cascade.model.priors import Gaussian, Constant, Uniform
 
-
-# Construction of posteriors from priors.
-# Let's make smooth grids as tests, generate draws on them,
-# and then ensure the priors look like the distributions of the draws.
-
-# Begin from a DismodFile. The relevant tables are:
-#     age: age_id, age
-#     time: time_id, time
-#     prior: prior_id, prior_name, lower, upper, mean, std, eta, nu, density_id
-#     smooth: smooth_id, smooth_name, n_age, n_time, mulstd_value_prior,
-#        mulstd_dage_prior, mulstd_dtime_prior
-#     smooth_grid: smooth_grid_id, const_value, value_prior_id, dage_prior_id,
-#        dtime_prior_id, smooth_id, age_id, time_id
-#
-# Let's specify one of these.
 
 def make_grid_priors(ages, times, grid_priors, hyper_priors, smooth_id=7):
     age = pd.DataFrame(dict(
@@ -135,7 +127,15 @@ def draws_at_value(mean, std, cnt):
     return norm.isf(np.linspace(0.01, 0.99, cnt), loc=mean, scale=std)
 
 
-def test_var_grid_iterator():
+def test_assign_rate_priors__finds_grids(monkeypatch):
+    inputs = dict()
+
+    def count_inputs(mc, rate_name, underlying, random_effect):
+        assert rate_name not in inputs
+        inputs[rate_name] = [underlying, random_effect]
+
+    monkeypatch.setattr(cascade.model.operations, "_assign_smooth_priors_from_random_effect", count_inputs)
+
     # parent rate 0, parent rate 1,
     # child 1 rate 0, child 2 rate 0, with shared smooth grid
     # child 1 rate 1, different smooth grid.
@@ -145,195 +145,170 @@ def test_var_grid_iterator():
         smooth_id=[0, 1, 2, 2, 3, 4, 5, 6],
         var_type=["rate", "rate", "rate", "rate", "rate", "mulcov_meas_value",
                   "mulcov_rate_value", "mulcov_meas_std"],
-        node_id=[0, 0, 1, 2, 1, nan, nan, nan],
+        location_id=[0, 0, 1, 2, 1, nan, nan, nan],
         rate_id=[0, 1, 0, 0, 1, nan, 2, nan],
         integrand_id=[nan, nan, nan, nan, nan, 7, nan, 6],
         covariate_id=[nan, nan, nan, nan, nan, 8, 9, 10],
     ))
-    assert len(list(random_field_iterator(var_df))) == 8
-    for kind, index, grid in random_field_iterator(var_df.iloc[[0]]):
-        assert kind == "rate"
-        assert index[0] == 0
-    for kind, index, grid in random_field_iterator(var_df.iloc[2:4]):
-        assert index[0] == 2
-    a = list()
-    for kind, index, grid in random_field_iterator(var_df):
-        a.append((kind, index[0], index[1], index[2]))
-    assert len(set(a)) == 8, "two are alike"
+    mc = ModelContext()
+    mc.parameters.grandparent_location_id = 0
+    mc.parameters.parent_location_id = 1
+    _assign_rate_priors(mc, var_df)
+
+    rate0 = RateName(0).name
+    rate1 = RateName(1).name
+    assert rate0 in inputs
+    assert inputs[rate0][1] is not None
+    assert rate1 in inputs
+    assert inputs[rate1][1] is not None
+
+    mc.parameters.parent_location_id = 2
+    inputs.clear()
+    _assign_rate_priors(mc, var_df)
+
+    assert rate0 in inputs
+    assert inputs[rate0][1] is not None
+    assert rate1 in inputs
+    assert inputs[rate1][1] is None
 
 
-def test_array_grid():
-    """Testing with grid of ages and times"""
-    ages = [0, 1, 5, 10, 20, 40]
-    times = [1990, 1995, 2000]
-    shuffle(ages)  # We can choose to make these out of order.
-    dismod_file = make_grid_priors(
-        ages=ages,
-        times=times,
-        grid_priors=dict(value=1, dage=0, dtime=0),
-        hyper_priors=dict(value=0, dage=3, dtime=0),
-    )
-    n = len(ages)
-    m = len(times)
-    assert len(dismod_file.smooth_grid == n * m)
-    vars_from_priors(dismod_file)
-    # One var for value at point, one for single hyper-prior.
-    assert len(dismod_file.var) == n * m + 3
+def test_assign_mulcov_priors__finds_grids(monkeypatch):
+    inputs = dict()
 
-    mean = 0.01
-    std = 0.001
-    cnt = 20
-    draws = draws_at_value(mean, std, cnt)
-    draws_df = pd.DataFrame(dict(
-        fit_var_id=np.repeat(dismod_file.var["var_id"].tolist(), cnt),
-        fit_var_value=np.tile(draws.tolist(), len(dismod_file.var)),
-        sample_index=list(range(cnt * len(dismod_file.var)))
+    def count_inputs(covariate_name, local_covariates, mulcovs):
+        assert covariate_name not in inputs
+        inputs[covariate_name] = True
+        return None
+
+    monkeypatch.setattr(cascade.model.operations, "_covariate_name_to_smooth", count_inputs)
+
+    # parent rate 0, parent rate 1,
+    # child 1 rate 0, child 2 rate 0, with shared smooth grid
+    # child 1 rate 1, different smooth grid.
+    # Note there can be two rates with the _same smooth id_ but different nodes.
+    var_df = pd.DataFrame(dict(
+        var_id=[0, 1, 2, 3, 4, 5, 6, 7],
+        smooth_id=[0, 1, 2, 2, 3, 4, 5, 6],
+        var_type=["rate", "rate", "rate", "rate", "rate", "mulcov_meas_value",
+                  "mulcov_rate_value", "mulcov_meas_std"],
+        location_id=[0, 0, 1, 2, 1, nan, nan, nan],
+        rate_id=[0, 1, 0, 0, 1, nan, 2, nan],
+        integrand_id=[nan, nan, nan, nan, nan, 7, nan, 6],
+        covariate_id=[nan, nan, nan, nan, nan, 8, 9, 10],
+        covariate_name=[nan, nan, nan, nan, nan, "traffic", "foo", "bar"],
     ))
-    assert not draws_df.empty
-    smooth, smooth_grid, prior = estimate_single_grid(draws_df, dismod_file, 7)
-    assert len(prior) == (n - 1) * m + (m - 1) * n + n * m + 3
-    has_prior = smooth_grid[smooth_grid.value_prior_id.isna()]
-    grid_with_prior = has_prior.merge(prior, left_on="value_prior_id", right_on="prior_id", how="left")
-    for row_idx, row in grid_with_prior.iterrows():
-        assert np.isclose(row["mean"], mean, rtol=0.01)
-        assert np.isclose(row["std"], std, rtol=0.15)
+    mc = ModelContext()
+    mc.input_data.covariates = None
+    mc.parameters.parent_location_id = 1
+    _assign_mulcov_priors(mc, var_df)
+    assert "traffic" in inputs
+    assert "foo" in inputs
+    assert "bar" in inputs
+
+
+def test_covariate_name_to_smooth():
+    covariates = [Covariate("traffic", 0.0), Covariate("foo", 7.3), Covariate("bar", 2.4)]
+    smooths = [Smooth(), Smooth(), Smooth()]
+    mulcovs = [CovariateMultiplier(covariates[0], smooths[0]), CovariateMultiplier(covariates[1], smooths[1])]
+
+    s = _covariate_name_to_smooth("nonexistent", covariates, mulcovs)
+    assert not s
+    s = _covariate_name_to_smooth("foo", covariates, mulcovs)
+    assert s == smooths[1]
+    # No mulcov even though covariate exists.
+    s = _covariate_name_to_smooth("bar", covariates, mulcovs)
+    assert not s
 
 
 def test_point_grid():
     """SUT is estimate_single_grid. Doing one point value, no hyper-priors."""
-    dismod_file = make_grid_priors(
-        ages=[40],
-        times=[1990],
-        grid_priors=dict(value=1, dage=0, dtime=0),
-        hyper_priors=dict(value=nan, dage=nan, dtime=nan),
-    )
-    vars_from_priors(dismod_file)
-    # One var for value at point, one for single hyper-prior.
-    assert len(dismod_file.var) == 1
-
     mean = 0.01
     std = 0.001
     cnt = 100
-    draws = draws_at_value(mean, std, cnt)
+    draws0 = draws_at_value(mean, std, cnt)
+    draws1 = draws_at_value(0.1, 0.03, cnt)
     draws_df = pd.DataFrame(dict(
-        fit_var_id=0,
-        fit_var_value=draws,
-        sample_index=list(range(cnt))
+        fit_var_id=np.concatenate([np.repeat([0, 1], cnt), [0]]),
+        var_type=["rate"] * 2 * cnt + ["mulstd_exclude"],
+        fit_var_value=np.concatenate([draws0, draws1, [9e9]]),
+        sample_index=np.concatenate([np.tile(list(range(cnt)), 2), [cnt]]),
+        age=np.concatenate([np.repeat([0.0, 10.0], cnt), [0.0]]),
+        time=np.concatenate([np.repeat([2000, 2010], cnt), [2000]]),
     ))
-    smooth, smooth_grid, prior = estimate_single_grid(draws_df, dismod_file, 7)
-    assert len(smooth) == 1
-    assert len(smooth_grid) == 1
-    assert len(prior) == 1  # The value and three const.
-    assert np.isclose(prior.iloc[0]["mean"], mean, rtol=0.01)
-    assert np.isclose(prior.iloc[0]["std"], std, rtol=0.1)
+    summary = _estimates_from_one_grid(draws_df)
+    assert len(summary) == 2
+    d0 = int(summary.query("time == 2000").index[0])
+    d1 = int(summary.query("time == 2010").index[0])
+    assert np.isclose(summary.iloc[d0]["mean"], mean, rtol=0.01)
+    assert np.isclose(summary.iloc[d0]["std"], std, rtol=0.1)
+    assert np.isclose(summary.iloc[d1]["mean"], 0.1, rtol=0.1)
+    assert np.isclose(summary.iloc[d1]["std"], 0.03, rtol=0.1)
 
 
-def test_expand_priors():
-    """different grids to expand"""
-    point_db = make_grid_priors(
-        ages=[40],
-        times=[1990],
-        grid_priors=dict(value=2, dage=1, dtime=1),
-        hyper_priors=dict(value=nan, dage=nan, dtime=nan),
-    )
-    assert len(point_db.smooth_grid) == 1, "there is one grid point"
-    assert point_db.smooth_grid.value_prior_id.notna().bool()
-    assert point_db.smooth_grid.dage_prior_id.isna().bool()
-    assert point_db.smooth_grid.dtime_prior_id.isna().bool()
-
-    expanded = expand_priors(point_db.smooth, point_db.smooth_grid, point_db.prior)
-    assert len(expanded) == 6
-    assert len(expanded[expanded.density_id.notna()]) == 1
-    smooth, smooth_grid, priors = reduce_priors(point_db.smooth, expanded)
-    assert "prior_id" in priors.columns
-    assert len(smooth_grid) == 1
-    assert len(priors) == 1
-    assert isnan(smooth.loc[0, "mulstd_value_prior_id"])
-    assert isnan(smooth.loc[0, "mulstd_dage_prior_id"])
-    assert isnan(smooth.loc[0, "mulstd_dtime_prior_id"])
-
-
-# This section tests concatenation of results in
-# estimate_priors_from_posterior_draws.
-def make_point_dismod_file(smooth_id, age, time):
-    dismod_file = make_grid_priors(
-        ages=[age],
-        times=[time],
-        grid_priors=dict(value=1, dage=0, dtime=0),
-        hyper_priors=dict(value=nan, dage=nan, dtime=nan),
-        smooth_id=smooth_id
-    )
-    vars_from_priors(dismod_file)
-    # One var for value at point, one for single hyper-prior.
-    assert len(dismod_file.var) == 1
-
-    mean = 0.01
-    std = 0.001
-    cnt = 100
-    draws = draws_at_value(mean, std, cnt)
-    draws_df = pd.DataFrame(dict(
-        fit_var_id=0,
-        fit_var_value=draws,
-        sample_index=list(range(cnt))
+def test_bivariate_spline():
+    df = pd.DataFrame(dict(
+        age=[1.0, 1.0, 0.0, 0.0],
+        time=[2000, 2010, 2000, 2010],
+        mean=[3, 5, -2, 17],
     ))
-    smooth, smooth_grid, prior = estimate_single_grid(draws_df, dismod_file, smooth_id)
-    return smooth, smooth_grid, prior
+    f = _dataframe_to_bivariate_spline(df)
+    assert np.isclose(f(1.0, 2000), 3)
+    assert np.isclose(f(1.0, 2010), 5)
+    assert np.isclose(f(0.0, 2000), -2)
+    assert np.isclose(f(0.0, 2010), 17)
 
 
-def make_grid_dismod_file(smooth_id, ages, times):
-    shuffle(ages)  # We can choose to make these out of order.
-    dismod_file = make_grid_priors(
-        ages=ages,
-        times=times,
-        grid_priors=dict(value=1, dage=0, dtime=0),
-        hyper_priors=dict(value=0, dage=3, dtime=0),
-        smooth_id=smooth_id
-    )
-    n = len(ages)
-    m = len(times)
-    assert len(dismod_file.smooth_grid == n * m)
-    vars_from_priors(dismod_file)
-    # One var for value at point, one for single hyper-prior.
-    assert len(dismod_file.var) == n * m + 3
+def test_assign_smooth_priors_from_estimates():
+    grid = AgeTimeGrid.uniform(age_lower=0, age_upper=120, age_step=5,
+                               time_lower=1990, time_upper=2018, time_step=1)
+    value_priors = PriorGrid(grid)
+    value_priors[:, :].prior = Uniform(-5, 5, 0.0)
+    assert isinstance(value_priors[5, 1995].prior, Uniform)
+    value_priors[0:5, 1990:1991].prior = Constant(3.7)
+    value_priors[105:115, 2016:2017].prior = Gaussian(42, 7)
+    smooth = Smooth(value_priors=value_priors)
 
-    mean = 0.01
-    std = 0.001
-    cnt = 20
-    draws = draws_at_value(mean, std, cnt)
-    draws_df = pd.DataFrame(dict(
-        fit_var_id=np.repeat(dismod_file.var["var_id"].tolist(), cnt),
-        fit_var_value=np.tile(draws.tolist(), len(dismod_file.var)),
-        sample_index=list(range(cnt * len(dismod_file.var)))
+    draws = pd.DataFrame(dict(
+        age=[0, 110, 10],
+        time=[1990, 2017, 2000],
+        mean=[-3, -5, -7],
+        std=[0.3, 0.5, 0.7],
     ))
-    assert not draws_df.empty
-    smooth, smooth_grid, prior = estimate_single_grid(draws_df, dismod_file, smooth_id)
-    return smooth, smooth_grid, prior
+    _assign_smooth_priors_from_estimates(smooth, draws)
+    vp = smooth.value_priors
+    # Constants aren't changed
+    assert np.isclose(vp[0, 1990].prior.value, 3.7)
+    # Gaussians are set
+    assert np.isclose(vp[110, 2017].prior.mean, -5)
+    assert np.isclose(vp[110, 2017].prior.standard_deviation, 0.5)
+    # Uniforms get the mean set, even though they don't have stdev
+    assert np.isclose(vp[10, 2000].prior.mean, -7)
+    # Others are untouched.
+    assert np.isclose(vp[50, 1995].prior.mean, 0.0)
 
 
-def test_concatenate_grids():
-    smooths = list()
-    grids = list()
-    priors = list()
-    smooth_idx = 0
+def test_assign_smooth_rate_priors(monkeypatch):
+    """For rates with random effects"""
+    estimates = list()
 
-    for age, time in [(0, 1990), (40, 2010), (20, 2000)]:
-        smooth, grid, prior = make_point_dismod_file(smooth_idx, age, time)
-        smooths.append(smooth)
-        grids.append(grid)
-        priors.append(prior.assign(smooth_id=smooth_idx))
-        smooth_idx += 1
+    def do_nothing(smooth, estimate):
+        estimates.append(estimate)
 
-    for age, time in [([0, 5, 10], [1990, 2000]),
-                      ([0, 0.19, 100], [2010, 2015, 2016]),
-                      ([20, 60], [2000, 2001, 2002, 2003, 2004, 2005, 2010])]:
-        smooth, grid, prior = make_grid_dismod_file(smooth_idx, age, time)
-        smooths.append(smooth)
-        grids.append(grid)
-        priors.append(prior.assign(smooth_id=smooth_idx))
-        smooth_idx += 1
+    # Not testing actual assignment here.
+    monkeypatch.setattr(cascade.model.operations, "_assign_smooth_priors_from_estimates", do_nothing)
 
-    all_smooth, all_grid, all_priors = concatenate_grids_and_priors(smooths, grids, priors)
-    assert len(all_smooth) == smooth_idx
-    assert len(all_grid) == sum(len(g) for g in grids)
-    assert len(all_priors) == sum(len(p) for p in priors)
-    assert len(all_priors.prior_id.unique()) == len(all_priors)
+    underlying_at = pd.DataFrame(dict(
+        age=[0.0, 0.0, 100.0, 100.0],
+        time=[1990, 2000, 1990, 2000],
+        mean=[0.3, 0.5, 0.7, 0.11],
+        std=[0.03, 0.05, 0.07, 0.022],
+    ))
+    re_at = pd.DataFrame(dict(
+        age=[0.0, 0.0, 100.0, 100.0],
+        time=[1990, 2000, 1990, 2000],
+        mean=[0, 0, 0, 0.0],
+        std=[0.03, 0.05, 0.07, 0.022],
+    ))
+    mc = ModelContext()
+    _assign_smooth_priors_after_summary(mc, "iota", underlying_at, re_at)
+    assert len(estimates) == 1
