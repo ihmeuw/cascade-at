@@ -2,7 +2,8 @@ from copy import deepcopy
 from math import isnan
 import numpy as np
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
+from cascade.dismod.db.metadata import RateName, IntegrandEnum
 from cascade.model.random_field import FieldDraw, DismodGroups
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -74,28 +75,35 @@ def read_var_table_as_id(dismod_file):
                 inverted_smooth[(smooth_value, parent_node)] = (group_name, key)
 
     var_ids = DismodGroups()
-    for (smooth_id, node_id), sub_grid_df in dismod_file.var.groupby(["smooth_id", "node_id"]):
-        at_grid_df = sub_grid_df[sub_grid_df.age_id.notna() & sub_grid_df.time_id.notna()]
-        age_ids = np.unique(at_grid_df.age_id.values)
-        time_ids = np.unique(at_grid_df.time_id.values)
-        draw = FieldDraw((age_ids, time_ids))
-        # The grid doesn't really have age and time. Should name it properly.
-        id_df = draw.grid.merge(at_grid_df[["age_id", "time_id", "var_id"]],
-                                how="left", right_on=["age_id", "time_id"], left_on=["age", "time"])
-        draw.grid = id_df
-
-        for kind in ["value", "dage", "dtime"]:
-            match = sub_grid_df.query("var_type == @kind")
-            if not match.empty:
-                draw.mulstd[kind] = match.var_id
-
-        group_name, key = inverted_smooth[(smooth_id, node_id)]
-        var_ids[group_name][key] = draw
+    for smooth_id, sub_grid_df in dismod_file.var.groupby(["smooth_id"]):
+        if sub_grid_df[sub_grid_df.var_type == "rate"].empty:
+            _add_one_field_to_vars(inverted_smooth, parent_node, smooth_id, sub_grid_df, var_ids)
+        else:
+            # Multiple random effects, identified as "rates," can share as smooth.
+            for node_id, re_grid_df in sub_grid_df.groupby(["node_id"]):
+                _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, re_grid_df, var_ids)
 
     convert_age_time_to_values(dismod_file, var_ids)
-    if len(var_ids) != len(dismod_file.var):
-        MATHLOG.error(f"Found {len(var_ids)} of {len(dismod_file.var)} vars in db file.")
+    if var_ids.count() != len(dismod_file.var):
+        MATHLOG.error(f"Found {var_ids.count()} of {len(dismod_file.var)} vars in db file.")
     return var_ids
+
+
+def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var_ids):
+    at_grid_df = sub_grid_df[sub_grid_df.age_id.notna() & sub_grid_df.time_id.notna()]
+    age_ids = np.unique(at_grid_df.age_id.values)
+    time_ids = np.unique(at_grid_df.time_id.values)
+    draw = FieldDraw((age_ids, time_ids))
+    # The grid doesn't really have age and time. Should name it properly.
+    id_df = draw.grid.merge(at_grid_df[["age_id", "time_id", "var_id"]],
+                            how="left", right_on=["age_id", "time_id"], left_on=["age", "time"])
+    draw.grid = id_df
+    for kind in ["value", "dage", "dtime"]:
+        match = sub_grid_df.query("var_type == @kind")
+        if not match.empty:
+            draw.mulstd[kind] = match.var_id
+    group_name, key = inverted_smooth[(smooth_id, node_id)]
+    var_ids[group_name][key] = draw
 
 
 def convert_age_time_to_values(dismod_file, draw_parts):
@@ -113,34 +121,39 @@ def read_smooths(dismod_file, child_node):
     for that group. This will be very helpful for interpreting the var table."""
     smooths = DismodGroups()
     _read_rate_smooths(child_node, dismod_file.nslist_pair, dismod_file.rate, smooths)
-    _read_mulcov_smooths(dismod_file.mulcov, smooths)
+    _read_mulcov_smooths(dismod_file.mulcov, dismod_file.covariate, smooths)
     return smooths
 
 
 def _read_rate_smooths(child_node, nslist_pair_table, rate_table, smooths):
     for rate_row in rate_table.itertuples():
         if not isnan(rate_row.parent_smooth_id):
-            smooths.rate[rate_row.rate_name] = rate_row.parent_smooth_id
+            smooths.rate[rate_row.rate_name] = int(rate_row.parent_smooth_id)
         if not isnan(rate_row.child_smooth_id):
             # Random effects can have children with different fields but same smoothing.
             for child in child_node:
-                smooths.random_effect[(rate_row.rate_name, child)] = rate_row.child_smooth_id
+                smooths.random_effect[(rate_row.rate_name, child)] = int(rate_row.child_smooth_id)
         if not isnan(rate_row.child_nslist_id):
             child_df = nslist_pair_table[nslist_pair_table.nslist_id == rate_row.child_nslist_id]
             for ns_row in child_df.itertuples():
-                smooths.random_effect[(rate_row.rate_name, ns_row.node_id)] = ns_row.smooth_id
+                smooths.random_effect[(rate_row.rate_name, ns_row.node_id)] = int(ns_row.smooth_id)
 
 
-def _read_mulcov_smooths(mulcov_table, smooths):
+def _read_mulcov_smooths(mulcov_table, covariate_table, smooths):
+    group = dict(rate_value=smooths.alpha, meas_value=smooths.beta, meas_std=smooths.gamma)
     for mulcov_row in mulcov_table.itertuples():
+        found_name = covariate_table.query("covariate_id == @mulcov_row.covariate_id")
+        if found_name.empty:
+            MATHLOG.error(f"Mulcov covariate id {mulcov_row.covariate_id} not found in covariate table.")
+            raise RuntimeError(f"Could not find covariate id {mulcov_row.covariate_id} in covariate table.")
+        covariate_name = str(found_name.iloc[0].c_covariate_name)
         if mulcov_row.mulcov_type == "rate_value":
-            smooths.alpha[(mulcov_row.covariate_id, mulcov_row.rate_id)] = mulcov_row.smooth_id
-        elif mulcov_row.mulcov_type == "meas_value":
-            smooths.beta[(mulcov_row.covariate_id, mulcov_row.integrand_id)] = mulcov_row.smooth_id
-        elif mulcov_row.mulcov_type == "meas_std":
-            smooths.gamma[(mulcov_row.covariate_id, mulcov_row.integrand_id)] = mulcov_row.smooth_id
+            target_name = RateName(mulcov_row.rate_id).name
         else:
-            raise RuntimeError(f"Unknown mulcov type {mulcov_row.mulcov_type}")
+            target_name = IntegrandEnum(mulcov_row.integrand_id).name
+
+        MATHLOG.debug(f"Covariate={covariate_name}, target={target_name}")
+        group[mulcov_row.mulcov_type][(covariate_name, target_name)] = mulcov_row.smooth_id
 
 
 def read_parent_node(dismod_file):

@@ -66,4 +66,6 @@ def test_write_rate(basic_model):
             field = vars[name][key]
             print(f"{name}, {key} {len(grid)}, {len(field)}")
 
-    assert len(vars) == len(basic_model)
+    # By 3 because there are three priors for every value,
+    # and this model has no mulstds.
+    assert 3 * vars.count() == basic_model.count()

@@ -8,5 +8,10 @@ else
     TARGET_DB=$(basename $1)
     shift
     set -x
-    exec docker run -it --mount type=bind,source=${TARGET_DIR},target=/app reg.ihme.washington.edu/dismod/dismod_at /home/root/prefix/dismod_at/bin/dismod_at /app/$TARGET_DB $*
+    if [[ $- == *i* ]]; then
+        INTERACTIVE="-it"
+    else
+        INTERACTIVE=""
+    fi
+    exec docker run $INTERACTIVE --mount type=bind,source=${TARGET_DIR},target=/app reg.ihme.washington.edu/dismod/dismod_at /home/root/prefix/dismod_at/bin/dismod_at /app/$TARGET_DB $*
 fi

@@ -20,6 +20,7 @@ All the kinds of objects:
 from collections import UserDict
 from itertools import product
 from math import nan, isnan
+from os import linesep
 
 import numpy as np
 import pandas as pd
@@ -86,6 +87,9 @@ class RandomField:
         mulstd = len(self.priors[self.priors.age.isna() & self.priors.density_id.notna()])
         return self.ages.shape[0] * self.times.shape[0] * 3 + mulstd
 
+    def __str__(self):
+        return f"RandomField({len(self.ages), len(self.times)})"
+
     @property
     def age_time(self):
         return (self.ages, self.times)
@@ -117,7 +121,10 @@ class FieldDraw:
         self.mulstd = dict()  # keys are value, dage, dtime.
 
     def __len__(self):
-        return self.ages.shape[0] * self.times.shape[0] * 3 + len(self.mulstd)
+        return self.ages.shape[0] * self.times.shape[0] + len(self.mulstd)
+
+    def __str__(self):
+        return f"FieldDraw({len(self.ages), len(self.times)})"
 
 
 class DismodGroups(UserDict):
@@ -128,6 +135,7 @@ class DismodGroups(UserDict):
     GROUPS = ["rate", "random_effect", "alpha", "beta", "gamma"]
 
     def __init__(self):
+        self._frozen = False
         # Key is the rate as a string.
         self.rate = dict()
         # Key is tuple (rate, location_id)  # location_id=None means no nslist.
@@ -139,6 +147,29 @@ class DismodGroups(UserDict):
         # Key is (covariate, integrand), both as strings.
         self.gamma = dict()
         super().__init__({k: getattr(self, k) for k in self.GROUPS})
+        self._frozen = True
+
+    def __setitem__(self, key, item):
+        if self._frozen:
+            raise ValueError("Cannot set property on a DismodGroups object.")
+        else:
+            super().__setitem__(key, item)
+
+    def count(self):
+        """Sum of lengths of values in the container."""
+        total = 0
+        for group in self.values():
+            for container in group.values():
+                total += len(container)
+        return total
+
+    def __str__(self):
+        message = list()
+        for group_name, group in self.items():
+            message.append(f"{group_name}")
+            for key, value in group.items():
+                message.append(f"  {key}: {value}")
+        return linesep.join(message)
 
 
 class Model(DismodGroups):

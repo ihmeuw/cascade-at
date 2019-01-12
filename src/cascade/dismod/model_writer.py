@@ -90,7 +90,9 @@ class ModelWriter:
     def write_covariate(self, covariates):
         self._dismod_file.covariate = self._dismod_file.empty_table("covariate")
         CODELOG.debug(f"covariates {', '.join(c.name for c in covariates)}")
-        self._dismod_file.covariate, cov_col_id_func, covariate_renames = _make_covariate_table(covariates)
+        covariate_df, cov_col_id_func, covariate_renames = _make_covariate_table(covariates)
+        self._dismod_file.update_table_columns("covariate", covariate_df)
+        self._dismod_file.covariate = covariate_df
         self._covariate_id_func = cov_col_id_func
         self._session.set_covariates(covariate_renames)
 
@@ -209,8 +211,8 @@ class ModelWriter:
         # Unique, informative names for the priors require care.
         null_names = complete_table.prior_name.isnull()
         complete_table.loc[~null_names, "prior_name"] = (
-                complete_table.loc[~null_names, "prior_name"] + "    " +
-                complete_table.loc[~null_names, "prior_id"].astype(str)
+            complete_table.loc[~null_names, "prior_name"] + "    " +
+            complete_table.loc[~null_names, "prior_id"].astype(str)
         )
         complete_table.loc[null_names, "prior_name"] = complete_table.loc[
             null_names, "prior_id"].apply(
@@ -288,6 +290,7 @@ def _make_covariate_table(covariates):
             "covariate_name": [renames[col.name] for col in covariates],
             "reference": np.array([col.reference for col in covariates], dtype=np.float),
             "max_difference": np.array([col.max_difference for col in covariates], dtype=np.float),
+            "c_covariate_name": [col.name for col in covariates],
         }
     )
 
