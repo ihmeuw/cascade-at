@@ -20,6 +20,15 @@ class Var:
         ))
         self.mulstd = dict()  # keys are value, dage, dtime.
 
+    def check(self, name=None):
+        if not self.grid["mean"].notna().all():
+            raise RuntimeError(
+                f"Var {name} has {self.grid['mean'].isna().sum()} nan values")
+        if set(self.mulstd.keys()) - {"value", "dage", "dtime"}:
+            raise RuntimeError(
+                f"Var {name} has mulstds besides the three: {list(self.mulstd.keys())}"
+            )
+
     @property
     def age_time(self):
         return self.ages, self.times

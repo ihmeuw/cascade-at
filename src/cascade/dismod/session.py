@@ -70,6 +70,7 @@ class Session:
         return scale_vars
 
     def predict(self, vars, avgint, weights=None):
+        self._check_vars(vars)
         model = model_from_vars(vars, weights)
         self.write(model)
         self.write_avgint(avgint)
@@ -89,8 +90,8 @@ class Session:
         self.flush()
 
     def set_option(self, name, value):
-        rate_row = int(self.dismod_file.option[self.dismod_file.option.option_name == name].option_id)
-        self.dismod_file.option.loc[rate_row, "option_value"] = value
+        option = self.dismod_file.option
+        option.loc[option.option_name == name, "option_value"] = str(value)
 
     def set_covariates(self, rename_dict):
         """Both the data and avgints need to have extra columns for covariates.
@@ -133,6 +134,11 @@ class Session:
             yield
         finally:
             self.dismod_file.engine = _get_engine(self._filename)
+
+    def _check_vars(self, var):
+        for group_name, group in var.items():
+            for key, one_var in group.items():
+                one_var.check(f"{group_name}-{key}")
 
     def _create_options_table(self):
         # Options in grey were rejected by Dismod-AT despite being in docs.

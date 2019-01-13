@@ -1,15 +1,15 @@
-from math import nan
+from math import nan, inf
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
 import pandas as pd
-from pathlib import Path
 import pytest
 
+from cascade.dismod import Session, Model, DismodGroups, SmoothGrid, Var
 from cascade.model.covariates import Covariate
 from cascade.model.priors import Uniform, Gaussian
-from cascade.dismod import Session, Model, DismodGroups, SmoothGrid, Var
-from cascade.stats.compartmental import siler_default
+from cascade.stats.compartmental import siler_default, total_mortality_solution
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def test_write_rate(basic_model, dismod):
             print(f"{name}, {key} {len(grid)}, {len(field)}")
 
     # By 3 because there are three priors for every value,
-    # and this model has no mulstds.
+    # and this model has no mulstds, which don't always come in sets of 3.
     assert 3 * var.count() == basic_model.count()
 
 
@@ -111,6 +111,48 @@ def test_predict(dismod):
     # Check that Sincidence is predicted correctly for every time point.
     iota_func = iota.as_function()
     for idx, row in predicted.iterrows():
-        print(f"row {row}")
         input_iota = iota_func(row.age_lower, row.time_lower)
         assert np.isclose(input_iota, row["avg_integrand"])
+
+
+def test_survival(dismod):
+    """Dismod-AT predicts mortality in agreement with another ODE solver.
+    This is a single-parameter model.
+    """
+    mortality = siler_default()
+    omega = Var([np.linspace(0, 120, 121), [2000]])
+    omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
+
+    model_variables = DismodGroups()
+    model_variables.rate["omega"] = omega
+
+    parent_location = 1
+    locations = pd.DataFrame(dict(
+        name=["global"],
+        parent=[nan],
+        c_location_id=[parent_location],
+    ))
+    session = Session(locations, parent_location, Path("survtest.db"))
+    session.set_option("ode_step_size", 1)
+    avgints = pd.DataFrame(dict(
+        integrand="susceptible",
+        location=parent_location,
+        age_lower=np.linspace(0, 120, 121),
+        age_upper=np.linspace(0, 120, 121),
+        time_lower=2000,
+        time_upper=2000,
+    ))
+
+    predicted, not_predicted = session.predict(model_variables, avgints)
+    assert not_predicted.empty
+    assert not predicted.empty
+
+    # Check that susceptibles are predicted correctly for every time point.
+    survival = total_mortality_solution(mortality)
+    max_err = -inf
+    for idx, row in predicted.iterrows():
+        S = survival(row.age_lower)
+        y = row["avg_integrand"]
+        max_err = max(max_err, abs(S - y))
+    print(f"Maximum error {max_err}")
+    assert max_err < 0.015
