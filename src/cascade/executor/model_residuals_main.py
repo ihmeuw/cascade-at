@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 from cascade.core.log import getLoggers
-from cascade.dismod.db.wrapper import DismodFile, _get_engine
+from cascade.dismod.db.wrapper import DismodFile, get_engine
 
 
 CODELOG = getLoggers(__name__)
@@ -72,7 +72,7 @@ def entry():
 
     try:
 
-        dm_file = DismodFile(_get_engine(Path(args.dm_file)))
+        dm_file = DismodFile(get_engine(Path(args.dm_file)))
 
         fv_residuals, fds_residuals = _get_residuals(dm_file)
 

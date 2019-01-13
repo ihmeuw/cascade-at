@@ -8,10 +8,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.serialize import (
-    enum_to_dataframe, default_integrand_names, make_log_table
-)
-from cascade.dismod.constants import WeightEnum, DensityEnum, MulCovEnum
+from cascade.dismod.constants import WeightEnum, MulCovEnum
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -35,11 +32,21 @@ class ModelWriter:
      * Rates and integrands are always in the same order.
     """
 
-    def __init__(self, session):
+    def __init__(self, session, extremal_age_time):
+        """
+
+        Args:
+            session (Session): The Dismod-AT Session into which this writes.
+            extremal_age_time (Tuple(Set(int),Set(int))): a set of ages and
+                a set of times to add to the age and time tables. Dismod-AT
+                requires that all data points in the avgint and data tables
+                be within the min and max of the age and time tables, so this
+                passes in the extremal values.
+        """
         self._session = session
         self._dismod_file = session.dismod_file
-        self._ages = np.empty((0,), dtype=np.float)
-        self._times = np.empty((0,), dtype=np.float)
+        self._ages = np.array(list(extremal_age_time[0]), dtype=np.float)
+        self._times = np.array(list(extremal_age_time[1]), dtype=np.float)
         self._rate_rows = list()  # List of dictionaries for rates.
         self._mulcov_rows = list()  # List of dictionaries for covariate multipliers.
         self._rate_id = dict()  # The rate ids with the primary rates.
@@ -50,38 +57,10 @@ class ModelWriter:
         self._flushed = False
         self._children = None
 
-    def basic_db_setup(self):
-        """These things are true for all databases."""
-        # Density table does not depend on model.
-        density_enum = enum_to_dataframe(DensityEnum)
-        densities = pd.DataFrame({"density_name": density_enum["name"]})
-        self._dismod_file.density = densities
-
-        # Standard integrand naming scheme.
-        all_integrands = default_integrand_names()
-        self._dismod_file.integrand = all_integrands
-        # Fill in the min_meas_cv later if required. Ensure integrand kinds have
-        # known IDs early.
-        self._dismod_file.integrand["minimum_meas_cv"] = nan
-
-        self._dismod_file.rate = pd.DataFrame(dict(
-            rate_id=list(range(5)),  # Must be 5, in this order.
-            rate_name=["pini", "iota", "rho", "chi", "omega"],
-            parent_smooth_id=nan,
-            child_smooth_id=nan,
-            child_nslist_id=nan,
-        ))
-
-        # Defaults, empty, b/c Brad makes them empty even if there are none.
-        for create_name in ["nslist", "nslist_pair", "mulcov", "smooth_grid", "smooth"]:
-            setattr(self._dismod_file, create_name, self._dismod_file.empty_table(create_name))
-        self._dismod_file.log = make_log_table()
-
     def start_model(self, nonzero_rates, children):
         """To start the model, tell me enough to know the sizes almost all of
         the tables by telling me the rate count and child random effect count."""
         self._children = children
-        self.basic_db_setup()
         iota_case = "pos" if "iota" in nonzero_rates else "zero"
         rho_case = "pos" if "rho" in nonzero_rates else "zero"
         self._session.set_option("rate_case", f"iota_{iota_case}_rho_{rho_case}")
@@ -129,7 +108,6 @@ class ModelWriter:
                 ns_id = self._nslist[rate_name]
             self._dismod_file.rate.loc[rate_id, "child_nslist_id"] = ns_id
             self._nslist_pair_rows.append(dict(
-                nslist_pair_id=len(self._nslist_pair_rows),
                 nslist_id=ns_id,
                 node_id=node_id,
                 smooth_id=smooth_id,
@@ -185,10 +163,12 @@ class ModelWriter:
             data=list(self._nslist.items()),
             columns=["nslist_name", "nslist_id"]
         )
+        # Can sort this here and generate its index because nothing uses
+        # the nslist_pair_id as a key. The sort ensures a sensible order.
         self._dismod_file.nslist_pair = pd.DataFrame(
             self._nslist_pair_rows,
-            columns=["nslist_pair_id", "nslist_id", "node_id", "smooth_id"]
-        )
+            columns=["nslist_id", "node_id", "smooth_id"]
+        ).sort_values(["nslist_id", "node_id"])
 
     def add_random_field(self, grid_name, random_field):
         """Save a new Random Field."""

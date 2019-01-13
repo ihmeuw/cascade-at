@@ -7,12 +7,13 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.db.wrapper import DismodFile, _get_engine
+from cascade.dismod.constants import DensityEnum, RateName
+from cascade.dismod.constants import INTEGRAND_TO_WEIGHT, IntegrandEnum
+from cascade.dismod.db.wrapper import DismodFile, get_engine
+from cascade.dismod.model import model_from_vars
 from cascade.dismod.model_reader import read_var_table_as_id, read_vars, write_vars
 from cascade.dismod.model_writer import ModelWriter
-from cascade.dismod.model import model_from_vars
-from cascade.dismod.constants import INTEGRAND_TO_WEIGHT, IntegrandEnum
-from cascade.dismod.serialize import enum_to_dataframe
+from cascade.dismod.serialize import default_integrand_names, make_log_table
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -35,17 +36,22 @@ class Session:
         if self._filename.exists():
             MATHLOG.info(f"{self._filename} exists so overwriting it.")
             self._filename.unlink()
-        self.dismod_file.engine = _get_engine(self._filename)
+        self.dismod_file.engine = get_engine(self._filename)
         self.parent_location = parent_location
 
         self._create_node_table(locations)
-        self._create_options_table()
+        self._basic_db_setup()
         self._covariates = dict()  # From covariate name to the x_<number> name.
         for create_name in ["data", "avgint"]:
             setattr(self.dismod_file, create_name, self.dismod_file.empty_table(create_name))
 
     def fit(self, model, data):
-        self.write(model)
+        if data:
+            extremal = ({data.age_lower.min(), data.age_upper.max()},
+                        {data.time_lower.min(), data.time_upper.max()})
+        else:
+            extremal = ({}, {})
+        self.write(model, extremal)
         self._run_dismod(["init"])
         scale_vars = self.get_var("scale")
         return scale_vars
@@ -75,7 +81,9 @@ class Session:
         """
         self._check_vars(vars)
         model = model_from_vars(vars, weights)
-        self.write(model)
+        extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
+                    {avgint.time_lower.min(), avgint.time_upper.max()})
+        self.write(model, extremal)
         self.write_avgint(avgint)
         self._run_dismod(["init"])
         self.set_var(vars, "truth")
@@ -136,12 +144,100 @@ class Session:
         try:
             yield
         finally:
-            self.dismod_file.engine = _get_engine(self._filename)
+            self.dismod_file.engine = get_engine(self._filename)
 
     def _check_vars(self, var):
         for group_name, group in var.items():
             for key, one_var in group.items():
                 one_var.check(f"{group_name}-{key}")
+
+    def write(self, model, extremal_age_time):
+        writer = ModelWriter(self, extremal_age_time)
+        model.write(writer)
+        writer.close()
+        self.flush()
+
+    def flush(self):
+        self.dismod_file.flush()
+
+    def write_avgint(self, avgint):
+        """
+        Translate integrand name to id. Translate location to node.
+        Add weight appropriate for this integrand. Writes to the Dismod file.
+
+        Args:
+            avgint (pd.DataFrame): Columns are ``integrand``, ``location``,
+                ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
+        """
+        with_id = avgint.assign(integrand_id=avgint.integrand.apply(lambda x: IntegrandEnum[x].value))
+        if not with_id[with_id.integrand_id.isna()].empty:
+            not_found_integrand = with_id[with_id.integrand_id.isna()].integrand.unique()
+            err_message = (f"The integrands {not_found_integrand} weren't found in the "
+                           f"integrand list {[i.name for i in IntegrandEnum]}.")
+            MATHLOG.error(err_message)
+            raise RuntimeError(err_message)
+        with_weight = with_id.assign(weight_id=with_id.integrand.apply(lambda x: INTEGRAND_TO_WEIGHT[x].value))
+        with_weight = with_weight.drop(columns=["integrand"]).reset_index(drop=True)
+        with_location = with_weight.merge(
+            self.dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id") \
+            .drop(columns=["c_location_id", "location"])
+        self.dismod_file.avgint = with_location.assign(avgint_id=with_location.index)
+
+    def read_avgint(self):
+        avgint = self.dismod_file.avgint
+        with_integrand = avgint.assign(integrand=avgint.integrand_id.apply(lambda x: IntegrandEnum(x).name))
+        with_location = with_integrand.merge(self.dismod_file.node, on="node_id", how="left") \
+            .rename(columns={"c_location_id": "location"})
+        return with_location[
+            ["avgint_id", "location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper"]]
+
+    def write_data(self, data):
+        """
+        Writes a data table. Locations can be any location and will be pruned
+        to those that are descendants of the parent location.
+
+        Args:
+            data (pd.DataFrame): Columns are ``integrand``, ``location``,
+                ``data_name``, ``hold_out``,
+                ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``,
+                ``density``, ``value``, ``std``, ``eta``, ``nu``.
+                The ``data_name`` is optional and will be assigned from the index.
+                In addition, covariate columns are included.
+        """
+        pass
+
+    def get_predict(self):
+        avgint = self.read_avgint()
+        raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
+        not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)]
+        return raw.drop(columns=["avgint_id"]), not_predicted.drop(columns=["avgint_id"])
+
+    def _basic_db_setup(self):
+        """These things are true for all databases."""
+        # Density table does not depend on model.
+        self.dismod_file.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+
+        # Standard integrand naming scheme.
+        all_integrands = default_integrand_names()
+        self.dismod_file.integrand = all_integrands
+        # Fill in the min_meas_cv later if required. Ensure integrand kinds have
+        # known IDs early. Not nan because this "is non-negative and less than
+        # or equal to one."
+        self.dismod_file.integrand["minimum_meas_cv"] = 0
+
+        self.dismod_file.rate = pd.DataFrame(dict(
+            rate_id=[rate.value for rate in RateName],  # Will be 0-4.
+            rate_name=[rate.name for rate in RateName],
+            parent_smooth_id=nan,
+            child_smooth_id=nan,
+            child_nslist_id=nan,
+        ))
+
+        # Defaults, empty, b/c Brad makes them empty even if there are none.
+        for create_name in ["nslist", "nslist_pair", "mulcov", "smooth_grid", "smooth"]:
+            setattr(self.dismod_file, create_name, self.dismod_file.empty_table(create_name))
+        self.dismod_file.log = make_log_table()
+        self._create_options_table()
 
     def _create_options_table(self):
         # Options in grey were rejected by Dismod-AT despite being in docs.
@@ -154,15 +250,16 @@ class Session:
             dict(option_name="avgint_extra_columns", option_value=nan),
             dict(option_name="warn_on_stderr", option_value="true"),
             dict(option_name="ode_step_size", option_value="5.0"),
-            # dict(option_name="age_avg_split", option_value=nan),
+            # !!! dict(option_name="age_avg_split", option_value=nan),
             dict(option_name="random_seed", option_value="0"),
             dict(option_name="rate_case", option_value="iota_pos_rho_zero"),
             # dict(option_name="derivative_test", option_value="none"),
             # dict(option_name="max_num_iter", option_value="100"),
             # dict(option_name="print_level", option_value=0),
+            dict(option_name="print_level_fixed", option_value="5"),
             # dict(option_name="accept_after_max_steps", option_value="5"),
             # dict(option_name="tolerance", option_value="1e-8"),
-            dict(option_name="quasi_fixed", option_value="true"),
+            dict(option_name="quasi_fixed", option_value="false"),
             dict(option_name="bound_frac_fixed", option_value="1e-2"),
             dict(option_name="limited_memory_max_history_fixed", option_value="30"),
             dict(option_name="bound_random", option_value=nan),
@@ -188,57 +285,3 @@ class Session:
         table["parent"] = table.parent.apply(location_to_node_func)
         self.dismod_file.node = table
         self.location_func = location_to_node_func
-
-    def write(self, model):
-        writer = ModelWriter(self)
-        model.write(writer)
-        writer.close()
-        self.flush()
-
-    def flush(self):
-        self.dismod_file.flush()
-
-    def write_avgint(self, avgint):
-        """
-        Translate integrand name to id. Translate location to node.
-        Add weight appropriate for this integrand. Writes to the Dismod file.
-
-        Args:
-            avgint (pd.DataFrame): Columns are ``integrand``, ``location``,
-                ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
-        """
-        integrand_df = enum_to_dataframe(IntegrandEnum)
-        with_id = avgint.merge(integrand_df, left_on="integrand", right_on="name", how="left") \
-            .rename(columns={"value": "integrand_id"})
-        if not with_id[with_id.integrand_id.isna()].empty:
-            not_found_integrand = with_id[with_id.integrand_id.isna()].integrand.unique()
-            err_message = (f"The integrands {not_found_integrand} weren't found in the "
-                           f"integrand list {[i.name for i in IntegrandEnum]}.")
-            MATHLOG.error(err_message)
-            raise RuntimeError(err_message)
-        integrand_to_weight = pd.DataFrame(
-            [{"integrand": ig, "weight_id": w.value} for (ig, w) in INTEGRAND_TO_WEIGHT.items()],
-        )
-        with_weight = with_id.merge(integrand_to_weight, on="integrand", how="left")
-        with_weight = with_weight.drop(columns=["integrand"]).reset_index(drop=True)
-        with_location = with_weight.merge(
-            self.dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id") \
-            .drop(columns=["c_location_id", "location", "name"])
-        self.dismod_file.avgint = with_location.assign(avgint_id=with_location.index)
-
-    def read_avgint(self):
-        avgint = self.dismod_file.avgint
-        integrand_df = enum_to_dataframe(IntegrandEnum)
-        with_integrand = avgint.merge(integrand_df, left_on="integrand_id", right_on="value", how="left")
-        with_integrand = with_integrand.drop(columns=["integrand_id", "value"]) \
-            .rename(columns={"name": "integrand"})
-        with_location = with_integrand.merge(self.dismod_file.node, on="node_id", how="left") \
-            .rename(columns={"c_location_id": "location"})
-        return with_location[
-            ["avgint_id", "location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper"]]
-
-    def get_predict(self):
-        avgint = self.read_avgint()
-        raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
-        not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)]
-        return raw.drop(columns=["avgint_id"]), not_predicted.drop(columns=["avgint_id"])

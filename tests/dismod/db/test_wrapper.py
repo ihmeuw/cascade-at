@@ -9,14 +9,14 @@ import pytest
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Enum
 
-from cascade.dismod.db.wrapper import DismodFile, _get_engine, _validate_data, _ordered_by_foreign_key_dependency
+from cascade.dismod.db.wrapper import DismodFile, get_engine, _validate_data, _ordered_by_foreign_key_dependency
 from cascade.dismod.db import DismodFileError
 from cascade.dismod.db.metadata import Base as DismodFileBase
 
 
 @pytest.fixture
 def engine():
-    return _get_engine(None)
+    return get_engine(None)
 
 
 @pytest.fixture
@@ -284,10 +284,10 @@ def test_write_covariate_column__bad_name(base_file, dummy_data_row):
 
 
 def test_write_covariate_column__schema_changes_are_isolated(dummy_data_row):
-    dm_file = DismodFile(_get_engine(None))
+    dm_file = DismodFile(get_engine(None))
     dm_file.data = dummy_data_row
     dm_file.flush()
 
-    dm_file2 = DismodFile(_get_engine(None))
+    dm_file2 = DismodFile(get_engine(None))
     table = dm_file2.data
     assert "x_sex" not in table

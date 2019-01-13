@@ -21,11 +21,11 @@ from cascade.dismod.db.metadata import Base, add_columns_to_table
 from cascade.dismod.constants import DensityEnum
 from cascade.dismod.db import DismodFileError
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def _get_engine(file_path):
+def get_engine(file_path):
     if file_path is not None:
         full_path = file_path.expanduser().absolute()
         engine = create_engine("sqlite:///{}".format(str(full_path)))

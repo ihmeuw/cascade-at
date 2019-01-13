@@ -91,10 +91,35 @@ INTEGRAND_TO_WEIGHT = dict(
     Tincidence=WeightEnum.total,
     mtspecific=WeightEnum.total,
     mtall=WeightEnum.total,
-    mtstandard=WeightEnum.total,
-    relrisk=WeightEnum.total,
+    mtstandard=WeightEnum.constant,
+    relrisk=WeightEnum.constant,
 )
 """Each integrand has a natural association with a particular weight because
 it is a count of events with one of three denominators: susceptibles,
 with-condition, or the total population.
+"""
+
+
+INTEGRAND_COHORT_COST = dict(
+    Sincidence=False,
+    remission=False,
+    mtexcess=False,
+    mtother=False,
+    susceptible=True,
+    withC=True,
+    prevalence=True,
+    Tincidence=True,
+    mtspecific=True,
+    mtall=True,
+    mtstandard=True,
+    relrisk=False,
+)
+"""
+If a value is True, then rate covariates on this integrand type are much
+more costly than those that are False.
+If a value is True, then for a data point of this integrand type,
+if it has a rate covariate that is not equal to its reference value, then
+the differential equation needs to be solved for each cohort in the
+ODE grid that intersects or surrounds the age-time span for this point. This
+computation is performed each time the model variables change.
 """

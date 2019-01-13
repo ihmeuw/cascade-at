@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from cascade.saver.generate_draws import generate_draws_table, pure_generate_draws
-from cascade.dismod.db.wrapper import _get_engine, DismodFile
+from cascade.dismod.db.wrapper import get_engine, DismodFile
 
 
 @pytest.fixture(scope="module")
@@ -30,7 +30,7 @@ def predict_df():
 
 @pytest.fixture(scope="module")
 def dismod_file(avgint_df, predict_df):
-    engine = _get_engine(None)
+    engine = get_engine(None)
     dismod_file = DismodFile(engine)
     dismod_file.avgint = avgint_df
     dismod_file.predict = predict_df
@@ -40,7 +40,7 @@ def dismod_file(avgint_df, predict_df):
 
 @pytest.fixture(scope="module")
 def dismod_file_avgint_df_empty(predict_df):
-    engine = _get_engine(None)
+    engine = get_engine(None)
     dismod_file_avgint_df_empty = DismodFile(engine)
     dismod_file_avgint_df_empty.avgint = pd.DataFrame()
     dismod_file_avgint_df_empty.predict = predict_df
@@ -50,7 +50,7 @@ def dismod_file_avgint_df_empty(predict_df):
 
 @pytest.fixture(scope="module")
 def dismod_file_predict_df_empty(avgint_df):
-    engine = _get_engine(None)
+    engine = get_engine(None)
     dismod_file_predict_df_empty = DismodFile(engine)
     dismod_file_predict_df_empty.avgint = avgint_df
     dismod_file_predict_df_empty.predict = pd.DataFrame()
