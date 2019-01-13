@@ -41,7 +41,11 @@ class Session:
 
         self._create_node_table(locations)
         self._basic_db_setup()
-        self._covariates = dict()  # From covariate name to the x_<number> name.
+        # From covariate name to the x_<number> name that is used internally.
+        # The session knows this piece of information but not the covariate
+        # reference values. This is here because the columns of avgint and data
+        # need to be renamed before writing, and they aren't part of the model.
+        self._covariate_rename = dict()
         for create_name in ["data", "avgint"]:
             setattr(self.dismod_file, create_name, self.dismod_file.empty_table(create_name))
 
@@ -56,7 +60,7 @@ class Session:
         scale_vars = self.get_var("scale")
         return scale_vars
 
-    def predict(self, vars, avgint, weights=None):
+    def predict(self, vars, avgint, parent_location, weights=None, covariates=None):
         """Given rates, calculated the requested average integrands.
 
         Args:
@@ -66,10 +70,13 @@ class Session:
                 (location_id), ``age_lower`` (float), ``age_upper`` (float),
                 ``time_lower`` (float), ``time_upper`` (float). The integrand
                 should be one of the names in IntegrandEnum.
+            parent_location: The id of the parent location.
             weights (Dict[Var]): Weights are estimates of ``susceptible``,
                 ``with_condition``, and ``total`` populations, used to bias
                 integrands with age or time extent. Each one is a single
                 Var object.
+            covariates (List[Covariate]): A list of Covariates, so that we know
+                the name and reference value for each.
 
         Returns:
             (pd.DataFrame, pd.DataFrame): The predicted avgints, and a dataframe
@@ -80,7 +87,7 @@ class Session:
             ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
         """
         self._check_vars(vars)
-        model = model_from_vars(vars, weights)
+        model = model_from_vars(vars, parent_location, weights=weights, covariates=covariates)
         extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
                     {avgint.time_lower.min(), avgint.time_upper.max()})
         self.write(model, extremal)
@@ -104,19 +111,24 @@ class Session:
         option = self.dismod_file.option
         option.loc[option.option_name == name, "option_value"] = str(value)
 
-    def set_covariates(self, rename_dict):
+    @property
+    def covariate_rename(self):
+        return self._covariate_rename
+
+    @covariate_rename.setter
+    def covariate_rename(self, rename_dict):
         """Both the data and avgints need to have extra columns for covariates.
         Dismod-AT wants these defined, and at least an empty data and avgint
         table, before it will write the model. This step updates the list
         of covariates in the database schema before creating empty tables
         if necessary."""
-        if set(rename_dict.values()) == set(self._covariates.values()):
-            self._covariates = rename_dict
+        if set(rename_dict.values()) == set(self._covariate_rename.values()):
+            self._covariate_rename = rename_dict
             return
         else:
             # Only rewrite schema if the x_<integer> list has changed.
-            self._covariates = rename_dict
-        covariate_columns = list(sorted(self._covariates.values()))
+            self._covariate_rename = rename_dict
+        covariate_columns = list(sorted(self._covariate_rename.values()))
         for create_name in ["data", "avgint"]:
             empty = self.dismod_file.empty_table(create_name)
             without = [c for c in empty.columns if not c.startswith("x_")]

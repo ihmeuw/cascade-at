@@ -12,7 +12,7 @@ class Model(DismodGroups):
     Uses ages and times as given and translates them into ``age_id``
     and ``time_id`` for Dismod-AT.
     """
-    def __init__(self, nonzero_rates, parent_location, child_location, weights=None):
+    def __init__(self, nonzero_rates, parent_location, child_location, covariates=None, weights=None):
         """
         >>> locations = location_hierarchy(execution_context)
         >>> m = Model(["chi", "omega", "iota"], 6, locations)
@@ -21,7 +21,10 @@ class Model(DismodGroups):
         self.nonzero_rates = nonzero_rates
         self.location_id = parent_location
         self.child_location = child_location
-        self.covariates = list()  # of class Covariate
+        # Covariates are here because their reference values are part of
+        # the model. Even though avgint and data use them, a model is always
+        # written before the avgint and data are written.
+        self.covariates = covariates if covariates else list()
         # There are always four weights, constant, susceptible,
         # with_condition, and total.
         if weights:
@@ -68,28 +71,29 @@ class Model(DismodGroups):
                 self.weights[kind].grid.loc[:, "mean"] = 1.0
 
 
-def model_from_vars(vars, parent_location, weights=None):
+def model_from_vars(var, parent_location, weights=None, covariates=None):
     """
     Given values across all rates, construct a model with loose priors
     in order to be able to predict from those rates.
 
     Args:
-        vars (DismodGroups[Var]): Values on grids.
+        var (DismodGroups[Var]): Values on grids.
         parent_location (int): A parent location, because that isn't
             in the keys.
         weights (Dict[Var]): Population weights for integrands.
+        covariates(List[Covariate]): Covariate objects.
 
     Returns:
         Model: with Uniform distributions everywhere and no mulstd.
     """
-    child_locations = [k[1] for k in vars.random_effect.keys()]
-    nonzero_rates = list(vars.rate.keys())
-    model = Model(nonzero_rates, parent_location, child_locations, weights)
+    child_locations = [k[1] for k in var.random_effect.keys()]
+    nonzero_rates = list(var.rate.keys())
+    model = Model(nonzero_rates, parent_location, child_locations, weights, covariates)
 
     # Maybe there is something special for handling random effects.
     strictly_positive = dict()
     strictly_positive["rate"] = True
-    for group_name, group in vars.items():
+    for group_name, group in var.items():
         for key, var in group.items():
             must_be_positive = strictly_positive.get(group_name, False)
             model[group_name][key] = smooth_grid_from_var(var, must_be_positive)

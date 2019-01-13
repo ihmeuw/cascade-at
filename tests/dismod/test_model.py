@@ -21,8 +21,8 @@ def basic_model():
 
     parent_location = 1
     child_locations = list()
-    model = Model(nonzero_rates, parent_location, child_locations)
-    model.covariates = [Covariate("traffic", reference=0.0)]
+    covariates = [Covariate("traffic", reference=0.0)]
+    model = Model(nonzero_rates, parent_location, child_locations, covariates=covariates)
 
     covariate_age_time = ([40], [2000])
     traffic = SmoothGrid(covariate_age_time)
@@ -104,7 +104,7 @@ def test_predict(dismod):
         time_upper=2000,
     ))
 
-    predicted, not_predicted = session.predict(model_variables, avgints)
+    predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
     assert not_predicted.empty
     assert not predicted.empty
 
@@ -143,7 +143,7 @@ def test_survival(dismod):
         time_upper=2000,
     ))
 
-    predicted, not_predicted = session.predict(model_variables, avgints)
+    predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
     assert not_predicted.empty
     assert not predicted.empty
 

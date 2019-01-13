@@ -73,15 +73,6 @@ class ModelWriter:
         self._ages = np.append(self._ages, ages)
         self._times = np.append(self._times, times)
 
-    def write_covariate(self, covariates):
-        self._dismod_file.covariate = self._dismod_file.empty_table("covariate")
-        CODELOG.debug(f"covariates {', '.join(c.name for c in covariates)}")
-        covariate_df, cov_col_id_func, covariate_renames = _make_covariate_table(covariates)
-        self._dismod_file.update_table_columns("covariate", covariate_df)
-        self._dismod_file.covariate = covariate_df
-        self._covariate_id_func = cov_col_id_func
-        self._session.set_covariates(covariate_renames)
-
     def write_rate(self, rate_name, random_field):
         """A rate needs a smooth, which has priors and ages/times."""
         self._flush_ages_times_locations()
@@ -275,6 +266,24 @@ class ModelWriter:
         assert "age_id" in df.columns
         assert "time_id" in df.columns
         return df.drop("save_idx", axis=1)
+
+    def write_covariate(self, covariates):
+        self._dismod_file.covariate = self._dismod_file.empty_table("covariate")
+        reorder = list()
+        lookup = {search.name: search for search in covariates}
+        for special in ["sex", "one"]:
+            if special in lookup:
+                reorder.append(lookup[special])
+                del lookup[special]
+        for remaining in sorted(lookup.keys()):
+            reorder.append(lookup[remaining])
+        CODELOG.debug(f"covariates {', '.join(c.name for c in reorder)}")
+        covariate_df, cov_col_id_func, covariate_renames = _make_covariate_table(reorder)
+        # This is adding the extra column, "c_covariate_name" to the table.
+        self._dismod_file.update_table_columns("covariate", covariate_df)
+        self._dismod_file.covariate = covariate_df
+        self._covariate_id_func = cov_col_id_func
+        self._session.covariate_rename = covariate_renames
 
 
 def _make_covariate_table(covariates):

@@ -1,9 +1,9 @@
 """
 Represents covariates in the model.
 """
+from cascade.core import getLoggers
 from cascade.model.rates import Smooth
 
-from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
