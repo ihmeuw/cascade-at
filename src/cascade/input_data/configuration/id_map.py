@@ -1,4 +1,4 @@
-from cascade.dismod.db.metadata import IntegrandEnum
+from cascade.dismod.constants import IntegrandEnum
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)

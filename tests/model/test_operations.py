@@ -10,7 +10,7 @@ from scipy.interpolate import SmoothBivariateSpline
 from scipy.stats import norm
 
 from cascade.core.context import ModelContext
-from cascade.dismod.db.metadata import RateName
+from cascade.dismod.constants import RateName
 import cascade.model.operations
 from cascade.model.operations import (
     _assign_rate_priors, _assign_mulcov_priors, _assign_smooth_priors_after_summary,

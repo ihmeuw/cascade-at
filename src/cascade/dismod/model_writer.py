@@ -8,11 +8,10 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.db.metadata import DensityEnum
 from cascade.dismod.serialize import (
     enum_to_dataframe, default_integrand_names, make_log_table
 )
-from cascade.dismod.model import WeightEnum
+from cascade.dismod.constants import WeightEnum, DensityEnum, MulCovEnum
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -50,7 +49,6 @@ class ModelWriter:
         self._integrand_id_func = lambda x: nan
         self._flushed = False
         self._children = None
-        self._mulcov_name_to_type = dict(alpha="rate_value", beta="meas_value", gamma="meas_std")
 
     def basic_db_setup(self):
         """These things are true for all databases."""
@@ -143,7 +141,7 @@ class ModelWriter:
         grid_name = f"{kind}_{rate_or_integrand}_{covariate}"
         row = {
             "mulcov_id": len(self._mulcov_rows),
-            "mulcov_type": self._mulcov_name_to_type[kind],
+            "mulcov_type": MulCovEnum[kind].value,
             "rate_id": nan,
             "integrand_id": nan,
             "covariate_id": self._covariate_id_func(covariate),
@@ -158,7 +156,7 @@ class ModelWriter:
         self._mulcov_rows.append(row)
 
     def write_weights(self, weights):
-        """Always write 3 weights in same order."""
+        """Always write 4 weights in same order."""
         self._flush_ages_times_locations()
         names = [w.name for w in WeightEnum]
         weight_table = pd.DataFrame(dict(

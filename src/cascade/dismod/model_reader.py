@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.db.metadata import RateName, IntegrandEnum
+from cascade.dismod.constants import IntegrandEnum, RateName
 from cascade.dismod.dismod_groups import DismodGroups
 from cascade.dismod.var import Var
 

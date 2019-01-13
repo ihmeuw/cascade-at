@@ -9,7 +9,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from cascade.dismod.db.metadata import IntegrandEnum, DensityEnum
+from cascade.dismod.constants import IntegrandEnum, DensityEnum
 from cascade.dismod.db.wrapper import DismodFile
 from cascade.model.priors import Constant
 from cascade.model.grids import unique_floats

@@ -7,33 +7,14 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.db.metadata import IntegrandEnum
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
 from cascade.dismod.model_reader import read_var_table_as_id, read_vars, write_vars
 from cascade.dismod.model_writer import ModelWriter
-from cascade.dismod.model import model_from_vars, WeightEnum
+from cascade.dismod.model import model_from_vars
+from cascade.dismod.constants import INTEGRAND_TO_WEIGHT, IntegrandEnum
 from cascade.dismod.serialize import enum_to_dataframe
 
 CODELOG, MATHLOG = getLoggers(__name__)
-
-
-INTEGRAND_TO_WEIGHT = dict(
-    Sincidence=WeightEnum.susceptible,
-    remission=WeightEnum.with_condition,
-    mtexcess=WeightEnum.with_condition,
-    mtother=WeightEnum.total,
-    susceptible=WeightEnum.susceptible,
-    withC=WeightEnum.with_condition,
-    prevalence=WeightEnum.total,
-    Tincidence=WeightEnum.total,
-    mtspecific=WeightEnum.total,
-    mtall=WeightEnum.total,
-    mtstandard=WeightEnum.total,
-    relrisk=WeightEnum.total,
-)
-"""Dict[str,WeightEnum]: Map from integrand to which weight to use for
-calculating values of that integrand over ranges of age and time.
-"""
 
 
 class Session:

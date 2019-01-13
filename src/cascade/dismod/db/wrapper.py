@@ -17,7 +17,8 @@ from sqlalchemy.sql import select, text
 from sqlalchemy.exc import OperationalError, StatementError
 from sqlalchemy import Integer, String, Float, Enum
 
-from cascade.dismod.db.metadata import Base, add_columns_to_table, DensityEnum
+from cascade.dismod.db.metadata import Base, add_columns_to_table
+from cascade.dismod.constants import DensityEnum
 from cascade.dismod.db import DismodFileError
 
 from cascade.core.log import getLoggers

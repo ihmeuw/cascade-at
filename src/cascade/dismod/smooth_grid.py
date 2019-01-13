@@ -23,10 +23,8 @@ from math import nan
 import numpy as np
 import pandas as pd
 
-from cascade.dismod.db.metadata import DensityEnum
+from cascade.dismod.constants import DensityEnum
 from cascade.model.priors import Uniform
-
-PRIOR_KINDS = ["value", "dage", "dtime"]
 
 
 class _PriorView:

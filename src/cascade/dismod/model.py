@@ -1,14 +1,7 @@
-from enum import Enum
-
+from cascade.dismod.constants import WeightEnum
 from cascade.dismod.dismod_groups import DismodGroups
 from cascade.dismod.var import Var
 from cascade.dismod.smooth_grid import smooth_grid_from_var
-
-
-class WeightEnum(Enum):
-    susceptible = 0
-    with_condition = 1
-    total = 2
 
 
 class Model(DismodGroups):
@@ -29,7 +22,8 @@ class Model(DismodGroups):
         self.location_id = parent_location
         self.child_location = child_location
         self.covariates = list()  # of class Covariate
-        # There are always three weights, susceptible, with_condition, and total.
+        # There are always four weights, constant, susceptible,
+        # with_condition, and total.
         if weights:
             self.weights = weights
         else:
@@ -60,7 +54,7 @@ class Model(DismodGroups):
                 raise RuntimeError(f"Unknown kind of field {group_name}")
 
     def _ensure_weights(self):
-        """If weights weren't made, then make them. Must be done after
+        """If weights weren't made, then make them constant. Must be done after
         there is data in the Model."""
         # Find an age and time already in the model because adding an
         # age and time outside the model can change the integration ranges.

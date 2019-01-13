@@ -10,7 +10,7 @@ import numpy as np
 from scipy.interpolate import RectBivariateSpline
 
 from cascade.core.log import getLoggers
-from cascade.dismod.db.metadata import RateName, IntegrandEnum
+from cascade.dismod.constants import IntegrandEnum, RateName
 from cascade.model.priors import Constant
 
 CODELOG, MATHLOG = getLoggers(__name__)

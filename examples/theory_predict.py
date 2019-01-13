@@ -39,7 +39,7 @@ from cascade.model import (
 )
 from cascade.input_data.configuration.construct_bundle import \
     normalized_bundle_from_database
-from cascade.dismod.db.metadata import IntegrandEnum
+from cascade.dismod.constants import IntegrandEnum
 
 LOGGER = logging.getLogger("fit_no_covariates")
 

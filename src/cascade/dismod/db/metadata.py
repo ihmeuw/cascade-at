@@ -1,7 +1,6 @@
 """
 This describes the tables in the sqlite file that Dismod reads.
 """
-import enum
 
 import numpy as np
 
@@ -92,22 +91,6 @@ class Time(Base):
     time = Column(Float, unique=True, nullable=False)
 
 
-class IntegrandEnum(enum.Enum):
-    Sincidence = 0
-    remission = 1
-    mtexcess = 2
-    mtother = 3
-    mtwith = 4
-    susceptible = 5
-    withC = 6
-    prevalence = 7
-    Tincidence = 8
-    mtspecific = 9
-    mtall = 10
-    mtstandard = 11
-    relrisk = 12
-
-
 class Integrand(Base):
     """These are the names of the integrands, taken from IntegrandEnum"""
 
@@ -119,16 +102,6 @@ class Integrand(Base):
     Each integrand may appear only once. Unused integrands need not be added.
     """
     minimum_meas_cv = Column(Float())
-
-
-class DensityEnum(enum.Enum):
-    uniform = 0
-    gaussian = 1
-    laplace = 2
-    students = 3
-    log_gaussian = 4
-    log_laplace = 5
-    log_students = 6
 
 
 class Density(Base):
@@ -269,14 +242,6 @@ class NSListPair(Base):
     smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=False)
 
 
-class RateName(enum.Enum):
-    pini = 0
-    iota = 1
-    rho = 2
-    chi = 3
-    omega = 4
-
-
 class Rate(Base):
     __tablename__ = "rate"
 
@@ -292,12 +257,6 @@ class Rate(Base):
     node_id for each of the children must appear in the list. The corresponding
     smoothing is used for that child and the rate corresponding to this
     row of the rate table."""
-
-
-class MulCovEnum(enum.Enum):
-    rate_value = 0
-    meas_value = 1
-    meas_std = 2
 
 
 class MulCov(Base):

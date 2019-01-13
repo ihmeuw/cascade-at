@@ -28,7 +28,7 @@ from cascade.dismod.serialize import (
     _infer_rate_case,
 )
 from cascade.dismod.db.wrapper import DismodFile, _get_engine
-from cascade.dismod.db.metadata import DensityEnum
+from cascade.dismod.constants import DensityEnum
 
 
 class LocationNode:
