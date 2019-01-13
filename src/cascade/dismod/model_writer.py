@@ -10,7 +10,7 @@ import pandas as pd
 from cascade.core import getLoggers
 from cascade.dismod.db.metadata import DensityEnum
 from cascade.dismod.serialize import (
-    enum_to_dataframe, default_integrand_names, make_log_table, simplest_weight
+    enum_to_dataframe, default_integrand_names, make_log_table
 )
 from cascade.dismod.model import WeightEnum
 
@@ -159,6 +159,7 @@ class ModelWriter:
 
     def write_weights(self, weights):
         """Always write 3 weights in same order."""
+        self._flush_ages_times_locations()
         names = [w.name for w in WeightEnum]
         weight_table = pd.DataFrame(dict(
             weight_id=[w.value for w in WeightEnum],
@@ -168,16 +169,20 @@ class ModelWriter:
         ))
         grids = list()
         for w in WeightEnum:
-            one_grid = weights[w.name].grid[["age", "time", "mean"]].rename(columns={"mean", "weight"})
+            one_grid = weights[w.name].grid[["age", "time", "mean"]].rename(columns={"mean": "weight"})
             grids.append(one_grid.assign(weight_id=w.value))
-        total = self._fix_ages_times(pd.concat(grids))
+        un_aged = pd.concat(grids).reset_index(drop=True)
+        total = self._fix_ages_times(un_aged).drop(columns=["age", "time"])
         total.reset_index(drop=True)
         total["weight_grid_id"] = total.index
         self._dismod_file.weight = weight_table
         self._dismod_file.weight_grid = total
 
     def close(self):
-        self._dismod_file.mulcov = pd.DataFrame(self._mulcov_rows)
+        if self._mulcov_rows:
+            self._dismod_file.mulcov = pd.DataFrame(self._mulcov_rows)
+        else:
+            self._dismod_file.mulcov = self._dismod_file.empty_table("mulcov")
         self._dismod_file.nslist = pd.DataFrame.from_records(
             data=list(self._nslist.items()),
             columns=["nslist_name", "nslist_id"]

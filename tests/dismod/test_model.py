@@ -43,13 +43,10 @@ def basic_model():
     chi_grid.dage[:, :] = Uniform(lower=-.9, upper=.9, mean=0.0, eta=eta)
     chi_grid.dtime[:, :] = Gaussian(lower=-.8, upper=.8, mean=0.0, standard_deviation=0.4, eta=eta)
     model.rate["chi"] = chi_grid
-
-    model.weights["constant"] = Var(([40], [2000]))
-    model.weights["constant"].grid.loc[:, "mean"] = 1.0
     return model
 
 
-def test_write_rate(basic_model):
+def test_write_rate(basic_model, dismod):
     locations = pd.DataFrame(dict(
         name=["global"],
         parent=[nan],
@@ -71,31 +68,32 @@ def test_write_rate(basic_model):
     assert 3 * vars.count() == basic_model.count()
 
 
-def test_predict():
+def test_predict(dismod):
     iota = Var(([0, 20, 120], [2000]))
-    iota.grid[iota.grid.age == 0].mean = 0.0
-    iota.grid[iota.grid.age == 20].mean = 0.02
-    iota.grid[iota.grid.age == 120].mean = 0.02
+    iota.grid.loc[np.isclose(iota.grid.age, 0), "mean"] = 0.0
+    iota.grid.loc[np.isclose(iota.grid.age, 20), "mean"] = 0.02
+    iota.grid.loc[np.isclose(iota.grid.age, 120), "mean"] = 0.02
 
-    chi = Var([20], [2000])
-    chi.grid.mean = 0.01
+    chi = Var(([20], [2000]))
+    chi.grid.loc[:, "mean"] = 0.01
 
-    mortality = total_mortality_solution(siler_default())
+    mortality = siler_default()
+    survival = total_mortality_solution(mortality)
     omega = Var([np.linspace(0, 120, 121), [2000]])
-    omega.grid.mean = mortality(omega.grid.age.values)
+    omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
 
     model_variables = DismodGroups()
     model_variables.rate["iota"] = iota
     model_variables.rate["chi"] = chi
     model_variables.rate["omega"] = omega
 
+    parent_location = 1
     locations = pd.DataFrame(dict(
         name=["global"],
         parent=[nan],
-        c_location_id=[1],
+        c_location_id=[parent_location],
     ))
-    parent_location = 1
-    db_file = Path("rftest.db")
+    db_file = Path("prtest.db")
     session = Session(locations, parent_location, db_file)
 
     avgints = pd.DataFrame(dict(
@@ -107,4 +105,9 @@ def test_predict():
         time_upper=2000,
     ))
 
-    data = session.predict(model_variables, avgints)
+    predicted, not_predicted = session.predict(model_variables, avgints)
+    assert not_predicted.empty
+    assert not predicted.empty
+
+    for x in []:
+        assert np.isclose(survival(x), predicted[x])

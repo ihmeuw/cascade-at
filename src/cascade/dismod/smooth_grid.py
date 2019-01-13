@@ -107,16 +107,23 @@ class SmoothGrid:
         return _PriorView(self, "dtime")
 
 
-def smooth_grid_from_var(var):
+def smooth_grid_from_var(var, strictly_positive):
     """
+    Create a smooth grid with priors that are Uniform and
+    impossibly large, in the same shape as a Var.
 
     Args:
         var (Var): A single var grid.
+        strictly_positive (bool): Whether the value prior is positive.
 
     Returns:
         SmoothGrid: A single smooth grid with Uniform distributions.
     """
     smooth_grid = SmoothGrid(var.age_time)
-    smooth_grid[:, :] = Uniform(-5, 5, 0)
-    smooth_grid.priors["mean"] = var.grid["mean"]
+    if strictly_positive:
+        smooth_grid.value[:, :] = Uniform(1e-9, 5, 1e-2)
+    else:
+        smooth_grid.value[:, :] = Uniform(-5, 5, 0)
+    smooth_grid.dage[:, :] = Uniform(-5, 5, 0)
+    smooth_grid.dtime[:, :] = Uniform(-5, 5, 0)
     return smooth_grid

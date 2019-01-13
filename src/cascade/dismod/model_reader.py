@@ -1,13 +1,34 @@
 from copy import deepcopy
 from math import isnan
+
 import numpy as np
+import pandas as pd
 
 from cascade.core import getLoggers
 from cascade.dismod.db.metadata import RateName, IntegrandEnum
-from cascade.dismod.var import Var
 from cascade.dismod.dismod_groups import DismodGroups
+from cascade.dismod.var import Var
 
 CODELOG, MATHLOG = getLoggers(__name__)
+
+
+def write_vars(dismod_file, new_vars, var_ids, which):
+    """
+
+    Args:
+        dismod_file:
+        new_vars (DismodGroups): The new vars to write.
+        var_ids (DismodGroups): The output of ``read_var_table_as_id``.
+        which (str): Could be "start_var", "truth_var", "scale_var", "fit_var".
+    """
+    var_name = f"{which}_var"
+    id_column = f"{var_name}_id"
+    total = list()
+    for group_name, group in var_ids.items():
+        for key, value in group.items():
+            total.append(_construct_vars_one_field(var_name, value, new_vars[group_name][key]))
+    new_table = pd.concat(total).sort_values(by=[id_column])
+    setattr(dismod_file, var_name, new_table)
 
 
 def read_vars(dismod_file, var_ids, which):
@@ -32,9 +53,19 @@ def read_vars(dismod_file, var_ids, which):
     return vars
 
 
+def _construct_vars_one_field(name, var_id, new_var):
+    id_column = f"{name}_id"
+    var_column = f"{name}_value"
+    with_id = new_var.grid.merge(var_id.grid[["age", "time", "var_id"]], on=["age", "time"], how="left")
+    return pd.DataFrame({
+        id_column: with_id.var_id.values,
+        var_column: with_id["mean"].values,
+    })
+
+
 def _read_vars_one_field(table, name, id_draw):
     id_column = f"{name}_id"
-    var_column = f"{name}_id"
+    var_column = f"{name}_value"
     vals = deepcopy(id_draw)
     table = table.reset_index(drop=True)
     with_var = vals.grid.merge(table, left_on="var_id", right_on=id_column, how="left")
@@ -52,9 +83,9 @@ def read_var_table_as_id(dismod_file):
     It puts those into a DismodGroups which can then decode any table
     associated with the var table.
     The empty vars come from the Model.model_variables property.
-    This ``var_id`` table has ``age_id`` and ``time_id`` but uses real
+    This ``var_id`` table has ``age`` and ``time`` and uses real
     locations instead of ``node_id``. It's meant for joins with tables
-    in the Dismod file, that are indexed by ``age_id`` and ``time_id``.
+    in the Dismod file.
     """
     parent_node = read_parent_node(dismod_file)
     child_node = read_child_nodes(dismod_file, read_parent_node(dismod_file))
@@ -79,29 +110,29 @@ def read_var_table_as_id(dismod_file):
     # the second level is node_id, which is nan for mulcovs, and groupby
     # excludes rows with nans in the keys.
     var_ids = DismodGroups()
+    age, time = (dismod_file.age, dismod_file.time)
     for smooth_id, sub_grid_df in dismod_file.var.groupby(["smooth_id"]):
         if sub_grid_df[sub_grid_df.var_type == "rate"].empty:
-            _add_one_field_to_vars(inverted_smooth, parent_node, smooth_id, sub_grid_df, var_ids)
+            _add_one_field_to_vars(inverted_smooth, parent_node, smooth_id, sub_grid_df, var_ids, age, time)
         else:
             # Multiple random effects, identified as "rates," can share a smooth.
             for node_id, re_grid_df in sub_grid_df.groupby(["node_id"]):
-                _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, re_grid_df, var_ids)
+                _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, re_grid_df, var_ids, age, time)
 
-    convert_age_time_to_values(dismod_file, var_ids)
     if var_ids.count() != len(dismod_file.var):
         MATHLOG.error(f"Found {var_ids.count()} of {len(dismod_file.var)} vars in db file.")
     return var_ids
 
 
-def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var_ids):
+def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var_ids, age, time):
     at_grid_df = sub_grid_df[sub_grid_df.age_id.notna() & sub_grid_df.time_id.notna()]
-    age_ids = np.unique(at_grid_df.age_id.values)
-    time_ids = np.unique(at_grid_df.time_id.values)
-    draw = Var((age_ids, time_ids))
-    # The grid doesn't really have age and time. It really has age_id and time_id.
-    id_df = draw.grid.merge(at_grid_df[["age_id", "time_id", "var_id"]],
-                            how="left", right_on=["age_id", "time_id"], left_on=["age", "time"])
-    draw.grid = id_df
+    at_grid_df = at_grid_df.merge(age, on="age_id", how="left") \
+        .merge(time, on="time_id", how="left") \
+        .drop(columns=["age_id", "time_id"])
+    draw = Var((np.unique(at_grid_df.age.values), np.unique(at_grid_df.time.values)))
+    draw.grid = draw.grid.merge(
+        at_grid_df[["age", "time", "var_id"]], how="left", on=["age", "time"])
+    # The mulstd hyper-priors aren't indexed by age and time, so separate.
     for kind in ["value", "dage", "dtime"]:
         match = sub_grid_df.query("var_type == @kind")
         if not match.empty:

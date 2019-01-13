@@ -8,29 +8,37 @@ class DismodGroups(UserDict):
     This class represents that grouping as a set of dictionaries, where the
     values can either be SmoothGrids or RandomFields or whatever is classified
     according to groups of model variables.
+
+     * Rate key is rate as a string (iota, rho, chi, omega, pini)
+     * Random effect key is tuple (rate, location_id), where None is all.
+     * Alpha key is (covariate, rate), both as strings.
+     * Beta key is (covariate, integrand), both as strings.
+     * Gamma key is (covariate, integrand), both as strings.
+
     """
     GROUPS = ["rate", "random_effect", "alpha", "beta", "gamma"]
 
     def __init__(self):
-        # Key is the rate as a string.
-        self.rate = dict()
-        # Key is tuple (rate, location_id)  # location_id=None means no nslist.
-        self.random_effect = dict()
-        # Key is (covariate, rate), both as strings.
-        self.alpha = dict()
-        # Key is (covariate, integrand), both as strings.
-        self.beta = dict()
-        # Key is (covariate, integrand), both as strings.
-        self.gamma = dict()
-        self._frozen = False
-        super().__init__({k: getattr(self, k) for k in self.GROUPS})
+        super().__init__({k: dict() for k in self.GROUPS})
         self._frozen = True
+
+    def __getattr__(self, item):
+        if item in self.GROUPS:
+            return self.data[item]
+        else:
+            raise AttributeError(f"{item} is not an attribute")
+
+    def __setattr__(self, item, value):
+        if item in self.GROUPS and self.__dict__.get("_frozen", False):
+            raise AttributeError(f"Cannot set attribute")
+        else:
+            self.__dict__[item] = value
 
     def __setitem__(self, key, item):
         """
         This keeps us from treating this class as a dictionary by accident.
         """
-        if self._frozen:
+        if self.__dict__.get("_frozen", False):
             raise ValueError("Cannot set property on a DismodGroups object.")
         else:
             super().__setitem__(key, item)

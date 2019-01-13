@@ -30,6 +30,8 @@ def pytest_addoption(parser):
                     help="run functions requiring access to central comp and Dismod-AT")
     group.addoption("--signals", action="store_true",
                     help="run functions requiring access to central comp and Dismod-AT")
+    group.addoption("--dismod", action="store_true",
+                    help="requires access to Dismod-AT command line")
 
 
 @pytest.fixture
@@ -62,3 +64,15 @@ class SignalQuietArg:
     def __init__(self, request):
         if request.config.getoption("signals"):
             pytest.skip(f"specify --signals if using UNIX signals can stop pytest")
+
+
+@pytest.fixture
+def dismod(request):
+    return DismodFuncArg(request)
+
+
+class DismodFuncArg:
+    """Must be able to run dmdismod."""
+    def __init__(self, request):
+        if not (request.config.getoption("dismod") or request.config.getoption("ihme")):
+            pytest.skip("specify --dismod or --ihme to run tests requiring Dismod")

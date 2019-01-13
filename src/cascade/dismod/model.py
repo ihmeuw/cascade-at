@@ -64,14 +64,14 @@ class Model(DismodGroups):
         there is data in the Model."""
         # Find an age and time already in the model because adding an
         # age and time outside the model can change the integration ranges.
-        arbitrary_grid = next(self.rate.values())
+        arbitrary_grid = next(iter(self.rate.values()))
         arbitrary_age_time = arbitrary_grid.age_time
-        one_age_time = [(arbitrary_age_time[0][0:1], arbitrary_age_time[1][0:1])]
+        one_age_time = (arbitrary_age_time[0][0:1], arbitrary_age_time[1][0:1])
 
         for kind in (weight.name for weight in WeightEnum):
             if kind not in self.weights:
                 self.weights[kind] = Var(one_age_time)
-                self.weights[kind].grid.mean = 1.0
+                self.weights[kind].grid.loc[:, "mean"] = 1.0
 
 
 def model_from_vars(vars, parent_location, weights=None):
@@ -93,8 +93,11 @@ def model_from_vars(vars, parent_location, weights=None):
     model = Model(nonzero_rates, parent_location, child_locations, weights)
 
     # Maybe there is something special for handling random effects.
-    for group_name, group in vars:
+    strictly_positive = dict()
+    strictly_positive["rate"] = True
+    for group_name, group in vars.items():
         for key, var in group.items():
-            model[group_name][key] = smooth_grid_from_var(var)
+            must_be_positive = strictly_positive.get(group_name, False)
+            model[group_name][key] = smooth_grid_from_var(var, must_be_positive)
 
     return model

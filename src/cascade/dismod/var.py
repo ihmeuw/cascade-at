@@ -19,6 +19,10 @@ class Var:
         ))
         self.mulstd = dict()  # keys are value, dage, dtime.
 
+    @property
+    def age_time(self):
+        return (self.ages, self.times)
+
     def __len__(self):
         return self.ages.shape[0] * self.times.shape[0] + len(self.mulstd)
 
