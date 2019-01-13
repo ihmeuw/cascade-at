@@ -22,7 +22,7 @@ class Var:
 
     @property
     def age_time(self):
-        return (self.ages, self.times)
+        return self.ages, self.times
 
     def __len__(self):
         return self.ages.shape[0] * self.times.shape[0] + len(self.mulstd)
@@ -33,9 +33,6 @@ class Var:
     def as_function(self):
         """Constructs a function which mimics how Dismod-AT turns a field of
         points in age and time into a continuous function.
-
-        Args:
-            age_time_df: Dataframe has columns age, time, and mean.
 
         Returns:
             function: Of age and time.
@@ -54,9 +51,9 @@ class Var:
 
         elif len(age) == 1 or len(time) == 1:
             fill = (ordered["mean"].values[0], ordered["mean"].values[-1])
-            x = age if len(age) != 1 else time
+            independent = age if len(age) != 1 else time
             spline = interp1d(
-                x, ordered["mean"].values, kind="linear", bounds_error="extrapolate", fill_value=fill)
+                independent, ordered["mean"].values, kind="linear", bounds_error="extrapolate", fill_value=fill)
 
             def age_spline(x, _):
                 return spline(x)

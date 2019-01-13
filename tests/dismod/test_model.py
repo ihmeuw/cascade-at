@@ -57,15 +57,15 @@ def test_write_rate(basic_model, dismod):
     session = Session(locations, parent_location, db_file)
 
     data = None
-    vars = session.fit(basic_model, data)
+    var = session.fit(basic_model, data)
     for name in basic_model:
         for key, grid in basic_model[name].items():
-            field = vars[name][key]
+            field = var[name][key]
             print(f"{name}, {key} {len(grid)}, {len(field)}")
 
     # By 3 because there are three priors for every value,
     # and this model has no mulstds.
-    assert 3 * vars.count() == basic_model.count()
+    assert 3 * var.count() == basic_model.count()
 
 
 def test_predict(dismod):
@@ -112,5 +112,5 @@ def test_predict(dismod):
     iota_func = iota.as_function()
     for idx, row in predicted.iterrows():
         print(f"row {row}")
-        input_iota = iota_func(float(row.age_lower), float(row.time_lower))
+        input_iota = iota_func(row.age_lower, row.time_lower)
         assert np.isclose(input_iota, row["avg_integrand"])
