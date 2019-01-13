@@ -5,6 +5,7 @@ Statistical operations on the model:
 
 """
 from copy import copy
+
 import numpy as np
 from scipy.interpolate import RectBivariateSpline
 

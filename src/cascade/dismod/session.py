@@ -122,8 +122,9 @@ class Session:
         with self._close_db_while_running():
             completed_process = run(["dmdismod", str(self._filename)] + command, stdout=PIPE, stderr=PIPE)
             if completed_process.returncode != 0:
-                print(completed_process.stdout, completed_process.stderr)
-            assert completed_process.returncode == 0
+                MATHLOG.error(completed_process.stdout.decode())
+                MATHLOG.error(completed_process.stderr.decode())
+            assert completed_process.returncode == 0, f"return code is {completed_process.returncode}"
 
     @contextmanager
     def _close_db_while_running(self):
@@ -200,6 +201,12 @@ class Session:
         integrand_df = enum_to_dataframe(IntegrandEnum)
         with_id = avgint.merge(integrand_df, left_on="integrand", right_on="name", how="left") \
             .rename(columns={"value": "integrand_id"})
+        if not with_id[with_id.integrand_id.isna()].empty:
+            not_found_integrand = with_id[with_id.integrand_id.isna()].integrand.unique()
+            err_message = (f"The integrands {not_found_integrand} weren't found in the "
+                           f"integrand list {[i.name for i in IntegrandEnum]}.")
+            MATHLOG.error(err_message)
+            raise RuntimeError(err_message)
         integrand_to_weight = pd.DataFrame(
             [{"integrand": ig, "weight_id": w.value} for (ig, w) in INTEGRAND_TO_WEIGHT.items()],
         )
@@ -213,8 +220,8 @@ class Session:
     def read_avgint(self):
         avgint = self.dismod_file.avgint
         integrand_df = enum_to_dataframe(IntegrandEnum)
-        with_integrand = avgint.merge(integrand_df, left_on="integrand_id", right_on="value", how="left") \
-            .drop(columns=["integrand_id", "value"]) \
+        with_integrand = avgint.merge(integrand_df, left_on="integrand_id", right_on="value", how="left")
+        with_integrand = with_integrand.drop(columns=["integrand_id", "value"]) \
             .rename(columns={"name": "integrand"})
         with_location = with_integrand.merge(self.dismod_file.node, on="node_id", how="left") \
             .rename(columns={"c_location_id": "location"})

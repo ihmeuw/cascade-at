@@ -9,7 +9,7 @@ import pytest
 from cascade.model.covariates import Covariate
 from cascade.model.priors import Uniform, Gaussian
 from cascade.dismod import Session, Model, DismodGroups, SmoothGrid, Var
-from cascade.stats.compartmental import total_mortality_solution, siler_default
+from cascade.stats.compartmental import siler_default
 
 
 @pytest.fixture
@@ -78,7 +78,6 @@ def test_predict(dismod):
     chi.grid.loc[:, "mean"] = 0.01
 
     mortality = siler_default()
-    survival = total_mortality_solution(mortality)
     omega = Var([np.linspace(0, 120, 121), [2000]])
     omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
 
@@ -97,7 +96,7 @@ def test_predict(dismod):
     session = Session(locations, parent_location, db_file)
 
     avgints = pd.DataFrame(dict(
-        integrand="prevalence",
+        integrand="Sincidence",
         location=parent_location,
         age_lower=np.linspace(0, 120, 121),
         age_upper=np.linspace(0, 120, 121),
@@ -109,5 +108,9 @@ def test_predict(dismod):
     assert not_predicted.empty
     assert not predicted.empty
 
-    for x in []:
-        assert np.isclose(survival(x), predicted[x])
+    # Check that Sincidence is predicted correctly for every time point.
+    iota_func = iota.as_function()
+    for idx, row in predicted.iterrows():
+        print(f"row {row}")
+        input_iota = iota_func(float(row.age_lower), float(row.time_lower))
+        assert np.isclose(input_iota, row["avg_integrand"])
