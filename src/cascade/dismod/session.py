@@ -70,6 +70,28 @@ class Session:
         return scale_vars
 
     def predict(self, vars, avgint, weights=None):
+        """Given rates, calculated the requested average integrands.
+
+        Args:
+            vars (DismodGroups): Var objects with rates.
+            avgint (pd.DataFrame): Request data in these ages, times, and
+                locations. Columns are ``integrand`` (str), ``location``
+                (location_id), ``age_lower`` (float), ``age_upper`` (float),
+                ``time_lower`` (float), ``time_upper`` (float). The integrand
+                should be one of the names in IntegrandEnum.
+            weights (Dict[Var]): Weights are estimates of ``susceptible``,
+                ``with_condition``, and ``total`` populations, used to bias
+                integrands with age or time extent. Each one is a single
+                Var object.
+
+        Returns:
+            (pd.DataFrame, pd.DataFrame): The predicted avgints, and a dataframe
+            of those not predicted because their covariates are greater than
+            ``max_difference`` from the ``reference`` covariate value.
+            Columns in the ``predicted`` are ``predict_id``, ``sample_index``,
+            ``avg_integrand`` (this is the value), ``location``, ``integrand``,
+            ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
+        """
         self._check_vars(vars)
         model = model_from_vars(vars, weights)
         self.write(model)
