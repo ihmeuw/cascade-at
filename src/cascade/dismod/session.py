@@ -60,11 +60,11 @@ class Session:
         scale_vars = self.get_var("scale")
         return scale_vars
 
-    def predict(self, vars, avgint, parent_location, weights=None, covariates=None):
+    def predict(self, var, avgint, parent_location, weights=None, covariates=None):
         """Given rates, calculated the requested average integrands.
 
         Args:
-            vars (DismodGroups): Var objects with rates.
+            var (DismodGroups): Var objects with rates.
             avgint (pd.DataFrame): Request data in these ages, times, and
                 locations. Columns are ``integrand`` (str), ``location``
                 (location_id), ``age_lower`` (float), ``age_upper`` (float),
@@ -86,14 +86,14 @@ class Session:
             ``avg_integrand`` (this is the value), ``location``, ``integrand``,
             ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
         """
-        self._check_vars(vars)
-        model = model_from_vars(vars, parent_location, weights=weights, covariates=covariates)
+        self._check_vars(var)
+        model = model_from_vars(var, parent_location, weights=weights, covariates=covariates)
         extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
                     {avgint.time_lower.min(), avgint.time_upper.max()})
         self.write(model, extremal)
         self.write_avgint(avgint)
         self._run_dismod(["init"])
-        self.set_var(vars, "truth")
+        self.set_var(var, "truth")
         self._run_dismod(["predict", "truth_var"])
         predicted, not_predicted = self.get_predict()
         return predicted, not_predicted
@@ -158,7 +158,8 @@ class Session:
         finally:
             self.dismod_file.engine = get_engine(self._filename)
 
-    def _check_vars(self, var):
+    @staticmethod
+    def _check_vars(var):
         for group_name, group in var.items():
             for key, one_var in group.items():
                 one_var.check(f"{group_name}-{key}")
