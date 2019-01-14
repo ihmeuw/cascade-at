@@ -4,7 +4,7 @@ import pandas as pd
 
 from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import METRIC_IDS, MEASURE_IDS, GBDDataError
-import cascade.input_data.db.locations
+from cascade.input_data.db.locations import get_descendants
 
 
 from cascade.core import getLoggers
@@ -126,8 +126,7 @@ def load_csmr_to_t3(execution_context) -> bool:
     Upload to t3_model_version_csmr if it's not already there.
     """
     model_version_id = execution_context.parameters.model_version_id
-    location_and_children = cascade.input_data.db.locations.get_descendants(
-        execution_context, children_only=True, include_parent=True)
+    location_and_children = get_descendants(execution_context, children_only=True, include_parent=True)
     database = execution_context.parameters.database
     locations_with_data_in_t3 = _csmr_in_t3(execution_context, execution_context.parameters.model_version_id)
     csmr_not_in_t3 = set(location_and_children) - set(locations_with_data_in_t3)

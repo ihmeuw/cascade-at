@@ -7,7 +7,7 @@ def test_load_csmr_to_t3_did_upload(mock_execution_context, mock_database_access
     mock_check = mocker.patch("cascade.input_data.db.csmr._csmr_in_t3")
     mock_check.return_value = [19]
 
-    mock_location = mocker.patch("cascade.input_data.db.locations.get_descendants")
+    mock_location = mocker.patch("cascade.input_data.db.csmr.get_descendants")
     mock_location.return_value = [248]
 
     mock_get_csmr_data = mocker.patch("cascade.input_data.db.csmr.get_csmr_data")
@@ -23,7 +23,7 @@ def test_load_csmr_to_t3_did_upload(mock_execution_context, mock_database_access
 
 def test_load_csmr_to_t3_no_upload(mock_execution_context, mock_database_access, mocker):
 
-    mock_location = mocker.patch("cascade.input_data.db.locations.get_descendants")
+    mock_location = mocker.patch("cascade.input_data.db.csmr.get_descendants")
     mock_location.return_value = [248]
 
     mock_check = mocker.patch("cascade.input_data.db.csmr._csmr_in_t3")

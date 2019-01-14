@@ -4,7 +4,10 @@ from cascade.input_data.db.asdr import load_asdr_to_t3
 def test_load_asdr_to_t3_did_upload(mock_execution_context, mock_database_access, mocker):
 
     mock_check = mocker.patch("cascade.input_data.db.asdr._asdr_in_t3")
-    mock_check.return_value = False
+    mock_check.return_value = [19]
+
+    mock_location = mocker.patch("cascade.input_data.db.asdr.get_descendants")
+    mock_location.return_value = [248]
 
     mock_get_asdr_data = mocker.patch("cascade.input_data.db.asdr.get_asdr_data")
     mock_upload_asdr_data = mocker.patch("cascade.input_data.db.asdr._upload_asdr_data_to_tier_3")
@@ -20,7 +23,10 @@ def test_load_asdr_to_t3_did_upload(mock_execution_context, mock_database_access
 def test_load_asdr_to_t3_no_upload(mock_execution_context, mock_database_access, mocker):
 
     mock_check = mocker.patch("cascade.input_data.db.asdr._asdr_in_t3")
-    mock_check.return_value = True
+    mock_check.return_value = [248]
+
+    mock_location = mocker.patch("cascade.input_data.db.asdr.get_descendants")
+    mock_location.return_value = [248]
 
     mock_upload_asdr_data = mocker.patch("cascade.input_data.db.asdr._upload_asdr_data_to_tier_3")
 
