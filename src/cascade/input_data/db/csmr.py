@@ -4,31 +4,31 @@ import pandas as pd
 
 from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import METRIC_IDS, MEASURE_IDS, GBDDataError
-from cascade.input_data.db.locations import get_descendents
+import cascade.input_data.db.locations
 
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def _csmr_in_t3(execution_context):
+def _csmr_in_t3(execution_context, model_version_id):
     """Checks if data for the current model_version_id already exists in tier 3.
+
+    Returns:
+        list of ``location_id`` that have data in tier 3 for
+        this ``model_version_id``.
     """
-
-    model_version_id = execution_context.parameters.model_version_id
-
     query = """
-    SELECT exists(
-             SELECT * FROM epi.t3_model_version_csmr
-             WHERE model_version_id = %(model_version_id)s
-    )
+    SELECT DISTINCT location_id
+    FROM epi.t3_model_version_csmr
+    WHERE model_version_id = %(model_version_id)s
     """
     with cursor(execution_context) as c:
         c.execute(query, args={"model_version_id": model_version_id})
-        exists = c.fetchone()[0]
+        location_rows = c.fetchall()
 
-    return exists == 1
+    return [row[0] for row in location_rows]
 
 
 def _gbd_process_version_id_from_cod_version(cod_version):
@@ -58,15 +58,13 @@ def _gbd_process_version_id_from_cod_version(cod_version):
     return result[0]
 
 
-def get_csmr_data(execution_context):
+def get_csmr_data(execution_context, location_and_children):
 
     cause_id = execution_context.parameters.add_csmr_cause
 
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
     process_version_id = _gbd_process_version_id_from_cod_version(execution_context.parameters.cod_version)
-
-    location_and_children = get_descendents(execution_context, children_only=True, include_parent=True)
 
     csmr = db_queries.get_outputs(
         topic="cause",
@@ -127,22 +125,23 @@ def load_csmr_to_t3(execution_context) -> bool:
     """
     Upload to t3_model_version_csmr if it's not already there.
     """
-
     model_version_id = execution_context.parameters.model_version_id
-
+    location_and_children = cascade.input_data.db.locations.get_descendants(
+        execution_context, children_only=True, include_parent=True)
     database = execution_context.parameters.database
-
-    if _csmr_in_t3(execution_context):
-        CODELOG.info(
-            f"csmr data for model_version_id {model_version_id} on '{database}' already exists, doing nothing."
-        )
-        return False
-    else:
+    locations_with_data_in_t3 = _csmr_in_t3(execution_context, execution_context.parameters.model_version_id)
+    csmr_not_in_t3 = set(location_and_children) - set(locations_with_data_in_t3)
+    if csmr_not_in_t3:
         CODELOG.info(f"Uploading csmr data for model_version_id {model_version_id} on '{database}'")
 
-        csmr_data = get_csmr_data(execution_context)
+        csmr_data = get_csmr_data(execution_context, location_and_children)
 
         with cursor(execution_context) as c:
             _upload_csmr_data_to_tier_3(c, model_version_id, csmr_data)
 
         return True
+    else:
+        CODELOG.info(
+            f"csmr data for model_version_id {model_version_id} on '{database}' already exists, doing nothing."
+        )
+        return False

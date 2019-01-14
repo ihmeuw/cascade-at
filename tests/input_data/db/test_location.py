@@ -2,7 +2,7 @@ import networkx as nx
 import pytest
 
 from cascade.testing_utilities import make_execution_context
-from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level, location_hierarchy
+from cascade.input_data.db.locations import get_descendants, location_id_from_location_and_level, location_hierarchy
 
 
 class MockLocation:
@@ -64,35 +64,35 @@ def mock_locations(mocker):
 def test_get_descendents__all_descendents(mock_locations):
     ec = make_execution_context(parent_location_id=0)
     # descendents of global
-    assert set(get_descendents(ec)) == set(range(1, 8))
+    assert set(get_descendants(ec)) == set(range(1, 8))
 
     ec = make_execution_context(parent_location_id=7)
     # descendents of a leaf (ie. nothing)
-    assert set(get_descendents(ec)) == set()
+    assert set(get_descendants(ec)) == set()
 
 
 def test_get_descendents__only_children(mock_locations):
     ec = make_execution_context(parent_location_id=0)
     # children of global
-    assert set(get_descendents(ec, children_only=True)) == {1, 2}
+    assert set(get_descendants(ec, children_only=True)) == {1, 2}
 
     ec = make_execution_context(parent_location_id=5)
     # children of a leaf
-    assert set(get_descendents(ec, children_only=True)) == set()
+    assert set(get_descendants(ec, children_only=True)) == set()
 
 
 def test_get_descendents__include_parent(mock_locations):
     ec = make_execution_context(parent_location_id=0)
     # descendents of global and iteslf
-    assert set(get_descendents(ec, include_parent=True)) == set(range(0, 8))
+    assert set(get_descendants(ec, include_parent=True)) == set(range(0, 8))
     # children of global and iteslf
-    assert set(get_descendents(ec, children_only=True, include_parent=True)) == {0, 1, 2}
+    assert set(get_descendants(ec, children_only=True, include_parent=True)) == {0, 1, 2}
 
     ec = make_execution_context(parent_location_id=5)
     # descendents of a leaf and itself
-    assert set(get_descendents(ec, include_parent=True, children_only=True)) == {5}
+    assert set(get_descendants(ec, include_parent=True, children_only=True)) == {5}
     # children of a leaf and itself
-    assert set(get_descendents(ec, include_parent=True, children_only=True)) == {5}
+    assert set(get_descendants(ec, include_parent=True, children_only=True)) == {5}
 
 
 def test_location_id_from_location_and_level__happy_path(mock_locations):

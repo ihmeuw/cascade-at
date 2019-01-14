@@ -4,7 +4,7 @@ import pandas as pd
 
 from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import AGE_GROUP_SET_ID
-from cascade.input_data.db.locations import get_descendents
+from cascade.input_data.db.locations import get_descendants
 
 
 from cascade.core.log import getLoggers
@@ -37,7 +37,7 @@ def get_asdr_data(execution_context):
     age_group_ids = demo_dict["age_group_id"]
     sex_ids = demo_dict["sex_id"]
 
-    location_and_children = get_descendents(execution_context, children_only=True, include_parent=True)
+    location_and_children = get_descendants(execution_context, children_only=True, include_parent=True)
 
     asdr = db_queries.get_envelope(
         location_id=location_and_children,
