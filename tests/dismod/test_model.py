@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cascade.dismod import Session, Model, DismodGroups, SmoothGrid, Var
+from cascade.dismod import Session, Model, DismodGroups, SmoothGrid, Var, model_from_vars
 from cascade.model.covariates import Covariate
 from cascade.model.priors import Uniform, Gaussian
 from cascade.stats.compartmental import siler_default, total_mortality_solution
@@ -56,8 +56,11 @@ def test_write_rate(basic_model, dismod):
     db_file = Path("rftest.db")
     session = Session(locations, parent_location, db_file)
 
-    data = None
-    var = session.fit(basic_model, data)
+    # This peeks inside the session to test some of its underlying functionality
+    # without doing a fit.
+    session.write_model(basic_model, ([], []))
+    session._run_dismod(["init"])
+    var = session.get_var("scale")
     for name in basic_model:
         for key, grid in basic_model[name].items():
             field = var[name][key]
@@ -156,3 +159,52 @@ def test_survival(dismod):
         max_err = max(max_err, abs(S - y))
     print(f"Maximum error {max_err}")
     assert max_err < 0.015
+
+
+def test_fit_mortality(dismod):
+    """Create data for a single-parameter model and fit that data.
+    """
+    mortality = siler_default()
+    omega = Var([np.linspace(0, 120, 121), [2000]])
+    omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
+
+    model_variables = DismodGroups()
+    model_variables.rate["omega"] = omega
+
+    parent_location = 1
+    locations = pd.DataFrame(dict(
+        name=["global"],
+        parent=[nan],
+        c_location_id=[parent_location],
+    ))
+    session = Session(locations, parent_location, Path("fit0.db"))
+    session.set_option("ode_step_size", 1)
+    avgints = pd.DataFrame(dict(
+        integrand="susceptible",
+        location=parent_location,
+        age_lower=np.linspace(0, 120, 121),
+        age_upper=np.linspace(0, 120, 121),
+        time_lower=2000,
+        time_upper=2000,
+    ))
+    avgints = pd.concat([avgints, avgints.assign(integrand="mtother")])
+
+    predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
+    assert not_predicted.empty
+    assert not predicted.empty
+
+    model = model_from_vars(model_variables, parent_location)
+    priors = model.rate["omega"].priors
+    priors.loc[priors.density_id.notna(), "density_id"] = 1
+    priors.loc[:, "std"] = 0.5
+    priors.loc[:, "eta"] = 1e-4
+
+    data = predicted.drop(columns=["sample_index", "predict_id"]).rename(columns={"avg_integrand": "mean"})
+    data = data.assign(density="gaussian")
+    data = data.assign(std=0.1)
+    data = data.assign(eta=1e-4)
+    data = data.assign(nu=nan)
+
+    result = session.fit(model, data)
+    assert result is not None
+    print(f'\n{result.rate["omega"].grid}')

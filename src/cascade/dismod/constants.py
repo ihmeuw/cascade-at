@@ -12,7 +12,7 @@ class DensityEnum(Enum):
     log_students = 6
 
 
-class RateName(Enum):
+class RateEnum(Enum):
     """Rates appear in exactly this order with exactly these rate ids."""
     pini = 0
     """Initial prevalence of the condition at birth, as a fraction of one."""

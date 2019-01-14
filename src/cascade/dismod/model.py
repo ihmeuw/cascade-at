@@ -1,7 +1,7 @@
 from cascade.dismod.constants import WeightEnum
 from cascade.dismod.dismod_groups import DismodGroups
 from cascade.dismod.var import Var
-from cascade.dismod.smooth_grid import smooth_grid_from_var
+from cascade.dismod.smooth_grid import uninformative_grid_from_var
 
 
 class Model(DismodGroups):
@@ -31,6 +31,20 @@ class Model(DismodGroups):
             self.weights = weights
         else:
             self.weights = dict()
+        self._scale = None
+        self.scale_set_by_user = False
+
+    @property
+    def scale(self):
+        return self._scale
+
+    @scale.setter
+    def scale(self, value):
+        # Dismod-AT usually calculates this for you. If you've set it by
+        # hand, this records that this is the case so that it will rewrite
+        # what Dismod-AT calculates.
+        self.scale_set_by_user = True
+        self._scale = value
 
     def write(self, writer):
         self._ensure_weights()
@@ -96,6 +110,6 @@ def model_from_vars(var, parent_location, weights=None, covariates=None):
     for group_name, group in var.items():
         for key, var in group.items():
             must_be_positive = strictly_positive.get(group_name, False)
-            model[group_name][key] = smooth_grid_from_var(var, must_be_positive)
+            model[group_name][key] = uninformative_grid_from_var(var, must_be_positive)
 
     return model

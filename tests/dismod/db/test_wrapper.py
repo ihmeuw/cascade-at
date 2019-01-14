@@ -1,17 +1,17 @@
 import enum
+import sqlite3
 import time
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 import pytest
-
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Enum
+from sqlalchemy.ext.declarative import declarative_base
 
-from cascade.dismod.db.wrapper import DismodFile, get_engine, _validate_data, _ordered_by_foreign_key_dependency
 from cascade.dismod.db import DismodFileError
 from cascade.dismod.db.metadata import Base as DismodFileBase
+from cascade.dismod.db.wrapper import DismodFile, get_engine, _validate_data, _ordered_by_foreign_key_dependency
 
 
 @pytest.fixture
@@ -291,3 +291,27 @@ def test_write_covariate_column__schema_changes_are_isolated(dummy_data_row):
     dm_file2 = DismodFile(get_engine(None))
     table = dm_file2.data
     assert "x_sex" not in table
+
+
+def test_write_empty_table(tmp_path):
+    """Ensure an empty table gets written."""
+    db_file = Path(tmp_path) / "file.db"
+    dm_file = DismodFile(get_engine(db_file))
+    dm_file.age = dm_file.age.append(dict(age_id=0, age=48.0), ignore_index=True)
+    covariate = dm_file.covariate
+    assert covariate.empty
+    dm_file.flush()
+    dm_file.engine.dispose()
+
+    # Use sqlite3 module to search for entries in this table.
+    assert db_file.exists()
+    conn = sqlite3.connect(str(db_file))
+    c = conn.cursor()
+    c.execute('''SELECT * FROM age''')
+    res_age = c.fetchall()
+    print(res_age)
+    assert res_age is not None
+    c.execute('''SELECT * FROM covariate''')
+    res = c.fetchall()
+    print(res)
+    assert not res

@@ -10,7 +10,7 @@ import numpy as np
 from scipy.interpolate import RectBivariateSpline
 
 from cascade.core.log import getLoggers
-from cascade.dismod.constants import IntegrandEnum, RateName
+from cascade.dismod.constants import IntegrandEnum, RateEnum
 from cascade.model.priors import Constant
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -61,7 +61,7 @@ def _assign_rate_priors(model_context, posterior_draws):
     # each random field in the vars table.
     for unique_field, field_df in rate_draws.groupby(["smooth_id", "location_id"]):
         traits = field_df.iloc[0]
-        rate_name = RateName(traits.rate_id).name
+        rate_name = RateEnum(traits.rate_id).name
         # On the odd chance that the draws are for this location, passed into
         # itself again, the order of these if-then should check first for
         # the underlying rate because both grandparent and parent will match.
@@ -83,7 +83,7 @@ def _assign_mulcov_priors(model_context, posterior_draws):
         # One of the covariate multipliers.
         traits = field_df.iloc[0]
         if traits.var_type == "mulcov_rate_value":
-            rate_name = RateName(traits.rate_id).name
+            rate_name = RateEnum(traits.rate_id).name
             mulcovs = getattr(model_context.rates, rate_name).covariate_multipliers
         elif traits.var_type == "mulcov_meas_value":
             integrand_name = IntegrandEnum(traits.integrand_id).name

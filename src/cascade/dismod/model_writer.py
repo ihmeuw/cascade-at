@@ -56,6 +56,30 @@ class ModelWriter:
         self._integrand_id_func = lambda x: nan
         self._flushed = False
         self._children = None
+        self._clear_previous_model()
+
+    def _clear_previous_model(self):
+        """We could rewrite parts of tables that have changed. This is the
+        clear-cutting alternative."""
+        cleared_tables = list()
+        # Other tables are owned by the session.
+        owned_tables = ["age", "covariate", "mulcov", "nslist", "nslist_pair",
+                        "prior", "smooth_grid", "smooth", "time", "weight",
+                        "weight_grid"]
+        for create_name in owned_tables:
+            if not getattr(self._dismod_file, create_name).empty:
+                cleared_tables.append(create_name)
+                setattr(self._dismod_file, create_name, self._dismod_file.empty_table(create_name))
+
+        # Handle rate separately.
+        if not self._dismod_file.rate.empty:
+            cleared_tables.append("rate")
+            # Then the rate has all five entries.
+            self._dismod_file.rate.loc[:, "parent_smooth_id"] = nan
+            self._dismod_file.rate.loc[:, "child_smooth_id"] = nan
+            self._dismod_file.rate.loc[:, "child_nslist_id"] = nan
+        if cleared_tables:
+            CODELOG.debug(f"Writing model cleared tables from previous model: {', '.join(cleared_tables)}")
 
     def start_model(self, nonzero_rates, children):
         """To start the model, tell me enough to know the sizes almost all of
@@ -162,7 +186,10 @@ class ModelWriter:
         ).sort_values(["nslist_id", "node_id"])
 
     def add_random_field(self, grid_name, random_field):
-        """Save a new Random Field."""
+        """Save a new Random Field. Creates the ``smooth``, ``smooth_grid``,
+        and ``priors`` tables."""
+        # The smooth_grid table points to the priors and the smooth, itself,
+        # so write it last.
         complete_table = self._add_field_priors(grid_name, random_field.priors.copy())
         age_cnt, time_cnt = (len(random_field.ages), len(random_field.times))
         assert len(complete_table) == (age_cnt * time_cnt + 1) * 3
@@ -171,6 +198,7 @@ class ModelWriter:
         return smooth_id
 
     def _add_field_grid(self, complete_table, smooth_id):
+        """Each age-time entry in the smooth_grid table, including the mulstds."""
         long_table = complete_table.loc[complete_table.age_id.notna()][["age_id", "time_id", "prior_id", "kind"]]
         grid_table = long_table[["age_id", "time_id"]].sort_values(["age_id", "time_id"]).drop_duplicates()
         for kind in ["value", "dage", "dtime"]:
@@ -187,6 +215,7 @@ class ModelWriter:
             self._dismod_file.smooth_grid = self._dismod_file.smooth_grid.append(grid_table, ignore_index=True)
 
     def _add_field_smooth(self, grid_name, prior_table, age_time_cnt):
+        """Ths one row in the smooth grid table."""
         smooth_row = dict(smooth_name=grid_name)
         smooth_row["n_age"] = age_time_cnt[0]
         smooth_row["n_time"] = age_time_cnt[1]
@@ -204,6 +233,7 @@ class ModelWriter:
         return smooth_id
 
     def _add_field_priors(self, grid_name, complete_table):
+        """These are all entries in the priors table for this smooth grid."""
         # Create new prior IDs that don't overlap.
         complete_table = complete_table.assign(prior_id=complete_table.index + len(self._dismod_file.prior))
         # Unique, informative names for the priors require care.

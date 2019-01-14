@@ -77,7 +77,15 @@ class SmoothGrid:
             nu=nan,
             eta=nan,
         ))
-        one_priors = one_priors.append({"age": nan, "time": nan, "kind": "value", "name": None}, ignore_index=True)
+        # Append a mulstd, identified as having the same kind
+        # but not having any age or time. It should have a default
+        # prior that passes inspection by Dismod-AT, even if it's
+        # unused.
+        one_priors = one_priors.append(
+            {"age": nan, "time": nan, "kind": "value", "prior_name": None,
+             "density_id": nan, "mean": 0.01, "lower": -5, "upper": 5,
+             "std": 5, "eta": 1e-4},
+            ignore_index=True)
         self.priors = pd.concat([one_priors, one_priors.assign(kind="dage"), one_priors.assign(kind="dtime")])
         self.priors = self.priors.reset_index(drop=True)
 
@@ -105,7 +113,7 @@ class SmoothGrid:
         return _PriorView(self, "dtime")
 
 
-def smooth_grid_from_var(var, strictly_positive):
+def uninformative_grid_from_var(var, strictly_positive):
     """
     Create a smooth grid with priors that are Uniform and
     impossibly large, in the same shape as a Var.

@@ -215,6 +215,7 @@ class DismodFile:
         if table_name in self._table_data:
             return self._table_data[table_name]
         elif table_name in self._table_definitions:
+            read_from_database = False
             table = self._table_definitions[table_name]
             if self.engine is None:
                 data = self.empty_table(table.name)
@@ -222,6 +223,7 @@ class DismodFile:
                 try:
                     with self.engine.connect() as conn:
                         data = pd.read_sql_table(table.name, conn)
+                        read_from_database = True
                 except ValueError as e:
                     if str(e) != f"Table {table.name} not found":
                         raise
@@ -232,7 +234,10 @@ class DismodFile:
                 self.update_table_columns(table_name, data)
 
             data = data.set_index(f"{table_name}_id", drop=False)
-            self._table_hash[table_name] = pd.util.hash_pandas_object(data)
+            # The hash table defines whether the table is new, and whether
+            # a table created is new.
+            if read_from_database:
+                self._table_hash[table_name] = pd.util.hash_pandas_object(data)
             self._table_data[table_name] = data
             return data
         else:

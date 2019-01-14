@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.constants import DensityEnum, RateName
+from cascade.dismod.constants import DensityEnum, RateEnum
 from cascade.dismod.constants import INTEGRAND_TO_WEIGHT, IntegrandEnum
 from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.dismod.model import model_from_vars
@@ -50,15 +50,31 @@ class Session:
             setattr(self.dismod_file, create_name, self.dismod_file.empty_table(create_name))
 
     def fit(self, model, data):
-        if data:
-            extremal = ({data.age_lower.min(), data.age_upper.max()},
-                        {data.time_lower.min(), data.time_upper.max()})
-        else:
-            extremal = ({}, {})
-        self.write(model, extremal)
+        """This is a fit without a predict.
+
+        Args:
+            model (Model): A model, possibly without scale vars.
+            data (pd.DataFrame): Data to fit.
+
+        Returns:
+            DismodGroups[Var]: A set of fit var.
+        """
+        extremal = ({data.age_lower.min(), data.age_upper.max()},
+                    {data.time_lower.min(), data.time_upper.max()})
+        self.write_model(model, extremal)
+        self.write_data(data)
         self._run_dismod(["init"])
-        scale_vars = self.get_var("scale")
-        return scale_vars
+        if model.scale_set_by_user:
+            self.set_var("scale", model.scale)
+        else:
+            model._scale = self.get_var("scale")
+
+        if model.random_effect:
+            self._run_dismod(["fit", "random"])
+        else:
+            self._run_dismod(["fit", "fixed"])
+
+        return self.get_var("fit")
 
     def predict(self, var, avgint, parent_location, weights=None, covariates=None):
         """Given rates, calculated the requested average integrands.
@@ -90,8 +106,8 @@ class Session:
         model = model_from_vars(var, parent_location, weights=weights, covariates=covariates)
         extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
                     {avgint.time_lower.min(), avgint.time_upper.max()})
-        self.write(model, extremal)
-        self.write_avgint(avgint)
+        self.write_model(model, extremal)
+        self.dismod_file.avgint = self.write_avgint(avgint)
         self._run_dismod(["init"])
         self.set_var(var, "truth")
         self._run_dismod(["predict", "truth_var"])
@@ -164,7 +180,7 @@ class Session:
             for key, one_var in group.items():
                 one_var.check(f"{group_name}-{key}")
 
-    def write(self, model, extremal_age_time):
+    def write_model(self, model, extremal_age_time):
         writer = ModelWriter(self, extremal_age_time)
         model.write(writer)
         writer.close()
@@ -183,18 +199,24 @@ class Session:
                 ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
         """
         with_id = avgint.assign(integrand_id=avgint.integrand.apply(lambda x: IntegrandEnum[x].value))
-        if not with_id[with_id.integrand_id.isna()].empty:
-            not_found_integrand = with_id[with_id.integrand_id.isna()].integrand.unique()
-            err_message = (f"The integrands {not_found_integrand} weren't found in the "
-                           f"integrand list {[i.name for i in IntegrandEnum]}.")
-            MATHLOG.error(err_message)
-            raise RuntimeError(err_message)
+        self._check_column_assigned(with_id, "integrand")
         with_weight = with_id.assign(weight_id=with_id.integrand.apply(lambda x: INTEGRAND_TO_WEIGHT[x].value))
         with_weight = with_weight.drop(columns=["integrand"]).reset_index(drop=True)
         with_location = with_weight.merge(
             self.dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id") \
             .drop(columns=["c_location_id", "location"])
-        self.dismod_file.avgint = with_location.assign(avgint_id=with_location.index)
+        return with_location.assign(avgint_id=with_location.index)
+
+    @staticmethod
+    def _check_column_assigned(with_id, column):
+        column_id = f"{column}_id"
+        if not with_id[with_id[column_id].isna()].empty:
+            not_found_integrand = with_id[with_id[column_id].isna()][column].unique()
+            kind_enum = globals()[f"{column.capitalize()}Enum"]
+            err_message = (f"The {column} {not_found_integrand} weren't found in the "
+                           f"{column} list {[i.name for i in kind_enum]}.")
+            MATHLOG.error(err_message)
+            raise RuntimeError(err_message)
 
     def read_avgint(self):
         avgint = self.dismod_file.avgint
@@ -213,11 +235,27 @@ class Session:
             data (pd.DataFrame): Columns are ``integrand``, ``location``,
                 ``data_name``, ``hold_out``,
                 ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``,
-                ``density``, ``value``, ``std``, ``eta``, ``nu``.
+                ``density``, ``mean``, ``std``, ``eta``, ``nu``.
                 The ``data_name`` is optional and will be assigned from the index.
-                In addition, covariate columns are included.
+                In addition, covariate columns are included. If ``hold_out``
+                is missing, it will be assigned ``hold_out=0`` for not held out.
         """
-        pass
+        # Some of the columns get the same treatment as the average integrand.
+        # This takes care of integrand and location.
+        like_avgint = self.write_avgint(data).drop(columns=["avgint_id"])
+        # Other columns have to do with priors.
+        with_density = like_avgint.assign(density_id=like_avgint.density.apply(lambda x: DensityEnum[x].value))
+        self._check_column_assigned(with_density, "density")
+        with_density = with_density.reset_index(drop=True).drop(columns=["density"])
+        if "data_name" not in with_density.columns:
+            with_density = with_density.assign(data_name=with_density.index.astype(str))
+        elif not with_density.data_name.isnull().empty:
+            raise RuntimeError(f"There are some data values that lack data names.")
+        else:
+            pass  # There are data names everywhere.
+        if "hold_out" not in with_density.columns:
+            with_density = with_density.assign(hold_out=0)
+        self.dismod_file.data = with_density.rename(columns={"mean": "meas_value", "std": "meas_std"})
 
     def get_predict(self):
         avgint = self.read_avgint()
@@ -239,8 +277,8 @@ class Session:
         self.dismod_file.integrand["minimum_meas_cv"] = 0
 
         self.dismod_file.rate = pd.DataFrame(dict(
-            rate_id=[rate.value for rate in RateName],  # Will be 0-4.
-            rate_name=[rate.name for rate in RateName],
+            rate_id=[rate.value for rate in RateEnum],  # Will be 0-4.
+            rate_name=[rate.name for rate in RateEnum],
             parent_smooth_id=nan,
             child_smooth_id=nan,
             child_nslist_id=nan,

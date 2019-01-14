@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.constants import IntegrandEnum, RateName
+from cascade.dismod.constants import IntegrandEnum, RateEnum
 from cascade.dismod.dismod_groups import DismodGroups
 from cascade.dismod.var import Var
 
@@ -183,7 +183,7 @@ def _read_mulcov_smooths(mulcov_table, covariate_table, smooths):
             raise RuntimeError(f"Could not find covariate id {mulcov_row.covariate_id} in covariate table.")
         covariate_name = str(found_name.iloc[0].c_covariate_name)
         if mulcov_row.mulcov_type == "rate_value":
-            target_name = RateName(mulcov_row.rate_id).name
+            target_name = RateEnum(mulcov_row.rate_id).name
         else:
             target_name = IntegrandEnum(mulcov_row.integrand_id).name
 
