@@ -231,11 +231,11 @@ def prepare_data(execution_context, settings):
             tier=execution_context.parameters.tier
         )
 
-    location_and_descendents = get_descendants(execution_context, include_parent=True)  # noqa: F841
+    location_and_descendants = get_descendants(execution_context, include_parent=True)  # noqa: F841
 
-    bundle = bundle.query("location_id in @location_and_descendents")
+    bundle = bundle.query("location_id in @location_and_descendants")
     location_id = execution_context.parameters.parent_location_id
-    MATHLOG.info(f"Filtering bundle to location {location_id} and its descendents. {len(bundle)} rows remaining.")
+    MATHLOG.info(f"Filtering bundle to location {location_id} and its descendants. {len(bundle)} rows remaining.")
 
     stderr_mask = bundle.standard_error > 0
     if (~stderr_mask).sum() > 0:
