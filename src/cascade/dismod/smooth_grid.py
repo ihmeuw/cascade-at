@@ -98,7 +98,7 @@ class SmoothGrid:
 
     @property
     def age_time(self):
-        return (self.ages, self.times)
+        return self.ages, self.times
 
     @property
     def value(self):

@@ -156,6 +156,7 @@ def test_survival(dismod):
     for idx, row in predicted.iterrows():
         S = survival(row.age_lower)
         y = row["avg_integrand"]
+        print(f"survival {row.age_lower} {S}-{y}")
         max_err = max(max_err, abs(S - y))
     print(f"Maximum error {max_err}")
     assert max_err < 0.015
@@ -192,12 +193,43 @@ def test_fit_mortality(dismod):
     predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
     assert not_predicted.empty
     assert not predicted.empty
+    print(f"test_fit predicted\n{predicted}")
+
+    # We asked for a prediction of mtother, which is exactly the omega that
+    # we put in. Compare the two by constructing a continuous function from
+    # the predicted values and comparing at age points.
+    as_var = predicted[predicted.integrand == "mtother"] \
+        .rename(columns={"avg_integrand": "mean", "age_lower": "age", "time_lower": "time"}) \
+        .drop(columns=["predict_id", "sample_index", "location", "integrand", "age_upper", "time_upper"])
+    mtother_var = Var((as_var.age.unique(), as_var.time.unique()))
+    mtother_var.grid = as_var.assign(idx=0)
+    mtother_func = mtother_var.as_function()
+
+    for age in np.linspace(0, 120, 121):
+        input_mx = mortality(age)
+        output_mx = mtother_func(age, 2000)
+        assert np.isclose(input_mx, output_mx)
+        print(f"fit_mortality {age}\t{input_mx}\t{output_mx}")
 
     model = model_from_vars(model_variables, parent_location)
     priors = model.rate["omega"].priors
+    print(f"test_fit priors\n{priors}")
     priors.loc[priors.density_id.notna(), "density_id"] = 1
+    priors.loc[:, "mean"] = omega.grid.loc[:, "mean"]
     priors.loc[:, "std"] = 0.5
     priors.loc[:, "eta"] = 1e-4
+    priors.loc[:, "upper"] = 5 + priors.loc[:, "mean"]
+    priors.loc[(priors.kind == "dage") & priors.age.notna(), "density_id"] = 1
+    priors.loc[priors.kind == "dage", "mean"] = 0.0
+    priors.loc[priors.kind == "dage", "std"] = 0.1
+    priors.loc[priors.kind == "dage", "lower"] = -5
+    priors.loc[priors.kind == "dage", "upper"] = 5
+    # The dtime priors aren't used, but Dismod-AT checks them.
+    priors.loc[(priors.kind == "dtime") & priors.age.notna(), "density_id"] = 1
+    priors.loc[priors.kind == "dtime", "mean"] = 0.0
+    priors.loc[priors.kind == "dtime", "std"] = 0.1
+    priors.loc[priors.kind == "dtime", "lower"] = -5
+    priors.loc[priors.kind == "dtime", "upper"] = 5
 
     data = predicted.drop(columns=["sample_index", "predict_id"]).rename(columns={"avg_integrand": "mean"})
     data = data.assign(density="gaussian")
@@ -205,6 +237,9 @@ def test_fit_mortality(dismod):
     data = data.assign(eta=1e-4)
     data = data.assign(nu=nan)
 
-    result = session.fit(model, data)
+    print(f"test_fit data\n{data}")
+    result = session.fit(model, data, initial_guess=model_variables)
     assert result is not None
-    print(f'\n{result.rate["omega"].grid}')
+    result_omega = result.rate["omega"].grid
+    print(f'test_fit\n{result_omega}')
+    assert (np.abs(result_omega[result_omega.age < 100].residual_value) < 0.11).all()
