@@ -569,6 +569,9 @@ def one_location_set(ec, settings, posterior_draws_of_previous_fit):
         num_samples = mc.policies["number_of_fixed_effect_samples"]
         make_fixed_effect_samples(ec, num_samples)
         sampled_fit, sampled_predict = fit_and_predict_fixed_effect_samples(ec)
+        drop_residuals = ["residual_value", "residual_dage", "residual_dtime", "lagrange_value",
+                          "lagrange_dage", "lagrange_dtime"]
+        sampled_fit = sampled_fit.drop(columns=drop_residuals)
 
         ec.dismodfile.predict = sampled_predict.drop("predict_id", 1).reset_index(drop=True)
         ec.dismodfile.flush()
@@ -580,9 +583,7 @@ def one_location_set(ec, settings, posterior_draws_of_previous_fit):
             MATHLOG.debug(f"Skipping results upload because 'no-upload' was selected")
     else:
         MATHLOG.debug(f"Only creating the base db file because 'db-only' was selected")
-    drop_residuals = ["residual_value", "residual_dage", "residual_dtime", "lagrange_value",
-                      "lagrange_dage", "lagrange_dtime"]
-    return sampled_fit.drop(columns=drop_residuals)
+    return sampled_fit
 
 
 def entry():
