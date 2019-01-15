@@ -51,6 +51,20 @@ class _PriorView:
             self.param_names
         ] = [to_set[setp] if setp in to_set else nan for setp in self.param_names]
 
+    def apply(self, transform):
+        ages = self._parent.ages
+        times = self._parent.times
+        for idx, row in self._parent.priors.loc[
+            np.in1d(self._parent.priors.age, ages) & np.in1d(self._parent.priors.time, times)
+            & (self._parent.priors.kind == self._kind),
+            self.param_names + ["age", "time"]
+        ].iterrows():
+            new_distribution = transform(row.age, row.time, prior_distribution(row))
+            to_set = new_distribution.parameters()
+            to_set["density_id"] = DensityEnum[to_set["density"]].value
+            self._parent.priors.iloc[idx, self.param_names] = [
+                to_set[setp] if setp in to_set else nan for setp in self.param_names]
+
 
 class SmoothGrid:
     def __init__(self, age_time_grid):

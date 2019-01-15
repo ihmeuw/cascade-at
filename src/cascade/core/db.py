@@ -89,6 +89,7 @@ def connection(execution_context=None, database=None):
             raise ValueError("Must not supply both execution_context and database")
         database = execution_context.parameters.database
 
+    CODELOG.debug(f"Calling ezfuncs.get_connection({database})")
     connection = ezfuncs.get_connection(database)
     yield connection
     connection.commit()

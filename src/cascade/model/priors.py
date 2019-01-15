@@ -213,3 +213,27 @@ NO_PRIOR = Uniform(float("-inf"), float("inf"), 0, name="null_prior")
 ZERO = Uniform(0, 0, 0, name="constrain_to_zero")
 ZERO_TO_ONE = Uniform(0, 1, 0.1, name="uniform_zero_to_one")
 MINUS_ONE_TO_ONE = Uniform(-1, 1, 0, name="uniform_negative_one_to_one")
+
+
+DENSITY_ID_TO_PRIOR = {
+    0: Uniform,
+    1: Gaussian,
+    2: Laplace,
+    3: StudentsT,
+    4: LogGaussian,
+    5: LogLaplace,
+    6: LogStudentsT,
+}
+
+
+def prior_distribution(parameters):
+    p = parameters
+    if p["upper"] == p["lower"]:
+        return Constant(p["mean"])
+
+    if p["density_id"] == 0:
+        return Uniform(p["lower"], p["upper"], p["mean"], eta=p["eta"])
+    elif p["density_id"] == 1:
+        return Gaussian(p["mean"], p["std"], p["lower"], p["upper"], p["eta"])
+    elif p["density_id"] == 2:
+        return Laplace(p["mean"], p["std"], p["lower"], p["upper"], p["eta"])
