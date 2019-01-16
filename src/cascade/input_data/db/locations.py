@@ -1,7 +1,7 @@
 import networkx as nx
 
 from cascade.core.db import db_queries
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -35,7 +35,7 @@ def location_hierarchy(execution_context):
     return G
 
 
-def get_descendents(execution_context, children_only=False, include_parent=False):
+def get_descendants(execution_context, children_only=False, include_parent=False):
     """
     Retrieves a parent and direct children, or all descendants, or not the
     parent.

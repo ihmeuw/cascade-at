@@ -4,7 +4,7 @@ import pandas as pd
 
 from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import AGE_GROUP_SET_ID
-from cascade.input_data.db.locations import get_descendents
+from cascade.input_data.db.locations import get_descendants
 
 
 from cascade.core.log import getLoggers
@@ -19,25 +19,22 @@ def _asdr_in_t3(execution_context):
     model_version_id = execution_context.parameters.model_version_id
 
     query = """
-    SELECT exists(
-             SELECT * FROM epi.t3_model_version_asdr
-             WHERE model_version_id = %(model_version_id)s
-    )
+    SELECT DISTINCT location_id
+    FROM epi.t3_model_version_asdr
+    WHERE model_version_id = %(model_version_id)s
     """
     with cursor(execution_context) as c:
         c.execute(query, args={"model_version_id": model_version_id})
-        exists = c.fetchone()[0]
+        location_rows = c.fetchall()
 
-    return exists == 1
+    return [row[0] for row in location_rows]
 
 
-def get_asdr_data(execution_context):
+def get_asdr_data(execution_context, location_and_children):
 
     demo_dict = db_queries.get_demographics(gbd_team="epi", gbd_round_id=execution_context.parameters.gbd_round_id)
     age_group_ids = demo_dict["age_group_id"]
     sex_ids = demo_dict["sex_id"]
-
-    location_and_children = get_descendents(execution_context, children_only=True, include_parent=True)
 
     asdr = db_queries.get_envelope(
         location_id=location_and_children,
@@ -97,11 +94,8 @@ def _upload_asdr_data_to_tier_3(execution_context, cursor, model_version_id, asd
         "age_upper",
         "age_lower",
     ]
-
     asdr_data = asdr_data[ordered_cols]
-
     cursor.executemany(insert_query, asdr_data.values.tolist())
-
     CODELOG.debug(f"uploaded {len(asdr_data)} lines of asdr data")
 
 
@@ -111,24 +105,24 @@ def load_asdr_to_t3(execution_context) -> bool:
     """
 
     model_version_id = execution_context.parameters.model_version_id
-
     database = execution_context.parameters.database
-
-    if _asdr_in_t3(execution_context):
-        CODELOG.info(
-            f"""asdr data for model_version_id {model_version_id}
-            on '{database}' already exists, doing nothing."""
-        )
-        return False
-    else:
+    location_and_children = get_descendants(execution_context, children_only=True, include_parent=True)
+    locations_with_asdr_in_t3 = _asdr_in_t3(execution_context)
+    missing_from_t3 = set(location_and_children) - set(locations_with_asdr_in_t3)
+    if missing_from_t3:
         CODELOG.info(
             f"""Uploading asdr data for model_version_id
             {model_version_id} on '{database}'"""
         )
-
-        asdr_data = get_asdr_data(execution_context)
+        asdr_data = get_asdr_data(execution_context, list(missing_from_t3))
 
         with cursor(execution_context) as c:
             _upload_asdr_data_to_tier_3(execution_context, c, model_version_id, asdr_data)
 
         return True
+    else:
+        CODELOG.info(
+            f"""asdr data for model_version_id {model_version_id}
+            on '{database}' already exists, doing nothing."""
+        )
+        return False

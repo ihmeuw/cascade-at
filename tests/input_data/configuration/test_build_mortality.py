@@ -3,7 +3,7 @@ from cascade.testing_utilities import make_execution_context
 from cascade.core.context import ModelContext
 import cascade.input_data.db.mortality
 from cascade.model.priors import Constant
-from cascade.input_data.db.locations import get_descendents
+from cascade.input_data.db.locations import get_descendants
 
 import numpy as np
 import pandas as pd
@@ -51,7 +51,7 @@ def test_omega_constraint_as_effect(ihme, monkeypatch):
     """Assert that the omega constraint is an effect"""
     parent_id = 6
     ec = make_execution_context(model_version_id=265976, gbd_round_id=5, parent_location_id=parent_id, tier=3)
-    children = get_descendents(ec, children_only=True)
+    children = get_descendants(ec, children_only=True)
     assert len(children) > 0
     mc = ModelContext()
     mc.parameters.parent_location_id = parent_id

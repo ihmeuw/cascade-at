@@ -12,7 +12,7 @@ def test_create(ihme):
         policies=dict(),
     )
     c = CascadePlan.from_epiviz_configuration(ec, settings)
-    assert len(c.task_graph.nodes) == 2
+    assert len(c.task_graph.nodes) == 1
     print(nx.to_edgelist(c.task_graph))
 
 
@@ -62,4 +62,6 @@ def test_iterate_tasks(ihme):
         assert t[0] > last  # Only true in a drill
         last = t[0]
         cnt += 1
-    assert cnt == 3
+    # It would be 3, but this has been downgraded to use 1 if you
+    # have split_sex
+    assert cnt == 1

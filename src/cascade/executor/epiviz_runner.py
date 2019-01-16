@@ -24,7 +24,7 @@ from cascade.input_data.db.demographics import age_groups_to_ranges
 from cascade.testing_utilities import make_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
-from cascade.input_data.db.locations import get_descendents, location_id_from_location_and_level
+from cascade.input_data.db.locations import get_descendants, location_id_from_location_and_level
 from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
 from cascade.input_data.db.mortality import (
     get_frozen_cause_specific_mortality_data,
@@ -159,7 +159,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
     MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
 
-    children = get_descendents(execution_context, children_only=True)  # noqa: F841
+    children = get_descendants(execution_context, children_only=True)  # noqa: F841
     children_asdr = asdr.query("node_id in @children")
     # Transform the children to be the random effect for the rate.
     parent_value = parent_asdr[["age_lower", "time_lower", "mean"]].rename({"mean": "parent_mean"}, axis=1)
@@ -231,11 +231,11 @@ def prepare_data(execution_context, settings):
             tier=execution_context.parameters.tier
         )
 
-    location_and_descendents = get_descendents(execution_context, include_parent=True)  # noqa: F841
+    location_and_descendants = get_descendants(execution_context, include_parent=True)  # noqa: F841
 
-    bundle = bundle.query("location_id in @location_and_descendents")
+    bundle = bundle.query("location_id in @location_and_descendants")
     location_id = execution_context.parameters.parent_location_id
-    MATHLOG.info(f"Filtering bundle to location {location_id} and its descendents. {len(bundle)} rows remaining.")
+    MATHLOG.info(f"Filtering bundle to location {location_id} and its descendants. {len(bundle)} rows remaining.")
 
     stderr_mask = bundle.standard_error > 0
     if (~stderr_mask).sum() > 0:
