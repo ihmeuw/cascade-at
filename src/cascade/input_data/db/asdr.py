@@ -114,7 +114,7 @@ def load_asdr_to_t3(execution_context) -> bool:
             f"""Uploading asdr data for model_version_id
             {model_version_id} on '{database}'"""
         )
-        asdr_data = get_asdr_data(execution_context, location_and_children)
+        asdr_data = get_asdr_data(execution_context, list(missing_from_t3))
 
         with cursor(execution_context) as c:
             _upload_asdr_data_to_tier_3(execution_context, c, model_version_id, asdr_data)

@@ -133,7 +133,7 @@ def load_csmr_to_t3(execution_context) -> bool:
     if csmr_not_in_t3:
         CODELOG.info(f"Uploading csmr data for model_version_id {model_version_id} on '{database}'")
 
-        csmr_data = get_csmr_data(execution_context, location_and_children)
+        csmr_data = get_csmr_data(execution_context, list(csmr_not_in_t3))
 
         with cursor(execution_context) as c:
             _upload_csmr_data_to_tier_3(c, model_version_id, csmr_data)
