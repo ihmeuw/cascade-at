@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.dismod.constants import DensityEnum
-from cascade.model.priors import Uniform
+from cascade.model.priors import Uniform, prior_distribution
 
 
 class _PriorView:
@@ -52,13 +52,10 @@ class _PriorView:
         ] = [to_set[setp] if setp in to_set else nan for setp in self.param_names]
 
     def apply(self, transform):
-        ages = self._parent.ages
-        times = self._parent.times
-        for idx, row in self._parent.priors.loc[
-            np.in1d(self._parent.priors.age, ages) & np.in1d(self._parent.priors.time, times)
-            & (self._parent.priors.kind == self._kind),
-            self.param_names + ["age", "time"]
-        ].iterrows():
+        these_points = (np.in1d(self._parent.priors.age, self._parent.ages) &
+                        np.in1d(self._parent.priors.time, self._parent.times) &
+                        (self._parent.priors.kind == self._kind))
+        for idx, row in self._parent.priors.loc[these_points, self.param_names + ["age", "time"]].iterrows():
             new_distribution = transform(row.age, row.time, prior_distribution(row))
             to_set = new_distribution.parameters()
             to_set["density_id"] = DensityEnum[to_set["density"]].value
