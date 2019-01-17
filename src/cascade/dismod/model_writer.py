@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.constants import WeightEnum, MulCovEnum
+from cascade.dismod.constants import DensityEnum, WeightEnum, MulCovEnum
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -190,7 +190,7 @@ class ModelWriter:
         and ``priors`` tables."""
         # The smooth_grid table points to the priors and the smooth, itself,
         # so write it last.
-        complete_table = self._add_field_priors(grid_name, random_field.priors.copy())
+        complete_table = self._add_field_priors(grid_name, random_field.priors)
         age_cnt, time_cnt = (len(random_field.ages), len(random_field.times))
         assert len(complete_table) == (age_cnt * time_cnt + 1) * 3
         smooth_id = self._add_field_smooth(grid_name, complete_table, (age_cnt, time_cnt))
@@ -221,7 +221,7 @@ class ModelWriter:
         smooth_row["n_time"] = age_time_cnt[1]
         for prior_kind in ["value", "dage", "dtime"]:
             mulstd_row = prior_table.loc[prior_table.age.isna() & (prior_table.kind == prior_kind)]
-            if all(mulstd_row.density_id.notna()):
+            if all(mulstd_row.assigned):
                 smooth_row[f"mulstd_{prior_kind}_prior_id"] = int(mulstd_row.prior_id)
         if self._dismod_file.smooth.empty:
             smooth_row["smooth_id"] = 0
@@ -234,6 +234,11 @@ class ModelWriter:
 
     def _add_field_priors(self, grid_name, complete_table):
         """These are all entries in the priors table for this smooth grid."""
+        # The assigned column will tell us whether mulstds were assigned.
+        complete_table = complete_table.assign(assigned=complete_table.density.notna())
+        complete_table.loc[complete_table.density.isnull(), ["density", "mean", "lower", "upper"]] = \
+            ["uniform", 0, -1, 1]
+        complete_table = complete_table.assign(density_id=complete_table.density.apply(lambda x: DensityEnum[x].value))
         # Create new prior IDs that don't overlap.
         complete_table = complete_table.assign(prior_id=complete_table.index + len(self._dismod_file.prior))
         # Unique, informative names for the priors require care.
@@ -252,10 +257,9 @@ class ModelWriter:
         priors_columns = [
             "prior_id", "prior_name", "lower", "upper", "mean", "std", "eta", "nu", "density_id"
         ]
+        # Remove columns before saving, but keep extra columns in complete_table for
+        # further construction of grids.
         prior_table = complete_table.sort_values(by="prior_id").reset_index(drop=True)[priors_columns]
-        # Dismod-AT requires all priors to have densities and reasonable parameters, even
-        # if they aren't used. Change them here so they don't infect our code.
-        prior_table.loc[prior_table.density_id.isna(), ["density_id", "mean", "lower", "upper"]] = [0, 0, -1, 1]
         if not self._dismod_file.prior.empty:
             self._dismod_file.prior = self._dismod_file.prior.append(prior_table)
         else:

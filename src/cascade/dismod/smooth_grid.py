@@ -17,22 +17,57 @@ All the kinds of objects:
  * Measurement data
 
 """
-from itertools import product
 from math import nan
 
 import numpy as np
 import pandas as pd
 
 from cascade.dismod.constants import DensityEnum
-from cascade.model.priors import Uniform, prior_distribution
+from cascade.model.priors import prior_distribution
 
 
 class _PriorView:
     """Slices to access priors with Distribution objects."""
-    def __init__(self, parent, kind):
+    def __init__(self, kind, ages, times):
         self._kind = kind
-        self._parent = parent
-        self.param_names = ["density_id", "mean", "std", "lower", "upper", "eta", "nu"]
+        self.ages = ages
+        self.times = times
+        self.param_names = ["density", "mean", "std", "lower", "upper", "eta", "nu"]
+        # The grid is the age-time grid.
+        self.grid = pd.DataFrame(dict(
+            prior_name=None,
+            kind=kind,
+            age=np.repeat(ages, len(times)),
+            time=np.tile(times, len(ages)),
+            density=None,
+            mean=nan,
+            lower=nan,
+            upper=nan,
+            std=nan,
+            nu=nan,
+            eta=nan,
+        ))
+        # The mulstd is a dataframe with one entry.
+        self.mulstd = pd.DataFrame(dict(
+            prior_name=None,
+            kind=kind,
+            age=[nan],
+            time=[nan],
+            density=[None],
+            mean=[nan],
+            lower=[nan],
+            upper=[nan],
+            std=[nan],
+            nu=[nan],
+            eta=[nan],
+        ))
+
+    def __len__(self):
+        if self.mulstd.iloc[0].density is None:
+            len_std = 0
+        else:
+            len_std = 1
+        return len(self.grid) + len_std
 
     def __setitem__(self, at_slice, value):
         """
@@ -41,13 +76,13 @@ class _PriorView:
             value (priors.Prior): The prior to set, containing dictionary of
                                   parameters.
         """
-        ages = self._parent.ages[at_slice[0]]
-        times = self._parent.times[at_slice[1]]
+        ages = self.ages[at_slice[0]]
+        times = self.times[at_slice[1]]
         to_set = value.parameters()
         to_set["density_id"] = DensityEnum[to_set["density"]].value
-        self._parent.priors.loc[
-            np.in1d(self._parent.priors.age, ages) & np.in1d(self._parent.priors.time, times)
-            & (self._parent.priors.kind == self._kind),
+        self.grid.loc[
+            np.in1d(self.grid.age, ages) & np.in1d(self.grid.time, times)
+            & (self.grid.kind == self._kind),
             self.param_names
         ] = [to_set[setp] if setp in to_set else nan for setp in self.param_names]
 
@@ -73,36 +108,12 @@ class SmoothGrid:
         """
         self.ages = np.array(age_time_grid[0], dtype=np.float)
         self.times = np.array(age_time_grid[1], dtype=np.float)
-        self.parameter_columns = ["density_id", "mean", "lower", "upper", "std", "nu", "eta"]
-        age_time = np.array(list(product(sorted(self.ages), sorted(self.times))))
-        one_priors = pd.DataFrame(dict(
-            prior_name=None,
-            kind="value",
-            age=age_time[:, 0],
-            time=age_time[:, 1],
-            density_id=nan,
-            mean=nan,
-            lower=nan,
-            upper=nan,
-            std=nan,
-            nu=nan,
-            eta=nan,
-        ))
-        # Append a mulstd, identified as having the same kind
-        # but not having any age or time. It should have a default
-        # prior that passes inspection by Dismod-AT, even if it's
-        # unused.
-        one_priors = one_priors.append(
-            {"age": nan, "time": nan, "kind": "value", "prior_name": None,
-             "density_id": nan, "mean": 0.01, "lower": -5, "upper": 5,
-             "std": 5, "eta": 1e-4},
-            ignore_index=True)
-        self.priors = pd.concat([one_priors, one_priors.assign(kind="dage"), one_priors.assign(kind="dtime")])
-        self.priors = self.priors.reset_index(drop=True)
+        self._value = _PriorView("value", self.ages, self.times)
+        self._dage = _PriorView("dage", self.ages, self.times)
+        self._dtime = _PriorView("dtime", self.ages, self.times)
 
     def __len__(self):
-        mulstd = len(self.priors[self.priors.age.isna() & self.priors.density_id.notna()])
-        return self.ages.shape[0] * self.times.shape[0] * 3 + mulstd
+        return len(self._value) + len(self._dage) + len(self._dtime)
 
     def __str__(self):
         return f"SmoothGrid({len(self.ages), len(self.times)})"
@@ -113,15 +124,23 @@ class SmoothGrid:
 
     @property
     def value(self):
-        return _PriorView(self, "value")
+        return self._value
 
     @property
     def dage(self):
-        return _PriorView(self, "dage")
+        return self._dage
 
     @property
     def dtime(self):
-        return _PriorView(self, "dtime")
+        return self._dtime
+
+    @property
+    def priors(self):
+        """All priors in one dataframe."""
+        return pd.concat(
+            [self._value.grid, self._value.mulstd, self._dage.grid,
+             self._dage.mulstd, self.dtime.grid, self.dtime.mulstd]) \
+            .reset_index(drop=True)
 
 
 def uninformative_grid_from_var(var, strictly_positive):
@@ -138,9 +157,11 @@ def uninformative_grid_from_var(var, strictly_positive):
     """
     smooth_grid = SmoothGrid(var.age_time)
     if strictly_positive:
-        smooth_grid.value[:, :] = Uniform(1e-9, 5, 1e-2)
+        smooth_grid.value.grid.loc[:, ["density", "mean", "lower", "upper"]] = [
+            "uniform", 1e-2, 1e-9, 5
+        ]
     else:
-        smooth_grid.value[:, :] = Uniform(-5, 5, 0)
-    smooth_grid.dage[:, :] = Uniform(-5, 5, 0)
-    smooth_grid.dtime[:, :] = Uniform(-5, 5, 0)
+        smooth_grid.value.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -5, 5, 0]
+    smooth_grid.dage.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -5, 5, 0]
+    smooth_grid.dtime.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -5, 5, 0]
     return smooth_grid

@@ -212,31 +212,23 @@ def test_fit_mortality(dismod):
         print(f"fit_mortality {age}\t{input_mx}\t{output_mx}")
 
     model = model_from_vars(model_variables, parent_location)
-    priors = model.rate["omega"].priors
+    priors = model.rate["omega"]
     print(f"test_fit priors\n{priors}")
 
-    priors.loc[priors.density_id.notna(), "density_id"] = 1
-    priors.loc[:, "mean"] = omega.grid.loc[:, "mean"]
-    priors.loc[:, "std"] = 0.5
-    priors.loc[:, "eta"] = 1e-4
-    priors.loc[:, "upper"] = 5 + priors.loc[:, "mean"]
-    priors.loc[(priors.kind == "dage") & priors.age.notna(), "density_id"] = 1
-    priors.loc[priors.kind == "dage", "mean"] = 0.0
-    priors.loc[priors.kind == "dage", "std"] = 0.1
-    priors.loc[priors.kind == "dage", "lower"] = -5
-    priors.loc[priors.kind == "dage", "upper"] = 5
-    # The dtime priors aren't used, but Dismod-AT checks them.
-    priors.loc[(priors.kind == "dtime") & priors.age.notna(), "density_id"] = 1
-    priors.loc[priors.kind == "dtime", "mean"] = 0.0
-    priors.loc[priors.kind == "dtime", "std"] = 0.1
-    priors.loc[priors.kind == "dtime", "lower"] = -5
-    priors.loc[priors.kind == "dtime", "upper"] = 5
+    priors.value.grid.loc[:, ["density", "std", "eta"]] = [
+        "gaussian", 0.5, 1e-4
+    ]
+    priors.value.grid.loc[:, "mean"] = omega.grid["mean"]
+    priors.value.grid.loc[:, "upper"] = 5 + omega.grid["mean"]
+    priors.dage.grid.loc[:, ["density", "mean", "std", "lower", "upper"]] = [
+        "gaussian", 0.0, 0.1, -5, 5
+    ]
+    priors.dtime.grid.loc[:, ["density", "mean", "std", "lower", "upper"]] = [
+        "gaussian", 0.0, 0.1, -5, 5
+    ]
 
     data = predicted.drop(columns=["sample_index", "predict_id"]).rename(columns={"avg_integrand": "mean"})
-    data = data.assign(density="gaussian")
-    data = data.assign(std=0.1)
-    data = data.assign(eta=1e-4)
-    data = data.assign(nu=nan)
+    data = data.assign(density="gaussian", std=0.1, eta=1e-4, nu=nan)
 
     print(f"test_fit data\n{data}")
     result = session.fit(model, data, initial_guess=model_variables)
