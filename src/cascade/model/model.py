@@ -1,7 +1,7 @@
 from cascade.dismod.constants import WeightEnum
-from cascade.dismod.dismod_groups import DismodGroups
-from cascade.dismod.var import Var
-from cascade.dismod.smooth_grid import uninformative_grid_from_var
+from cascade.model.dismod_groups import DismodGroups
+from cascade.model.var import Var
+from cascade.model.smooth_grid import uninformative_grid_from_var
 
 
 class Model(DismodGroups):

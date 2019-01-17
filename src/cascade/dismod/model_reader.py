@@ -6,8 +6,8 @@ import pandas as pd
 
 from cascade.core import getLoggers
 from cascade.dismod.constants import IntegrandEnum, RateEnum
-from cascade.dismod.dismod_groups import DismodGroups
-from cascade.dismod.var import Var
+from cascade.model.dismod_groups import DismodGroups
+from cascade.model.var import Var
 
 CODELOG, MATHLOG = getLoggers(__name__)
 

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cascade.dismod import Session, Model, DismodGroups, SmoothGrid, Var, model_from_vars
+from cascade.model import Session, Model, DismodGroups, SmoothGrid, Var, model_from_vars
 from cascade.model.covariates import Covariate
 from cascade.model.priors import Uniform, Gaussian
 from cascade.stats.compartmental import siler_default, total_mortality_solution

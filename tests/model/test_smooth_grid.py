@@ -1,7 +1,10 @@
-from cascade.dismod import SmoothGrid
+import pytest
+
+from cascade.model import SmoothGrid
 from cascade.model.priors import Gaussian
 
 
+@pytest.mark.skip()
 def test_smooth_grid__development_target():
     grid = SmoothGrid(([0, 5, 10, 20], [2000, 2010]))
     # Assign a default value to all points.

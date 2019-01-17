@@ -1,6 +1,6 @@
 import pytest
 
-from cascade.dismod import DismodGroups
+from cascade.model import DismodGroups
 
 
 def test_create():

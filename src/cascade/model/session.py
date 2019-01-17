@@ -7,13 +7,13 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.constants import DensityEnum, RateEnum
-from cascade.dismod.constants import INTEGRAND_TO_WEIGHT, IntegrandEnum
+from cascade.dismod import (
+    DensityEnum, RateEnum, read_var_table_as_id, read_vars, write_vars,
+    ModelWriter, default_integrand_names, make_log_table,
+    INTEGRAND_TO_WEIGHT, IntegrandEnum
+)
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.dismod.model import model_from_vars
-from cascade.dismod.model_reader import read_var_table_as_id, read_vars, write_vars
-from cascade.dismod.model_writer import ModelWriter
-from cascade.dismod.serialize import default_integrand_names, make_log_table
+from cascade.model import model_from_vars
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
