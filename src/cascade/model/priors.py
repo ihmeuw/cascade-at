@@ -227,13 +227,28 @@ DENSITY_ID_TO_PRIOR = {
 
 
 def prior_distribution(parameters):
-    p = parameters
-    if p["upper"] == p["lower"]:
-        return Constant(p["mean"])
-
-    if p["density_id"] == 0:
-        return Uniform(p["lower"], p["upper"], p["mean"], eta=p["eta"])
-    elif p["density_id"] == 1:
-        return Gaussian(p["mean"], p["std"], p["lower"], p["upper"], p["eta"])
-    elif p["density_id"] == 2:
-        return Laplace(p["mean"], p["std"], p["lower"], p["upper"], p["eta"])
+    density_id, lower, upper, value, stdev, eta, nu = [
+        parameters[name] for name in
+        [
+            "density_id", "lower", "upper", "mean", "std", "eta", "nu"
+        ]
+    ]
+    if np.isclose(lower, upper):
+        return Constant(value)
+    elif density_id == 0:
+        return Uniform(lower, upper, value, eta)
+    elif density_id == 1:
+        return Gaussian(value, stdev, lower, upper, eta)
+    elif density_id == 2:
+        return Laplace(value, stdev, lower, upper, eta)
+    elif density_id == 3:
+        return StudentsT(value, stdev, nu, lower, upper, eta)
+    elif density_id == 4:
+        return LogGaussian(value, stdev, eta, lower, upper)
+    elif density_id == 5:
+        return LogLaplace(value, stdev, eta, lower, upper)
+    elif density_id == 6:
+        return LogStudentsT(value, stdev, nu, eta, lower, upper)
+    else:
+        CODELOG.error(f"Cannot identify density {density_id}.")
+        raise PriorError(f"Cannot identify density {density_id}.")

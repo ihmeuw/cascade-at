@@ -215,10 +215,6 @@ def test_fit_mortality(dismod):
     priors = model.rate["omega"].priors
     print(f"test_fit priors\n{priors}")
 
-    def value_setter(a, t, da, dt, prior):
-        return Gaussian(lower=prior.lower, mean=prior.mean, upper=prior.mean + 5, std=0.5, eta=1e-4)
-
-    priors.value.apply(value_setter)
     priors.loc[priors.density_id.notna(), "density_id"] = 1
     priors.loc[:, "mean"] = omega.grid.loc[:, "mean"]
     priors.loc[:, "std"] = 0.5
