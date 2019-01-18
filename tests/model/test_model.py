@@ -137,7 +137,7 @@ def test_survival(dismod):
         c_location_id=[parent_location],
     ))
     session = Session(locations, parent_location, Path("survtest.db"))
-    session.set_option("ode_step_size", 1)
+    session.set_option(ode_step_size=1)
     avgints = pd.DataFrame(dict(
         integrand="susceptible",
         location=parent_location,
@@ -180,7 +180,7 @@ def test_fit_mortality(dismod):
         c_location_id=[parent_location],
     ))
     session = Session(locations, parent_location, Path("fit0.db"))
-    session.set_option("ode_step_size", 1)
+    session.set_option(ode_step_size=1)
     avgints = pd.DataFrame(dict(
         integrand="susceptible",
         location=parent_location,

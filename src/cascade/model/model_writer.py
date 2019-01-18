@@ -85,7 +85,7 @@ class ModelWriter:
         self._children = children
         iota_case = "pos" if "iota" in nonzero_rates else "zero"
         rho_case = "pos" if "rho" in nonzero_rates else "zero"
-        self._session.set_option("rate_case", f"iota_{iota_case}_rho_{rho_case}")
+        self._session.set_option(rate_case=f"iota_{iota_case}_rho_{rho_case}")
 
     def write_ages_and_times(self, ages, times):
         """
