@@ -1,22 +1,3 @@
-"""
-The model is a collection of random fields plus some specification
-for the solver.
-
-All the kinds of objects:
-
- * Random fields in a model.
-   * age-time grid
-   * priors
-     * prior distribution and prior parameters on a grid
-     * prior distribution and prior parameters of stdev multipliers
-   * vars, which are outcomes of several types
-     * initial guess
-     * fit
-     * truth
-     * samples, where there are more than one.
- * Measurement data
-
-"""
 from math import nan
 
 import numpy as np
@@ -87,14 +68,10 @@ class _PriorView:
         ] = [to_set[setp] if setp in to_set else nan for setp in self.param_names]
 
     def apply(self, transform):
-        these_points = (np.in1d(self._parent.priors.age, self._parent.ages) &
-                        np.in1d(self._parent.priors.time, self._parent.times) &
-                        (self._parent.priors.kind == self._kind))
-        for idx, row in self._parent.priors.loc[these_points, self.param_names + ["age", "time"]].iterrows():
+        for idx, row in self.grid.loc[:, self.param_names + ["age", "time"]].iterrows():
             new_distribution = transform(row.age, row.time, prior_distribution(row))
             to_set = new_distribution.parameters()
-            to_set["density_id"] = DensityEnum[to_set["density"]].value
-            self._parent.priors.iloc[idx, self.param_names] = [
+            self.grid.iloc[idx, self.param_names] = [
                 to_set[setp] if setp in to_set else nan for setp in self.param_names]
 
 

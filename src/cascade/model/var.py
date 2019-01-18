@@ -19,6 +19,7 @@ class Var:
             idx=np.repeat(range(count), len(age_time)),
         ))
         self.mulstd = dict()  # keys are value, dage, dtime.
+        self._spline = None
 
     def check(self, name=None):
         if not self.grid["mean"].notna().all():
@@ -39,7 +40,12 @@ class Var:
     def __str__(self):
         return f"Var({len(self.ages), len(self.times)})"
 
-    def as_function(self):
+    def __call__(self, age, time):
+        if self._spline is None:
+            self._spline = self._as_function()
+        return self._spline(age, time)
+
+    def _as_function(self):
         """Constructs a function which mimics how Dismod-AT turns a field of
         points in age and time into a continuous function.
 
@@ -58,7 +64,7 @@ class Var:
 
             return bivariate_function
 
-        elif len(age) == 1 or len(time) == 1:
+        elif len(age) * len(time) > 1:
             fill = (ordered["mean"].values[0], ordered["mean"].values[-1])
             independent = age if len(age) != 1 else time
             spline = interp1d(
@@ -74,6 +80,12 @@ class Var:
                 return age_spline
             else:
                 return time_spline
+        elif len(age) == 1 and len(time) == 1:
+
+            def constant_everywhere(_a, _t):
+                return ordered["mean"].values[0]
+
+            return constant_everywhere
         else:
             raise RuntimeError(f"Cannot interpolate if ages or times are length zero: "
                                f"ages {len(age)} times {len(time)}")

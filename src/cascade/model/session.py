@@ -10,7 +10,9 @@ from cascade.core import getLoggers
 from cascade.dismod.constants import DensityEnum, RateEnum, INTEGRAND_TO_WEIGHT, IntegrandEnum
 from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.dismod.serialize import default_integrand_names, make_log_table
-from cascade.model import model_from_vars, read_var_table_as_id, read_vars, write_vars, ModelWriter
+from cascade.model import Model
+from cascade.model.model_reader import read_var_table_as_id, read_vars, write_vars
+from cascade.model.model_writer import ModelWriter
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -111,7 +113,7 @@ class Session:
             ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
         """
         self._check_vars(var)
-        model = model_from_vars(var, parent_location, weights=weights, covariates=covariates)
+        model = Model.from_var(var, parent_location, weights=weights, covariates=covariates)
         extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
                     {avgint.time_lower.min(), avgint.time_upper.max()})
         self.write_model(model, extremal)

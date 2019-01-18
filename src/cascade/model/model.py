@@ -84,32 +84,32 @@ class Model(DismodGroups):
                 self.weights[kind] = Var(one_age_time)
                 self.weights[kind].grid.loc[:, "mean"] = 1.0
 
+    @classmethod
+    def from_var(cls, var, parent_location, weights=None, covariates=None):
+        """
+        Given values across all rates, construct a model with loose priors
+        in order to be able to predict from those rates.
 
-def model_from_vars(var, parent_location, weights=None, covariates=None):
-    """
-    Given values across all rates, construct a model with loose priors
-    in order to be able to predict from those rates.
+        Args:
+            var (DismodGroups[Var]): Values on grids.
+            parent_location (int): A parent location, because that isn't
+                in the keys.
+            weights (Dict[Var]): Population weights for integrands.
+            covariates(List[Covariate]): Covariate objects.
 
-    Args:
-        var (DismodGroups[Var]): Values on grids.
-        parent_location (int): A parent location, because that isn't
-            in the keys.
-        weights (Dict[Var]): Population weights for integrands.
-        covariates(List[Covariate]): Covariate objects.
+        Returns:
+            Model: with Uniform distributions everywhere and no mulstd.
+        """
+        child_locations = [k[1] for k in var.random_effect.keys()]
+        nonzero_rates = list(var.rate.keys())
+        model = cls(nonzero_rates, parent_location, child_locations, weights, covariates)
 
-    Returns:
-        Model: with Uniform distributions everywhere and no mulstd.
-    """
-    child_locations = [k[1] for k in var.random_effect.keys()]
-    nonzero_rates = list(var.rate.keys())
-    model = Model(nonzero_rates, parent_location, child_locations, weights, covariates)
+        # Maybe there is something special for handling random effects.
+        strictly_positive = dict()
+        strictly_positive["rate"] = True
+        for group_name, group in var.items():
+            for key, var in group.items():
+                must_be_positive = strictly_positive.get(group_name, False)
+                model[group_name][key] = uninformative_grid_from_var(var, must_be_positive)
 
-    # Maybe there is something special for handling random effects.
-    strictly_positive = dict()
-    strictly_positive["rate"] = True
-    for group_name, group in var.items():
-        for key, var in group.items():
-            must_be_positive = strictly_positive.get(group_name, False)
-            model[group_name][key] = uninformative_grid_from_var(var, must_be_positive)
-
-    return model
+        return model

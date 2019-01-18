@@ -6,9 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cascade.model import Session, Model, DismodGroups, SmoothGrid, Var, model_from_vars
-from cascade.model.covariates import Covariate
-from cascade.model.priors import Uniform, Gaussian
+from cascade.model import (
+    Session, Model, DismodGroups, SmoothGrid, Var, Covariate,
+    Uniform, Gaussian
+)
 from cascade.stats.compartmental import siler_default, total_mortality_solution
 
 
@@ -112,9 +113,9 @@ def test_predict(dismod):
     assert not predicted.empty
 
     # Check that Sincidence is predicted correctly for every time point.
-    iota_func = iota.as_function()
     for idx, row in predicted.iterrows():
-        input_iota = iota_func(row.age_lower, row.time_lower)
+        # Each Var is a function of age and time.
+        input_iota = iota(row.age_lower, row.time_lower)
         assert np.isclose(input_iota, row["avg_integrand"])
 
 
@@ -203,15 +204,15 @@ def test_fit_mortality(dismod):
         .drop(columns=["predict_id", "sample_index", "location", "integrand", "age_upper", "time_upper"])
     mtother_var = Var((as_var.age.unique(), as_var.time.unique()))
     mtother_var.grid = as_var.assign(idx=0)
-    mtother_func = mtother_var.as_function()
 
     for age in np.linspace(0, 120, 121):
         input_mx = mortality(age)
-        output_mx = mtother_func(age, 2000)
+        # The Var is a function (bivariate spline) of age and time.
+        output_mx = mtother_var(age, 2000)
         assert np.isclose(input_mx, output_mx)
         print(f"fit_mortality {age}\t{input_mx}\t{output_mx}")
 
-    model = model_from_vars(model_variables, parent_location)
+    model = Model.from_var(model_variables, parent_location)
     priors = model.rate["omega"]
     print(f"test_fit priors\n{priors}")
 
