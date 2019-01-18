@@ -1,3 +1,4 @@
+from collections import Iterable
 from contextlib import contextmanager
 from math import nan
 from pathlib import Path
@@ -133,9 +134,21 @@ class Session:
         write_vars(self.dismod_file, new_vars, var_id, name)
         self.flush()
 
-    def set_option(self, name, value):
+    def set_option(self, **kwargs):
         option = self.dismod_file.option
-        option.loc[option.option_name == name, "option_value"] = str(value)
+        unknowns = list()
+        for name, value in kwargs.items():
+            if not (option.option_name == name).any():
+                unknowns.append(name)
+            if isinstance(value, str):
+                str_value = value
+            elif isinstance(value, Iterable):
+                str_value = " ".join(str(x) for x in value)
+            else:
+                str_value = str(value)
+            option.loc[option.option_name == name, "option_value"] = str_value
+        if unknowns:
+            raise KeyError(f"Unknown options {unknowns}")
 
     @property
     def covariate_rename(self):
@@ -306,21 +319,26 @@ class Session:
         # https://bradbell.github.io/dismod_at/doc/option_table.htm
         option = pd.DataFrame([
             dict(option_name="parent_node_id", option_value=str(self.location_func(self.parent_location))),
-            # dict(option_name="meas_std_effect", option_value="add_std_scale_all"),
+            dict(option_name="parent_node_name", option_value=nan),
+            dict(option_name="meas_std_effect", option_value="add_std_scale_all"),
             dict(option_name="zero_sum_random", option_value=nan),
             dict(option_name="data_extra_columns", option_value=nan),
             dict(option_name="avgint_extra_columns", option_value=nan),
             dict(option_name="warn_on_stderr", option_value="true"),
             dict(option_name="ode_step_size", option_value="5.0"),
-            # !!! dict(option_name="age_avg_split", option_value=nan),
+            dict(option_name="age_avg_split", option_value=nan),
             dict(option_name="random_seed", option_value="0"),
             dict(option_name="rate_case", option_value="iota_pos_rho_zero"),
-            # dict(option_name="derivative_test", option_value="none"),
-            # dict(option_name="max_num_iter", option_value="100"),
-            # dict(option_name="print_level", option_value=0),
-            dict(option_name="print_level_fixed", option_value="5"),
-            # dict(option_name="accept_after_max_steps", option_value="5"),
-            # dict(option_name="tolerance", option_value="1e-8"),
+            dict(option_name="derivative_test_fixed", option_value="none"),
+            dict(option_name="derivative_test_random", option_value="none"),
+            dict(option_name="max_num_iter_fixed", option_value="100"),
+            dict(option_name="max_num_iter_random", option_value="100"),
+            dict(option_name="print_level_fixed", option_value=5),
+            dict(option_name="print_level_random", option_value=5),
+            dict(option_name="accept_after_max_steps_fixed", option_value="5"),
+            dict(option_name="accept_after_max_steps_random", option_value="5"),
+            dict(option_name="tolerance_fixed", option_value="1e-8"),
+            dict(option_name="tolerance_random", option_value="1e-8"),
             dict(option_name="quasi_fixed", option_value="false"),
             dict(option_name="bound_frac_fixed", option_value="1e-2"),
             dict(option_name="limited_memory_max_history_fixed", option_value="30"),
