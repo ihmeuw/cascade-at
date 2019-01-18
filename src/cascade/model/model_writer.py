@@ -27,8 +27,6 @@ class ModelWriter:
 
      * Locations have a ``c_location_id`` member that ``maps node_id``
        to ``location_id``.
-     * Covariates have a ``c_covariate_name`` that records the name used
-       by the modeler, instead of the ``x_0`` style name.
      * Rates and integrands are always in the same order.
     """
 
@@ -313,7 +311,6 @@ class ModelWriter:
             reorder.append(lookup[remaining])
         CODELOG.debug(f"covariates {', '.join(c.name for c in reorder)}")
         covariate_df, cov_col_id_func, covariate_renames = _make_covariate_table(reorder)
-        # This is adding the extra column, "c_covariate_name" to the table.
         self._dismod_file.update_table_columns("covariate", covariate_df)
         self._dismod_file.covariate = covariate_df
         self._covariate_id_func = cov_col_id_func
@@ -337,10 +334,9 @@ def _make_covariate_table(covariates):
     covariate_columns = pd.DataFrame(
         {
             "covariate_id": np.arange(len(covariates)),
-            "covariate_name": [renames[col.name] for col in covariates],
+            "covariate_name": [col.name for col in covariates],
             "reference": np.array([col.reference for col in covariates], dtype=np.float),
             "max_difference": np.array([col.max_difference for col in covariates], dtype=np.float),
-            "c_covariate_name": [col.name for col in covariates],
         }
     )
 

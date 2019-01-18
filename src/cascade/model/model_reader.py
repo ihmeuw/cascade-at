@@ -181,7 +181,7 @@ def _read_mulcov_smooths(mulcov_table, covariate_table, smooths):
         if found_name.empty:
             MATHLOG.error(f"Mulcov covariate id {mulcov_row.covariate_id} not found in covariate table.")
             raise RuntimeError(f"Could not find covariate id {mulcov_row.covariate_id} in covariate table.")
-        covariate_name = str(found_name.iloc[0].c_covariate_name)
+        covariate_name = str(found_name.iloc[0].covariate_name)
         if mulcov_row.mulcov_type == "rate_value":
             target_name = RateEnum(mulcov_row.rate_id).name
         else:
