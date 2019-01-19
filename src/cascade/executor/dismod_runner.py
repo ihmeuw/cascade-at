@@ -131,8 +131,7 @@ def reduce_process_priority():
     os.nice(19)
 
 
-@asyncio.coroutine
-def _read_pipe(pipe, callback=lambda text: None):
+async def _read_pipe(pipe, callback=lambda text: None):
     """Read from a pipe until it closes.
 
     Args:
@@ -140,7 +139,7 @@ def _read_pipe(pipe, callback=lambda text: None):
         callback: a callable which will be invoked each time data is read from the pipe
     """
     while not pipe.at_eof():
-        text = yield from pipe.read(2 ** 16)
+        text = await pipe.read(2 ** 16)
         text = text.decode("utf-8")
         callback(text)
 
@@ -188,8 +187,7 @@ def dismod_report_stderr(text):
         MATHLOG.warning(text, extra=dict(is_dismod_output=True))
 
 
-@asyncio.coroutine
-def async_run_and_watch(command, single_use_machine, poll_time):
+async def async_run_and_watch(command, single_use_machine, poll_time):
     command = [str(a) for a in command]
     if single_use_machine:
         pre_execution_function = reduce_process_priority
@@ -198,7 +196,7 @@ def async_run_and_watch(command, single_use_machine, poll_time):
 
     try:
         CODELOG.info(f"Forking to {command}")
-        sub_process = yield from asyncio.subprocess.create_subprocess_exec(
+        sub_process = await asyncio.subprocess.create_subprocess_exec(
             *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, preexec_fn=pre_execution_function,
         )
     except ValueError as ve:
@@ -211,10 +209,10 @@ def async_run_and_watch(command, single_use_machine, poll_time):
     std_out_task = loop.create_task(_read_pipe(sub_process.stdout, dismod_report_info))
     std_err_task = loop.create_task(_read_pipe(sub_process.stderr, dismod_report_stderr))
 
-    yield from sub_process.wait()
+    await sub_process.wait()
 
-    yield from std_out_task
-    yield from std_err_task
+    await std_out_task
+    await std_err_task
 
     if sub_process.returncode != 0:
         msg = f"return code {sub_process.returncode}\n"

@@ -372,20 +372,19 @@ def run_dismod(dismod_file, command, *args):
     _check_dismod_command(dismod_file, command)
 
 
-@asyncio.coroutine
-def async_run_dismod(dismod_file, command, *args):
+async def async_run_dismod(dismod_file, command, *args):
     dm_file_path = _get_dismod_db_path(dismod_file)
 
     command_prefix = ["dmdismod", dm_file_path]
 
-    yield from async_run_and_watch(command_prefix + [command] + list(args), False, 1)
+    await async_run_and_watch(command_prefix + [command] + list(args), False, 1)
 
     try:
         # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
         # It does this even if all output is supressed. Other programs don't cause this problem
         # even if they have lots of output. This is the least invasive way I've found
         # of ensuring that the environment is usable after this runs
-        yield from async_run_and_watch(["stty", "sane"], False, 1)
+        await async_run_and_watch(["stty", "sane"], False, 1)
     except DismodATException:
         # in some environments (inside a qsub) stty fails but in those
         # environments the problem with mangled terminals doesn't come
@@ -410,17 +409,16 @@ def make_fixed_effect_samples(execution_context, num_samples):
     run_dismod(execution_context.dismodfile, "simulate", str(num_samples))
 
 
-@asyncio.coroutine
-def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
-    yield from sem.acquire()
+async def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
+    await sem.acquire()
     try:
         with TemporaryDirectory() as d:
             temp_dm_path = Path(d) / "sample.db"
             shutil.copy2(db_path, temp_dm_path)
             dismod_file = DismodFile(get_engine(temp_dm_path))
-            yield from async_run_dismod(dismod_file, "set", "start_var", "truth_var")
-            yield from async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
-            yield from async_run_dismod(dismod_file, "predict", "fit_var")
+            await async_run_dismod(dismod_file, "set", "start_var", "truth_var")
+            await async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
+            await async_run_dismod(dismod_file, "predict", "fit_var")
 
             fit = dismod_file.fit_var
             fit["sample_index"] = sample_id
@@ -432,8 +430,7 @@ def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
         sem.release()
 
 
-@asyncio.coroutine
-def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, samples):
+async def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, samples):
     sem = asyncio.Semaphore(num_processes)
     jobs = []
     for sample in samples:
@@ -449,7 +446,7 @@ def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, sampl
         logging.root.setLevel(logging.WARNING)
         math_root.setLevel(logging.WARNING)
     try:
-        results = yield from asyncio.gather(*jobs)
+        results = await asyncio.gather(*jobs)
     finally:
         logging.root.setLevel(log_level)
         logging.getLogger("cascade.math").setLevel(math_log_level)
