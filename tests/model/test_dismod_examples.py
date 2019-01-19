@@ -14,6 +14,7 @@ from cascade.model import Session, Model, SmoothGrid, Covariate, Uniform, Gaussi
 
 
 def test_fit_random(dismod):
+    """Dismod-AT fits random effects for two children on a single rate."""
     parent_location = 1
     # The US and Canada are children of North America.
     locations = pd.DataFrame(dict(
@@ -25,12 +26,11 @@ def test_fit_random(dismod):
     iota_parent_true = 1e-2
     united_states_random_effect = +0.5
     canada_random_effect = -0.5
-
-    # Data values are exactly the correct values.
-    measured_value = np.array([
-        iota_parent_true,
-        iota_parent_true * exp(united_states_random_effect),
-        iota_parent_true * exp(canada_random_effect)])
+    iota_us_true = iota_parent_true * exp(united_states_random_effect)
+    iota_canada_true = iota_parent_true * exp(canada_random_effect)
+    # Data values are exactly the correct values for children.
+    # We can set the parent location intentionally very wrong b/c it's ignored.
+    measured_value = np.array([0.9, iota_us_true, iota_canada_true])
     data = pd.DataFrame(dict(
         integrand="Sincidence",
         location=[1, 2, 3],  # One data point for each location.
@@ -74,16 +74,26 @@ def test_fit_random(dismod):
     session.set_option(**option)
     result = session.fit(model, data)
 
-    parent_result = result.rate["iota"].grid.loc[:, "mean"]
-    parent_expected = iota_parent_true * exp(united_states_random_effect)
-    assert ((parent_result - parent_expected).abs() / parent_expected < 1e-10).all()
-    print(f"Random effects are {list(result.random_effect.keys())}")
-    canada_result = result.random_effect[("iota", 3)].grid.loc[:, "mean"]
-    canada_expected = -2 * united_states_random_effect
-    assert (((canada_result - canada_expected) / canada_expected).abs() < 1e-5).all()
-    us_result = result.random_effect[("iota", 2)].grid.loc[:, "mean"]
-    us_expected = 0
-    assert ((us_result - us_expected).abs() < 1e-5).all()
+    # The rates for the children are correct.
+    parent = result.rate["iota"]
+    us = result.random_effect[("iota", 2)]
+    canada = result.random_effect[("iota", 3)]
+    for age, time in [(50, 1995), (50, 2000), (50, 2015)]:
+        # These first two assertions mean that Dismod-AT found the correct
+        # rates for the children, after applying random effects to the parent.
+        us_found = parent(age, time) * exp(us(age, time))
+        assert abs((us_found - iota_us_true) / iota_us_true) < 1e-5
+        canada_found = parent(age, time) * exp(canada(age, time))
+        assert abs((canada_found - iota_canada_true) / iota_canada_true) < 1e-5
+
+        # It happens that the parent rate will match the united states
+        # because that's where the solver started looking. (Try changing
+        # the mean of the prior for the iota parent rate, and this will shift.)
+        assert abs((parent(age, time) - iota_us_true) / iota_us_true) < 1e-10
+        # Which means the US random effect is zero.
+        assert abs(us(age, time) - 0) < 1e-5
+        # The canadian random effect had to double because it's offset from US rate.
+        assert abs((canada(age, time) - 2 * canada_random_effect) / canada_random_effect) < 1e-5
 
 
 @pytest.mark.parametrize("meas_std_effect", [
@@ -132,16 +142,18 @@ def test_fit_gamma(meas_std_effect, dismod):
 
     # There will be one rate, incidence, on two ages and two times.
     model.rate["iota"] = SmoothGrid(([0], [1990]))
+    # The prior says nothing, and its mean is way off.
     model.rate["iota"].value[:, :] = Uniform(lower=iota_true / 100, upper=1, mean=iota_true / 10)
 
     incidence_gamma = SmoothGrid([[0], [1990]])
+    # Again, the prior say snothing, and its mean is incorrect.
     incidence_gamma.value[:, :] = Uniform(lower=0, upper=10 * gamma_true, mean=gamma_true / 10)
     model.gamma[("one", "Sincidence")] = incidence_gamma
 
     # No need to specify weight in data b/c appropriate weight for each integrand is chosen.
     data = pd.DataFrame(dict(
         integrand="Sincidence",
-        location=1,
+        location=parent_location,
         age_lower=np.linspace(age_list[0], age_list[-1], n_data),
         age_upper=np.linspace(age_list[0], age_list[-1], n_data),
         time_lower=2000,
@@ -164,6 +176,7 @@ def test_fit_gamma(meas_std_effect, dismod):
 
     result = session.fit(model, data)
     rate_out = result.rate["iota"].grid["mean"]
+    # It found the correct mean and gamma.
     max_iota = ((rate_out - iota_true) / iota_true).abs().max()
     gamma_out = result.gamma[("one", "Sincidence")].grid["mean"]
     max_gamma = ((gamma_out - gamma_true) / gamma_true).abs().max()
