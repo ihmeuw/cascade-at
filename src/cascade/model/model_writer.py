@@ -1,7 +1,7 @@
 """
 Writes a Model to a Dismod File.
 """
-from math import nan
+from math import nan, inf
 from numbers import Real
 
 import numpy as np
@@ -234,7 +234,7 @@ class ModelWriter:
         # The assigned column will tell us whether mulstds were assigned.
         complete_table = complete_table.assign(assigned=complete_table.density.notna())
         complete_table.loc[complete_table.density.isnull(), ["density", "mean", "lower", "upper"]] = \
-            ["uniform", 0, -1, 1]
+            ["uniform", 0, -inf, inf]
         complete_table = complete_table.assign(density_id=complete_table.density.apply(lambda x: DensityEnum[x].value))
         # Create new prior IDs that don't overlap.
         complete_table = complete_table.assign(prior_id=complete_table.index + len(self._dismod_file.prior))
@@ -268,9 +268,14 @@ class ModelWriter:
             return
         unique_ages = self._ages[np.unique(self._ages.round(decimals=14), return_index=True)[1]]
         unique_ages.sort()
+        # Dismod-AT doesn't like min and max ages nearly equal.
+        if unique_ages[-1] - unique_ages[0] < 1:
+            unique_ages = np.append(unique_ages, unique_ages[-1] + 1)
         self._dismod_file.age = pd.DataFrame(dict(age_id=range(len(unique_ages)), age=unique_ages))
         unique_times = self._times[np.unique(self._times.round(decimals=14), return_index=True)[1]]
         unique_times.sort()
+        if unique_times[-1] - unique_times[0] < 1:
+            unique_times = np.append(unique_times, unique_times[-1] + 1)
         self._dismod_file.time = pd.DataFrame(dict(time_id=range(len(unique_times)), time=unique_times))
         self._flushed = True
 

@@ -1,7 +1,8 @@
 """
 This set of tests derives from examples in Dismod-AT's distribution.
+These are described at https://bradbell.github.io/dismod_at/doc/user.htm
 """
-from math import nan, sqrt
+from math import nan, sqrt, exp
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +10,82 @@ import pandas as pd
 import pytest
 from scipy.stats import norm
 
-from cascade.model import Session, Model, SmoothGrid, Covariate, Uniform
+from cascade.model import Session, Model, SmoothGrid, Covariate, Uniform, Gaussian, LogGaussian
+
+
+def test_fit_random(dismod):
+    parent_location = 1
+    # The US and Canada are children of North America.
+    locations = pd.DataFrame(dict(
+        name=["North America", "United States", "Canada"],
+        parent=[nan, parent_location, parent_location],
+        c_location_id=[parent_location, 2, 3],
+    ))
+
+    iota_parent_true = 1e-2
+    united_states_random_effect = +0.5
+    canada_random_effect = -0.5
+
+    # Data values are exactly the correct values.
+    measured_value = np.array([
+        iota_parent_true,
+        iota_parent_true * exp(united_states_random_effect),
+        iota_parent_true * exp(canada_random_effect)])
+    data = pd.DataFrame(dict(
+        integrand="Sincidence",
+        location=[1, 2, 3],  # One data point for each location.
+        age_lower=50,
+        age_upper=50,
+        time_lower=2000,
+        time_upper=2000,
+        density="gaussian",
+        mean=measured_value,
+        std=0.1 * measured_value,
+        nu=nan,
+        eta=nan,
+    ))
+
+    # The only nonlinear rate is iota. The three groups of model variables
+    # are the underlying iota rate and random effects for US and Canada.
+    # Rates change linearly between 1995 and 2015 but are constant across ages.
+    iota = SmoothGrid(([50], [1995, 2015]))
+    iota.value[:, :] = Uniform(
+        mean=iota_parent_true * exp(united_states_random_effect),
+        lower=1e-4,
+        upper=1)
+    iota.dtime[:, :] = LogGaussian(mean=0.0, standard_deviation=0.1, eta=1e-8)
+
+    iota_child = SmoothGrid(([50], [1995, 2015]))
+    # This large standard deviation makes the Gaussian uninformative.
+    iota_child.value[:, :] = Gaussian(mean=0.0, standard_deviation=100.0)
+    # But constrain to little change through time.
+    iota_child.dtime[:, :] = Gaussian(mean=0.0, standard_deviation=0.1)
+
+    model = Model(["iota"], parent_location, [2, 3])
+    model.rate["iota"] = iota
+    # Set the grid for all children by setting it for None.
+    model.random_effect[("iota", None)] = iota_child
+
+    session = Session(locations, parent_location, Path("fit_random.db"))
+    option = dict(random_seed=0,
+                  derivative_test_random="second-order",
+                  max_num_iter_random=100,
+                  tolerance_random=1e-10)
+    session.set_option(**option)
+    result = session.fit(model, data)
+
+    parent_result = result.rate["iota"].grid.loc[:, "mean"]
+    parent_expected = iota_parent_true * exp(united_states_random_effect)
+    assert ((parent_result - parent_expected).abs() / parent_expected < 1e-10).all()
+    print(f"Random effects are {list(result.random_effect.keys())}")
+    node_not_location = 1
+    canada_result = result.random_effect[("iota", 3 - node_not_location)].grid.loc[:, "mean"]
+    canada_expected = -2 * united_states_random_effect
+    assert (((canada_result - canada_expected) / canada_expected).abs() < 1e-5).all()
+    us_result = result.random_effect[("iota", 2 - node_not_location)].grid.loc[:, "mean"]
+    us_expected = 0
+    assert ((us_result - us_expected).abs() < 1e-5).all()
+    assert node_not_location == 0
 
 
 @pytest.mark.parametrize("meas_std_effect", [
