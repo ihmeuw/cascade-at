@@ -28,7 +28,6 @@ def test_fit_gamma(meas_std_effect):
     data_std = iota_true / 3.0
 
     age_list = [0, 100]
-    time_list = [1990, 2200]
 
     parent_location = 1
     child_locations = list()
@@ -56,12 +55,14 @@ def test_fit_gamma(meas_std_effect):
     one = Covariate("one", 0)
     nonzero_rates = ["iota"]
     model = Model(nonzero_rates, parent_location, child_locations, covariates=[one])
-    model.rate["iota"] = SmoothGrid((age_list, time_list))
+
+    # There will be one rate, incidence, on two ages and two times.
+    model.rate["iota"] = SmoothGrid(([0], [1990]))
     model.rate["iota"].value[:, :] = Uniform(lower=iota_true / 100, upper=1, mean=iota_true / 10)
 
-    incidence_gamma = SmoothGrid([0, 1990])
+    incidence_gamma = SmoothGrid([[0], [1990]])
     incidence_gamma.value[:, :] = Uniform(lower=0, upper=10 * gamma_true, mean=gamma_true / 10)
-    model.gamma[("one", "iota")] = incidence_gamma
+    model.gamma[("one", "Sincidence")] = incidence_gamma
 
     # No need to specify weight in data b/c appropriate weight for each integrand is chosen.
     data = pd.DataFrame(dict(
@@ -71,9 +72,12 @@ def test_fit_gamma(meas_std_effect):
         age_upper=np.linspace(age_list[0], age_list[-1], n_data),
         time_lower=2000,
         time_upper=2000,
-        mean=norm(loc=iota_true, scale=delta, size=n_data, random_state=rng),
+        density="gaussian",
+        mean=norm.rvs(loc=iota_true, scale=delta, size=n_data, random_state=rng),
         std=data_std,
         one=1.0,
+        nu=nan,
+        eta=nan,
     ))
 
     # If you don't create a session with weights, they are automatically set to constant=1.
@@ -82,9 +86,12 @@ def test_fit_gamma(meas_std_effect):
                   zero_sum_random="iota", derivative_test_fixed="second-order",
                   max_num_iter_fixed=100, print_level_fixed=0,
                   tolerance_fixed=1e-10)
-    for opt, value in option.items():
-        session.set_option(opt, value)
+    session.set_option(**option)
 
     result = session.fit(model, data)
-    assert np.allclose(result.rate["iota"].grid["mean"], iota_true)
-    assert np.allclose(result.gamma[("one", "iota")].grid["mean"], gamma_true)
+    rate_out = result.rate["iota"].grid["mean"]
+    max_iota = ((rate_out - iota_true) / iota_true).abs().max()
+    gamma_out = result.gamma[("one", "Sincidence")].grid["mean"]
+    max_gamma = ((gamma_out - gamma_true) / gamma_true).abs().max()
+    assert max_iota < 0.2, f"max iota error {max_iota}"
+    assert max_gamma < 0.2, f"max gamma error {max_gamma}"

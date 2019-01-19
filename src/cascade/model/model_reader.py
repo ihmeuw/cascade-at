@@ -132,6 +132,7 @@ def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var
     draw = Var((np.unique(at_grid_df.age.values), np.unique(at_grid_df.time.values)))
     draw.grid = draw.grid.merge(
         at_grid_df[["age", "time", "var_id"]], how="left", on=["age", "time"])
+    draw.grid = draw.grid.drop(columns=["mean"])
     # The mulstd hyper-priors aren't indexed by age and time, so separate.
     for kind in ["value", "dage", "dtime"]:
         match = sub_grid_df.query("var_type == @kind")

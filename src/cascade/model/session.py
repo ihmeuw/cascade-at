@@ -228,6 +228,7 @@ class Session:
         with_location = with_weight.merge(
             self.dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id") \
             .drop(columns=["c_location_id", "location"])
+        with_location = with_location.rename(columns=self.covariate_rename)
         return with_location.assign(avgint_id=with_location.index)
 
     @staticmethod

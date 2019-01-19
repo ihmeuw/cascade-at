@@ -51,7 +51,6 @@ class ModelWriter:
         self._nslist = dict()  # rate to integer
         self._nslist_pair_rows = list()  # list of nslist id, node, and smooth
         self._covariate_id_func = lambda x: nan
-        self._integrand_id_func = lambda x: nan
         self._flushed = False
         self._children = None
         self._clear_previous_model()
@@ -276,7 +275,7 @@ class ModelWriter:
         self._flushed = True
 
     def _integrand_id_func(self, name):
-        return int(self._dismod_file.integrand.query("integrand_name==@name").integrand_id)
+        return int(self._dismod_file.integrand.query("integrand_name==@name").integrand_id.values[0])
 
     def _rate_id_func(self, name):
         return int(self._dismod_file.rate.query("rate_name==@name").rate_id)
