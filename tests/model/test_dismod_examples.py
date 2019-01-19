@@ -92,7 +92,7 @@ def test_fit_random(dismod):
     "add_var_scale_all",
     "add_var_scale_log",
 ])
-def test_fit_gamma(meas_std_effect):
+def test_fit_gamma(meas_std_effect, dismod):
     """The fit_gamma.py example in Dismod-AT's distribution"""
     rng = np.random.RandomState(3798427592)
 
