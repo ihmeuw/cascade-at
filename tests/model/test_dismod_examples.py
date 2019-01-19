@@ -78,14 +78,12 @@ def test_fit_random(dismod):
     parent_expected = iota_parent_true * exp(united_states_random_effect)
     assert ((parent_result - parent_expected).abs() / parent_expected < 1e-10).all()
     print(f"Random effects are {list(result.random_effect.keys())}")
-    node_not_location = 1
-    canada_result = result.random_effect[("iota", 3 - node_not_location)].grid.loc[:, "mean"]
+    canada_result = result.random_effect[("iota", 3)].grid.loc[:, "mean"]
     canada_expected = -2 * united_states_random_effect
     assert (((canada_result - canada_expected) / canada_expected).abs() < 1e-5).all()
-    us_result = result.random_effect[("iota", 2 - node_not_location)].grid.loc[:, "mean"]
+    us_result = result.random_effect[("iota", 2)].grid.loc[:, "mean"]
     us_expected = 0
     assert ((us_result - us_expected).abs() < 1e-5).all()
-    assert node_not_location == 0
 
 
 @pytest.mark.parametrize("meas_std_effect", [
@@ -126,7 +124,7 @@ def test_fit_gamma(meas_std_effect):
         delta = data_std * sqrt(1.0 + gamma_true_scale)
         gamma_true = gamma_true_scale * data_std * data_std
     else:
-        assert(False)
+        assert False
 
     one = Covariate("one", 0)
     nonzero_rates = ["iota"]

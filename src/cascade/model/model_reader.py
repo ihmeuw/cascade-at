@@ -46,11 +46,11 @@ def read_vars(dismod_file, var_ids, which):
     table = getattr(dismod_file, var_name)
     if table.empty:
         raise AttributeError(f"Dismod file has no data in {var_name} table.")
-    vars = DismodGroups()
+    var_groups = DismodGroups()
     for group_name, group in var_ids.items():
         for key, value in group.items():
-            vars[group_name][key] = _read_vars_one_field(table, var_name, value)
-    return vars
+            var_groups[group_name][key] = _read_vars_one_field(table, var_name, value)
+    return var_groups
 
 
 def _construct_vars_one_field(name, var_id, new_var):
@@ -121,7 +121,8 @@ def read_var_table_as_id(dismod_file):
 
     if var_ids.count() != len(dismod_file.var):
         MATHLOG.error(f"Found {var_ids.count()} of {len(dismod_file.var)} vars in db file.")
-    return var_ids
+
+    return rename_node_to_location(dismod_file.node, var_ids)
 
 
 def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var_ids, age, time):
@@ -132,9 +133,9 @@ def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var
     draw = Var((np.unique(at_grid_df.age.values), np.unique(at_grid_df.time.values)))
     draw.grid = draw.grid.merge(
         at_grid_df[["age", "time", "var_id"]], how="left", on=["age", "time"])
-    draw.grid = draw.grid.drop(columns=["mean"])
+    draw.grid = draw.grid.drop(columns=["mean", "idx"])
     # The mulstd hyper-priors aren't indexed by age and time, so separate.
-    for kind in ["value", "dage", "dtime"]:
+    for kind in ["value", "dage", "dtime"]:  # noqa: F841
         match = sub_grid_df.query("var_type == @kind")
         if not match.empty:
             draw.mulstd[kind] = match.var_id
@@ -198,3 +199,19 @@ def read_parent_node(dismod_file):
 
 def read_child_nodes(dismod_file, parent_node):
     return dismod_file.node[dismod_file.node.parent == parent_node].node_id.values
+
+
+def rename_node_to_location(node_table, var_ids):
+    """Given a DismodGroups based on node_id, change keys
+    to be based on location_id"""
+    node_to_location = DismodGroups()
+    for group_name, group in var_ids.items():
+        for key, smooth_value in group.items():
+            if group_name == "random_effect":
+                this_node = key[1]  # noqa: F841
+                child_location = int(node_table.query("node_id == @this_node").c_location_id)
+                node_to_location[group_name][(key[0], child_location)] = smooth_value
+            else:
+                node_to_location[group_name][key] = smooth_value
+
+    return node_to_location
