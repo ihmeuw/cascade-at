@@ -110,9 +110,15 @@ class Session:
         return self._fit("random", model, data, initial_guess)
 
     def _fit(self, fit_level, model, data, initial_guess):
-        # Throw out all tables
-        extremal = ({data.age_lower.min(), data.age_upper.max()},
-                    {data.time_lower.min(), data.time_upper.max()})
+        extremal = list()
+        for dimension in ["age", "time"]:
+            cols = [ac for ac in data.columns if ac.startswith(dimension)]
+            if not cols:
+                raise ValueError(f"Dataframe must have age and time columns but has {data.columns}.")
+            small = data[cols].min().min()
+            large = data[cols].max().max()
+            extremal.append({small, large})
+
         self.write_model(model, extremal)
         self.write_data(data)
         self._run_dismod(["init"])
@@ -188,6 +194,8 @@ class Session:
                 str_value = value
             elif isinstance(value, Iterable):
                 str_value = " ".join(str(x) for x in value)
+            elif isinstance(value, bool):
+                str_value = str(value).lower()
             else:
                 str_value = str(value)
             option.loc[option.option_name == name, "option_value"] = str_value
@@ -311,6 +319,9 @@ class Session:
                 The ``name`` is optional and will be assigned from the index.
                 In addition, covariate columns are included. If ``hold_out``
                 is missing, it will be assigned ``hold_out=0`` for not held out.
+                If nu or eta aren't there, they will be added. If ages
+                or times are listed as ``age`` and ``time``, they will be
+                considered point values and expanded into upper and lower.
         """
         # Some of the columns get the same treatment as the average integrand.
         # This takes care of integrand and location.
@@ -327,6 +338,17 @@ class Session:
             pass  # There are data names everywhere.
         if "hold_out" not in with_density.columns:
             with_density = with_density.assign(hold_out=0)
+        for additional in ["nu", "eta"]:
+            if additional not in with_density.columns:
+                with_density = with_density.assign(**{additional: nan})
+        for expand in ["age", "time"]:
+            point_dimension = (f"{expand}_lower" not in with_density.columns and
+                               f"{expand}_upper" not in with_density.columns)
+            if point_dimension and expand in with_density.columns:
+                with_density = with_density.assign(
+                    **{f"{expand}_lower": with_density[expand], f"{expand}_upper": with_density[expand]})
+                with_density = with_density.drop(columns=[expand])
+
         self.dismod_file.data = with_density.rename(columns={"mean": "meas_value", "std": "meas_std",
                                                              "name": "data_name"})
 

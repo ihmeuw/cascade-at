@@ -287,7 +287,15 @@ def test_fit_gamma(meas_std_effect, dismod):
 
 
 def test_age_avg_split(dismod):
-    """Demonstrate reason for using age_avg_split option."""
+    """Demonstrate reason for using age_avg_split option.
+
+    For a single, rate, this makes an underlying grid that has four
+    age points as support: 0, 0.9, 1.1, and 100. It defines one
+    value below 1 and one value above 1. When Dismod-AT predicts from
+    this surface with three integration points (0, 50, 100), it does a
+    terrible job, but if you add an integration point just at 1, then
+    it fits perfectly.
+    """
 
     # true values used to simulate data
     omega_0_1 = 1e-1
@@ -325,3 +333,69 @@ def test_age_avg_split(dismod):
     assert not_predicted.empty and not predicted.empty
     assert np.isclose(predicted.iloc[0]["avg_integrand"], omega_0_1, rtol=1e-10)
     assert np.isclose(predicted.iloc[1]["avg_integrand"], omega_1_100, rtol=1e-10)
+
+
+# Missing user_diabetes.py
+# Missing user_asymptotic.py
+
+# Not doing user_change_grid.py because it's about editing the db, and
+# we can write the db easily.
+
+# Missing const_random.py
+# Missing const_value.py
+# Missing continue_fit.py
+
+
+def test_diff_constraint(dismod):
+    """Apply constraints on differences in age and time."""
+    parent_location = 1
+    # The US and Canada are children of North America.
+    locations = pd.DataFrame(dict(
+        name=["North America", "United States", "Canada"],
+        parent=[nan, parent_location, parent_location],
+        c_location_id=[parent_location, 2, 3],
+    ))
+
+    nonzero_rates = ["iota", "chi", "rho", "omega"]
+    model = Model(nonzero_rates, parent_location, [2, 3])
+    for add_rate in nonzero_rates:
+        priors = SmoothGrid(([0, 100], [1995, 2015]))
+        priors.value[:, :] = Uniform(lower=0.01, upper=1, mean=0.1)
+        priors.dage[:, :] = Gaussian(lower=0.01, mean=0.01, standard_deviation=0.01)
+        priors.dtime[:, :] = Gaussian(lower=0.01, mean=0.01, standard_deviation=0.01)
+        model.rate[add_rate] = priors
+
+        random_effect = SmoothGrid(([0, 100], [1995, 2015]))
+        random_effect.value[:, :] = Gaussian(mean=0, standard_deviation=0.01)
+        random_effect.dage[:, :] = Gaussian(mean=0, standard_deviation=0.01)
+        random_effect.dtime[:, :] = Gaussian(mean=0, standard_deviation=0.01)
+
+    data_mean = 0.05
+    data_std = data_mean / 5
+    data = pd.DataFrame(dict(
+        integrand=["prevalence", "Sincidence", "remission", "mtexcess", "mtother"],
+        location=parent_location,
+        age=0,
+        time=1995,
+        density="gaussian",
+        mean=data_mean,
+        std=data_std,
+    ))
+    session = Session(locations, parent_location, Path("diff_constraint.db"))
+    option = dict(
+        random_seed=0,
+        ode_step_size=10,
+        quasi_fixed=True,
+        derivative_test_fixed="first-order",
+        max_num_iter_fixed=100,
+        print_level_fixed=0,
+        tolerance_fixed=1e-10,
+        derivative_test_random="second-order",
+        max_num_iter_random=100,
+        print_level_random=0,
+        tolerance_random=1e-10,
+    )
+    session.set_option(**option)
+
+    result = session.fit(model, data)
+    assert result is not None
