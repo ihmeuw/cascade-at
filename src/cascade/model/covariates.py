@@ -67,6 +67,9 @@ class Covariate:
                 raise ValueError(f"max difference must be greater than zero {difference}")
             self._max_difference = diff
 
+    def __hash__(self):
+        return hash((self._name, self._reference, self._max_difference))
+
     def __repr__(self):
         return f"Covariate({self.name}, {self.reference}, {self.max_difference})"
 

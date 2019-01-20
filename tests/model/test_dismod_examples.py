@@ -72,7 +72,7 @@ def test_fit_random(dismod):
                   max_num_iter_random=100,
                   tolerance_random=1e-10)
     session.set_option(**option)
-    result = session.fit(model, data)
+    result = session.fit_random(model, data)
 
     # The rates for the children are correct.
     parent = result.rate["iota"]
@@ -86,7 +86,7 @@ def test_fit_random(dismod):
         canada_found = parent(age, time) * exp(canada(age, time))
         assert abs((canada_found - iota_canada_true) / iota_canada_true) < 1e-5
 
-        # It happens that the parent rate will match the united states
+        # Because we did a fit random, the parent rate will match the U.S.
         # because that's where the solver started looking. (Try changing
         # the mean of the prior for the iota parent rate, and this will shift.)
         assert abs((parent(age, time) - iota_us_true) / iota_us_true) < 1e-10

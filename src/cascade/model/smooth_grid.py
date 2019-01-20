@@ -1,3 +1,4 @@
+from datetime import timedelta
 from math import nan, inf
 from numbers import Real
 
@@ -6,7 +7,8 @@ import pandas as pd
 
 from cascade.model.priors import prior_distribution
 
-GRID_SNAP_DISTANCE = 2e-16
+GRID_SNAP_DISTANCE = 1 / timedelta(days=365).total_seconds()
+"""Times within one second are considered equal."""
 
 
 class _PriorView:
@@ -115,6 +117,21 @@ class _PriorView:
             self.param_names
         ] = [to_set[setp] if setp in to_set else nan for setp in self.param_names]
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        if self.mulstd != other.mulstd:
+            return False
+        try:
+            pd.testing.assert_frame_equal(self.grid, other.grid)
+            pd.testing.assert_frame_equal(self.mulstd, other.mulstd)
+            return True
+        except AssertionError as ae:
+            if "values are different" in str(ae):
+                return False
+            else:
+                raise
+
     def apply(self, transform):
         for idx, row in self.grid.loc[:, self.param_names + ["age", "time"]].iterrows():
             new_distribution = transform(row.age, row.time, prior_distribution(row))
@@ -142,6 +159,11 @@ class SmoothGrid:
 
     def __str__(self):
         return f"SmoothGrid({len(self.ages), len(self.times)})"
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._value == other._value and self._dage == other._dage and self._dtime == other._dtime
 
     def age_time(self):
         yield from zip(np.repeat(self.ages, len(self.times)), np.tile(self.times, len(self.ages)))

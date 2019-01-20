@@ -40,12 +40,27 @@ class Var:
     def __str__(self):
         return f"Var({len(self.ages), len(self.times)})"
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        if self.mulstd != other.mulstd:
+            return False
+        try:
+            pd.testing.assert_frame_equal(self.grid, other.grid)
+            return True
+        except AssertionError as ae:
+            if "values are different" in str(ae):
+                return False
+            else:
+                raise
+
     def __call__(self, age, time):
         if self._spline is None:
             self._spline = self._as_function()
         result = self._spline(age, time)
+        # Result can be a numpy array, so undo that if input wasn't an array.
         if np.isscalar(age) and np.isscalar(time):
-            return np.asscalar(result)
+            return result.item()
         else:
             return result
 

@@ -51,6 +51,13 @@ class DismodGroups(UserDict):
                 total += len(container)
         return total
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        for group_name, group in self.data.items():
+            if group != other.data[group_name]:
+                return False
+
     def __str__(self):
         message = list()
         for group_name, group in self.items():

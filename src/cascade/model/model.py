@@ -70,6 +70,20 @@ class Model(DismodGroups):
             else:
                 raise RuntimeError(f"Unknown kind of field {group_name}")
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        if not super().__eq__(other):
+            return False
+        if self.scale_set_by_user and not (other.scale_set_by_user and self._scale == other._scale):
+            return False
+        return (set(self.nonzero_rates) == set(other.nonzero_rates) and
+                self.location_id == other.location_id and
+                set(self.child_location) == set(other.child_location) and
+                set(self.covariates) == set(other.covariates) and
+                self.weights == other.weights
+                )
+
     def _ensure_weights(self):
         """If weights weren't made, then make them constant. Must be done after
         there is data in the Model."""
