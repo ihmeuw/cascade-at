@@ -43,7 +43,11 @@ class Var:
     def __call__(self, age, time):
         if self._spline is None:
             self._spline = self._as_function()
-        return self._spline(age, time)
+        result = self._spline(age, time)
+        if np.isscalar(age) and np.isscalar(time):
+            return np.asscalar(result)
+        else:
+            return result
 
     def _as_function(self):
         """Constructs a function which mimics how Dismod-AT turns a field of

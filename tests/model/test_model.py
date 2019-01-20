@@ -216,17 +216,11 @@ def test_fit_mortality(dismod):
     priors = model.rate["omega"]
     print(f"test_fit priors\n{priors}")
 
-    priors.value.grid.loc[:, ["density", "std", "eta"]] = [
-        "gaussian", 0.5, 1e-4
-    ]
-    priors.value.grid.loc[:, "mean"] = omega.grid["mean"]
-    priors.value.grid.loc[:, "upper"] = 5 + omega.grid["mean"]
-    priors.dage.grid.loc[:, ["density", "mean", "std", "lower", "upper"]] = [
-        "gaussian", 0.0, 0.1, -5, 5
-    ]
-    priors.dtime.grid.loc[:, ["density", "mean", "std", "lower", "upper"]] = [
-        "gaussian", 0.0, 0.1, -5, 5
-    ]
+    for a, t in priors.age_time():
+        target = omega(a, t)
+        priors.value[a, t] = Gaussian(mean=target, standard_deviation=0.5, eta=1e-4, upper=target + 5, lower=0)
+        priors.dage[a, t] = Gaussian(mean=0, standard_deviation=0.1, lower=-5, upper=5)
+        priors.dtime[a, t] = Gaussian(mean=0, standard_deviation=0.1, lower=-5, upper=5)
 
     data = predicted.drop(columns=["sample_index", "predict_id"]).rename(columns={"avg_integrand": "mean"})
     data = data.assign(density="gaussian", std=0.1, eta=1e-4, nu=nan)
