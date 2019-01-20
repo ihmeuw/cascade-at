@@ -1,10 +1,12 @@
-from math import nan
+from math import nan, inf
+from numbers import Real
 
 import numpy as np
 import pandas as pd
 
-from cascade.dismod.constants import DensityEnum
 from cascade.model.priors import prior_distribution
+
+GRID_SNAP_DISTANCE = 2e-16
 
 
 class _PriorView:
@@ -43,12 +45,41 @@ class _PriorView:
             eta=[nan],
         ))
 
+    def age_time(self):
+        yield from zip(np.repeat(self.ages, len(self.times)), np.tile(self.times, len(self.ages)))
+
+    def age_time_diff(self):
+        yield from zip(
+            np.repeat(self.ages, len(self.times)),
+            np.tile(self.times, len(self.ages)),
+            np.repeat(np.ediff1d(self.ages, to_end=inf), len(self.times)),
+            np.tile(np.ediff1d(self.times, to_end=inf), len(self.ages)),
+        )
+
     def __len__(self):
         if self.mulstd.iloc[0].density is None:
             len_std = 0
         else:
             len_std = 1
         return len(self.grid) + len_std
+
+    def __getitem__(self, at_slice):
+        try:
+            if len(at_slice) != 2:
+                raise ValueError("Set value at an age and time, so two arguments.")
+            for check_int in at_slice:
+                if not isinstance(check_int, Real):
+                    raise ValueError(f"Can only get one prior so use age-time values, not slices.")
+        except TypeError:
+            raise ValueError("Set value at an age and time, so two arguments")
+        age_time = (self.ages, self.times)
+        at_idx = list()
+        for idx in range(2):
+            closest = age_time[idx][np.abs(age_time[idx] - at_slice[idx]).argmin()]
+            if not np.isclose(closest, at_slice[idx], atol=GRID_SNAP_DISTANCE):
+                raise ValueError(f"The nearest point to {at_slice[idx]} is {closest}.")
+            at_idx.append(closest)
+        return prior_distribution(self.grid[(self.grid.age == at_idx[0]) & (self.grid.time == at_idx[1])].iloc[0])
 
     def __setitem__(self, at_slice, value):
         """
@@ -57,10 +88,27 @@ class _PriorView:
             value (priors.Prior): The prior to set, containing dictionary of
                                   parameters.
         """
-        ages = self.ages[at_slice[0]]
-        times = self.times[at_slice[1]]
+        try:
+            if len(at_slice) != 2:
+                raise ValueError("Set value at an age and time, so two arguments.")
+        except TypeError:
+            raise ValueError("Set value at an age and time, so two arguments")
+        at_range = list()
+        for one_slice in at_slice:
+            if not isinstance(one_slice, slice):
+                one_slice = slice(one_slice, one_slice)
+            if one_slice.step is not None:
+                raise ValueError("Slice in age or time, without a step.")
+            start = one_slice.start if one_slice.start is not None else -inf
+            stop = one_slice.stop if one_slice.stop is not None else inf
+            at_range.append([start - GRID_SNAP_DISTANCE, stop + GRID_SNAP_DISTANCE])
+        ages = self.ages[(at_range[0][0] <= self.ages) & (self.ages <= at_range[0][1])]
+        times = self.times[(at_range[1][0] <= self.times) & (self.times <= at_range[1][1])]
+        if len(ages) == 0:
+            raise ValueError(f"No ages within range {at_range[0]}")
+        if len(times) == 0:
+            raise ValueError(f"No times within range {at_range[1]}")
         to_set = value.parameters()
-        to_set["density_id"] = DensityEnum[to_set["density"]].value
         self.grid.loc[
             np.in1d(self.grid.age, ages) & np.in1d(self.grid.time, times)
             & (self.grid.kind == self._kind),
@@ -83,8 +131,8 @@ class SmoothGrid:
         Args:
             age_time_grid (Tuple(set,set)): The supporting grid.
         """
-        self.ages = np.array(age_time_grid[0], dtype=np.float)
-        self.times = np.array(age_time_grid[1], dtype=np.float)
+        self.ages = np.sort(np.array(age_time_grid[0], dtype=np.float))
+        self.times = np.sort(np.array(age_time_grid[1], dtype=np.float))
         self._value = _PriorView("value", self.ages, self.times)
         self._dage = _PriorView("dage", self.ages, self.times)
         self._dtime = _PriorView("dtime", self.ages, self.times)
@@ -95,9 +143,16 @@ class SmoothGrid:
     def __str__(self):
         return f"SmoothGrid({len(self.ages), len(self.times)})"
 
-    @property
     def age_time(self):
-        return self.ages, self.times
+        yield from zip(np.repeat(self.ages, len(self.times)), np.tile(self.times, len(self.ages)))
+
+    def age_time_diff(self):
+        yield from zip(
+            np.repeat(self.ages, len(self.times)),
+            np.tile(self.times, len(self.ages)),
+            np.repeat(np.ediff1d(self.ages, to_end=inf), len(self.times)),
+            np.tile(np.ediff1d(self.times, to_end=inf), len(self.ages)),
+        )
 
     @property
     def value(self):
@@ -132,7 +187,7 @@ def uninformative_grid_from_var(var, strictly_positive):
     Returns:
         SmoothGrid: A single smooth grid with Uniform distributions.
     """
-    smooth_grid = SmoothGrid(var.age_time)
+    smooth_grid = SmoothGrid((var.ages, var.times))
     if strictly_positive:
         smooth_grid.value.grid.loc[:, ["density", "mean", "lower", "upper"]] = [
             "uniform", 1e-2, 1e-9, 5

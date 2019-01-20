@@ -1,3 +1,4 @@
+from copy import copy
 from functools import total_ordering
 
 import numpy as np
@@ -28,6 +29,15 @@ class _Prior:
 
     def parameters(self):
         return dict(density=self.density, **self._parameters())
+
+    def assign(self, **kwargs):
+        """Create a new distribution with modified parameters."""
+        modified = copy(self)
+        if set(kwargs.keys()) - set(self.__dict__.keys()):
+            missing = list(sorted(set(kwargs.keys()) - set(self.__dict__.keys())))
+            raise AttributeError(f"The prior doesn't have these attributes {missing}.")
+        modified.__dict__.update(kwargs)
+        return modified
 
     def __hash__(self):
         return hash((frozenset(self.parameters().items()), self.name))
@@ -227,28 +237,28 @@ DENSITY_ID_TO_PRIOR = {
 
 
 def prior_distribution(parameters):
-    density_id, lower, upper, value, stdev, eta, nu = [
+    density, lower, upper, value, stdev, eta, nu = [
         parameters[name] for name in
         [
-            "density_id", "lower", "upper", "mean", "std", "eta", "nu"
+            "density", "lower", "upper", "mean", "std", "eta", "nu"
         ]
     ]
     if np.isclose(lower, upper):
         return Constant(value)
-    elif density_id == 0:
+    elif density == "uniform":
         return Uniform(lower, upper, value, eta)
-    elif density_id == 1:
+    elif density == "gaussian":
         return Gaussian(value, stdev, lower, upper, eta)
-    elif density_id == 2:
+    elif density == "laplace":
         return Laplace(value, stdev, lower, upper, eta)
-    elif density_id == 3:
+    elif density == "students":
         return StudentsT(value, stdev, nu, lower, upper, eta)
-    elif density_id == 4:
+    elif density == "log_gaussian":
         return LogGaussian(value, stdev, eta, lower, upper)
-    elif density_id == 5:
+    elif density == "log_laplace":
         return LogLaplace(value, stdev, eta, lower, upper)
-    elif density_id == 6:
+    elif density == "log_students":
         return LogStudentsT(value, stdev, nu, eta, lower, upper)
     else:
-        CODELOG.error(f"Cannot identify density {density_id}.")
-        raise PriorError(f"Cannot identify density {density_id}.")
+        CODELOG.error(f"Cannot identify density {density}.")
+        raise PriorError(f"Cannot identify density {density}.")
