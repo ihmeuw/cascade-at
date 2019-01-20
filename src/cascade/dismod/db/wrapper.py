@@ -206,10 +206,16 @@ class DismodFile:
 
         add_columns_to_table(table_definition, new_column_types)
 
-    def refresh(self):
+    def refresh(self, evict_tables=None):
         """ Throw away any un-flushed changes and reread data from disk.
         """
-        self._table_data = {}
+        if evict_tables is None:
+            self._table_data = {}
+        else:
+            to_evict = [evict_tables] if isinstance(evict_tables, str) else evict_tables
+            for evict in to_evict:
+                if evict in self._table_data:
+                    del self._table_data[evict]
 
     def __getattr__(self, table_name):
         if table_name in self._table_data:

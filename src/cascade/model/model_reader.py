@@ -127,9 +127,12 @@ def read_var_table_as_id(dismod_file):
 
 def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var_ids, age, time):
     at_grid_df = sub_grid_df[sub_grid_df.age_id.notna() & sub_grid_df.time_id.notna()]
-    at_grid_df = at_grid_df.merge(age, on="age_id", how="left") \
-        .merge(time, on="time_id", how="left") \
-        .drop(columns=["age_id", "time_id"])
+    if age.index.name != "age_id":
+        age = age.set_index("age_id")
+    if time.index.name != "time_id":
+        time = time.set_index("time_id")
+    at_grid_df = at_grid_df.merge(age, left_on="age_id", right_index=True, how="left") \
+        .merge(time, left_on="time_id", right_index=True, how="left")
     draw = Var((np.unique(at_grid_df.age.values), np.unique(at_grid_df.time.values)))
     draw.grid = draw.grid.merge(
         at_grid_df[["age", "time", "var_id"]], how="left", on=["age", "time"])
@@ -164,13 +167,13 @@ def read_smooths(dismod_file, child_node):
 
 def _read_rate_smooths(child_node, nslist_pair_table, rate_table, smooths):
     for rate_row in rate_table.itertuples():
-        if not isnan(rate_row.parent_smooth_id):
+        if rate_row.parent_smooth_id is not None and not isnan(rate_row.parent_smooth_id):
             smooths.rate[rate_row.rate_name] = int(rate_row.parent_smooth_id)
-        if not isnan(rate_row.child_smooth_id):
+        if rate_row.child_smooth_id is not None and not isnan(rate_row.child_smooth_id):
             # Random effects can have children with different fields but same smoothing.
             for child in child_node:
                 smooths.random_effect[(rate_row.rate_name, child)] = int(rate_row.child_smooth_id)
-        if not isnan(rate_row.child_nslist_id):
+        if rate_row.child_nslist_id is not None and not isnan(rate_row.child_nslist_id):
             child_df = nslist_pair_table[nslist_pair_table.nslist_id == rate_row.child_nslist_id]
             for ns_row in child_df.itertuples():
                 smooths.random_effect[(rate_row.rate_name, ns_row.node_id)] = int(ns_row.smooth_id)

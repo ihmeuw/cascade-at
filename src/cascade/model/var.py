@@ -30,9 +30,16 @@ class Var:
                 f"Var {name} has mulstds besides the three: {list(self.mulstd.keys())}"
             )
 
-    @property
     def age_time(self):
-        yield product(self.ages, self.times)
+        yield from zip(np.repeat(self.ages, len(self.times)), np.tile(self.times, len(self.ages)))
+
+    def __getitem__(self, age_time):
+        age, time = age_time
+        rows = self.grid.query("age == @age and time == @time")
+        if len(rows) > 0:
+            return rows["mean"]
+        else:
+            raise KeyError(f"Age {age} and time {time} not found.")
 
     def __len__(self):
         return self.ages.shape[0] * self.times.shape[0] + len(self.mulstd)

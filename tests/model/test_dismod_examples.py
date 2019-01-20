@@ -96,6 +96,101 @@ def test_fit_random(dismod):
         assert abs((canada(age, time) - 2 * canada_random_effect) / canada_random_effect) < 1e-5
 
 
+def test_fit_fixed_both(dismod):
+    """Dismod-AT fits fixed effects in order to get starting condition for
+    fit with random effects."""
+    parent_location = 1
+    # The US and Canada are children of North America.
+    locations = pd.DataFrame(dict(
+        name=["North America", "United States", "Canada"],
+        parent=[nan, parent_location, parent_location],
+        c_location_id=[parent_location, 2, 3],
+    ))
+
+    iota_parent_true = 1e-2
+    united_states_random_effect = +0.5
+    canada_random_effect = -0.5
+    iota_us_true = iota_parent_true * exp(united_states_random_effect)
+    iota_canada_true = iota_parent_true * exp(canada_random_effect)
+    # Data values are exactly the correct values for children.
+    # We can set the parent location intentionally very wrong b/c it's ignored.
+    measured_value = np.array([iota_parent_true, iota_us_true, iota_canada_true])
+    data = pd.DataFrame(dict(
+        integrand="Sincidence",
+        location=[1, 2, 3],  # One data point for each location.
+        age_lower=50,
+        age_upper=50,
+        time_lower=2000,
+        time_upper=2000,
+        density="gaussian",
+        mean=measured_value,
+        std=0.1 * measured_value,
+        nu=nan,
+        eta=nan,
+    ))
+
+    # The only nonlinear rate is iota. The three groups of model variables
+    # are the underlying iota rate and random effects for US and Canada.
+    # Rates change linearly between 1995 and 2015 but are constant across ages.
+    iota = SmoothGrid(([50], [1995, 2015]))
+    iota.value[:, :] = Uniform(mean=iota_parent_true / 100, lower=iota_parent_true / 100, upper=1)
+    iota.dtime[:, :] = LogGaussian(mean=0.0, standard_deviation=0.1, eta=1e-8)
+
+    iota_child = SmoothGrid(([50], [1995, 2015]))
+    # This large standard deviation makes the Gaussian uninformative.
+    iota_child.value[:, :] = Gaussian(mean=0.0, standard_deviation=100.0)
+    # But constrain to little change through time.
+    iota_child.dtime[:, :] = Gaussian(mean=0.0, standard_deviation=0.1)
+
+    model = Model(["iota"], parent_location, [2, 3])
+    model.rate["iota"] = iota
+    # Set the grid for all children by setting it for None.
+    model.random_effect[("iota", None)] = iota_child
+
+    session = Session(locations, parent_location, Path("fit_random.db"))
+    option = dict(random_seed=0,
+                  quasi_fixed="true",
+                  derivative_test_fixed="first-order",
+                  max_num_iter_fixed=100,
+                  tolerance_fixed=1e-11,
+                  derivative_test_random="second-order",
+                  max_num_iter_random=100,
+                  tolerance_random=1e-11,
+                  )
+    session.set_option(**option)
+    fixed_var = session.fit_fixed(model, data)
+
+    parent_fixed = fixed_var.rate["iota"]
+    us_fixed = fixed_var.random_effect[("iota", 2)]
+    canada_fixed = fixed_var.random_effect[("iota", 3)]
+    # The rates for the children are zero.
+    for age, time in us_fixed.age_time():
+        np.isclose(us_fixed[age, time], 0)
+    for age, time in canada_fixed.age_time():
+        np.isclose(canada_fixed[age, time], 0)
+    # But note that the result of fit fixed is much better than the prior mean.
+    for age, time in [(50, 1995), (50, 2000), (50, 2015)]:
+        fixed_value = parent_fixed(age, time)
+        assert fixed_value / iota_parent_true < 2
+        assert 0.5 < fixed_value / iota_parent_true
+
+    result = session.fit(model, data, initial_guess=fixed_var)
+
+    parent = result.rate["iota"]
+    us = result.random_effect[("iota", 2)]
+    canada = result.random_effect[("iota", 3)]
+    for age, time in [(50, 1995), (50, 2000), (50, 2015)]:
+        assert np.isclose(parent(age, time), iota_parent_true, rtol=1e-5)
+        assert np.isclose(us(age, time), united_states_random_effect, atol=1e-5)
+        assert np.isclose(canada(age, time), canada_random_effect, rtol=1e-5)
+
+        # These two assertions mean that Dismod-AT found the correct
+        # rates for the children, after applying random effects to the parent.
+        us_found = parent(age, time) * exp(us(age, time))
+        assert np.isclose(us_found, iota_us_true, rtol=1e-4)
+        canada_found = parent(age, time) * exp(canada(age, time))
+        assert np.isclose(canada_found, iota_canada_true, rtol=1e-4)
+
 @pytest.mark.parametrize("meas_std_effect", [
     "add_std_scale_all",
     "add_std_scale_log",
