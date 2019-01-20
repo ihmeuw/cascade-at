@@ -10,7 +10,9 @@ import pandas as pd
 import pytest
 from scipy.stats import norm
 
-from cascade.model import Session, Model, SmoothGrid, Covariate, Uniform, Gaussian, LogGaussian
+from cascade.model import (
+    Session, Model, SmoothGrid, Covariate, DismodGroups, Var,
+    Uniform, Gaussian, LogGaussian)
 
 
 def test_fit_random(dismod):
@@ -191,6 +193,11 @@ def test_fit_fixed_both(dismod):
         canada_found = parent(age, time) * exp(canada(age, time))
         assert np.isclose(canada_found, iota_canada_true, rtol=1e-4)
 
+
+# user_posterior.py is missing.
+# user_fit_sim.py is missing.
+
+
 @pytest.mark.parametrize("meas_std_effect", [
     "add_std_scale_all",
     "add_std_scale_log",
@@ -277,3 +284,44 @@ def test_fit_gamma(meas_std_effect, dismod):
     max_gamma = ((gamma_out - gamma_true) / gamma_true).abs().max()
     assert max_iota < 0.2, f"max iota error {max_iota}"
     assert max_gamma < 0.2, f"max gamma error {max_gamma}"
+
+
+def test_age_avg_split(dismod):
+    """Demonstrate reason for using age_avg_split option."""
+
+    # true values used to simulate data
+    omega_0_1 = 1e-1
+    omega_1_100 = 1e-2
+
+    parent_location = 1
+    locations = pd.DataFrame(dict(
+        name=["global"],
+        parent=[nan],
+        c_location_id=[parent_location],
+    ))
+
+    session = Session(locations, parent_location, Path("fit_random.db"))
+    option = dict(random_seed=0,
+                  ode_step_size=50,  # Initial step size is HUGE.
+                  age_avg_split=[1],  # This adds an integration point at 1.0.
+                  )
+    session.set_option(**option)
+
+    avgints = pd.DataFrame(dict(
+        integrand="mtother",
+        location=parent_location,
+        age_lower=[0, 1.1],
+        age_upper=[0.9, 100],
+        time_lower=2000,
+        time_upper=2000,
+    ))
+    model_variables = DismodGroups()
+    omega_rate = Var([[0.0, 0.9, 1.1, 100.0], [1995.0, 2015.0]])
+    omega_rate[0:1, :] = omega_0_1
+    omega_rate[1:, :] = omega_1_100
+    model_variables.rate["omega"] = omega_rate
+
+    predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
+    assert not_predicted.empty and not predicted.empty
+    assert np.isclose(predicted.iloc[0]["avg_integrand"], omega_0_1, rtol=1e-10)
+    assert np.isclose(predicted.iloc[1]["avg_integrand"], omega_1_100, rtol=1e-10)

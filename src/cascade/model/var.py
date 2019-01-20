@@ -1,9 +1,11 @@
 from itertools import product
-from math import nan
+from math import nan, inf
 
 import numpy as np
 import pandas as pd
 from scipy.interpolate import RectBivariateSpline, interp1d
+
+from cascade.model.smooth_grid import GRID_SNAP_DISTANCE
 
 
 class Var:
@@ -40,6 +42,35 @@ class Var:
             return rows["mean"]
         else:
             raise KeyError(f"Age {age} and time {time} not found.")
+
+    def __setitem__(self, at_slice, value):
+        """
+        Args:
+            at_slice (slice, slice): What to change, as integer offset into ages and times.
+            value (priors.Prior): The prior to set, containing dictionary of
+                                  parameters.
+        """
+        try:
+            if len(at_slice) != 2:
+                raise ValueError("Set value at an age and time, so two arguments.")
+        except TypeError:
+            raise ValueError("Set value at an age and time, so two arguments")
+        at_range = list()
+        for one_slice in at_slice:
+            if not isinstance(one_slice, slice):
+                one_slice = slice(one_slice, one_slice)
+            if one_slice.step is not None:
+                raise ValueError("Slice in age or time, without a step.")
+            start = one_slice.start if one_slice.start is not None else -inf
+            stop = one_slice.stop if one_slice.stop is not None else inf
+            at_range.append([start - GRID_SNAP_DISTANCE, stop + GRID_SNAP_DISTANCE])
+        ages = self.ages[(at_range[0][0] <= self.ages) & (self.ages <= at_range[0][1])]
+        times = self.times[(at_range[1][0] <= self.times) & (self.times <= at_range[1][1])]
+        if len(ages) == 0:
+            raise ValueError(f"No ages within range {at_range[0]}")
+        if len(times) == 0:
+            raise ValueError(f"No times within range {at_range[1]}")
+        self.grid.loc[np.in1d(self.grid.age, ages) & np.in1d(self.grid.time, times), "mean"] = value
 
     def __len__(self):
         return self.ages.shape[0] * self.times.shape[0] + len(self.mulstd)
