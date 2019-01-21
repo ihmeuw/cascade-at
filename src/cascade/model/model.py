@@ -12,7 +12,7 @@ class Model(DismodGroups):
     Uses ages and times as given and translates them into ``age_id``
     and ``time_id`` for Dismod-AT.
     """
-    def __init__(self, nonzero_rates, parent_location, child_location, covariates=None, weights=None):
+    def __init__(self, nonzero_rates, parent_location, child_location=None, covariates=None, weights=None):
         """
         >>> locations = location_hierarchy(execution_context)
         >>> m = Model(["chi", "omega", "iota"], 6, locations)
@@ -20,7 +20,7 @@ class Model(DismodGroups):
         super().__init__()
         self.nonzero_rates = nonzero_rates
         self.location_id = parent_location
-        self.child_location = child_location
+        self.child_location = child_location if child_location else list()
         # Covariates are here because their reference values are part of
         # the model. Even though avgint and data use them, a model is always
         # written before the avgint and data are written.

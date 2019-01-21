@@ -15,8 +15,8 @@ from cascade.model import (
     Uniform, Gaussian, LogGaussian)
 
 
-def test_fit_random(dismod):
-    """Dismod-AT fits random effects for two children on a single rate."""
+@pytest.fixture
+def locations():
     parent_location = 1
     # The US and Canada are children of North America.
     locations = pd.DataFrame(dict(
@@ -24,7 +24,12 @@ def test_fit_random(dismod):
         parent=[nan, parent_location, parent_location],
         c_location_id=[parent_location, 2, 3],
     ))
+    return locations
 
+
+def test_fit_random(dismod, locations):
+    """Dismod-AT fits random effects for two children on a single rate."""
+    parent_location = 1
     iota_parent_true = 1e-2
     united_states_random_effect = +0.5
     canada_random_effect = -0.5
@@ -98,17 +103,10 @@ def test_fit_random(dismod):
         assert abs((canada(age, time) - 2 * canada_random_effect) / canada_random_effect) < 1e-5
 
 
-def test_fit_fixed_both(dismod):
+def test_fit_fixed_both(dismod, locations):
     """Dismod-AT fits fixed effects in order to get starting condition for
     fit with random effects."""
     parent_location = 1
-    # The US and Canada are children of North America.
-    locations = pd.DataFrame(dict(
-        name=["North America", "United States", "Canada"],
-        parent=[nan, parent_location, parent_location],
-        c_location_id=[parent_location, 2, 3],
-    ))
-
     iota_parent_true = 1e-2
     united_states_random_effect = +0.5
     canada_random_effect = -0.5
@@ -194,7 +192,39 @@ def test_fit_fixed_both(dismod):
         assert np.isclose(canada_found, iota_canada_true, rtol=1e-4)
 
 
-# user_posterior.py is missing.
+def test_posterior(locations, dismod):
+    """Samples from the posterior distribution, in user_posterior.py."""
+    omega_world_mean = 1e-2
+    number_sample = 30
+    parent_location = 1
+
+    model = Model(["omega"], parent_location)
+    model.rate["omega"] = SmoothGrid([[0], [1995, 2015]])
+    model.rate["omega"].value[:, :] = Gaussian(
+        lower=0, upper=10, mean=omega_world_mean, standard_deviation=omega_world_mean)
+    model.rate["omega"].dtime[:, :] = Gaussian(lower=-5, upper=5, mean=0, standard_deviation=omega_world_mean)
+
+    fit_var = DismodGroups()
+    fit_var.rate["omega"] = Var([[0], [1995, 2015]])
+    fit_var.rate["omega"][:, :] = omega_world_mean
+
+    data = None
+
+    session = Session(locations, parent_location, Path("posteriors.db"))
+    option = dict(random_seed=0,
+                  quasi_fixed="true",
+                  derivative_test_fixed="first-order",
+                  max_num_iter_fixed=100,
+                  print_level_fixed=0,
+                  tolerance_fixed=1e-11,
+                  derivative_test_random="second-order",
+                  max_num_iter_random=100,
+                  tolerance_random=1e-11,
+                  print_level_random=0,
+                  )
+    session.set_option(**option)
+    session.simulate(model, data, fit_var, number_sample)
+
 # user_fit_sim.py is missing.
 
 
@@ -204,7 +234,7 @@ def test_fit_fixed_both(dismod):
     "add_var_scale_all",
     "add_var_scale_log",
 ])
-def test_fit_gamma(meas_std_effect, dismod):
+def test_fit_gamma(meas_std_effect, locations, dismod):
     """The fit_gamma.py example in Dismod-AT's distribution"""
     rng = np.random.RandomState(3798427592)
 
@@ -217,11 +247,6 @@ def test_fit_gamma(meas_std_effect, dismod):
 
     parent_location = 1
     child_locations = list()
-    locations = pd.DataFrame(dict(
-        name=["global"],
-        parent=[nan],
-        c_location_id=[parent_location],
-    ))
 
     if meas_std_effect == 'add_std_scale_all':
         delta = data_std * (1.0 + gamma_true_scale)
@@ -286,7 +311,7 @@ def test_fit_gamma(meas_std_effect, dismod):
     assert max_gamma < 0.2, f"max gamma error {max_gamma}"
 
 
-def test_age_avg_split(dismod):
+def test_age_avg_split(locations, dismod):
     """Demonstrate reason for using age_avg_split option.
 
     For a single, rate, this makes an underlying grid that has four
@@ -300,13 +325,7 @@ def test_age_avg_split(dismod):
     # true values used to simulate data
     omega_0_1 = 1e-1
     omega_1_100 = 1e-2
-
     parent_location = 1
-    locations = pd.DataFrame(dict(
-        name=["global"],
-        parent=[nan],
-        c_location_id=[parent_location],
-    ))
 
     session = Session(locations, parent_location, Path("fit_random.db"))
     option = dict(random_seed=0,
@@ -346,16 +365,9 @@ def test_age_avg_split(dismod):
 # Missing continue_fit.py
 
 
-def test_diff_constraint(dismod):
+def test_diff_constraint(locations, dismod):
     """Apply constraints on differences in age and time."""
     parent_location = 1
-    # The US and Canada are children of North America.
-    locations = pd.DataFrame(dict(
-        name=["North America", "United States", "Canada"],
-        parent=[nan, parent_location, parent_location],
-        c_location_id=[parent_location, 2, 3],
-    ))
-
     nonzero_rates = ["iota", "chi", "rho", "omega"]
     model = Model(nonzero_rates, parent_location, [2, 3])
     for add_rate in nonzero_rates:

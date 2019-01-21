@@ -43,8 +43,12 @@ class ModelWriter:
         """
         self._session = session
         self._dismod_file = session.dismod_file
-        self._ages = np.array(list(extremal_age_time[0]), dtype=np.float)
-        self._times = np.array(list(extremal_age_time[1]), dtype=np.float)
+        if extremal_age_time:
+            self._ages = np.array(list(extremal_age_time[0]), dtype=np.float)
+            self._times = np.array(list(extremal_age_time[1]), dtype=np.float)
+        else:
+            self._ages = np.zeros((0,), dtype=np.float)
+            self._times = np.zeros((0,), dtype=np.float)
         self._rate_rows = list()  # List of dictionaries for rates.
         self._mulcov_rows = list()  # List of dictionaries for covariate multipliers.
         self._rate_id = dict()  # The rate ids with the primary rates.

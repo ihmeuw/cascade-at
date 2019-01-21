@@ -12,7 +12,8 @@ GRID_SNAP_DISTANCE = 1 / timedelta(days=365).total_seconds()
 
 
 class AgeTimeGrid:
-    """A Var is a set of values of a random field on a SmoothGrid.
+    """The AgeTime grid holds rows of a table at each age and time value.
+
     At each age and time point is a dataframe consisting of the columns
     given in the constructor. So getting an item returns a dataframe
     with those columns. Setting a dataframe sets those columns.
