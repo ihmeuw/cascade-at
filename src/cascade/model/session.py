@@ -12,7 +12,9 @@ from cascade.dismod.constants import DensityEnum, RateEnum, INTEGRAND_TO_WEIGHT,
 from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.dismod.serialize import default_integrand_names, make_log_table
 from cascade.model import Model
-from cascade.model.model_reader import read_var_table_as_id, read_vars, write_vars, read_prior_residuals
+from cascade.model.model_reader import (
+    read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_data_residuals
+)
 from cascade.model.model_writer import ModelWriter
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -189,7 +191,7 @@ class Session:
         return read_prior_residuals(self.dismod_file, var_id)
 
     def get_data_residuals(self):
-        return None
+        return read_data_residuals(self.dismod_file)
 
     def set_option(self, **kwargs):
         option = self.dismod_file.option

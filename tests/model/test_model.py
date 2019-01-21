@@ -192,9 +192,7 @@ def test_fit_mortality(dismod):
     avgints = pd.concat([avgints, avgints.assign(integrand="mtother")])
 
     predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
-    assert not_predicted.empty
-    assert not predicted.empty
-    print(f"test_fit predicted\n{predicted}")
+    assert not_predicted.empty and not predicted.empty
 
     # We asked for a prediction of mtother, which is exactly the omega that
     # we put in. Compare the two by constructing a continuous function from
@@ -231,3 +229,7 @@ def test_fit_mortality(dismod):
     assert prior_residuals is not None
     omega_residuals = prior_residuals.rate["omega"].grid
     assert (np.abs(omega_residuals[omega_residuals.age < 100].residual_value) < 0.11).all()
+
+    assert not data_residuals.empty
+    assert {"avg_integrand", "name", "weighted_residual"} == set(data_residuals.columns)
+    print(data_residuals)
