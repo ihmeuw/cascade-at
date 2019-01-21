@@ -79,12 +79,12 @@ def test_fit_random(dismod, locations):
                   max_num_iter_random=100,
                   tolerance_random=1e-10)
     session.set_option(**option)
-    result, prior_residuals, data_residuals = session.fit_random(model, data)
+    fit_result = session.fit_random(model, data)
 
     # The rates for the children are correct.
-    parent = result.rate["iota"]
-    us = result.random_effect[("iota", 2)]
-    canada = result.random_effect[("iota", 3)]
+    parent = fit_result.fit.rate["iota"]
+    us = fit_result.fit.random_effect[("iota", 2)]
+    canada = fit_result.fit.random_effect[("iota", 3)]
     for age, time in [(50, 1995), (50, 2000), (50, 2015)]:
         # These first two assertions mean that Dismod-AT found the correct
         # rates for the children, after applying random effects to the parent.
@@ -158,7 +158,8 @@ def test_fit_fixed_both(dismod, locations):
                   tolerance_random=1e-11,
                   )
     session.set_option(**option)
-    fixed_var, prior_residuals, data_residuals = session.fit_fixed(model, data)
+    fit_result = session.fit_fixed(model, data)
+    fixed_var = fit_result.fit
 
     parent_fixed = fixed_var.rate["iota"]
     us_fixed = fixed_var.random_effect[("iota", 2)]
@@ -174,7 +175,8 @@ def test_fit_fixed_both(dismod, locations):
         assert fixed_value / iota_parent_true < 2
         assert 0.5 < fixed_value / iota_parent_true
 
-    result, prior_residuals, data_residuals = session.fit(model, data, initial_guess=fixed_var)
+    fit_result = session.fit(model, data, initial_guess=fixed_var)
+    result = fit_result.fit
 
     parent = result.rate["iota"]
     us = result.random_effect[("iota", 2)]
@@ -301,7 +303,7 @@ def test_fit_gamma(meas_std_effect, locations, dismod):
                   tolerance_fixed=1e-10)
     session.set_option(**option)
 
-    result, prior_residuals, data_residuals = session.fit(model, data)
+    result = session.fit(model, data).fit
     rate_out = result.rate["iota"].grid["mean"]
     # It found the correct mean and gamma.
     max_iota = ((rate_out - iota_true) / iota_true).abs().max()

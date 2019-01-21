@@ -223,13 +223,13 @@ def test_fit_mortality(dismod):
     data = predicted.drop(columns=["sample_index", "predict_id"]).rename(columns={"avg_integrand": "mean"})
     data = data.assign(density="gaussian", std=0.1, eta=1e-4, nu=nan)
 
-    result, prior_residuals, data_residuals = session.fit(model, data, initial_guess=model_variables)
+    result = session.fit(model, data, initial_guess=model_variables)
     assert result is not None
     # We need a way to get residuals separately.
-    assert prior_residuals is not None
-    omega_residuals = prior_residuals.rate["omega"].grid
+    assert result.prior_residuals is not None
+    omega_residuals = result.prior_residuals.rate["omega"].grid
     assert (np.abs(omega_residuals[omega_residuals.age < 100].residual_value) < 0.11).all()
 
-    assert not data_residuals.empty
-    assert {"avg_integrand", "name", "weighted_residual"} == set(data_residuals.columns)
-    print(data_residuals)
+    assert not result.data_residuals.empty
+    assert {"avg_integrand", "name", "weighted_residual"} == set(result.data_residuals.columns)
+    print(result.data_residuals)
