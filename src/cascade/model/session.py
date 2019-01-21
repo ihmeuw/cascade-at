@@ -188,7 +188,7 @@ class Session:
         Args:
             model (Model): A model. The mean of the prior is ignored.
             data (DataFrame): Same format as for a fit.
-            fit_var (Var): A set of model variables.
+            fit_var (Var): A set of model variables around which to simulate.
             simulate_count (int): Number of simulations to generate.
 
         Returns:

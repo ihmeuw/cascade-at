@@ -2,7 +2,7 @@
 This set of tests derives from examples in Dismod-AT's distribution.
 These are described at https://bradbell.github.io/dismod_at/doc/user.htm
 """
-from math import nan, sqrt, exp
+from math import nan, inf, sqrt, exp
 from pathlib import Path
 
 import numpy as np
@@ -243,7 +243,78 @@ def test_posterior(locations, dismod):
     variance_01 = np.mean(residual_0 * residual_1)
     assert isclose(variance_01, 1/3, rtol=0.5)
 
-# user_fit_sim.py is missing.
+
+def test_fit_sim(locations, dismod):
+    """user_fit_sim.py example from Dismod-AT."""
+    iota_parent_true = 0.01
+    mulcov_income_iota_true = 1.0
+    n_children = 2  # You can change the number of children.
+    data_per_child = 10  # You can change the amount of data.
+
+    parent_location = 1
+    children = [parent_location + add_child for add_child in range(n_children)]
+    locations = pd.DataFrame(dict(
+        name=["Universe"] + [f"child_{cidx}" for cidx in range(n_children)],
+        parent=[nan] + n_children * [parent_location],
+        c_location_id=[parent_location] + children,
+    ))
+
+    income = Covariate("income", 0.5)
+
+    # The model sits on one age and time and has only incidence rate, iota.
+    one_age_time = ([50], [2000])
+    model = Model(["iota"], 1, children, covariates=[income])
+    model.rate["iota"] = SmoothGrid(one_age_time)
+    model.rate["iota"].value[:, :] = Uniform(lower=iota_parent_true / 100, upper=1, mean=0.1)
+    child_effect = SmoothGrid(one_age_time)
+    child_effect.value[:, :] = Gaussian(mean=0, standard_deviation=0.1, lower=-inf, upper=inf)
+    model.random_effect[("iota", None)] = child_effect
+
+    income_grid = SmoothGrid(one_age_time)
+    income_grid.value[:, :] = Uniform(lower=-2, upper=2, mean=0)
+    model.alpha[("income", "iota")] = income_grid
+
+    data = pd.DataFrame(dict(
+        integrand="prevalence",
+        location=np.tile(children, data_per_child),
+        age=np.linspace(0, 100, data_per_child * n_children),
+        time=2000,
+        density="gaussian",
+        mean=0.0,  # Not used because will be simulated.
+        std=1e-3,
+        nu=nan,
+        eta=nan,
+        income=np.linspace(0, 1, data_per_child * n_children),
+    ))
+
+    # Simulate around this var.
+    truth_var = DismodGroups()
+    truth_var.rate["iota"] = Var(one_age_time)
+    truth_var.rate["iota"][:, :] = iota_parent_true
+    for re_child in children:
+        truth_var.random_effect[("iota", re_child)] = Var(one_age_time)
+        truth_var.random_effect[("iota", re_child)][:, :] = 0
+    truth_var.alpha[("income", "iota")] = Var(one_age_time)
+    truth_var.alpha[("income", "iota")][:, :] = mulcov_income_iota_true
+
+    session = Session(locations, 1, Path("fit_sim.db"))
+    option = dict(random_seed=0,
+                  ode_step_size=10,
+                  zero_sum_random="iota",  # Zero-sum random affects result.
+                  quasi_fixed="true",
+                  derivative_test_fixed="first-order",
+                  max_num_iter_fixed=100,
+                  print_level_fixed=0,
+                  tolerance_fixed=1e-8,
+                  derivative_test_random="second-order",
+                  max_num_iter_random=100,
+                  tolerance_random=1e-8,
+                  print_level_random=0,
+                  )
+    session.set_option(**option)
+
+    simulated_result = session.simulate(model, data, truth_var, 1)
+    # fit_result = session.fit(model, data, initial_guess=None)
 
 
 @pytest.mark.parametrize("meas_std_effect", [

@@ -36,6 +36,8 @@ def _construct_vars_one_field(name, var_id, new_var):
     id_column = f"{name}_id"
     var_column = f"{name}_value"
     with_id = new_var.grid.merge(var_id.grid[["age", "time", "var_id"]], on=["age", "time"], how="left")
+    if with_id.var_id.isna().any():
+        raise RuntimeError(f"Internal error: Could not align {id_column} with var_id.")
     return pd.DataFrame({
         id_column: with_id.var_id.values,
         var_column: with_id["mean"].values,

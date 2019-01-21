@@ -316,7 +316,10 @@ class DismodFile:
                     # sqlalchemy compiler turns into a primary key statement.
                     if f"{table_name}_id" in table:
                         table = table.set_index(f"{table_name}_id")
-                        table.index = table.index.astype(np.int64)
+                        try:
+                            table.index = table.index.astype(np.int64)
+                        except ValueError as ve:
+                            raise ValueError(f"Cannot convert {table_name}.{table_name}_id to index") from ve
                     try:
                         dtypes = {k: v.type for k, v in table_definition.c.items()}
                         CODELOG.debug(f"Writing table {table_name} rows {len(table)} types {dtypes}")
