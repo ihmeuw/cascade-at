@@ -238,10 +238,11 @@ class ModelWriter:
         complete_table = complete_table.assign(density_id=complete_table.density.apply(lambda x: DensityEnum[x].value))
         # Create new prior IDs that don't overlap.
         complete_table = complete_table.assign(prior_id=complete_table.index + len(self._dismod_file.prior))
+        complete_table = complete_table.rename(columns={"name": "prior_name"})
         # Unique, informative names for the priors require care.
         null_names = complete_table.prior_name.isnull()
         complete_table.loc[~null_names, "prior_name"] = (
-            complete_table.loc[~null_names, "prior_name"] + "    " +
+            complete_table.loc[~null_names, "prior_name"].astype(str) + "    " +
             complete_table.loc[~null_names, "prior_id"].astype(str)
         )
         complete_table.loc[null_names, "prior_name"] = complete_table.loc[

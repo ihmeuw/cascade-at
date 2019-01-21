@@ -1,4 +1,3 @@
-from copy import deepcopy
 from math import isnan
 
 import numpy as np
@@ -6,6 +5,7 @@ import pandas as pd
 
 from cascade.core import getLoggers
 from cascade.dismod.constants import IntegrandEnum, RateEnum
+from cascade.model.age_time_grid import AgeTimeGrid
 from cascade.model.dismod_groups import DismodGroups
 from cascade.model.var import Var
 
@@ -33,6 +33,7 @@ def write_vars(dismod_file, new_vars, var_ids, which):
 
 def read_vars(dismod_file, var_ids, which):
     """
+    Reads a table full of vars (start, truth, scale).
 
     Args:
         dismod_file:
@@ -64,16 +65,31 @@ def _construct_vars_one_field(name, var_id, new_var):
 
 
 def _read_vars_one_field(table, name, id_draw):
+    """Read one rate or randome effect's values.
+
+    Args:
+        table: Dismod-AT table represented by a Pandas dataframe.
+        name (str): name of the table, following Dismod-AT conventions.
+        id_draw (AgeTimeGrid): An AgeTimeGrid that contains rows of ["var_id"].
+
+    Returns:
+        A new Var containing the values at these ages and times.
+    """
     id_column = f"{name}_id"
     var_column = f"{name}_value"
-    vals = deepcopy(id_draw)
     table = table.reset_index(drop=True)
-    with_var = vals.grid.merge(table, left_on="var_id", right_on=id_column, how="left")
-    with_var = with_var.drop(columns=["var_id"])
-    vals.grid = with_var.rename(columns={var_column: "mean"})
+    with_var = id_draw.grid.merge(table, left_on="var_id", right_on=id_column, how="left")
 
-    for mulstd, mul_id in vals.mulstd.items():
-        vals.mulstd[mulstd] = float(table.query("@id_column == @mul_id")[var_column])
+    vals = Var((id_draw.ages, id_draw.times))
+    vals.grid = vals.grid.drop(columns=["mean"]) \
+        .merge(with_var[["age", "time", var_column]]) \
+        .rename(columns={var_column: "mean"})
+
+    for mulstd, mul_id in id_draw.mulstd.items():
+        if mul_id.var_id.notna().all():
+            multstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
+            row = table.query("@id_column == @mulstd_id")[var_column]
+            vals.mulstd[mulstd] = float(row)
     return vals
 
 
@@ -133,15 +149,14 @@ def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var
         time = time.set_index("time_id")
     at_grid_df = at_grid_df.merge(age, left_on="age_id", right_index=True, how="left") \
         .merge(time, left_on="time_id", right_index=True, how="left")
-    draw = Var((np.unique(at_grid_df.age.values), np.unique(at_grid_df.time.values)))
-    draw.grid = draw.grid.merge(
-        at_grid_df[["age", "time", "var_id"]], how="left", on=["age", "time"])
-    draw.grid = draw.grid.drop(columns=["mean", "idx"])
+    draw = AgeTimeGrid((np.unique(at_grid_df.age.values), np.unique(at_grid_df.time.values)), ["var_id"])
+    draw.grid = draw.grid.drop(columns=["var_id"]) \
+        .merge(at_grid_df[["age", "time", "var_id"]], how="left", on=["age", "time"])
     # The mulstd hyper-priors aren't indexed by age and time, so separate.
     for kind in ["value", "dage", "dtime"]:  # noqa: F841
         match = sub_grid_df.query("var_type == @kind")
         if not match.empty:
-            draw.mulstd[kind] = match.var_id
+            draw.mulstd[kind].var_id = match.var_id
     group_name, key = inverted_smooth[(smooth_id, node_id)]
     var_ids[group_name][key] = draw
 

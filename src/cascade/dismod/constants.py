@@ -81,6 +81,13 @@ class WeightEnum(Enum):
     """For measures where the denominator is the whole population."""
 
 
+class PriorKindEnum(Enum):
+    """The three kinds of priors."""
+    value = 0
+    dage = 1
+    dtime = 2
+
+
 INTEGRAND_TO_WEIGHT = dict(
     Sincidence=WeightEnum.susceptible,
     remission=WeightEnum.with_condition,

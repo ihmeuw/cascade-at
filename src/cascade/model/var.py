@@ -1,26 +1,13 @@
-from itertools import product
-from math import nan, inf
-
 import numpy as np
-import pandas as pd
 from scipy.interpolate import RectBivariateSpline, interp1d
 
-from cascade.model.smooth_grid import GRID_SNAP_DISTANCE
+from cascade.model.age_time_grid import AgeTimeGrid
 
 
-class Var:
+class Var(AgeTimeGrid):
     """A Var is a set of values of a random field on a SmoothGrid."""
     def __init__(self, age_time_grid, count=1):
-        self.ages = np.array(age_time_grid[0], dtype=np.float)
-        self.times = np.array(age_time_grid[1], dtype=np.float)
-        age_time = np.array(list(product(sorted(self.ages), sorted(self.times))))
-        self.grid = pd.DataFrame(dict(
-            age=np.tile(age_time[:, 0], count),
-            time=np.tile(age_time[:, 1], count),
-            mean=nan,
-            idx=np.repeat(range(count), len(age_time)),
-        ))
-        self.mulstd = dict()  # keys are value, dage, dtime.
+        super().__init__(age_time_grid, columns=["mean"])
         self._spline = None
 
     def check(self, name=None):
@@ -32,17 +19,6 @@ class Var:
                 f"Var {name} has mulstds besides the three: {list(self.mulstd.keys())}"
             )
 
-    def age_time(self):
-        yield from zip(np.repeat(self.ages, len(self.times)), np.tile(self.times, len(self.ages)))
-
-    def __getitem__(self, age_time):
-        age, time = age_time
-        rows = self.grid.query("age == @age and time == @time")
-        if len(rows) > 0:
-            return rows["mean"]
-        else:
-            raise KeyError(f"Age {age} and time {time} not found.")
-
     def __setitem__(self, at_slice, value):
         """
         Args:
@@ -50,47 +26,10 @@ class Var:
             value (priors.Prior): The prior to set, containing dictionary of
                                   parameters.
         """
-        try:
-            if len(at_slice) != 2:
-                raise ValueError("Set value at an age and time, so two arguments.")
-        except TypeError:
-            raise ValueError("Set value at an age and time, so two arguments")
-        at_range = list()
-        for one_slice in at_slice:
-            if not isinstance(one_slice, slice):
-                one_slice = slice(one_slice, one_slice)
-            if one_slice.step is not None:
-                raise ValueError("Slice in age or time, without a step.")
-            start = one_slice.start if one_slice.start is not None else -inf
-            stop = one_slice.stop if one_slice.stop is not None else inf
-            at_range.append([start - GRID_SNAP_DISTANCE, stop + GRID_SNAP_DISTANCE])
-        ages = self.ages[(at_range[0][0] <= self.ages) & (self.ages <= at_range[0][1])]
-        times = self.times[(at_range[1][0] <= self.times) & (self.times <= at_range[1][1])]
-        if len(ages) == 0:
-            raise ValueError(f"No ages within range {at_range[0]}")
-        if len(times) == 0:
-            raise ValueError(f"No times within range {at_range[1]}")
-        self.grid.loc[np.in1d(self.grid.age, ages) & np.in1d(self.grid.time, times), "mean"] = value
-
-    def __len__(self):
-        return self.ages.shape[0] * self.times.shape[0] + len(self.mulstd)
+        super().__setitem__(at_slice, [value])
 
     def __str__(self):
         return f"Var({len(self.ages), len(self.times)})"
-
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        if self.mulstd != other.mulstd:
-            return False
-        try:
-            pd.testing.assert_frame_equal(self.grid, other.grid)
-            return True
-        except AssertionError as ae:
-            if "values are different" in str(ae):
-                return False
-            else:
-                raise
 
     def __call__(self, age, time):
         if self._spline is None:
