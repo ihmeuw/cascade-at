@@ -193,17 +193,7 @@ def read_var_table_as_id(dismod_file):
     # random effects. It doesn't identify which random field each smooth id
     # goes with, so we first make the DismodGroups structure of smooths
     # and then invert it in order to read the vars table.
-    smooths = read_smooths(dismod_file, child_node)
-
-    # The inverted smooth is a map from the smooth id back to the DismodGroup.
-    inverted_smooth = dict()
-    for group_name, group in smooths.items():
-        for key, smooth_value in group.items():
-            if group_name == "random_effect":
-                child_node = key[1]
-                inverted_smooth[(smooth_value, child_node)] = (group_name, key)
-            else:
-                inverted_smooth[(smooth_value, parent_node)] = (group_name, key)
+    inverted_smooth = read_inverted_smooths(dismod_file, parent_node, child_node)
 
     # This groupby to separate the smooth grids is split into two levels because
     # the second level is node_id, which is nan for mulcovs, and groupby
@@ -212,11 +202,13 @@ def read_var_table_as_id(dismod_file):
     age, time = (dismod_file.age, dismod_file.time)
     for smooth_id, sub_grid_df in dismod_file.var.groupby(["smooth_id"]):
         if sub_grid_df[sub_grid_df.var_type == "rate"].empty:
-            _add_one_field_to_vars(inverted_smooth, parent_node, smooth_id, sub_grid_df, var_ids, age, time)
+            group_name, key = inverted_smooth[(smooth_id, parent_node)]
+            var_ids[group_name][key] = _add_one_field_to_vars(sub_grid_df, age, time)
         else:
             # Multiple random effects, identified as "rates," can share a smooth.
             for node_id, re_grid_df in sub_grid_df.groupby(["node_id"]):
-                _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, re_grid_df, var_ids, age, time)
+                group_name, key = inverted_smooth[(smooth_id, node_id)]
+                var_ids[group_name][key] = _add_one_field_to_vars(re_grid_df, age, time)
 
     if var_ids.count() != len(dismod_file.var):
         MATHLOG.error(f"Found {var_ids.count()} of {len(dismod_file.var)} vars in db file.")
@@ -224,7 +216,7 @@ def read_var_table_as_id(dismod_file):
     return rename_node_to_location(dismod_file.node, var_ids)
 
 
-def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var_ids, age, time):
+def _add_one_field_to_vars(sub_grid_df, age, time):
     at_grid_df = sub_grid_df[sub_grid_df.age_id.notna() & sub_grid_df.time_id.notna()]
     if age.index.name != "age_id":
         age = age.set_index("age_id")
@@ -240,8 +232,7 @@ def _add_one_field_to_vars(inverted_smooth, node_id, smooth_id, sub_grid_df, var
         match = sub_grid_df.query("var_type == @kind")
         if not match.empty:
             draw.mulstd[kind].var_id = match.var_id
-    group_name, key = inverted_smooth[(smooth_id, node_id)]
-    var_ids[group_name][key] = draw
+    return draw
 
 
 def convert_age_time_to_values(dismod_file, draw_parts):
@@ -254,13 +245,24 @@ def convert_age_time_to_values(dismod_file, draw_parts):
             draw.times = np.sort(np.unique(draw.grid.time.values))
 
 
-def read_smooths(dismod_file, child_node):
+def read_inverted_smooths(dismod_file, parent_node, child_node):
     """Construct a DismodGroups where the value is the ID of the smooth table
     for that group. This will be very helpful for interpreting the var table."""
     smooths = DismodGroups()
     _read_rate_smooths(child_node, dismod_file.nslist_pair, dismod_file.rate, smooths)
     _read_mulcov_smooths(dismod_file.mulcov, dismod_file.covariate, smooths)
-    return smooths
+
+    # The inverted smooth is a map from the smooth id back to the DismodGroup.
+    inverted_smooth = dict()
+    for group_name, group in smooths.items():
+        for key, smooth_value in group.items():
+            if group_name == "random_effect":
+                child_node = key[1]
+                inverted_smooth[(smooth_value, child_node)] = (group_name, key)
+            else:
+                inverted_smooth[(smooth_value, parent_node)] = (group_name, key)
+
+    return inverted_smooth
 
 
 def _read_rate_smooths(child_node, nslist_pair_table, rate_table, smooths):
