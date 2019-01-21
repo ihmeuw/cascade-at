@@ -128,6 +128,31 @@ def _read_residuals_one_field(table, id_draw):
     return vals
 
 
+def read_samples(dismod_file, var_ids):
+    return _assign_from_var_ids(dismod_file.sample, var_ids, _samples_one_field)
+
+
+def _samples_one_field(table, id_draw):
+    # Get the data out.
+    table = table.reset_index(drop=True)
+    with_var = id_draw.grid.merge(table, left_on="var_id", right_on="var_id", how="left")
+
+    # This is an AgeTimeGrid container, with multiple samples.
+    # It will use the idx column to represent the sample index.
+    vals = AgeTimeGrid((id_draw.ages, id_draw.times), columns=["mean"])
+    vals.grid = vals.grid.drop(columns=["mean"]) \
+        .merge(with_var[["age", "time", "sample_index", "var_value"]]) \
+        .rename(columns={"var_value": "mean", "sample_index": "idx"})
+
+    for mulstd, mul_id in id_draw.mulstd.items():
+        if mul_id.var_id.notna().all():
+            multstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
+            row = table.query("@var_id == @mulstd_id")[["sample_index", "var_value"]]
+            vals.mulstd[mulstd][["mean", "idx"]] = row
+
+    return vals
+
+
 def read_data_residuals(dismod_file):
     """Reads residuals indexed by the name of the data line.
 

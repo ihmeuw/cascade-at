@@ -5,8 +5,13 @@ from cascade.model.age_time_grid import AgeTimeGrid
 
 
 class Var(AgeTimeGrid):
-    """A Var is a set of values of a random field on a SmoothGrid."""
-    def __init__(self, age_time_grid, count=1):
+    """A Var is a set of values of a random field on a SmoothGrid.
+
+    It's an AgeTimeGrid, but AgeTimeGrids present each data item
+    as a row. This presents each data item as a float. It also
+    behaves like a continuous function of age and time.
+    """
+    def __init__(self, age_time_grid):
         super().__init__(age_time_grid, columns=["mean"])
         self._spline = None
 
@@ -22,7 +27,8 @@ class Var(AgeTimeGrid):
     def __setitem__(self, at_slice, value):
         """
         Args:
-            at_slice (slice, slice): What to change, as integer offset into ages and times.
+            at_slice (slice, slice): What to change, as integer offset into
+                ages and times.
             value (priors.Prior): The prior to set, containing dictionary of
                                   parameters.
         """

@@ -6,6 +6,7 @@ from math import nan, sqrt, exp
 from pathlib import Path
 
 import numpy as np
+from numpy import isclose
 import pandas as pd
 import pytest
 from scipy.stats import norm
@@ -166,9 +167,9 @@ def test_fit_fixed_both(dismod, locations):
     canada_fixed = fixed_var.random_effect[("iota", 3)]
     # The rates for the children are zero.
     for age, time in us_fixed.age_time():
-        np.isclose(us_fixed[age, time], 0)
+        isclose(us_fixed[age, time], 0)
     for age, time in canada_fixed.age_time():
-        np.isclose(canada_fixed[age, time], 0)
+        isclose(canada_fixed[age, time], 0)
     # But note that the result of fit fixed is much better than the prior mean.
     for age, time in [(50, 1995), (50, 2000), (50, 2015)]:
         fixed_value = parent_fixed(age, time)
@@ -182,16 +183,16 @@ def test_fit_fixed_both(dismod, locations):
     us = result.random_effect[("iota", 2)]
     canada = result.random_effect[("iota", 3)]
     for age, time in [(50, 1995), (50, 2000), (50, 2015)]:
-        assert np.isclose(parent(age, time), iota_parent_true, rtol=1e-5)
-        assert np.isclose(us(age, time), united_states_random_effect, atol=1e-5)
-        assert np.isclose(canada(age, time), canada_random_effect, rtol=1e-5)
+        assert isclose(parent(age, time), iota_parent_true, rtol=1e-5)
+        assert isclose(us(age, time), united_states_random_effect, atol=1e-5)
+        assert isclose(canada(age, time), canada_random_effect, rtol=1e-5)
 
         # These two assertions mean that Dismod-AT found the correct
         # rates for the children, after applying random effects to the parent.
         us_found = parent(age, time) * exp(us(age, time))
-        assert np.isclose(us_found, iota_us_true, rtol=1e-4)
+        assert isclose(us_found, iota_us_true, rtol=1e-4)
         canada_found = parent(age, time) * exp(canada(age, time))
-        assert np.isclose(canada_found, iota_canada_true, rtol=1e-4)
+        assert isclose(canada_found, iota_canada_true, rtol=1e-4)
 
 
 def test_posterior(locations, dismod):
@@ -210,8 +211,6 @@ def test_posterior(locations, dismod):
     fit_var.rate["omega"] = Var([[0], [1995, 2015]])
     fit_var.rate["omega"][:, :] = omega_world_mean
 
-    data = None
-
     session = Session(locations, parent_location, Path("posteriors.db"))
     option = dict(random_seed=0,
                   quasi_fixed="true",
@@ -225,7 +224,24 @@ def test_posterior(locations, dismod):
                   print_level_random=0,
                   )
     session.set_option(**option)
-    session.simulate(model, data, fit_var, number_sample)
+
+    data = None
+    simulate_result = session.simulate(model, data, fit_var, number_sample)
+    sample_var = session.sample(simulate_result)
+    assert sample_var is not None
+    omega_sample = sample_var.rate["omega"]
+    omega_0 = omega_sample[0, 1995]["mean"].values
+    assert len(omega_0) == number_sample
+    omega_1 = omega_sample[0, 2015]["mean"].values
+
+    residual_0 = (omega_0 - omega_world_mean) / omega_world_mean
+    residual_1 = (omega_1 - omega_world_mean) / omega_world_mean
+    variance_00 = np.mean(residual_0 * residual_0)
+    assert isclose(variance_00, 2/3, rtol=0.5)
+    variance_11 = np.mean(residual_1 * residual_1)
+    assert isclose(variance_11, 2/3, rtol=0.5)
+    variance_01 = np.mean(residual_0 * residual_1)
+    assert isclose(variance_01, 1/3, rtol=0.5)
 
 # user_fit_sim.py is missing.
 
@@ -352,8 +368,8 @@ def test_age_avg_split(locations, dismod):
 
     predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
     assert not_predicted.empty and not predicted.empty
-    assert np.isclose(predicted.iloc[0]["avg_integrand"], omega_0_1, rtol=1e-10)
-    assert np.isclose(predicted.iloc[1]["avg_integrand"], omega_1_100, rtol=1e-10)
+    assert isclose(predicted.iloc[0]["avg_integrand"], omega_0_1, rtol=1e-10)
+    assert isclose(predicted.iloc[1]["avg_integrand"], omega_1_100, rtol=1e-10)
 
 
 # Missing user_diabetes.py

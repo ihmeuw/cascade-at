@@ -397,7 +397,7 @@ class FitDataSubset(Base):
     weighted_residual = Column(Float(), nullable=False)
 
 
-class SampleIndex(Base):
+class Sample(Base):
     """
     Output, The sample command creates this table with one optimal estimate
     of the model variable. For each valid simulate index in the simulate
@@ -405,7 +405,7 @@ class SampleIndex(Base):
     variables corresponding to the measurement.
     """
 
-    __tablename__ = "sample_index"
+    __tablename__ = "sample"
 
     sample_id = Column(Integer(), primary_key=True, autoincrement=False)
     sample_index = Column(Integer(), nullable=False)
@@ -483,6 +483,9 @@ class Simulate(Base):
 
 
 class DataSim(Base):
+    """The simulate command is a kind of bootstrapping, and this table
+    has replacements for the meas_value in the data table in the column
+    called ``data_sim_value``."""
     __tablename__ = "data_sim"
 
     data_sim_id = Column(Integer(), primary_key=True, autoincrement=False)

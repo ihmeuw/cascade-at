@@ -13,7 +13,7 @@ from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.dismod.serialize import default_integrand_names, make_log_table
 from cascade.model import Model
 from cascade.model.model_reader import (
-    read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_data_residuals
+    read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_data_residuals, read_samples
 )
 from cascade.model.model_writer import ModelWriter
 
@@ -200,8 +200,21 @@ class Session:
         self._setup_model(model, data)
         self.set_var("truth", fit_var)
         self._run_dismod(["simulate", simulate_count])
-        data_sim, prior_sim = (None, None)
-        return data_sim, prior_sim
+        return SimulateResult(self, simulate_count)
+
+    def sample(self, simulate_result):
+        """Given that a simulate has been run, make samples.
+
+        Args:
+            simulate_result (SimulateResult): Output of a simulate command.
+
+        Returns:
+            DismodGroups[Var] with multiple samples.
+        """
+        self._run_dismod(["sample", "simulate", simulate_result.count])
+        # Sample creates a sample table.
+        var_id = read_var_table_as_id(self.dismod_file)
+        return read_samples(self.dismod_file, var_id)
 
     def get_var(self, name):
         var_id = read_var_table_as_id(self.dismod_file)
@@ -511,3 +524,29 @@ class FitResult:
         """Which of the data points were excluded due
         to hold outs or covariates."""
         raise NotImplementedError(f"Cannot retrieve excluded data points.")
+
+
+class SimulateResult:
+    """Outcome of a Dismod-AT Simulate."""
+    def __init__(self, session, count):
+        self._session = session
+        self._count = count
+
+    @property
+    def count(self):
+        return self._count
+
+    @property
+    def data(self):
+        """Simulation of the data.
+        This is a DataFrame identified by the name of the input data.
+        It is restricted to the fit data subset. It has an extra
+        ``index`` column to identify the simulation index."""
+        raise NotImplementedError(f"Cannot retrieve data simulation table.")
+
+    @property
+    def prior(self):
+        """Simulation of the prior.
+        This is an AgeTimeGrid table where each entry is a set of three
+        priors, and there are sets of values, identified by an index."""
+        raise NotImplementedError(f"Cannot retrieve the prior simulation table.")
