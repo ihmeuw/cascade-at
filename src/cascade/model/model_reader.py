@@ -1,10 +1,11 @@
+from functools import partial
 from math import isnan
 
 import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.constants import IntegrandEnum, RateEnum
+from cascade.dismod.constants import IntegrandEnum, RateEnum, PriorKindEnum
 from cascade.model.age_time_grid import AgeTimeGrid
 from cascade.model.dismod_groups import DismodGroups
 from cascade.model.var import Var
@@ -31,6 +32,16 @@ def write_vars(dismod_file, new_vars, var_ids, which):
     setattr(dismod_file, var_name, new_table)
 
 
+def _construct_vars_one_field(name, var_id, new_var):
+    id_column = f"{name}_id"
+    var_column = f"{name}_value"
+    with_id = new_var.grid.merge(var_id.grid[["age", "time", "var_id"]], on=["age", "time"], how="left")
+    return pd.DataFrame({
+        id_column: with_id.var_id.values,
+        var_column: with_id["mean"].values,
+    })
+
+
 def read_vars(dismod_file, var_ids, which):
     """
     Reads a table full of vars (start, truth, scale).
@@ -45,32 +56,27 @@ def read_vars(dismod_file, var_ids, which):
     """
     var_name = f"{which}_var"
     table = getattr(dismod_file, var_name)
+    return _assign_from_var_ids(table, var_ids, partial(_read_vars_one_field, name=var_name))
+
+
+def _assign_from_var_ids(table, var_ids, assignment):
+    """Iterate over var ids and execute a function on each grid in the varids."""
     if table.empty:
-        raise AttributeError(f"Dismod file has no data in {var_name} table.")
+        raise AttributeError(f"Dismod file has no data in table {table.columns}.")
     var_groups = DismodGroups()
     for group_name, group in var_ids.items():
         for key, value in group.items():
-            var_groups[group_name][key] = _read_vars_one_field(table, var_name, value)
+            var_groups[group_name][key] = assignment(table, value)
     return var_groups
 
 
-def _construct_vars_one_field(name, var_id, new_var):
-    id_column = f"{name}_id"
-    var_column = f"{name}_value"
-    with_id = new_var.grid.merge(var_id.grid[["age", "time", "var_id"]], on=["age", "time"], how="left")
-    return pd.DataFrame({
-        id_column: with_id.var_id.values,
-        var_column: with_id["mean"].values,
-    })
-
-
-def _read_vars_one_field(table, name, id_draw):
+def _read_vars_one_field(table, id_draw, name):
     """Read one rate or randome effect's values.
 
     Args:
         table: Dismod-AT table represented by a Pandas dataframe.
-        name (str): name of the table, following Dismod-AT conventions.
         id_draw (AgeTimeGrid): An AgeTimeGrid that contains rows of ["var_id"].
+        name (str): name of the table, following Dismod-AT conventions.
 
     Returns:
         A new Var containing the values at these ages and times.
@@ -89,7 +95,36 @@ def _read_vars_one_field(table, name, id_draw):
         if mul_id.var_id.notna().all():
             multstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
             row = table.query("@id_column == @mulstd_id")[var_column]
-            vals.mulstd[mulstd] = float(row)
+            vals.mulstd[mulstd][var_column] = float(row)
+    return vals
+
+
+def read_prior_residuals(dismod_file, var_ids):
+    """Read residuals on value, dage, and dtime priors. Includes lagrange values."""
+    return _assign_from_var_ids(dismod_file.fit_var, var_ids, _read_residuals_one_field)
+
+
+def _read_residuals_one_field(table, id_draw):
+    # Get the data out.
+    table = table.reset_index(drop=True)
+    with_var = id_draw.grid.merge(table, left_on="var_id", right_on="fit_var_id", how="left")
+
+    # Set up the container
+    residual = [f"residual_{pk.name}" for pk in PriorKindEnum]
+    lagrange = [f"lagrange_{pk.name}" for pk in PriorKindEnum]
+    data_cols = residual + lagrange
+    vals = AgeTimeGrid((id_draw.ages, id_draw.times), columns=data_cols)
+
+    # Fill the container
+    vals.grid = vals.grid.drop(columns=data_cols) \
+        .merge(with_var[["age", "time"] + data_cols])
+
+    for mulstd, mul_id in id_draw.mulstd.items():
+        if mul_id.var_id.notna().all():
+            multstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
+            row = table.query("@id_column == @mulstd_id")[data_cols]
+            vals.mulstd[mulstd][data_cols] = row
+
     return vals
 
 

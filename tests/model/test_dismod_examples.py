@@ -74,7 +74,7 @@ def test_fit_random(dismod):
                   max_num_iter_random=100,
                   tolerance_random=1e-10)
     session.set_option(**option)
-    result = session.fit_random(model, data)
+    result, prior_residuals, data_residuals = session.fit_random(model, data)
 
     # The rates for the children are correct.
     parent = result.rate["iota"]
@@ -160,7 +160,7 @@ def test_fit_fixed_both(dismod):
                   tolerance_random=1e-11,
                   )
     session.set_option(**option)
-    fixed_var = session.fit_fixed(model, data)
+    fixed_var, prior_residuals, data_residuals = session.fit_fixed(model, data)
 
     parent_fixed = fixed_var.rate["iota"]
     us_fixed = fixed_var.random_effect[("iota", 2)]
@@ -176,7 +176,7 @@ def test_fit_fixed_both(dismod):
         assert fixed_value / iota_parent_true < 2
         assert 0.5 < fixed_value / iota_parent_true
 
-    result = session.fit(model, data, initial_guess=fixed_var)
+    result, prior_residuals, data_residuals = session.fit(model, data, initial_guess=fixed_var)
 
     parent = result.rate["iota"]
     us = result.random_effect[("iota", 2)]
@@ -276,7 +276,7 @@ def test_fit_gamma(meas_std_effect, dismod):
                   tolerance_fixed=1e-10)
     session.set_option(**option)
 
-    result = session.fit(model, data)
+    result, prior_residuals, data_residuals = session.fit(model, data)
     rate_out = result.rate["iota"].grid["mean"]
     # It found the correct mean and gamma.
     max_iota = ((rate_out - iota_true) / iota_true).abs().max()
