@@ -18,12 +18,42 @@ class AgeTimeGrid:
     given in the constructor. So getting an item returns a dataframe
     with those columns. Setting a dataframe sets those columns.
     Each AgeTimeGrid has three possible mulstds, for value, dage, dtime.
+
+    >>> atg = AgeTimeGrid(([0, 10, 20], [1990, 2000, 2010]), ["height", "weight"])
+    >>> atg[:, :] = [6.1, 195]
+    >>> atg[:, :].height = [5.9]
+    >>> atg[10, 2000] = [5.7, 180]
+    >>> atg[5:17, 1980:1990].weight = 125
+    >>> assert (atg[20, 2000].weight == 195).all()
+    >>> assert isinstance(atg[0, 1990], pd.DataFrame)
+
+    If the column has the same name as a function (mean), then access it
+    with getitem,
+
+    >>> atg[:, :]["mean"] = [5.9]
+
     """
     def __init__(self, age_time_grid, columns, count=1):
         assert isinstance(columns[0], str)
-        self.ages = np.array(age_time_grid[0], dtype=np.float)
-        self.times = np.array(age_time_grid[1], dtype=np.float)
-        self.columns = columns
+        try:
+            self.ages = np.array(age_time_grid[0], dtype=np.float)
+            self.times = np.array(age_time_grid[1], dtype=np.float)
+        except TypeError:
+            raise TypeError(f"Ages and times should be arrays of floats {age_time_grid}.")
+        if isinstance(columns, str):
+            columns = [columns]
+        try:
+            self.columns = list(columns)
+        except TypeError:
+            raise TypeError(f"Columns should be an iterable of strings. {columns}")
+        for col_is_str in self.columns:
+            if not isinstance(col_is_str, str):
+                raise TypeError(f"Columns should be iterable of strings. {col_is_str}")
+        try:
+            count = int(count)
+        except ValueError:
+            raise TypeError(f"Count must be an integer {count}.")
+
         age_time = np.array(list(product(sorted(self.ages), sorted(self.times))))
         self.grid = pd.DataFrame(dict(
             age=np.tile(age_time[:, 0], count),
@@ -46,7 +76,22 @@ class AgeTimeGrid:
         yield from zip(np.repeat(self.ages, len(self.times)), np.tile(self.times, len(self.ages)))
 
     def __getitem__(self, age_time):
-        age, time = age_time
+        """
+        Args:
+            age_time (float, float): Gets all rows with this (age, time).
+
+        Returns:
+            pd.DataFrame or pd.Series with columns.
+        """
+        try:
+            age, time = age_time
+        except TypeError as te:
+            if "not iterable" in str(te):
+                raise TypeError(f"Index should be two floats for getting, not {age_time}.")
+            else:
+                raise
+        if isinstance(age, slice) or isinstance(time, slice):
+            raise TypeError(f"Cannot get a slice from an AgeTimeGrid.")
         rows = self.grid.query("age == @age and time == @time")
         if len(rows) > 0:
             return rows[self.columns]

@@ -16,6 +16,8 @@ class Var(AgeTimeGrid):
         self._spline = None
 
     def check(self, name=None):
+        """None of the means should be nan. There should only be the
+        three mulstds."""
         if not self.grid["mean"].notna().all():
             raise RuntimeError(
                 f"Var {name} has {self.grid['mean'].isna().sum()} nan values")
@@ -29,15 +31,23 @@ class Var(AgeTimeGrid):
         Args:
             at_slice (slice, slice): What to change, as integer offset into
                 ages and times.
-            value (priors.Prior): The prior to set, containing dictionary of
-                                  parameters.
+            value (float): Set with a single floating-point value.
         """
         super().__setitem__(at_slice, [value])
+
+    def __getitem__(self, item):
+        return float(super().__getitem__(item)["mean"])
 
     def __str__(self):
         return f"Var({len(self.ages), len(self.times)})"
 
     def __call__(self, age, time):
+        """Call a Var as a function of age and time.
+
+        The grid points in a Var represent a continuous function, determined
+        by bivariate interpolation. All points outside the grid are equal
+        to the nearest point inside the grid.
+        """
         if self._spline is None:
             self._spline = self._as_function()
         result = self._spline(age, time)
@@ -70,7 +80,7 @@ class Var(AgeTimeGrid):
             fill = (ordered["mean"].values[0], ordered["mean"].values[-1])
             independent = age if len(age) != 1 else time
             spline = interp1d(
-                independent, ordered["mean"].values, kind="linear", bounds_error="extrapolate", fill_value=fill)
+                independent, ordered["mean"].values, kind="linear", bounds_error=False, fill_value=fill)
 
             def age_spline(x, _):
                 return spline(x)
