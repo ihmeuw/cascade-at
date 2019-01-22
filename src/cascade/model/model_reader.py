@@ -131,6 +131,7 @@ def _read_residuals_one_field(table, id_draw):
 
 
 def read_samples(dismod_file, var_ids):
+    """Get output of Dismod-AT sample command."""
     return _assign_from_var_ids(dismod_file.sample, var_ids, _samples_one_field)
 
 
@@ -235,16 +236,6 @@ def _add_one_field_to_vars(sub_grid_df, age, time):
     return draw
 
 
-def convert_age_time_to_values(dismod_file, draw_parts):
-    for group in draw_parts.values():
-        for draw in group.values():
-            draw.values = draw.grid.merge(dismod_file.age, on="age_id", how="left") \
-                .merge(dismod_file.time, on="time_id", how="left") \
-                .drop(columns=["age_id", "time_id"])
-            draw.ages = np.sort(np.unique(draw.grid.age.values))
-            draw.times = np.sort(np.unique(draw.grid.time.values))
-
-
 def read_inverted_smooths(dismod_file, parent_node, child_node):
     """Construct a DismodGroups where the value is the ID of the smooth table
     for that group. This will be very helpful for interpreting the var table."""
@@ -297,10 +288,12 @@ def _read_mulcov_smooths(mulcov_table, covariate_table, smooths):
 
 
 def read_parent_node(dismod_file):
+    """Get ``node_id`` for parent location."""
     return int(dismod_file.option.query("option_name == 'parent_node_id'").option_value)
 
 
 def read_child_nodes(dismod_file, parent_node):
+    """Get node ids for child locations."""
     return dismod_file.node[dismod_file.node.parent == parent_node].node_id.values
 
 

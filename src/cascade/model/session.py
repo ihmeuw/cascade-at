@@ -77,7 +77,7 @@ class Session:
         """Fits a model without optimizing over any random effects.
         It does apply constant child value priors, but other random effects
         are constrained to zero. (This is equivalent to fitting with
-        ``bound_random` equal to zero.) This is useful when one uses fitting
+        ``bound_random`` equal to zero.) This is useful when one uses fitting
         with no random effects as a starting point for fitting with
         random effects.
 
