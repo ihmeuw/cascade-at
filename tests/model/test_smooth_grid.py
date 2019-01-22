@@ -54,3 +54,10 @@ def test_out_of_bounds_setitem():
 
     with pytest.raises(ValueError):
         grid.value[:, 2015:] = Gaussian(mean=0.1, standard_deviation=5.0)
+
+
+def test_smooth_grid_mulstd():
+    grid = SmoothGrid(([0, 5, 10, 20], [2000, 2010]))
+    grid.value.mulstd_prior = Gaussian(mean=0.1, standard_deviation=0.02)
+    assert grid.value.mulstd_prior.standard_deviation == 0.02
+    assert isinstance(grid.value.mulstd_prior, Gaussian)

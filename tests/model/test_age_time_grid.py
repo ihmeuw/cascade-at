@@ -3,6 +3,7 @@ AgeTimeGrid isn't part of the API itself, but API members depend on it.
 """
 import pytest
 
+from numpy import isclose
 import pandas as pd
 
 from cascade.model.age_time_grid import AgeTimeGrid
@@ -96,5 +97,17 @@ def test_multiple_columns():
     assert float(atg[3.7, 5].weight) == 205
 
     atg[2.4, 0].height = [5.6]
-    print(f"out {atg[2.4, 5]}")
     assert isinstance(atg[2.4, 5], pd.DataFrame)
+
+
+def test_mulstd():
+    atg = AgeTimeGrid(([50], [2000]), ["clip"])
+    value = atg.mulstd["value"]
+    assert isinstance(value, pd.DataFrame)
+    # This is the only way to assign.
+    value.loc[:, "clip"] = 27
+    assert value.iloc[0]["clip"] == 27
+    assert (value.loc[:, "clip"] == 27).all()
+    with pytest.raises(ValueError):
+        assert value["clip"] == 27
+    assert isclose(float(value["clip"]), 27)

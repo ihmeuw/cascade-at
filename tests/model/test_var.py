@@ -75,3 +75,13 @@ def test_time_dimension(a, t, v):
     for i in range(4):
         onet[50, times[i]] = 0.3 * i
     assert isclose(onet(a, t), v)
+
+
+def test_mulstd():
+    onet = Var(([50, 60], [2000, 2010]))
+    onet.set_mulstd("value", 3.7)
+    onet.set_mulstd("dage", 2.4)
+    onet.set_mulstd("dtime", -7.3)
+    assert onet.get_mulstd("value") == 3.7
+    assert onet.get_mulstd("dage") == 2.4
+    assert onet.get_mulstd("dtime") == -7.3

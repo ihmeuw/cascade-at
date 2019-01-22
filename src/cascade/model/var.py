@@ -38,6 +38,12 @@ class Var(AgeTimeGrid):
     def __getitem__(self, item):
         return float(super().__getitem__(item)["mean"])
 
+    def set_mulstd(self, kind, value):
+        self.mulstd[kind].loc[:, "mean"] = value
+
+    def get_mulstd(self, kind):
+        return float(self.mulstd[kind]["mean"])
+
     def __str__(self):
         return f"Var({len(self.ages), len(self.times)})"
 

@@ -20,15 +20,29 @@ class _PriorView(AgeTimeGrid):
         # Let the base class make extra mulstds and delete them.
         for del_kind in PriorKindEnum:
             if del_kind.name != kind:
-                del self.mulstd[del_kind.name]
+                del self._mulstd[del_kind.name]
 
     def age_time_diff(self):
+        """Iterate over (age, time) in the grid."""
         yield from zip(
             np.repeat(self.ages, len(self.times)),
             np.tile(self.times, len(self.ages)),
             np.repeat(np.ediff1d(self.ages, to_end=inf), len(self.times)),
             np.tile(np.ediff1d(self.times, to_end=inf), len(self.ages)),
         )
+
+    @property
+    def mulstd_prior(self):
+        """Standard deviation multiplier as a Prior."""
+        # The base class, AgeTimeGrid, has a dictionary of three mulstds.
+        # The prior grid uses only one of them.
+        return prior_distribution(self._mulstd[self._kind].iloc[0])
+
+    @mulstd_prior.setter
+    def mulstd_prior(self, value):
+        to_set = value.parameters()
+        to_assign = [to_set[setp] if setp in to_set else nan for setp in self.columns]
+        self._mulstd[self._kind].loc[:, self.columns] = to_assign
 
     def __getitem__(self, at_slice):
         return prior_distribution(super().__getitem__(at_slice).iloc[0])
@@ -77,9 +91,12 @@ class SmoothGrid:
         return self._view == other._view
 
     def age_time(self):
+        """Iterate over (age, time) in the grid."""
         yield from zip(np.repeat(self.ages, len(self.times)), np.tile(self.times, len(self.ages)))
 
     def age_time_diff(self):
+        """Iterate over (age, time, forward difference in age,
+        forward difference in time). The last differences will be inf."""
         yield from zip(
             np.repeat(self.ages, len(self.times)),
             np.tile(self.times, len(self.ages)),
@@ -89,19 +106,22 @@ class SmoothGrid:
 
     @property
     def value(self):
+        """Grid of value priors."""
         return self._view["value"]
 
     @property
     def dage(self):
+        """Grid of priors on differences in age."""
         return self._view["dage"]
 
     @property
     def dtime(self):
+        """Grid of priors on differences in time."""
         return self._view["dtime"]
 
     @property
     def priors(self):
-        """All priors in one dataframe."""
+        """All priors in one dataframe. Used for serialization."""
         total = list()
         for kind, view in self._view.items():
             total.append(view.grid.assign(kind=kind))

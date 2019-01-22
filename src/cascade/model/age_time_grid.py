@@ -61,8 +61,8 @@ class AgeTimeGrid:
             idx=np.repeat(range(count), len(age_time)),
         ))
         self.grid = self.grid.assign(**{new_col: nan for new_col in columns})
-        self.mulstd = dict()
-        # Each mulstd is one line.
+        self._mulstd = dict()
+        # Each mulstd is one record.
         for kind in PriorKindEnum:
             mulstd_df = pd.DataFrame(dict(
                 age=[nan],
@@ -70,7 +70,11 @@ class AgeTimeGrid:
                 idx=list(range(count)),
             ))
             mulstd_df = mulstd_df.assign(**{new_col: nan for new_col in columns})
-            self.mulstd[kind.name] = mulstd_df
+            self._mulstd[kind.name] = mulstd_df
+
+    @property
+    def mulstd(self):
+        return self._mulstd
 
     def age_time(self):
         yield from zip(np.repeat(self.ages, len(self.times)), np.tile(self.times, len(self.ages)))
@@ -128,7 +132,7 @@ class AgeTimeGrid:
         self.grid.loc[np.in1d(self.grid.age, ages) & np.in1d(self.grid.time, times), self.columns] = value
 
     def __len__(self):
-        mulstd_cnt = sum(not df[self.columns].dropna(how="all").empty for df in self.mulstd.values())
+        mulstd_cnt = sum(not df[self.columns].dropna(how="all").empty for df in self._mulstd.values())
         return self.ages.shape[0] * self.times.shape[0] + mulstd_cnt
 
     def __str__(self):
