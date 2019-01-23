@@ -29,7 +29,7 @@ def test_options(dismod):
     )
     session.set_option(**opts)
 
-    iota = Var(([20], [2000]))
+    iota = Var([20], [2000])
     iota.grid.loc[:, "mean"] = 0.01
     model_var = DismodGroups()
     model_var.rate["iota"] = iota

@@ -26,12 +26,12 @@ def basic_model():
     model = Model(nonzero_rates, parent_location, child_locations, covariates=covariates)
 
     covariate_age_time = ([40], [2000])
-    traffic = SmoothGrid(covariate_age_time)
+    traffic = SmoothGrid(*covariate_age_time)
     traffic.value[:, :] = Gaussian(lower=-1, upper=1, mean=0.00, standard_deviation=0.3, eta=eta)
     model.alpha[("traffic", "iota")] = traffic
 
     dense_age_time = (np.linspace(0, 120, 13), np.linspace(1990, 2015, 8))
-    rate_grid = SmoothGrid(dense_age_time)
+    rate_grid = SmoothGrid(*dense_age_time)
     rate_grid.value[:, :] = Uniform(lower=1e-6, upper=0.3, mean=0.001, eta=eta)
     rate_grid.dage[:, :] = Uniform(lower=-1, upper=1, mean=0.0, eta=eta)
     rate_grid.dtime[:, :] = Gaussian(lower=-1, upper=1, mean=0.0, standard_deviation=0.3, eta=eta)
@@ -39,7 +39,7 @@ def basic_model():
     model.rate["omega"] = rate_grid
     model.rate["iota"] = rate_grid
 
-    chi_grid = SmoothGrid(dense_age_time)
+    chi_grid = SmoothGrid(*dense_age_time)
     chi_grid.value[:, :] = Uniform(lower=1e-6, upper=0.3, mean=0.004, eta=eta)
     chi_grid.dage[:, :] = Uniform(lower=-.9, upper=.9, mean=0.0, eta=eta)
     chi_grid.dtime[:, :] = Gaussian(lower=-.8, upper=.8, mean=0.0, standard_deviation=0.4, eta=eta)
@@ -73,16 +73,16 @@ def test_write_rate(basic_model, dismod):
 
 
 def test_predict(dismod):
-    iota = Var(([0, 20, 120], [2000]))
+    iota = Var([0, 20, 120], [2000])
     iota.grid.loc[np.isclose(iota.grid.age, 0), "mean"] = 0.0
     iota.grid.loc[np.isclose(iota.grid.age, 20), "mean"] = 0.02
     iota.grid.loc[np.isclose(iota.grid.age, 120), "mean"] = 0.02
 
-    chi = Var(([20], [2000]))
+    chi = Var([20], [2000])
     chi.grid.loc[:, "mean"] = 0.01
 
     mortality = siler_default()
-    omega = Var([np.linspace(0, 120, 121), [2000]])
+    omega = Var(np.linspace(0, 120, 121), [2000])
     omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
 
     model_variables = DismodGroups()
@@ -124,7 +124,7 @@ def test_survival(dismod):
     This is a single-parameter model.
     """
     mortality = siler_default()
-    omega = Var([np.linspace(0, 120, 121), [2000]])
+    omega = Var(np.linspace(0, 120, 121), [2000])
     omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
 
     model_variables = DismodGroups()
@@ -167,7 +167,7 @@ def test_fit_mortality(dismod):
     """Create data for a single-parameter model and fit that data.
     """
     mortality = siler_default()
-    omega = Var([np.linspace(0, 120, 121), [2000]])
+    omega = Var(np.linspace(0, 120, 121), [2000])
     omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
 
     model_variables = DismodGroups()
@@ -200,7 +200,7 @@ def test_fit_mortality(dismod):
     as_var = predicted[predicted.integrand == "mtother"] \
         .rename(columns={"avg_integrand": "mean", "age_lower": "age", "time_lower": "time"}) \
         .drop(columns=["predict_id", "sample_index", "location", "integrand", "age_upper", "time_upper"])
-    mtother_var = Var((as_var.age.unique(), as_var.time.unique()))
+    mtother_var = Var(as_var.age.unique(), as_var.time.unique())
     mtother_var.grid = as_var.assign(idx=0)
 
     for age in np.linspace(0, 120, 121):

@@ -88,7 +88,7 @@ def _read_vars_one_field(table, id_draw, name):
     table = table.reset_index(drop=True)
     with_var = id_draw.grid.merge(table, left_on="var_id", right_on=id_column, how="left")
 
-    vals = Var((id_draw.ages, id_draw.times))
+    vals = Var(id_draw.ages, id_draw.times)
     vals.grid = vals.grid.drop(columns=["mean"]) \
         .merge(with_var[["age", "time", var_column]]) \
         .rename(columns={var_column: "mean"})
@@ -115,7 +115,7 @@ def _read_residuals_one_field(table, id_draw):
     residual = [f"residual_{pk.name}" for pk in PriorKindEnum]
     lagrange = [f"lagrange_{pk.name}" for pk in PriorKindEnum]
     data_cols = residual + lagrange
-    vals = AgeTimeGrid((id_draw.ages, id_draw.times), columns=data_cols)
+    vals = AgeTimeGrid(id_draw.ages, id_draw.times, columns=data_cols)
 
     # Fill the container
     vals.grid = vals.grid.drop(columns=data_cols) \
@@ -142,7 +142,7 @@ def _samples_one_field(table, id_draw):
 
     # This is an AgeTimeGrid container, with multiple samples.
     # It will use the idx column to represent the sample index.
-    vals = AgeTimeGrid((id_draw.ages, id_draw.times), columns=["mean"])
+    vals = AgeTimeGrid(id_draw.ages, id_draw.times, columns=["mean"])
     vals.grid = vals.grid.drop(columns=["mean"]) \
         .merge(with_var[["age", "time", "sample_index", "var_value"]]) \
         .rename(columns={"var_value": "mean", "sample_index": "idx"})
@@ -225,7 +225,7 @@ def _add_one_field_to_vars(sub_grid_df, age, time):
         time = time.set_index("time_id")
     at_grid_df = at_grid_df.merge(age, left_on="age_id", right_index=True, how="left") \
         .merge(time, left_on="time_id", right_index=True, how="left")
-    draw = AgeTimeGrid((np.unique(at_grid_df.age.values), np.unique(at_grid_df.time.values)), ["var_id"])
+    draw = AgeTimeGrid(np.unique(at_grid_df.age.values), np.unique(at_grid_df.time.values), ["var_id"])
     draw.grid = draw.grid.drop(columns=["var_id"]) \
         .merge(at_grid_df[["age", "time", "var_id"]], how="left", on=["age", "time"])
     # The mulstd hyper-priors aren't indexed by age and time, so separate.

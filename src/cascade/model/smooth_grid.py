@@ -15,7 +15,7 @@ class _PriorView(AgeTimeGrid):
     def __init__(self, kind, ages, times):
         self._kind = kind
         super().__init__(
-            (ages, times),
+            ages, times,
             columns=["density", "mean", "std", "lower", "upper", "eta", "nu", "name"])
         # Let the base class make extra mulstds and delete them.
         for del_kind in PriorKindEnum:
@@ -66,15 +66,15 @@ class _PriorView(AgeTimeGrid):
 
 
 class SmoothGrid:
-    def __init__(self, age_time_grid):
+    def __init__(self, ages, times):
         """
         The Smooth Grid is a set of priors on an age-time grid.
 
         Args:
             age_time_grid (Tuple(set,set)): The supporting grid.
         """
-        self.ages = np.sort(np.array(age_time_grid[0], dtype=np.float))
-        self.times = np.sort(np.array(age_time_grid[1], dtype=np.float))
+        self.ages = np.sort(np.array(ages, dtype=np.float))
+        self.times = np.sort(np.array(times, dtype=np.float))
         self._view = dict()
         for create_view in PriorKindEnum:
             self._view[create_view.name] = _PriorView(create_view.name, self.ages, self.times)
@@ -141,7 +141,7 @@ def uninformative_grid_from_var(var, strictly_positive):
     Returns:
         SmoothGrid: A single smooth grid with Uniform distributions.
     """
-    smooth_grid = SmoothGrid((var.ages, var.times))
+    smooth_grid = SmoothGrid(var.ages, var.times)
     if strictly_positive:
         smooth_grid.value.grid.loc[:, ["density", "mean", "lower", "upper"]] = [
             "uniform", 1e-2, 1e-9, 5

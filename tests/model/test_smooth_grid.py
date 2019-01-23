@@ -8,7 +8,7 @@ from cascade.model.priors import Gaussian
 
 def test_smooth_grid__development_target():
     """This is how we hope to work with SmoothGrid objects."""
-    grid = SmoothGrid(([0, 5, 10, 20], [2000, 2010]))
+    grid = SmoothGrid([0, 5, 10, 20], [2000, 2010])
     # Assign a default value to all points.
     grid.value[:, :] = Gaussian(mean=0.01, standard_deviation=5.0, lower=0.0, upper=10.0)
     assert grid.value[5, 2010].density == "gaussian"
@@ -32,7 +32,7 @@ def test_smooth_grid__development_target():
 
 def test_smooth_grid__edge_cases_as_written():
     """If we set a particular age and time, that exact one is set."""
-    grid = SmoothGrid(([0, 5, 10, 20], [2000, 2010]))
+    grid = SmoothGrid([0, 5, 10, 20], [2000, 2010])
     for a, t in grid.age_time():
         low = a * 0.01
         high = t - 1999
@@ -45,7 +45,7 @@ def test_smooth_grid__edge_cases_as_written():
 
 
 def test_out_of_bounds_setitem():
-    grid = SmoothGrid(([0, 5, 10, 20], [2000, 2010]))
+    grid = SmoothGrid([0, 5, 10, 20], [2000, 2010])
     with pytest.raises(ValueError):
         grid.value[-0.5, 2000] = Gaussian(mean=0.1, standard_deviation=5.0)
 
@@ -57,7 +57,7 @@ def test_out_of_bounds_setitem():
 
 
 def test_smooth_grid_mulstd():
-    grid = SmoothGrid(([0, 5, 10, 20], [2000, 2010]))
+    grid = SmoothGrid([0, 5, 10, 20], [2000, 2010])
     grid.value.mulstd_prior = Gaussian(mean=0.1, standard_deviation=0.02)
     assert grid.value.mulstd_prior.standard_deviation == 0.02
     assert isinstance(grid.value.mulstd_prior, Gaussian)

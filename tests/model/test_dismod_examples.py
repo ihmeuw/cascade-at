@@ -56,14 +56,14 @@ def test_fit_random(dismod, locations):
     # The only nonlinear rate is iota. The three groups of model variables
     # are the underlying iota rate and random effects for US and Canada.
     # Rates change linearly between 1995 and 2015 but are constant across ages.
-    iota = SmoothGrid(([50], [1995, 2015]))
+    iota = SmoothGrid([50], [1995, 2015])
     iota.value[:, :] = Uniform(
         mean=iota_parent_true * exp(united_states_random_effect),
         lower=1e-4,
         upper=1)
     iota.dtime[:, :] = LogGaussian(mean=0.0, standard_deviation=0.1, eta=1e-8)
 
-    iota_child = SmoothGrid(([50], [1995, 2015]))
+    iota_child = SmoothGrid([50], [1995, 2015])
     # This large standard deviation makes the Gaussian uninformative.
     iota_child.value[:, :] = Gaussian(mean=0.0, standard_deviation=100.0)
     # But constrain to little change through time.
@@ -133,11 +133,11 @@ def test_fit_fixed_both(dismod, locations):
     # The only nonlinear rate is iota. The three groups of model variables
     # are the underlying iota rate and random effects for US and Canada.
     # Rates change linearly between 1995 and 2015 but are constant across ages.
-    iota = SmoothGrid(([50], [1995, 2015]))
+    iota = SmoothGrid([50], [1995, 2015])
     iota.value[:, :] = Uniform(mean=iota_parent_true / 100, lower=iota_parent_true / 100, upper=1)
     iota.dtime[:, :] = LogGaussian(mean=0.0, standard_deviation=0.1, eta=1e-8)
 
-    iota_child = SmoothGrid(([50], [1995, 2015]))
+    iota_child = SmoothGrid([50], [1995, 2015])
     # This large standard deviation makes the Gaussian uninformative.
     iota_child.value[:, :] = Gaussian(mean=0.0, standard_deviation=100.0)
     # But constrain to little change through time.
@@ -202,13 +202,13 @@ def test_posterior(locations, dismod):
     parent_location = 1
 
     model = Model(["omega"], parent_location)
-    model.rate["omega"] = SmoothGrid([[0], [1995, 2015]])
+    model.rate["omega"] = SmoothGrid([0], [1995, 2015])
     model.rate["omega"].value[:, :] = Gaussian(
         lower=0, upper=10, mean=omega_world_mean, standard_deviation=omega_world_mean)
     model.rate["omega"].dtime[:, :] = Gaussian(lower=-5, upper=5, mean=0, standard_deviation=omega_world_mean)
 
     fit_var = DismodGroups()
-    fit_var.rate["omega"] = Var([[0], [1995, 2015]])
+    fit_var.rate["omega"] = Var([0], [1995, 2015])
     fit_var.rate["omega"][:, :] = omega_world_mean
 
     session = Session(locations, parent_location, Path("posteriors.db"))
@@ -265,13 +265,13 @@ def test_fit_sim(locations, dismod):
     # The model sits on one age and time and has only incidence rate, iota.
     one_age_time = ([50], [2000])
     model = Model(["iota"], 1, children, covariates=[income])
-    model.rate["iota"] = SmoothGrid(one_age_time)
+    model.rate["iota"] = SmoothGrid(*one_age_time)
     model.rate["iota"].value[:, :] = Uniform(lower=iota_parent_true / 100, upper=1, mean=0.1)
-    child_effect = SmoothGrid(one_age_time)
+    child_effect = SmoothGrid(*one_age_time)
     child_effect.value[:, :] = Gaussian(mean=0, standard_deviation=0.1, lower=-inf, upper=inf)
     model.random_effect[("iota", None)] = child_effect
 
-    income_grid = SmoothGrid(one_age_time)
+    income_grid = SmoothGrid(*one_age_time)
     income_grid.value[:, :] = Uniform(lower=-2, upper=2, mean=0)
     model.alpha[("income", "iota")] = income_grid
 
@@ -290,12 +290,12 @@ def test_fit_sim(locations, dismod):
 
     # Simulate around this var.
     truth_var = DismodGroups()
-    truth_var.rate["iota"] = Var(one_age_time)
+    truth_var.rate["iota"] = Var(*one_age_time)
     truth_var.rate["iota"][:, :] = iota_parent_true
     for re_child in children:
-        truth_var.random_effect[("iota", re_child)] = Var(one_age_time)
+        truth_var.random_effect[("iota", re_child)] = Var(*one_age_time)
         truth_var.random_effect[("iota", re_child)][:, :] = 0
-    truth_var.alpha[("income", "iota")] = Var(one_age_time)
+    truth_var.alpha[("income", "iota")] = Var(*one_age_time)
     truth_var.alpha[("income", "iota")][:, :] = mulcov_income_iota_true
 
     session = Session(locations, 1, Path("fit_sim.db"))
@@ -358,11 +358,11 @@ def test_fit_gamma(meas_std_effect, locations, dismod):
     model = Model(nonzero_rates, parent_location, child_locations, covariates=[one])
 
     # There will be one rate, incidence, on two ages and two times.
-    model.rate["iota"] = SmoothGrid(([0], [1990]))
+    model.rate["iota"] = SmoothGrid([0], [1990])
     # The prior says nothing, and its mean is way off.
     model.rate["iota"].value[:, :] = Uniform(lower=iota_true / 100, upper=1, mean=iota_true / 10)
 
-    incidence_gamma = SmoothGrid([[0], [1990]])
+    incidence_gamma = SmoothGrid([0], [1990])
     # Again, the prior say snothing, and its mean is incorrect.
     incidence_gamma.value[:, :] = Uniform(lower=0, upper=10 * gamma_true, mean=gamma_true / 10)
     model.gamma[("one", "Sincidence")] = incidence_gamma
@@ -433,7 +433,7 @@ def test_age_avg_split(locations, dismod):
         time_upper=2000,
     ))
     model_variables = DismodGroups()
-    omega_rate = Var([[0.0, 0.9, 1.1, 100.0], [1995.0, 2015.0]])
+    omega_rate = Var([0.0, 0.9, 1.1, 100.0], [1995.0, 2015.0])
     omega_rate[0:1, :] = omega_0_1
     omega_rate[1:, :] = omega_1_100
     model_variables.rate["omega"] = omega_rate
@@ -461,13 +461,13 @@ def test_diff_constraint(locations, dismod):
     nonzero_rates = ["iota", "chi", "rho", "omega"]
     model = Model(nonzero_rates, parent_location, [2, 3])
     for add_rate in nonzero_rates:
-        priors = SmoothGrid(([0, 100], [1995, 2015]))
+        priors = SmoothGrid([0, 100], [1995, 2015])
         priors.value[:, :] = Uniform(lower=0.01, upper=1, mean=0.1)
         priors.dage[:, :] = Gaussian(lower=0.01, mean=0.01, standard_deviation=0.01)
         priors.dtime[:, :] = Gaussian(lower=0.01, mean=0.01, standard_deviation=0.01)
         model.rate[add_rate] = priors
 
-        random_effect = SmoothGrid(([0, 100], [1995, 2015]))
+        random_effect = SmoothGrid([0, 100], [1995, 2015])
         random_effect.value[:, :] = Gaussian(mean=0, standard_deviation=0.01)
         random_effect.dage[:, :] = Gaussian(mean=0, standard_deviation=0.01)
         random_effect.dtime[:, :] = Gaussian(mean=0, standard_deviation=0.01)

@@ -94,7 +94,7 @@ class Model(DismodGroups):
 
         for kind in (weight.name for weight in WeightEnum):
             if kind not in self.weights:
-                self.weights[kind] = Var(one_age_time)
+                self.weights[kind] = Var(*one_age_time)
                 self.weights[kind].grid.loc[:, "mean"] = 1.0
 
     @classmethod

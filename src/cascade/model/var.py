@@ -11,8 +11,8 @@ class Var(AgeTimeGrid):
     as a row. This presents each data item as a float. It also
     behaves like a continuous function of age and time.
     """
-    def __init__(self, age_time_grid):
-        super().__init__(age_time_grid, columns=["mean"])
+    def __init__(self, ages, times):
+        super().__init__(ages, times, columns=["mean"])
         self._spline = None
 
     def check(self, name=None):

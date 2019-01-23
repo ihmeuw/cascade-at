@@ -7,7 +7,7 @@ from cascade.model.var import Var
 
 
 def test_var_returns_a_float():
-    var = Var(([50, 17], [1990, 2000, 2010]))
+    var = Var([50, 17], [1990, 2000, 2010])
     var[:, :] = 34.7
     assert isinstance(var[50, 2000], float)
 
@@ -16,7 +16,7 @@ def test_var_returns_a_float():
 
 
 def test_works_as_a_function():
-    const = Var(([0], [0]))
+    const = Var([0], [0])
     const[0, 0] = 21.2
     assert const(0, 0) == 21.2
     assert const(365, -29) == 21.2
@@ -31,7 +31,7 @@ def test_works_as_a_function():
     (0.5, 7, 36.9),
 ])
 def test_const_square(a, t, v):
-    two = Var(([0, 1], [5, 10]))
+    two = Var([0, 1], [5, 10])
     two[:, :] = 36.9
     assert isclose(two(a, t), v)
 
@@ -41,7 +41,7 @@ def test_const_square(a, t, v):
     (2, 10, 6),
 ])
 def test_warp(a, t, v):
-    warp = Var(([0, 1], [5, 10, 15]))
+    warp = Var([0, 1], [5, 10, 15])
     warp[:, :] = 0.5
     warp[1, 10] = 6
     assert isclose(warp(a, t), v)
@@ -57,7 +57,7 @@ def test_warp(a, t, v):
     (24, 1975, 0.6),
 ])
 def test_age_dimension(a, t, v):
-    onea = Var(([0, 1, 2, 3], [2000]))
+    onea = Var([0, 1, 2, 3], [2000])
     for i in range(4):
         onea[i, :] = 0.2 * i
     assert isclose(onea(a, t), v)
@@ -71,14 +71,14 @@ def test_age_dimension(a, t, v):
 ])
 def test_time_dimension(a, t, v):
     times = [1990, 1995, 2000, 2005]
-    onet = Var(([50], times))
+    onet = Var([50], times)
     for i in range(4):
         onet[50, times[i]] = 0.3 * i
     assert isclose(onet(a, t), v)
 
 
 def test_mulstd():
-    onet = Var(([50, 60], [2000, 2010]))
+    onet = Var([50, 60], [2000, 2010])
     onet.set_mulstd("value", 3.7)
     onet.set_mulstd("dage", 2.4)
     onet.set_mulstd("dtime", -7.3)

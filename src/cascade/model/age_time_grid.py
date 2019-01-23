@@ -14,12 +14,12 @@ GRID_SNAP_DISTANCE = 1 / timedelta(days=365).total_seconds()
 class AgeTimeGrid:
     """The AgeTime grid holds rows of a table at each age and time value.
 
-    At each age and time point is a dataframe consisting of the columns
+    At each age and time point is a DataFrame consisting of the columns
     given in the constructor. So getting an item returns a dataframe
-    with those columns. Setting a dataframe sets those columns.
+    with those columns. Setting a DataFrame sets those columns.
     Each AgeTimeGrid has three possible mulstds, for value, dage, dtime.
 
-    >>> atg = AgeTimeGrid(([0, 10, 20], [1990, 2000, 2010]), ["height", "weight"])
+    >>> atg = AgeTimeGrid([0, 10, 20], [1990, 2000, 2010], ["height", "weight"])
     >>> atg[:, :] = [6.1, 195]
     >>> atg[:, :].height = [5.9]
     >>> atg[10, 2000] = [5.7, 180]
@@ -33,13 +33,13 @@ class AgeTimeGrid:
     >>> atg[:, :]["mean"] = [5.9]
 
     """
-    def __init__(self, age_time_grid, columns, count=1):
+    def __init__(self, ages, times, columns, count=1):
         assert isinstance(columns[0], str)
         try:
-            self.ages = np.array(age_time_grid[0], dtype=np.float)
-            self.times = np.array(age_time_grid[1], dtype=np.float)
+            self.ages = np.array(ages, dtype=np.float)
+            self.times = np.array(times, dtype=np.float)
         except TypeError:
-            raise TypeError(f"Ages and times should be arrays of floats {age_time_grid}.")
+            raise TypeError(f"Ages and times should be arrays of floats {(ages, times)}.")
         if isinstance(columns, str):
             columns = [columns]
         try:

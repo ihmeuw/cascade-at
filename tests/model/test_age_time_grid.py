@@ -11,19 +11,19 @@ from cascade.model.age_time_grid import AgeTimeGrid
 
 def test_create():
     cols = ["var_id"]
-    atg = AgeTimeGrid(([0, 1, 10], [2000, 2010]), cols)
+    atg = AgeTimeGrid([0, 1, 10], [2000, 2010], cols)
 
     assert len(atg.grid) == 6
     assert len(atg.mulstd) == 3
 
     cols = ["var_id", "other_id", "residual"]
-    atg = AgeTimeGrid(([0, 1, 10], [2000, 2010]), cols)
+    atg = AgeTimeGrid([0, 1, 10], [2000, 2010], cols)
     assert not (set(cols) - set(atg.grid.columns))
 
 
 def test_assign():
     cols = ["var_id"]
-    atg = AgeTimeGrid(([0, 1, 10], [2000, 2010]), cols)
+    atg = AgeTimeGrid([0, 1, 10], [2000, 2010], cols)
 
     assert len(atg.grid) == 6
     assert len(atg.mulstd) == 3
@@ -33,15 +33,15 @@ def test_assign():
 
 def test_create_wrong():
     with pytest.raises(TypeError):
-        AgeTimeGrid((40, 2010), ["mean"])
+        AgeTimeGrid(40, 2010, ["mean"])
 
-    atg = AgeTimeGrid(([40], [2010]), "not_a_column")
+    atg = AgeTimeGrid([40], [2010], "not_a_column")
     assert "not_a_column" in atg.columns
 
 
 def test_set_regions_single_column():
     cols = ["var_id"]
-    atg = AgeTimeGrid(([0, 1, 10], [2000, 2010]), cols)
+    atg = AgeTimeGrid([0, 1, 10], [2000, 2010], cols)
     with pytest.raises(TypeError):
         # You can't assign directly to a set of row elements.
         atg[:, :].var_id = [204]
@@ -71,7 +71,7 @@ def test_set_regions_single_column():
 
 def test_multiple_columns():
     cols = ["height", "weight"]
-    atg = AgeTimeGrid(([3.7, 2.4, -15], [0, 5, 10]), cols)
+    atg = AgeTimeGrid([3.7, 2.4, -15], [0, 5, 10], cols)
     for c in cols:
         assert c in atg.columns
     assert "mean" not in atg.columns
@@ -101,7 +101,7 @@ def test_multiple_columns():
 
 
 def test_mulstd():
-    atg = AgeTimeGrid(([50], [2000]), ["clip"])
+    atg = AgeTimeGrid([50], [2000], ["clip"])
     value = atg.mulstd["value"]
     assert isinstance(value, pd.DataFrame)
     # This is the only way to assign.
