@@ -34,21 +34,21 @@ class AgeTimeGrid:
 
     """
     def __init__(self, ages, times, columns, count=1):
-        assert isinstance(columns[0], str)
         try:
             self.ages = np.array(ages, dtype=np.float)
             self.times = np.array(times, dtype=np.float)
         except TypeError:
             raise TypeError(f"Ages and times should be arrays of floats {(ages, times)}.")
+        type_constraint = "Columns should be either a string or an iterable of strings."
         if isinstance(columns, str):
             columns = [columns]
         try:
             self.columns = list(columns)
         except TypeError:
-            raise TypeError(f"Columns should be an iterable of strings. {columns}")
+            raise TypeError(f"{type_constraint} {columns}")
         for col_is_str in self.columns:
             if not isinstance(col_is_str, str):
-                raise TypeError(f"Columns should be iterable of strings. {col_is_str}")
+                raise TypeError(f"{type_constraint} {col_is_str}")
         try:
             count = int(count)
         except ValueError:
@@ -136,7 +136,10 @@ class AgeTimeGrid:
         return self.ages.shape[0] * self.times.shape[0] + mulstd_cnt
 
     def __str__(self):
-        return f"AgeTimeGrid({len(self.ages), len(self.times)})"
+        return f"AgeTimeGrid({len(self.ages)}, {len(self.times)}) with {len(self)} model variables."
+
+    def __repr__(self):
+        return f"AgeTimeGrid({self.ages}, {self.times})"
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):

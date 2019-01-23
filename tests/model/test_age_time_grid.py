@@ -111,3 +111,9 @@ def test_mulstd():
     with pytest.raises(ValueError):
         assert value["clip"] == 27
     assert isclose(float(value["clip"]), 27)
+
+
+def test_printing():
+    atg = AgeTimeGrid([0, 10, 50], [2000, 2010], ["clip"])
+    assert "variables" in str(atg)
+    assert "2010" in repr(atg)

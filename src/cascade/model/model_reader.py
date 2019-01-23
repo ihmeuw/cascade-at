@@ -61,19 +61,22 @@ def read_vars(dismod_file, var_ids, which):
     return _assign_from_var_ids(table, var_ids, partial(_read_vars_one_field, name=var_name))
 
 
-def _assign_from_var_ids(table, var_ids, assignment):
-    """Iterate over var ids and execute a function on each grid in the varids."""
+def _assign_from_var_ids(table, var_ids, var_builder):
+    """Iterate over var ids and execute a function on each grid in the varids.
+    The ``var_builder`` creates a Var table from a table and a set of var_ids
+    to read from that table.
+    """
     if table.empty:
         raise AttributeError(f"Dismod file has no data in table {table.columns}.")
     var_groups = DismodGroups()
     for group_name, group in var_ids.items():
-        for key, value in group.items():
-            var_groups[group_name][key] = assignment(table, value)
+        for key, var_id_mapping in group.items():
+            var_groups[group_name][key] = var_builder(table, var_id_mapping)
     return var_groups
 
 
 def _read_vars_one_field(table, id_draw, name):
-    """Read one rate or randome effect's values.
+    """Read one rate or random effect's values.
 
     Args:
         table: Dismod-AT table represented by a Pandas dataframe.
