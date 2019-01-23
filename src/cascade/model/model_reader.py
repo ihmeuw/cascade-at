@@ -206,20 +206,20 @@ def read_var_table_as_id(dismod_file):
     for smooth_id, sub_grid_df in dismod_file.var.groupby(["smooth_id"]):
         if sub_grid_df[sub_grid_df.var_type == "rate"].empty:
             group_name, key = inverted_smooth[(smooth_id, parent_node)]
-            var_ids[group_name][key] = _add_one_field_to_vars(sub_grid_df, age, time)
+            var_ids[group_name][key] = _construct_var_id_from_var_table(sub_grid_df, age, time)
         else:
             # Multiple random effects, identified as "rates," can share a smooth.
             for node_id, re_grid_df in sub_grid_df.groupby(["node_id"]):
                 group_name, key = inverted_smooth[(smooth_id, node_id)]
-                var_ids[group_name][key] = _add_one_field_to_vars(re_grid_df, age, time)
+                var_ids[group_name][key] = _construct_var_id_from_var_table(re_grid_df, age, time)
 
-    if var_ids.count() != len(dismod_file.var):
-        MATHLOG.error(f"Found {var_ids.count()} of {len(dismod_file.var)} vars in db file.")
+    if var_ids.variable_count() != len(dismod_file.var):
+        MATHLOG.error(f"Found {var_ids.variable_count()} of {len(dismod_file.var)} vars in db file.")
 
     return rename_node_to_location(dismod_file.node, var_ids)
 
 
-def _add_one_field_to_vars(sub_grid_df, age, time):
+def _construct_var_id_from_var_table(sub_grid_df, age, time):
     at_grid_df = sub_grid_df[sub_grid_df.age_id.notna() & sub_grid_df.time_id.notna()]
     if age.index.name != "age_id":
         age = age.set_index("age_id")
@@ -259,15 +259,19 @@ def read_inverted_smooths(dismod_file, parent_node, child_node):
     return inverted_smooth
 
 
+def _is_a_smooth(smooth_id):
+    return smooth_id is not None and not isnan(smooth_id)
+
+
 def _read_rate_smooths(child_node, nslist_pair_table, rate_table, smooths):
     for rate_row in rate_table.itertuples():
-        if rate_row.parent_smooth_id is not None and not isnan(rate_row.parent_smooth_id):
+        if _is_a_smooth(rate_row.parent_smooth_id):
             smooths.rate[rate_row.rate_name] = int(rate_row.parent_smooth_id)
-        if rate_row.child_smooth_id is not None and not isnan(rate_row.child_smooth_id):
+        if _is_a_smooth(rate_row.child_smooth_id):
             # Random effects can have children with different fields but same smoothing.
             for child in child_node:
                 smooths.random_effect[(rate_row.rate_name, child)] = int(rate_row.child_smooth_id)
-        if rate_row.child_nslist_id is not None and not isnan(rate_row.child_nslist_id):
+        if _is_a_smooth(rate_row.child_nslist_id):
             child_df = nslist_pair_table[nslist_pair_table.nslist_id == rate_row.child_nslist_id]
             for ns_row in child_df.itertuples():
                 smooths.random_effect[(rate_row.rate_name, ns_row.node_id)] = int(ns_row.smooth_id)

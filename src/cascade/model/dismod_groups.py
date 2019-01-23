@@ -43,12 +43,12 @@ class DismodGroups(UserDict):
         else:
             super().__setitem__(key, item)
 
-    def count(self):
+    def variable_count(self):
         """Sum of lengths of values in the container."""
         total = 0
         for group in self.values():
             for container in group.values():
-                total += len(container)
+                total += container.variable_count()
         return total
 
     def __eq__(self, other):

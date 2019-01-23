@@ -69,7 +69,7 @@ def test_write_rate(basic_model, dismod):
 
     # By 3 because there are three priors for every value,
     # and this model has no mulstds, which don't always come in sets of 3.
-    assert 3 * var.count() == basic_model.count()
+    assert 3 * var.variable_count() == basic_model.variable_count()
 
 
 def test_predict(dismod):

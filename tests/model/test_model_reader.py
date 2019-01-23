@@ -4,7 +4,7 @@ import pandas as pd
 
 from cascade.model.age_time_grid import AgeTimeGrid
 from cascade.model.model_reader import (
-    _read_vars_one_field, _read_residuals_one_field, _samples_one_field, _add_one_field_to_vars
+    _read_vars_one_field, _read_residuals_one_field, _samples_one_field, _construct_var_id_from_var_table
 )
 
 
@@ -121,7 +121,7 @@ def test_add_one_field_to_vars():
     ))
     age = pd.DataFrame(dict(age_id=[0, 1, 2], age=[0, 50, 100]))
     time = pd.DataFrame(dict(time_id=[0, 1, 2], time=[2000, 2005, 2010]))
-    var = _add_one_field_to_vars(sub_grid_df, age, time)
+    var = _construct_var_id_from_var_table(sub_grid_df, age, time)
     assert var is not None
     assert int(var[0, 2000].var_id) == 4
     assert int(var[0, 2010].var_id) == 5

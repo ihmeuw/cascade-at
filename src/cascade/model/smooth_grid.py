@@ -79,8 +79,11 @@ class SmoothGrid:
         for create_view in PriorKindEnum:
             self._view[create_view.name] = _PriorView(create_view.name, self.ages, self.times)
 
+    def variable_count(self):
+        return sum(v.variable_count() for v in self._view.values())
+
     def __len__(self):
-        return sum(len(v) for v in self._view.values())
+        return self.variable_count()
 
     def __str__(self):
         return f"SmoothGrid({len(self.ages), len(self.times)})"

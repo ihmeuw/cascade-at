@@ -127,11 +127,14 @@ class AgeTimeGrid:
         self.grid.loc[np.in1d(self.grid.age, ages) & np.in1d(self.grid.time, times), self.columns] = value
 
     def __len__(self):
+        return self.variable_count()
+
+    def variable_count(self):
         mulstd_cnt = sum(not df[self.columns].dropna(how="all").empty for df in self._mulstd.values())
         return self.ages.shape[0] * self.times.shape[0] + mulstd_cnt
 
     def __str__(self):
-        return f"AgeTimeGrid({len(self.ages)}, {len(self.times)}) with {len(self)} model variables."
+        return f"AgeTimeGrid({len(self.ages)}, {len(self.times)}) with {self.variable_count()} model variables."
 
     def __repr__(self):
         return f"AgeTimeGrid({self.ages}, {self.times})"
