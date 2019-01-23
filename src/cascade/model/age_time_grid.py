@@ -126,9 +126,11 @@ class AgeTimeGrid:
         ages = self.ages[(at_range[0][0] <= self.ages) & (self.ages <= at_range[0][1])]
         times = self.times[(at_range[1][0] <= self.times) & (self.times <= at_range[1][1])]
         if len(ages) == 0:
-            raise ValueError(f"No ages within range {at_range[0]}")
+            raise ValueError(f"No ages within range {at_range[0]} "
+                             "Are you looking for a point not in the grid?")
         if len(times) == 0:
-            raise ValueError(f"No times within range {at_range[1]}")
+            raise ValueError(f"No times within range {at_range[1]} "
+                             "Are you looking for a point not in the grid?")
         self.grid.loc[np.in1d(self.grid.age, ages) & np.in1d(self.grid.time, times), self.columns] = value
 
     def __len__(self):

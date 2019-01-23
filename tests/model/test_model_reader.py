@@ -3,7 +3,9 @@ from numpy import isclose
 import pandas as pd
 
 from cascade.model.age_time_grid import AgeTimeGrid
-from cascade.model.model_reader import _read_vars_one_field, _read_residuals_one_field
+from cascade.model.model_reader import (
+    _read_vars_one_field, _read_residuals_one_field, _samples_one_field
+)
 
 
 def test_read_vars_one_field():
@@ -72,3 +74,34 @@ def test_read_residuals_one_field():
         assert isclose(float(grid.loc[grid.time == year, "lagrange_dtime"]), 60 + value)
 
     assert isclose(float(var_out.mulstd["dage"].loc[:, "residual_value"]), 10.8)
+
+
+def test_read_samples_one_field_mulstd():
+    id_draw = AgeTimeGrid([50], [2004, 2005], "var_id")
+    id_draw[50, 2004] = [4]  # var 4 is 2004
+    id_draw[50, 2005] = [5]  # var 5 is 2005
+    id_draw.mulstd["dtime"].loc[:, "var_id"] = 3
+
+    var_cnt = 6
+    sample_cnt = 5
+    sample_index = np.repeat(np.arange(0, sample_cnt), var_cnt)
+    var_id = np.tile(np.arange(0, var_cnt), sample_cnt)
+    table = pd.DataFrame(dict(
+        sample_id=np.arange(0, var_cnt * sample_cnt),
+        sample_index=sample_index,
+        var_id=var_id,
+        var_value=(2000 + var_id + sample_index) * 0.001,
+    ))
+
+    var_out = _samples_one_field(table, id_draw)
+
+    for a, t in var_out.age_time():
+        samples = var_out[a, t]
+        assert len(samples) == sample_cnt
+        samples = samples.sort_values("mean")
+        for idx in range(sample_cnt):
+            assert isclose(samples.iloc[idx]["mean"], (t + idx) * 0.001)
+    mulstd_out = var_out.mulstd["dtime"]
+    assert len(mulstd_out) == sample_cnt
+    for idx in range(sample_cnt):
+        assert isclose(mulstd_out[mulstd_out.idx == idx]["mean"], (2003 + idx) * 0.001)

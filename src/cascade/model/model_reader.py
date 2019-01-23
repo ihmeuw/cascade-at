@@ -1,5 +1,5 @@
 from functools import partial
-from math import isnan
+from math import isnan, nan
 
 import numpy as np
 import pandas as pd
@@ -127,7 +127,7 @@ def _read_residuals_one_field(table, id_draw):
         if mul_id.var_id.notna().all():
             mulstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
             row = table.loc[table["fit_var_id"] == mulstd_id, data_cols]
-            vals.mulstd[mulstd].loc[:, data_cols] = row
+            vals.mulstd[mulstd].loc[:, data_cols] = row.values
 
     return vals
 
@@ -140,20 +140,20 @@ def read_samples(dismod_file, var_ids):
 def _samples_one_field(table, id_draw):
     # Get the data out.
     table = table.reset_index(drop=True)
-    with_var = id_draw.grid.merge(table, left_on="var_id", right_on="var_id", how="left")
+    with_var = table.merge(id_draw.grid, left_on="var_id", right_on="var_id", how="inner")
 
     # This is an AgeTimeGrid container, with multiple samples.
     # It will use the idx column to represent the sample index.
     vals = AgeTimeGrid(id_draw.ages, id_draw.times, columns=["mean"])
-    vals.grid = vals.grid.drop(columns=["mean"]) \
-        .merge(with_var[["age", "time", "sample_index", "var_value"]]) \
-        .rename(columns={"var_value": "mean", "sample_index": "idx"})
+    vals.grid = with_var[["age", "time", "var_value", "sample_index"]].rename(
+        columns={"var_value": "mean", "sample_index": "idx"})
 
     for mulstd, mul_id in id_draw.mulstd.items():
         if mul_id.var_id.notna().all():
-            multstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
-            row = table.query("@var_id == @mulstd_id")[["sample_index", "var_value"]]
-            vals.mulstd[mulstd][["mean", "idx"]] = row
+            mulstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
+            vals.mulstd[mulstd] = table[table.var_id == mulstd_id][["sample_index", "var_value"]] \
+                .rename(columns={"sample_index": "idx", "var_value": "mean"}) \
+                .assign(age=nan, time=nan)
 
     return vals
 
