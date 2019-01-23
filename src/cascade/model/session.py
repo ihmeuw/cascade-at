@@ -41,8 +41,7 @@ class Session:
         self.dismod_file.engine = get_engine(self._filename)
         self.parent_location = parent_location
 
-        self._create_node_table(locations)
-        self._basic_db_setup()
+        self._basic_db_setup(locations)
         # From covariate name to the x_<number> name that is used internally.
         # The session knows this piece of information but not the covariate
         # reference values. This is here because the columns of avgint and data
@@ -112,7 +111,7 @@ class Session:
         return self._fit("random", model, data, initial_guess)
 
     def _fit(self, fit_level, model, data, initial_guess):
-        self._setup_model(model, data)
+        self._setup_model_for_fit(model, data)
         if initial_guess is not None:
             MATHLOG.info(f"Setting initial value for search from user argument.")
             self.set_var("start", initial_guess)
@@ -120,7 +119,7 @@ class Session:
         self._run_dismod(["fit", fit_level])
         return FitResult(self, self.get_var("fit"))
 
-    def _setup_model(self, model, data):
+    def _setup_model_for_fit(self, model, data):
         extremal = list()
         if data is not None and not data.empty:
             for dimension in ["age", "time"]:
@@ -197,7 +196,7 @@ class Session:
             with an index, and the latter are in a DismodGroups container
             of SmoothGrids.
         """
-        self._setup_model(model, data)
+        self._setup_model_for_fit(model, data)
         self.set_var("truth", fit_var)
         self._run_dismod(["simulate", simulate_count])
         return SimulateResult(self, simulate_count)
@@ -408,11 +407,13 @@ class Session:
     def get_predict(self):
         avgint = self.read_avgint()
         raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
-        not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)]
-        return raw.drop(columns=["avgint_id"]), not_predicted.drop(columns=["avgint_id"])
+        not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)].drop(columns=["avgint_id"])
+        return raw.drop(columns=["avgint_id", "predict_id"]), not_predicted
 
-    def _basic_db_setup(self):
+    def _basic_db_setup(self, locations):
         """These things are true for all databases."""
+        self._create_node_table(locations)
+
         # Density table does not depend on model.
         self.dismod_file.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
 

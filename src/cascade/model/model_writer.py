@@ -18,7 +18,8 @@ class ModelWriter:
     absolute numbers in the Model and SQL-indexed numbers.
 
     This has an API that the client has to follow. Functions need to be called
-    in order.
+    in order. Then the writer has to be thrown away. It's not for use
+    beyond a single function that writes a fresh model.
 
     For naming in the DismodFile, this chooses names based on the random
     fields.
@@ -47,8 +48,8 @@ class ModelWriter:
             self._ages = np.array(list(extremal_age_time[0]), dtype=np.float)
             self._times = np.array(list(extremal_age_time[1]), dtype=np.float)
         else:
-            self._ages = np.zeros((0,), dtype=np.float)
-            self._times = np.zeros((0,), dtype=np.float)
+            self._ages = np.empty((0,), dtype=np.float)
+            self._times = np.empty((0,), dtype=np.float)
         self._rate_rows = list()  # List of dictionaries for rates.
         self._mulcov_rows = list()  # List of dictionaries for covariate multipliers.
         self._rate_id = dict()  # The rate ids with the primary rates.

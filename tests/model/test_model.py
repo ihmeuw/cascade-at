@@ -199,7 +199,7 @@ def test_fit_mortality(dismod):
     # the predicted values and comparing at age points.
     as_var = predicted[predicted.integrand == "mtother"] \
         .rename(columns={"avg_integrand": "mean", "age_lower": "age", "time_lower": "time"}) \
-        .drop(columns=["predict_id", "sample_index", "location", "integrand", "age_upper", "time_upper"])
+        .drop(columns=["sample_index", "location", "integrand", "age_upper", "time_upper"])
     mtother_var = Var(as_var.age.unique(), as_var.time.unique())
     mtother_var.grid = as_var.assign(idx=0)
 
@@ -220,7 +220,7 @@ def test_fit_mortality(dismod):
         priors.dage[a, t] = Gaussian(mean=0, standard_deviation=0.1, lower=-5, upper=5)
         priors.dtime[a, t] = Gaussian(mean=0, standard_deviation=0.1, lower=-5, upper=5)
 
-    data = predicted.drop(columns=["sample_index", "predict_id"]).rename(columns={"avg_integrand": "mean"})
+    data = predicted.drop(columns=["sample_index"]).rename(columns={"avg_integrand": "mean"})
     data = data.assign(density="gaussian", std=0.1, eta=1e-4, nu=nan)
 
     result = session.fit(model, data, initial_guess=model_variables)
