@@ -1,6 +1,4 @@
-from itertools import product
-
-from numpy import isclose
+from numpy import isclose, isnan
 import pytest
 
 from cascade.model.var import Var
@@ -77,11 +75,38 @@ def test_time_dimension(a, t, v):
     assert isclose(onet(a, t), v)
 
 
-def test_mulstd():
+@pytest.mark.parametrize("name,value", [
+    ("value", 3.7),
+    ("dage", 2.4),
+    ("dtime", -7.3),
+    ("value", 4),  # Try an integer.
+])
+def test_mulstd(name, value):
     onet = Var([50, 60], [2000, 2010])
-    onet.set_mulstd("value", 3.7)
+    onet.set_mulstd(name, value)
+    assert onet.get_mulstd(name) == value
+
     onet.set_mulstd("dage", 2.4)
     onet.set_mulstd("dtime", -7.3)
-    assert onet.get_mulstd("value") == 3.7
     assert onet.get_mulstd("dage") == 2.4
     assert onet.get_mulstd("dtime") == -7.3
+
+
+@pytest.mark.parametrize("name,value", [
+    ("anything", 3.2),
+    ("anything", 4),
+    ("dage ", 3.2),
+])
+def test_mulstd_failure(name, value):
+    onet = Var([50, 60], [2000, 2010])
+    with pytest.raises(TypeError):
+        onet.set_mulstd(name, value)
+
+
+def test_mulstd_read_failure():
+    onet = Var([50, 60], [2000, 2010])
+    with pytest.raises(TypeError):
+        onet.get_mulstd("else")
+
+    # Here the key is good, but there is nothing there.
+    assert isnan(onet.get_mulstd('dage'))

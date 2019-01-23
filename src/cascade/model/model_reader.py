@@ -92,15 +92,13 @@ def _read_vars_one_field(table, id_draw, name):
     with_var = id_draw.grid.merge(table, left_on="var_id", right_on=id_column, how="left")
 
     vals = Var(id_draw.ages, id_draw.times)
-    vals.grid = vals.grid.drop(columns=["mean"]) \
-        .merge(with_var[["age", "time", var_column]]) \
-        .rename(columns={var_column: "mean"})
+    vals.grid = vals.grid.assign(age=with_var["age"], time=with_var["time"], mean=with_var[var_column])
 
     for mulstd, mul_id in id_draw.mulstd.items():
         if mul_id.var_id.notna().all():
-            multstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
-            row = table.query("@id_column == @mulstd_id")[var_column]
-            vals.mulstd[mulstd][var_column] = float(row)
+            mulstd_id = int(mul_id.var_id.iloc[0])
+            row = table.loc[table[id_column] == mulstd_id, var_column]
+            vals.set_mulstd("value", float(row))
     return vals
 
 
@@ -110,6 +108,7 @@ def read_prior_residuals(dismod_file, var_ids):
 
 
 def _read_residuals_one_field(table, id_draw):
+    """Reads residuals for the Priors."""
     # Get the data out.
     table = table.reset_index(drop=True)
     with_var = id_draw.grid.merge(table, left_on="var_id", right_on="fit_var_id", how="left")

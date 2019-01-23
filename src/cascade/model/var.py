@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.interpolate import RectBivariateSpline, interp1d
 
+from cascade.dismod.constants import PriorKindEnum
 from cascade.model.age_time_grid import AgeTimeGrid
 
 
@@ -39,9 +40,18 @@ class Var(AgeTimeGrid):
         return float(super().__getitem__(item)["mean"])
 
     def set_mulstd(self, kind, value):
-        self.mulstd[kind].loc[:, "mean"] = value
+        """Set the value of the mulstd. Kind must be one of
+        "value", "dage", or "dtime". The value should be convertible to a float.
+        """
+        sig = "kind is one of value, dage, dtime, and value is a float."
+        if kind not in PriorKindEnum.__members__:
+            raise TypeError(f"{sig} kind={kind}")
+        self.mulstd[kind].loc[:, "mean"] = float(value)
 
     def get_mulstd(self, kind):
+        """If the value wasn't set, it will return a nan."""
+        if kind not in PriorKindEnum.__members__:
+            raise TypeError(f"Argument is one of value, dage, dtime, not {kind}.")
         return float(self.mulstd[kind]["mean"])
 
     def __str__(self):
