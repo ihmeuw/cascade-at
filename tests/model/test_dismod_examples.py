@@ -22,8 +22,8 @@ def locations():
     # The US and Canada are children of North America.
     locations = pd.DataFrame(dict(
         name=["North America", "United States", "Canada"],
-        parent=[nan, parent_location, parent_location],
-        c_location_id=[parent_location, 2, 3],
+        parent_id=[nan, parent_location, parent_location],
+        location_id=[parent_location, 2, 3],
     ))
     return locations
 
@@ -237,11 +237,11 @@ def test_posterior(locations, dismod):
     residual_0 = (omega_0 - omega_world_mean) / omega_world_mean
     residual_1 = (omega_1 - omega_world_mean) / omega_world_mean
     variance_00 = np.mean(residual_0 * residual_0)
-    assert isclose(variance_00, 2/3, rtol=0.5)
+    assert isclose(variance_00, 2 / 3, rtol=0.5)
     variance_11 = np.mean(residual_1 * residual_1)
-    assert isclose(variance_11, 2/3, rtol=0.5)
+    assert isclose(variance_11, 2 / 3, rtol=0.5)
     variance_01 = np.mean(residual_0 * residual_1)
-    assert isclose(variance_01, 1/3, rtol=0.5)
+    assert isclose(variance_01, 1 / 3, rtol=0.5)
 
 
 @pytest.mark.skip("Finds error in Dismod-AT init")
@@ -256,8 +256,8 @@ def test_fit_sim(locations, dismod):
     children = [parent_location + add_child for add_child in range(n_children)]
     locations = pd.DataFrame(dict(
         name=["Universe"] + [f"child_{cidx}" for cidx in range(n_children)],
-        parent=[nan] + n_children * [parent_location],
-        c_location_id=[parent_location] + children,
+        parent_id=[nan] + n_children * [parent_location],
+        location_id=[parent_location] + children,
     ))
 
     income = Covariate("income", 0.5)
@@ -314,8 +314,8 @@ def test_fit_sim(locations, dismod):
                   )
     session.set_option(**option)
 
-    simulated_result = session.simulate(model, data, truth_var, 1)
-    # fit_result = session.fit(model, data, initial_guess=None)
+    session.simulate(model, data, truth_var, 1)
+    # session.fit(model, data, initial_guess=None)
 
 
 @pytest.mark.parametrize("meas_std_effect", [

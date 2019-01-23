@@ -50,8 +50,8 @@ def basic_model():
 def test_write_rate(basic_model, dismod):
     locations = pd.DataFrame(dict(
         name=["global"],
-        parent=[nan],
-        c_location_id=[1],
+        parent_id=[nan],
+        location_id=[1],
     ))
     parent_location = 1
     db_file = Path("rftest.db")
@@ -93,8 +93,8 @@ def test_predict(dismod):
     parent_location = 1
     locations = pd.DataFrame(dict(
         name=["global"],
-        parent=[nan],
-        c_location_id=[parent_location],
+        parent_id=[nan],
+        location_id=[parent_location],
     ))
     db_file = Path("prtest.db")
     session = Session(locations, parent_location, db_file)
@@ -133,8 +133,8 @@ def test_survival(dismod):
     parent_location = 1
     locations = pd.DataFrame(dict(
         name=["global"],
-        parent=[nan],
-        c_location_id=[parent_location],
+        parent_id=[nan],
+        location_id=[parent_location],
     ))
     session = Session(locations, parent_location, Path("survtest.db"))
     session.set_option(ode_step_size=1)
@@ -176,8 +176,8 @@ def test_fit_mortality(dismod):
     parent_location = 1
     locations = pd.DataFrame(dict(
         name=["global"],
-        parent=[nan],
-        c_location_id=[parent_location],
+        parent_id=[nan],
+        location_id=[parent_location],
     ))
     session = Session(locations, parent_location, Path("fit0.db"))
     session.set_option(ode_step_size=1)

@@ -471,23 +471,23 @@ class Session:
         self.dismod_file.option = option.assign(option_id=option.index)
 
     def _create_node_table(self, locations):
-        columns = dict(
-            node_name=locations.name,
-            parent=locations.parent,
-        )
-        # This adds c_location_id, if it's there.
-        for add_column in [c for c in locations.columns if c.startswith("c_")]:
-            columns[add_column] = locations[add_column]
-        table = pd.DataFrame(columns)
-        table["node_id"] = table.index
+        for required_column in ["parent_id", "location_id"]:
+            if required_column not in locations.columns:
+                raise ValueError(f"Locations should be a DataFrame with location_id and parent_id, "
+                                 f"and optional name, not {locations.columns}.")
+        if "name" not in locations:
+            locations = locations.assign(name=locations.location_id.astype(str))
+        node = locations.rename(columns={"name": "node_name", "location_id": "c_location_id"})
+        node = node.reset_index(drop=True).assign(node_id=node.index)
 
         def location_to_node_func(location_id):
             if np.isnan(location_id):
                 return np.nan
-            return np.where(table.c_location_id == location_id)[0][0]
+            return np.where(node.c_location_id == location_id)[0][0]
 
-        table["parent"] = table.parent.apply(location_to_node_func)
-        self.dismod_file.node = table
+        node = node.assign(parent=node.parent_id.apply(location_to_node_func)).drop(columns=["parent_id"])
+
+        self.dismod_file.node = node
         self.location_func = location_to_node_func
 
 
