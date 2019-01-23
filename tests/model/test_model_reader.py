@@ -1,10 +1,10 @@
 import numpy as np
-from numpy import isclose
+from numpy import isclose, nan, isnan
 import pandas as pd
 
 from cascade.model.age_time_grid import AgeTimeGrid
 from cascade.model.model_reader import (
-    _read_vars_one_field, _read_residuals_one_field, _samples_one_field
+    _read_vars_one_field, _read_residuals_one_field, _samples_one_field, _add_one_field_to_vars
 )
 
 
@@ -105,3 +105,25 @@ def test_read_samples_one_field_mulstd():
     assert len(mulstd_out) == sample_cnt
     for idx in range(sample_cnt):
         assert isclose(mulstd_out[mulstd_out.idx == idx]["mean"], (2003 + idx) * 0.001)
+
+
+def test_add_one_field_to_vars():
+    sub_grid_df = pd.DataFrame(dict(
+        var_id=[4, 5, 6],
+        var_type=["rate", "rate", "mulstd_value"],
+        smooth_id=0,
+        age_id=0,
+        time_id=[0, 2, nan],
+        node_id=0,
+        rate_id=1,
+        integrand_id=nan,
+        covariate_id=nan,
+    ))
+    age = pd.DataFrame(dict(age_id=[0, 1, 2], age=[0, 50, 100]))
+    time = pd.DataFrame(dict(time_id=[0, 1, 2], time=[2000, 2005, 2010]))
+    var = _add_one_field_to_vars(sub_grid_df, age, time)
+    assert var is not None
+    assert int(var[0, 2000].var_id) == 4
+    assert int(var[0, 2010].var_id) == 5
+    assert int(var.mulstd["value"].at[0, "var_id"]) == 6
+    assert isnan(var.mulstd["dage"].at[0, "var_id"])

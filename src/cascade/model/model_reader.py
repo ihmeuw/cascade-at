@@ -231,10 +231,11 @@ def _add_one_field_to_vars(sub_grid_df, age, time):
     draw.grid = draw.grid.drop(columns=["var_id"]) \
         .merge(at_grid_df[["age", "time", "var_id"]], how="left", on=["age", "time"])
     # The mulstd hyper-priors aren't indexed by age and time, so separate.
-    for kind in ["value", "dage", "dtime"]:  # noqa: F841
-        match = sub_grid_df.query("var_type == @kind")
+    for kind in ["value", "dage", "dtime"]:
+        mulstd_name = f"mulstd_{kind}"  # noqa: F841
+        match = sub_grid_df.query("var_type == @mulstd_name")
         if not match.empty:
-            draw.mulstd[kind].var_id = match.var_id
+            draw.mulstd[kind].at[0, "var_id"] = match.var_id
     return draw
 
 
