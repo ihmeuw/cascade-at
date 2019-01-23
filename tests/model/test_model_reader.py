@@ -20,7 +20,7 @@ def test_read_vars_one_field():
 
     var_out = _read_vars_one_field(table, id_draw, "scale_var")
     grid = var_out.grid
-    assert set(grid.columns) == {"age", "time", "mean", "idx"}
+    assert set(grid.columns) == {"age", "time", "mean"}
     assert len(grid) == 2
     assert isclose(float(grid.loc[grid.time == 1995, "mean"]), 0.8)
     assert isclose(float(grid.loc[grid.time == 2015, "mean"]), 1.0)

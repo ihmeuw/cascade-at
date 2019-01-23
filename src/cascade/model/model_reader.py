@@ -144,7 +144,7 @@ def _samples_one_field(table, id_draw):
 
     # This is an AgeTimeGrid container, with multiple samples.
     # It will use the idx column to represent the sample index.
-    vals = AgeTimeGrid(id_draw.ages, id_draw.times, columns=["mean"])
+    vals = AgeTimeGrid(id_draw.ages, id_draw.times, columns=["mean", "idx"])
     vals.grid = with_var[["age", "time", "var_value", "sample_index"]].rename(
         columns={"var_value": "mean", "sample_index": "idx"})
 

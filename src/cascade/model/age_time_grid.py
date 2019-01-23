@@ -33,7 +33,7 @@ class AgeTimeGrid:
     >>> atg[:, :]["mean"] = [5.9]
 
     """
-    def __init__(self, ages, times, columns, count=1):
+    def __init__(self, ages, times, columns):
         try:
             self.ages = np.array(ages, dtype=np.float)
             self.times = np.array(times, dtype=np.float)
@@ -49,16 +49,10 @@ class AgeTimeGrid:
         for col_is_str in self.columns:
             if not isinstance(col_is_str, str):
                 raise TypeError(f"{type_constraint} {col_is_str}")
-        try:
-            count = int(count)
-        except ValueError:
-            raise TypeError(f"Count must be an integer {count}.")
-
         age_time = np.array(list(product(sorted(self.ages), sorted(self.times))))
         self.grid = pd.DataFrame(dict(
-            age=np.tile(age_time[:, 0], count),
-            time=np.tile(age_time[:, 1], count),
-            idx=np.repeat(range(count), len(age_time)),
+            age=age_time[:, 0],
+            time=age_time[:, 1],
         ))
         self.grid = self.grid.assign(**{new_col: nan for new_col in columns})
         self._mulstd = dict()
@@ -67,7 +61,6 @@ class AgeTimeGrid:
             mulstd_df = pd.DataFrame(dict(
                 age=[nan],
                 time=[nan],
-                idx=list(range(count)),
             ))
             mulstd_df = mulstd_df.assign(**{new_col: nan for new_col in columns})
             self._mulstd[kind.name] = mulstd_df
