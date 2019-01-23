@@ -548,7 +548,7 @@ def main(args):
         posteriors = one_location_set(ec, settings, posteriors)
         grandparent_location_id = parent_location_id
 
-    elapsed_time = timedelta(default_timer() - start_time)
+    elapsed_time = timedelta(seconds=default_timer() - start_time)
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")
 
 
