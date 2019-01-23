@@ -116,7 +116,7 @@ def _read_residuals_one_field(table, id_draw):
     # Set up the container
     residual = [f"residual_{pk.name}" for pk in PriorKindEnum]
     lagrange = [f"lagrange_{pk.name}" for pk in PriorKindEnum]
-    data_cols = residual + lagrange
+    data_cols = ["fit_var_value"] + residual + lagrange
     vals = AgeTimeGrid(id_draw.ages, id_draw.times, columns=data_cols)
 
     # Fill the container
@@ -125,9 +125,9 @@ def _read_residuals_one_field(table, id_draw):
 
     for mulstd, mul_id in id_draw.mulstd.items():
         if mul_id.var_id.notna().all():
-            multstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
-            row = table.query("@id_column == @mulstd_id")[data_cols]
-            vals.mulstd[mulstd][data_cols] = row
+            mulstd_id = int(mul_id.var_id.iloc[0])  # noqa: F841
+            row = table.loc[table["fit_var_id"] == mulstd_id, data_cols]
+            vals.mulstd[mulstd].loc[:, data_cols] = row
 
     return vals
 
@@ -161,7 +161,7 @@ def _samples_one_field(table, id_draw):
 def read_data_residuals(dismod_file):
     """Reads residuals indexed by the name of the data line.
 
-    Args:
+    Args:lagrange_dtime
         dismod_file: The DismodFile wrapper.
 
     Returns:
