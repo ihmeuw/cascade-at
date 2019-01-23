@@ -8,7 +8,7 @@ from cascade.model.age_time_grid import AgeTimeGrid
 from cascade.model.priors import prior_distribution
 
 
-class _PriorView(AgeTimeGrid):
+class _PriorGrid(AgeTimeGrid):
     """Slices to access priors with Distribution objects.
     Each PriorView has one mulstd, corresponding with its kind.
     """
@@ -77,7 +77,7 @@ class SmoothGrid:
         self.times = np.sort(np.array(times, dtype=np.float))
         self._view = dict()
         for create_view in PriorKindEnum:
-            self._view[create_view.name] = _PriorView(create_view.name, self.ages, self.times)
+            self._view[create_view.name] = _PriorGrid(create_view.name, self.ages, self.times)
 
     def variable_count(self):
         return sum(v.variable_count() for v in self._view.values())

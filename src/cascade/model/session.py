@@ -440,7 +440,6 @@ class Session:
         self._create_options_table()
 
     def _create_options_table(self):
-        # Options in grey were rejected by Dismod-AT despite being in docs.
         # https://bradbell.github.io/dismod_at/doc/option_table.htm
         option = pd.DataFrame([
             dict(option_name="parent_node_id", option_value=str(self.location_func(self.parent_location))),
