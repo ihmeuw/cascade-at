@@ -106,7 +106,7 @@ same and lower and upper times are the same.
 .. code:: python
 
     data_cnt = 60
-    avgints = pd.DataFrame(dict(
+    susceptibles = pd.DataFrame(dict(
         integrand="susceptible",
         location=parent_location,
         age_lower=np.linspace(0, 120, data_cnt),
@@ -114,7 +114,15 @@ same and lower and upper times are the same.
         time_lower=2000,
         time_upper=2000,
     ))
-    avgints = pd.concat([avgints, avgints.assign(integrand="mtother")])
+    mtother = pd.DataFrame(dict(
+        integrand="mtother",
+        location=parent_location,
+        age_lower=np.linspace(0, 120, data_cnt),
+        age_upper=np.linspace(0, 120, data_cnt),
+        time_lower=2000,
+        time_upper=2000,
+    ))
+    avgints = pd.concat([susceptibles, mtother])
 
 Those are the inputs for running Dismod-AT predict. The next step is to
 start a Dismod-AT session and run predict. A Dismod-AT session
@@ -125,10 +133,11 @@ communicates with Dismod-AT running underneath.
     session = Session(locations, parent_location, Path("fit0.db"))
     session.set_option(ode_step_size=1)
 
-Note the ``ode_step_size=1``. This is the step size for predict. We can
-play with this to understand how step size affects fit accuracy, because
-a Dismod-AT fit is built upon running predict over and over again during
-optimization.
+Note the ``ode_step_size=1``. This is the resolution with which predict
+integrates the function. It's generally good to have the input grid and
+step size be about the same size. We can play with this to understand
+how step size affects fit accuracy, because a Dismod-AT fit is built
+upon running predict over and over again during optimization.
 
 Prediction returns two sets of data, the data points requested and those
 that *could not be predicted* because they were associated with
@@ -144,7 +153,7 @@ that list will be empty.
 
 .. parsed-literal::
 
-    Predicted outcome with columns sample_index, avg_integrand, location, integrand, age_lower, age_upper, time_lower, time_upper
+    Predicted outcome with columns sample_index, mean, location, integrand, age_lower, age_upper, time_lower, time_upper
 
 
 The predictions are a Pandas DataFrame with the columns shown. They will
@@ -171,14 +180,18 @@ it's enough to let them have a very large standard deviation.
 While that was 8 lines, the output of predict needs some help to look
 like input data.
 
+The predicted values are a single trajectory, a single answer. Input
+data has a single mean value, but it needs to have uncertainty. The
+second line below assigns an uncertainty to each line of the data.
+
 .. code:: python
 
-    data = predicted.drop(columns=["sample_index"]) \
-        .rename(columns={"avg_integrand": "mean"})
+    data = predicted.drop(columns=["sample_index"])
+    # This adds an uncertainty to every data value.
     data = data.assign(density="gaussian", std=0.3, eta=1e-4, nu=nan)
     
-    # It doesn't matter when the times are, because the system is constant
-    # across time.
+    # It doesn't matter when the times are, because the the grid for this
+    # rate has only one time point. That makes it constant across ages and times.
     data.loc[:, "time_lower"] = np.random.randint(1990, 2015, size=len(data))
     # We can add some range to ages and times if we want.
     add_some_range_to_times = 0
@@ -265,13 +278,6 @@ other-cause mortality with ``mess_factor``.
 .. code:: python
 
     plot_mortality(mortality, result, data, value_residuals)
-
-
-.. parsed-literal::
-
-    /home/adolgert/.local/share/virtualenvs/cascade-f6I11cmg/lib/python3.6/site-packages/matplotlib/figure.py:2359: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
-      warnings.warn("This figure includes Axes that are not compatible "
-
 
 
 .. image:: output_24_1.png

@@ -169,8 +169,8 @@ class Session:
             (pd.DataFrame, pd.DataFrame): The predicted avgints, and a dataframe
             of those not predicted because their covariates are greater than
             ``max_difference`` from the ``reference`` covariate value.
-            Columns in the ``predicted`` are ``predict_id``, ``sample_index``,
-            ``avg_integrand`` (this is the value), ``location``, ``integrand``,
+            Columns in the ``predicted`` are ``sample_index``,
+            ``mean`` (this is the value), ``location``, ``integrand``,
             ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
         """
         self._check_vars(var)
@@ -416,8 +416,9 @@ class Session:
     def get_predict(self):
         avgint = self.read_avgint()
         raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
+        normalized = raw.drop(columns=["avgint_id", "predict_id"]).rename(columns={"avg_integrand": "mean"})
         not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)].drop(columns=["avgint_id"])
-        return raw.drop(columns=["avgint_id", "predict_id"]), not_predicted
+        return normalized, not_predicted
 
     def _basic_db_setup(self, locations):
         """These things are true for all databases."""
