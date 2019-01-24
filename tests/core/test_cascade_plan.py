@@ -12,7 +12,7 @@ def test_create(ihme):
         policies=dict(),
     )
     c = CascadePlan.from_epiviz_configuration(ec, settings)
-    assert len(c.task_graph.nodes) == 1
+    assert len(c.task_graph.nodes) == 1  # Because the old method is locked.
     print(nx.to_edgelist(c.task_graph))
 
 

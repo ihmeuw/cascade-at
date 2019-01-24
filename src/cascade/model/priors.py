@@ -1,3 +1,4 @@
+from copy import copy
 from functools import total_ordering
 
 import numpy as np
@@ -28,6 +29,15 @@ class _Prior:
 
     def parameters(self):
         return dict(density=self.density, **self._parameters())
+
+    def assign(self, **kwargs):
+        """Create a new distribution with modified parameters."""
+        modified = copy(self)
+        if set(kwargs.keys()) - set(self.__dict__.keys()):
+            missing = list(sorted(set(kwargs.keys()) - set(self.__dict__.keys())))
+            raise AttributeError(f"The prior doesn't have these attributes {missing}.")
+        modified.__dict__.update(kwargs)
+        return modified
 
     def __hash__(self):
         return hash((frozenset(self.parameters().items()), self.name))
@@ -213,3 +223,42 @@ NO_PRIOR = Uniform(float("-inf"), float("inf"), 0, name="null_prior")
 ZERO = Uniform(0, 0, 0, name="constrain_to_zero")
 ZERO_TO_ONE = Uniform(0, 1, 0.1, name="uniform_zero_to_one")
 MINUS_ONE_TO_ONE = Uniform(-1, 1, 0, name="uniform_negative_one_to_one")
+
+
+DENSITY_ID_TO_PRIOR = {
+    0: Uniform,
+    1: Gaussian,
+    2: Laplace,
+    3: StudentsT,
+    4: LogGaussian,
+    5: LogLaplace,
+    6: LogStudentsT,
+}
+
+
+def prior_distribution(parameters):
+    density, lower, upper, value, stdev, eta, nu = [
+        parameters[name] for name in
+        [
+            "density", "lower", "upper", "mean", "std", "eta", "nu"
+        ]
+    ]
+    if np.isclose(lower, upper):
+        return Constant(value)
+    elif density == "uniform":
+        return Uniform(lower, upper, value, eta)
+    elif density == "gaussian":
+        return Gaussian(value, stdev, lower, upper, eta)
+    elif density == "laplace":
+        return Laplace(value, stdev, lower, upper, eta)
+    elif density == "students":
+        return StudentsT(value, stdev, nu, lower, upper, eta)
+    elif density == "log_gaussian":
+        return LogGaussian(value, stdev, eta, lower, upper)
+    elif density == "log_laplace":
+        return LogLaplace(value, stdev, eta, lower, upper)
+    elif density == "log_students":
+        return LogStudentsT(value, stdev, nu, eta, lower, upper)
+    else:
+        CODELOG.error(f"Cannot identify density {density}.")
+        raise PriorError(f"Cannot identify density {density}.")

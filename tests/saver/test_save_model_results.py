@@ -3,7 +3,7 @@ import pytest
 
 from cascade.core.context import ExecutionContext
 from cascade.saver.save_model_results import save_model_results
-from cascade.dismod.db.wrapper import _get_engine, DismodFile
+from cascade.dismod.db.wrapper import get_engine, DismodFile
 
 
 @pytest.fixture(scope="module")
@@ -48,7 +48,7 @@ def avgint_df():
 
 @pytest.fixture(scope="module")
 def dismod_file(avgint_df, predict_df):
-    engine = _get_engine(None)
+    engine = get_engine(None)
     dismod_file = DismodFile(engine, {}, {})
     dismod_file.avgint = avgint_df
     dismod_file.predict = predict_df

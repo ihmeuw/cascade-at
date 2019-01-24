@@ -1,7 +1,6 @@
 """
 This describes the tables in the sqlite file that Dismod reads.
 """
-import enum
 
 import numpy as np
 
@@ -78,27 +77,18 @@ class Age(Base):
     age = Column(Float, unique=True, nullable=False)
 
 
+class AgeAvg(Base):
+    __tablename__ = "age_avg"
+
+    age_avg_id = Column(Integer(), primary_key=True, autoincrement=False)
+    age = Column(Float, unique=True, nullable=False)
+
+
 class Time(Base):
     __tablename__ = "time"
 
     time_id = Column(Integer(), primary_key=True, autoincrement=False)
     time = Column(Float, unique=True, nullable=False)
-
-
-class IntegrandEnum(enum.Enum):
-    Sincidence = 0
-    remission = 1
-    mtexcess = 2
-    mtother = 3
-    mtwith = 4
-    susceptible = 5
-    withC = 6
-    prevalence = 7
-    Tincidence = 8
-    mtspecific = 9
-    mtall = 10
-    mtstandard = 11
-    relrisk = 12
 
 
 class Integrand(Base):
@@ -112,16 +102,6 @@ class Integrand(Base):
     Each integrand may appear only once. Unused integrands need not be added.
     """
     minimum_meas_cv = Column(Float())
-
-
-class DensityEnum(enum.Enum):
-    uniform = 0
-    gaussian = 1
-    laplace = 2
-    students = 3
-    log_gaussian = 4
-    log_laplace = 5
-    log_students = 6
 
 
 class Density(Base):
@@ -262,14 +242,6 @@ class NSListPair(Base):
     smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=False)
 
 
-class RateName(enum.Enum):
-    pini = 0
-    iota = 1
-    rho = 2
-    chi = 3
-    omega = 4
-
-
 class Rate(Base):
     __tablename__ = "rate"
 
@@ -285,12 +257,6 @@ class Rate(Base):
     node_id for each of the children must appear in the list. The corresponding
     smoothing is used for that child and the rate corresponding to this
     row of the rate table."""
-
-
-class MulCovEnum(enum.Enum):
-    rate_value = 0
-    meas_value = 1
-    meas_std = 2
 
 
 class MulCov(Base):
@@ -431,7 +397,7 @@ class FitDataSubset(Base):
     weighted_residual = Column(Float(), nullable=False)
 
 
-class SampleIndex(Base):
+class Sample(Base):
     """
     Output, The sample command creates this table with one optimal estimate
     of the model variable. For each valid simulate index in the simulate
@@ -439,7 +405,7 @@ class SampleIndex(Base):
     variables corresponding to the measurement.
     """
 
-    __tablename__ = "sample_index"
+    __tablename__ = "sample"
 
     sample_id = Column(Integer(), primary_key=True, autoincrement=False)
     sample_index = Column(Integer(), nullable=False)
@@ -517,6 +483,9 @@ class Simulate(Base):
 
 
 class DataSim(Base):
+    """The simulate command is a kind of bootstrapping, and this table
+    has replacements for the meas_value in the data table in the column
+    called ``data_sim_value``."""
     __tablename__ = "data_sim"
 
     data_sim_id = Column(Integer(), primary_key=True, autoincrement=False)

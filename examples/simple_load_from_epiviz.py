@@ -2,7 +2,7 @@ from pathlib import Path
 from pprint import pprint
 from argparse import ArgumentParser
 
-from cascade.dismod.db.wrapper import _get_engine
+from cascade.dismod.db.wrapper import get_engine
 from cascade.testing_utilities import make_execution_context
 from cascade.core.db import latest_model_version
 from cascade.input_data.db.configuration import settings_json_from_epiviz
@@ -62,7 +62,7 @@ def main():
     mc = model_context_from_epiviz(ec)
 
     dismod_file = model_to_dismod_file(mc)
-    dismod_file.engine = _get_engine(Path(args.db_file_path))
+    dismod_file.engine = get_engine(Path(args.db_file_path))
     dismod_file.flush()
 
 

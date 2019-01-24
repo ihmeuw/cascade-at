@@ -10,7 +10,7 @@ from scipy.interpolate import SmoothBivariateSpline
 from scipy.stats import norm
 
 from cascade.core.context import ModelContext
-from cascade.dismod.db.metadata import RateName
+from cascade.dismod.constants import RateEnum
 import cascade.model.operations
 from cascade.model.operations import (
     _assign_rate_priors, _assign_mulcov_priors, _assign_smooth_priors_after_summary,
@@ -155,8 +155,8 @@ def test_assign_rate_priors__finds_grids(monkeypatch):
     mc.parameters.parent_location_id = 1
     _assign_rate_priors(mc, var_df)
 
-    rate0 = RateName(0).name
-    rate1 = RateName(1).name
+    rate0 = RateEnum(0).name
+    rate1 = RateEnum(1).name
     assert rate0 in inputs
     assert inputs[rate0][1] is not None
     assert rate1 in inputs

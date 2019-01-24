@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.testing_utilities import make_execution_context
-from cascade.dismod.db.metadata import IntegrandEnum
+from cascade.dismod.constants import IntegrandEnum
 
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 

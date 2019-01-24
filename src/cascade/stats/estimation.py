@@ -1,4 +1,4 @@
-from cascade.dismod.db.metadata import DensityEnum
+from cascade.dismod.constants import DensityEnum
 from cascade.core import getLoggers
 
 import numpy as np

@@ -8,9 +8,9 @@ from db_queries import get_envelope, get_outputs
 
 from cascade.executor.epiviz_runner import add_settings_to_execution_context
 from cascade.input_data.db.configuration import load_settings
-from cascade.dismod.db.metadata import IntegrandEnum
+from cascade.dismod.constants import IntegrandEnum
 from cascade.input_data.db.demographics import age_groups_to_ranges
-from cascade.dismod.db.wrapper import DismodFile, _get_engine
+from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.testing_utilities import make_execution_context
 from cascade.core.db import cursor
 
@@ -36,7 +36,7 @@ def _prepare_output_data_for_test(execution_context, clear_bundle=False):
     with TemporaryDirectory() as d:
         db_path = Path(d) / "test.db"
         run(f"dmcascade {db_path} --mvid {mvid} --db-only".split(), check=True)
-        dm = DismodFile(_get_engine(db_path))
+        dm = DismodFile(get_engine(db_path))
         return dm.data
 
 

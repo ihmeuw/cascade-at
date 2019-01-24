@@ -35,8 +35,8 @@ from cascade.executor.argument_parser import DMArgumentParser
 import cascade.input_data.db.bundle
 from cascade.input_data.configuration.builder import build_constraint
 from cascade.testing_utilities import make_execution_context
-from cascade.dismod.db.metadata import IntegrandEnum
-from cascade.dismod.db.wrapper import _get_engine
+from cascade.dismod.constants import IntegrandEnum
+from cascade.dismod.db.wrapper import get_engine
 from cascade.core.context import ModelContext
 from cascade.dismod.serialize import model_to_dismod_file
 from cascade.model.grids import AgeTimeGrid, PriorGrid
@@ -192,7 +192,7 @@ def construct_database(input_path, output_path, non_zero_rates):
     CODELOG.info(f"Creating file {output_path}")
     dismod_file = model_to_dismod_file(model_context)
     flush_begin = timer()
-    dismod_file.engine = _get_engine(Path(output_path))
+    dismod_file.engine = get_engine(Path(output_path))
     dismod_file.flush()
     CODELOG.debug(f"Flush db {timer() - flush_begin}")
 

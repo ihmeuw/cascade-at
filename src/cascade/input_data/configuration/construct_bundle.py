@@ -4,7 +4,7 @@ import pandas as pd
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
-from cascade.dismod.db.metadata import DensityEnum
+from cascade.dismod.constants import DensityEnum
 from cascade.core.db import dataframe_from_disk
 from cascade.core import getLoggers
 

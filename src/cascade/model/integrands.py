@@ -1,7 +1,7 @@
 import pandas as pd
 
 from cascade.input_data.db.demographics import get_age_groups, get_years
-from cascade.dismod.db.metadata import IntegrandEnum
+from cascade.dismod.constants import IntegrandEnum
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)

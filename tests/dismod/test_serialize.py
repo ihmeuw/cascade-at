@@ -27,8 +27,8 @@ from cascade.dismod.serialize import (
     make_mulcov_table,
     _infer_rate_case,
 )
-from cascade.dismod.db.wrapper import DismodFile, _get_engine
-from cascade.dismod.db.metadata import DensityEnum
+from cascade.dismod.db.wrapper import DismodFile, get_engine
+from cascade.dismod.constants import DensityEnum
 
 
 class LocationNode:
@@ -137,7 +137,7 @@ def base_context(observations, constraints):
 def test_development_target(base_context, mock_get_location_hierarchy_from_gbd):
     ec = make_execution_context(parent_location_id=180)
     dm = model_to_dismod_file(base_context, ec)
-    e = _get_engine(None)
+    e = get_engine(None)
     dm.engine = e
     dm.flush()
     dm2 = DismodFile(e)

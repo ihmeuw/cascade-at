@@ -17,7 +17,7 @@ import numpy as np
 import cascade
 from cascade.core.cascade_plan import CascadePlan
 from cascade.input_data.configuration.id_map import make_integrand_map
-from cascade.dismod.db.wrapper import DismodFile, _get_engine
+from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.input_data.db.demographics import age_groups_to_ranges
@@ -344,7 +344,7 @@ def write_dismod_file(mc, ec, db_file_path):
         except OSError:
             MATHLOG.error(f"Cannot delete {db_file} in preparation for writing a new dismod file.")
             raise
-    dismod_file.engine = _get_engine(db_file)
+    dismod_file.engine = get_engine(db_file)
     dismod_file.flush()
     return dismod_file
 
@@ -415,7 +415,7 @@ async def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
         with TemporaryDirectory() as d:
             temp_dm_path = Path(d) / "sample.db"
             shutil.copy2(db_path, temp_dm_path)
-            dismod_file = DismodFile(_get_engine(temp_dm_path))
+            dismod_file = DismodFile(get_engine(temp_dm_path))
             await async_run_dismod(dismod_file, "set", "start_var", "truth_var")
             await async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
             await async_run_dismod(dismod_file, "predict", "fit_var")

@@ -20,6 +20,7 @@
 import os
 import sys
 from pkg_resources import get_distribution
+from sphinx.domains.python import PythonDomain
 
 sys.path.insert(0, os.path.abspath(os.path.expanduser("../src")))
 
@@ -172,3 +173,14 @@ autodoc_member_order = "bysource"
 # Defaults for automodule and autoclass
 # To negate add `:no-undoc-members:` flag to a particular instance
 autodoc_default_flags = ["members", "undoc-members"]
+
+class PatchedPythonDomain(PythonDomain):
+    def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
+        if 'refspecific' in node:
+            del node['refspecific']
+        return super(PatchedPythonDomain, self).resolve_xref(
+            env, fromdocname, builder, typ, target, node, contnode)
+
+
+def setup(sphinx):
+    sphinx.override_domain(PatchedPythonDomain)

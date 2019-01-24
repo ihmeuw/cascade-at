@@ -17,14 +17,15 @@ from sqlalchemy.sql import select, text
 from sqlalchemy.exc import OperationalError, StatementError
 from sqlalchemy import Integer, String, Float, Enum
 
-from cascade.dismod.db.metadata import Base, add_columns_to_table, DensityEnum
+from cascade.dismod.db.metadata import Base, add_columns_to_table
+from cascade.dismod.constants import DensityEnum
 from cascade.dismod.db import DismodFileError
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def _get_engine(file_path):
+def get_engine(file_path):
     if file_path is not None:
         full_path = file_path.expanduser().absolute()
         engine = create_engine("sqlite:///{}".format(str(full_path)))
@@ -105,6 +106,7 @@ def _ordered_by_foreign_key_dependency(schema, tables_to_write):
     Returns:
         Iterates through the tables in an order that is safe for writing.
     """
+    # TODO: This should subset schema.sorted_tables to those tables in tables_to_write.
     dependency_graph = DiGraph()
 
     if set(tables_to_write) - set(schema.tables.keys()):
@@ -181,7 +183,8 @@ class DismodFile:
         attributes.extend(super().__dir__())
         return attributes
 
-    def update_table_columns(self, table_definition, table):
+    def update_table_columns(self, table_name, table):
+        table_definition = self._table_definitions[table_name]
         new_columns = table.columns.difference(table_definition.c.keys())
         new_column_types = {c: table.dtypes[c] for c in new_columns}
 
@@ -203,15 +206,22 @@ class DismodFile:
 
         add_columns_to_table(table_definition, new_column_types)
 
-    def refresh(self):
+    def refresh(self, evict_tables=None):
         """ Throw away any un-flushed changes and reread data from disk.
         """
-        self._table_data = {}
+        if evict_tables is None:
+            self._table_data = {}
+        else:
+            to_evict = [evict_tables] if isinstance(evict_tables, str) else evict_tables
+            for evict in to_evict:
+                if evict in self._table_data:
+                    del self._table_data[evict]
 
     def __getattr__(self, table_name):
         if table_name in self._table_data:
             return self._table_data[table_name]
         elif table_name in self._table_definitions:
+            read_from_database = False
             table = self._table_definitions[table_name]
             if self.engine is None:
                 data = self.empty_table(table.name)
@@ -219,6 +229,7 @@ class DismodFile:
                 try:
                     with self.engine.connect() as conn:
                         data = pd.read_sql_table(table.name, conn)
+                        read_from_database = True
                 except ValueError as e:
                     if str(e) != f"Table {table.name} not found":
                         raise
@@ -226,10 +237,13 @@ class DismodFile:
 
             extra_columns = set(data.columns.difference(table.c.keys()))
             if extra_columns:
-                self.update_table_columns(table, data)
+                self.update_table_columns(table_name, data)
 
             data = data.set_index(f"{table_name}_id", drop=False)
-            self._table_hash[table_name] = pd.util.hash_pandas_object(data)
+            # The hash table defines whether the table is new, and whether
+            # a table created is new.
+            if read_from_database:
+                self._table_hash[table_name] = pd.util.hash_pandas_object(data)
             self._table_data[table_name] = data
             return data
         else:
@@ -255,7 +269,12 @@ class DismodFile:
             return False
 
         table = self._table_data[table_name]
-        table_hash = pd.util.hash_pandas_object(table)
+        try:
+            table_hash = pd.util.hash_pandas_object(table)
+        except TypeError as te:
+            if "mutable" in str(te):
+                CODELOG.warning(f"table {table_name} dtypes {table.dtypes}")
+            raise RuntimeError(f"The table {table_name} has unexpected value while saving.") from te
 
         is_new = table_name not in self._table_hash
         if not is_new:
@@ -272,6 +291,7 @@ class DismodFile:
         if self.engine is None:
             raise ValueError("Cannot flush before an engine is set")
         with self.engine.begin() as connection:
+            CODELOG.debug(f"DismodFile has table data for {', '.join(sorted(self._table_data.keys()))}")
             for table_name in _ordered_by_foreign_key_dependency(Base.metadata, self._table_data.keys()):
                 if self._is_dirty(table_name):
                     table = self._table_data[table_name]
@@ -282,7 +302,7 @@ class DismodFile:
 
                     extra_columns = set(table.columns.difference(table_definition.c.keys()))
                     if extra_columns:
-                        self.update_table_columns(table_definition, table)
+                        self.update_table_columns(table_name, table)
 
                     _validate_data(table_definition, table)
 
@@ -296,10 +316,13 @@ class DismodFile:
                     # sqlalchemy compiler turns into a primary key statement.
                     if f"{table_name}_id" in table:
                         table = table.set_index(f"{table_name}_id")
-                        table.index = table.index.astype(np.int64)
+                        try:
+                            table.index = table.index.astype(np.int64)
+                        except ValueError as ve:
+                            raise ValueError(f"Cannot convert {table_name}.{table_name}_id to index") from ve
                     try:
                         dtypes = {k: v.type for k, v in table_definition.c.items()}
-                        CODELOG.debug(f"table {table_name} types {dtypes}")
+                        CODELOG.debug(f"Writing table {table_name} rows {len(table)} types {dtypes}")
                         table.index.name = None
                         table.to_sql(
                             table_name, connection, index_label=f"{table_name}_id", if_exists="replace", dtype=dtypes
@@ -308,6 +331,8 @@ class DismodFile:
                         raise
 
                     self._table_hash[table_name] = table_hash
+                else:
+                    CODELOG.debug(f"{table_name} did not need to be written")
 
         self._check_column_types_actually_written()
 
