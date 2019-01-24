@@ -9,7 +9,7 @@ The first step is to load all the libraries. This requires having all of
 these libraries installed, including both Cascade and Dismod-AT in a
 Docker container.
 
-.. code:: ipython3
+.. code:: python
 
     import matplotlib
     import numpy as np
@@ -33,7 +33,7 @@ Docker container.
     )
     from cascade.stats.compartmental import siler_default, total_mortality_solution
 
-.. code:: ipython3
+.. code:: python
 
     # Use Siler mortality as our known true. This is a function of age,
     # as presented, but it's defined over ages and times.
@@ -57,7 +57,7 @@ Specify locations as a Pandas DataFrame with columns for the name,
 location id as an integer, and the parent location as an integer. The
 name is purely cosmetic.
 
-.. code:: ipython3
+.. code:: python
 
     parent_location = 1
     locations = pd.DataFrame(dict(
@@ -80,7 +80,7 @@ interpolation, all times outside the bounds of the grid points are
 constant at the nearest grid point value, so this means the rate is
 constant in time across all times, but still varies by age.
 
-.. code:: ipython3
+.. code:: python
 
     age_points = 121
     omega = Var(np.linspace(0, 120, age_points), [2000])
@@ -91,7 +91,7 @@ While this model has only one rate, Dismod-AT models can have five
 rates. We put this rate into a larger structure, called a
 ``DismodGroups``, so that it knows which rate we're giving it.
 
-.. code:: ipython3
+.. code:: python
 
     model_variables = DismodGroups()
     model_variables.rate["omega"] = omega
@@ -103,7 +103,7 @@ fraction of susceptibles and for mtother, which should be exactly the
 rate we put in as omega, given that the lower and upper ages are the
 same and lower and upper times are the same.
 
-.. code:: ipython3
+.. code:: python
 
     data_cnt = 60
     avgints = pd.DataFrame(dict(
@@ -120,7 +120,7 @@ Those are the inputs for running Dismod-AT predict. The next step is to
 start a Dismod-AT session and run predict. A Dismod-AT session
 communicates with Dismod-AT running underneath.
 
-.. code:: ipython3
+.. code:: python
 
     session = Session(locations, parent_location, Path("fit0.db"))
     session.set_option(ode_step_size=1)
@@ -135,7 +135,7 @@ that *could not be predicted* because they were associated with
 covariates that are outliered. No such covariates are in this model, so
 that list will be empty.
 
-.. code:: ipython3
+.. code:: python
 
     predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
     assert not_predicted.empty and not predicted.empty
@@ -153,7 +153,7 @@ mtother and susceptibles. This is now our data.
 
 Let's fit that data. This entails making a Model and setting its priors.
 
-.. code:: ipython3
+.. code:: python
 
     nonzero_rates = ["omega"]
     model = Model(nonzero_rates, parent_location)
@@ -171,7 +171,7 @@ it's enough to let them have a very large standard deviation.
 While that was 8 lines, the output of predict needs some help to look
 like input data.
 
-.. code:: ipython3
+.. code:: python
 
     data = predicted.drop(columns=["sample_index"]) \
         .rename(columns={"avg_integrand": "mean"})
@@ -192,7 +192,7 @@ like input data.
 
 That's all the parts for a fit: model with priors and data.
 
-.. code:: ipython3
+.. code:: python
 
     result = session.fit(model, data, initial_guess=model_variables)
     fit_omega = result.fit.rate["omega"]
@@ -211,7 +211,7 @@ The resulting fit contains several parts.
 The value residuals should be small, unless we intentionally skewed the
 other-cause mortality with ``mess_factor``.
 
-.. code:: ipython3
+.. code:: python
 
     value_residuals = list()
     for age, time in fit_omega.age_time():
@@ -219,7 +219,7 @@ other-cause mortality with ``mess_factor``.
     # Makes an age column and a time column.
     value_residuals = np.array(value_residuals).T
 
-.. code:: ipython3
+.. code:: python
 
     def plot_mortality(continuous_mortality, result, data, value_residuals):
         fig = plt.figure(tight_layout=True)
@@ -262,7 +262,7 @@ other-cause mortality with ``mess_factor``.
     
         plt.show()
 
-.. code:: ipython3
+.. code:: python
 
     plot_mortality(mortality, result, data, value_residuals)
 
