@@ -158,27 +158,6 @@ def _samples_one_field(table, id_draw):
     return vals
 
 
-def read_data_residuals(dismod_file):
-    """Reads residuals indexed by the name of the data line.
-
-    Args:lagrange_dtime
-        dismod_file: The DismodFile wrapper.
-
-    Returns:
-        DataFrame: Columns are ``name``, ``avg_integrand``,
-        ``weighted_residual``.
-    """
-    # The data table associates data_id with data_name, but data_subset
-    # has an id for all data that were used and will have residuals.
-    data_subset = dismod_file.data_subset.reset_index(drop=True)
-    subset_id_to_name = data_subset.merge(dismod_file.data[["data_id", "data_name"]], on="data_id") \
-        .drop(columns=["data_id"])
-    return dismod_file.fit_data_subset.reset_index(drop=True).merge(
-        subset_id_to_name, left_on="fit_data_subset_id", right_on="data_subset_id") \
-        .drop(columns=["data_subset_id", "fit_data_subset_id"]) \
-        .rename(columns={"data_name": "name"})
-
-
 def read_var_table_as_id(dismod_file):
     """
     This reads the var table in order to find the ids for all of the vars.
