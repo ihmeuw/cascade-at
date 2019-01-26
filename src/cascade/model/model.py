@@ -36,13 +36,20 @@ class Model(DismodGroups):
 
     @property
     def scale(self):
+        """The scale is a Var, so it has a value for every model variable.
+        It is the value of the model variable at which to evaluate the
+        derivative of its base log-likelihood. This derivative sets the
+        baseline against which nonlinear optimization will compare later
+        values. If the derivative is zero, then the optimization will ignore
+        this variable.
+        """
         return self._scale
 
     @scale.setter
     def scale(self, value):
-        # Dismod-AT usually calculates this for you. If you've set it by
-        # hand, this records that this is the case so that it will rewrite
-        # what Dismod-AT calculates.
+        """Dismod-AT usually calculates this for you. If you've set it by
+        hand, this records that this is the case so that it will rewrite
+        what Dismod-AT calculates."""
         self.scale_set_by_user = True
         self._scale = value
 

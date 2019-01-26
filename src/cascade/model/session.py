@@ -12,9 +12,12 @@ from cascade.dismod.constants import DensityEnum, RateEnum, COMMAND_IO
 from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.dismod.serialize import default_integrand_names, make_log_table
 from cascade.model import Model
-from cascade.model.data_read_write import write_data, write_avgint, read_avgint, read_data_residuals
+from cascade.model.data_read_write import (
+    write_data, write_avgint, read_avgint, read_data_residuals, read_simulation_data
+)
 from cascade.model.model_reader import (
-    read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_samples
+    read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_samples,
+    read_simulation_model
 )
 from cascade.model.model_writer import ModelWriter
 
@@ -197,10 +200,13 @@ class Session:
             with an index, and the latter are in a DismodGroups container
             of SmoothGrids.
         """
+        # The data is ordered and stays ordered through
+        # to construction of SimulateResult.
+        data = data.reset_index(drop=True)
         self._setup_model_for_fit(model, data)
         self.set_var("truth", fit_var)
         self._run_dismod(["simulate", simulate_count])
-        return SimulateResult(self, simulate_count)
+        return SimulateResult(self, simulate_count, model, data)
 
     def sample(self, simulate_result):
         """Given that a simulate has been run, make samples.
@@ -441,13 +447,29 @@ class FitResult:
 
 class SimulateResult:
     """Outcome of a Dismod-AT Simulate."""
-    def __init__(self, session, count):
+    def __init__(self, session, count, model, data):
         self._session = session
         self._count = count
+        self._model = model
+        self._data = data
 
     @property
     def count(self):
         return self._count
+
+    def simulation(self, index):
+        """Retrieve one of the simulations.
+
+        Args:
+            index (int): Which simulation to retrieve, zero-based.
+
+        Returns:
+            Model, Data: A new model and data, modified to be
+            the Nth simulation.
+        """
+        sim_model = read_simulation_model(self.dismod_file, self._model, index)
+        sim_data = read_simulation_data(self.dismod_file, self._data, index)
+        return sim_model, sim_data
 
     @property
     def data(self):

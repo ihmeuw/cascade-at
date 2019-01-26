@@ -158,6 +158,12 @@ def _samples_one_field(table, id_draw):
     return vals
 
 
+def read_simulation_model(dismod_file, model, index):
+    """After simulate was run, it makes a new model. This takes
+    an existing model and modifies its priors so that we can run again."""
+    return None
+
+
 def read_var_table_as_id(dismod_file):
     """
     This reads the var table in order to find the ids for all of the vars.

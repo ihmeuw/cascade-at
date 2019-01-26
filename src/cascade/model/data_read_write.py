@@ -125,3 +125,26 @@ def _check_column_assigned(with_id, column):
                        f"{column} list {[i.name for i in kind_enum]}.")
         MATHLOG.error(err_message)
         raise RuntimeError(err_message)
+
+
+def read_simulation_data(dismod_file, data, index):
+    """After simulate was run, it makes new data. This takes an existing
+    set of data and modifies its values with the simulated version so that
+    we can fit again.
+
+    The data has been subset into the data_subset, and then simulate indexes
+    into that data subset. This rebuilds back to the original data.
+    """
+    # Assumes the order of the original data hasn't changed.
+    data_sim = dismod_file.data_sim
+    data_subset = dismod_file.data_subset
+
+    keep_sim_columns = ["data_subset_id", "data_sim_value", "data_sim_delta"]
+    index_subset = data_sim.loc[data_sim.simulate_index == index, keep_sim_columns]
+    aligned = index_subset.merge(data_subset, on="data_subset_id", how="left")
+    aligned = aligned.drop(columns=["data_subset_id"]).set_index(keys="data_id")
+    augmented = data.join(aligned, how="left")
+    augmented.loc[augmented.data_sim_value.notna(), "meas_value"] = augmented.data_sim_value
+    augmented.loc[augmented.data_sim_delta.notna(), "meas_std"] = augmented.data_sim_delta
+    modified_data = augmented.drop(columns=["data_sim_value", "data_sim_delta"])
+    return modified_data
