@@ -1,7 +1,5 @@
 from math import nan
 
-import pandas as pd
-
 from cascade.core import getLoggers
 from cascade.dismod.constants import DensityEnum, INTEGRAND_TO_WEIGHT, IntegrandEnum
 
@@ -144,7 +142,6 @@ def read_simulation_data(dismod_file, data, index):
     aligned = index_subset.merge(data_subset, on="data_subset_id", how="left")
     aligned = aligned.drop(columns=["data_subset_id"]).set_index(keys="data_id")
     augmented = data.join(aligned, how="left")
-    augmented.loc[augmented.data_sim_value.notna(), "meas_value"] = augmented.data_sim_value
-    augmented.loc[augmented.data_sim_delta.notna(), "meas_std"] = augmented.data_sim_delta
-    modified_data = augmented.drop(columns=["data_sim_value", "data_sim_delta"])
-    return modified_data
+    augmented.loc[augmented.data_sim_value.notna(), "mean"] = augmented.data_sim_value
+    augmented.loc[augmented.data_sim_delta.notna(), "std"] = augmented.data_sim_delta
+    return augmented.drop(columns=["data_sim_value", "data_sim_delta"])
