@@ -53,6 +53,15 @@ class Model(DismodGroups):
         self.scale_set_by_user = True
         self._scale = value
 
+    def model_like(self):
+        """Make another model with the same structure as this one but
+        without priors."""
+        model = Model(self.nonzero_rates, self.location_id, self.child_location,
+                      self.covariates, self.weights)
+        if self.scale_set_by_user:
+            model._scale = self._scale
+        return model
+
     def write(self, writer):
         self._ensure_weights()
         writer.start_model(self.nonzero_rates, self.child_location)

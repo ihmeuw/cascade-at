@@ -33,16 +33,21 @@ class _PriorGrid(AgeTimeGrid):
 
     @property
     def mulstd_prior(self):
-        """Standard deviation multiplier as a Prior."""
+        """Standard deviation multiplier as a Prior. Returns a Prior
+        or None, if the prior is not defined."""
         # The base class, AgeTimeGrid, has a dictionary of three mulstds.
         # The prior grid uses only one of them.
         return prior_distribution(self._mulstd[self._kind].iloc[0])
 
     @mulstd_prior.setter
     def mulstd_prior(self, value):
-        to_set = value.parameters()
-        to_assign = [to_set[setp] if setp in to_set else nan for setp in self.columns]
-        self._mulstd[self._kind].loc[:, self.columns] = to_assign
+        """Erase a mulstd by setting it to None."""
+        if value is not None:
+            to_set = value.parameters()
+            to_assign = [to_set[setp] if setp in to_set else nan for setp in self.columns]
+            self._mulstd[self._kind].loc[:, self.columns] = to_assign
+        else:
+            self._mulstd[self._kind].loc[:, self.columns] = [None, 0, .1, -inf, inf, nan, nan, None]
 
     def __getitem__(self, at_slice):
         return prior_distribution(super().__getitem__(at_slice).iloc[0])

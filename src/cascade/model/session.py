@@ -15,7 +15,7 @@ from cascade.model import Model
 from cascade.model.data_read_write import (
     write_data, write_avgint, read_avgint, read_data_residuals, read_simulation_data
 )
-from cascade.model.model_reader import (
+from cascade.model.grid_read_write import (
     read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_samples,
     read_simulation_model
 )
@@ -467,8 +467,9 @@ class SimulateResult:
             Model, Data: A new model and data, modified to be
             the Nth simulation.
         """
-        sim_model = read_simulation_model(self.dismod_file, self._model, index)
-        sim_data = read_simulation_data(self.dismod_file, self._data, index)
+        var_id = read_var_table_as_id(self._session.dismod_file)
+        sim_model = read_simulation_model(self._session.dismod_file, self._model, var_id, index)
+        sim_data = read_simulation_data(self._session.dismod_file, self._data, index)
         return sim_model, sim_data
 
     @property

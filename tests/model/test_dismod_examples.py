@@ -225,7 +225,7 @@ def test_posterior(locations, dismod):
                   )
     session.set_option(**option)
 
-    data = None
+    data = pd.DataFrame()
     simulate_result = session.simulate(model, data, fit_var, number_sample)
     sample_var = session.sample(simulate_result)
     assert sample_var is not None
@@ -244,7 +244,6 @@ def test_posterior(locations, dismod):
     assert isclose(variance_01, 1 / 3, rtol=0.5)
 
 
-@pytest.mark.skip("Finds error in Dismod-AT init")
 def test_fit_sim(locations, dismod):
     """user_fit_sim.py example from Dismod-AT."""
     iota_parent_true = 0.01
@@ -314,8 +313,13 @@ def test_fit_sim(locations, dismod):
                   )
     session.set_option(**option)
 
-    session.simulate(model, data, truth_var, 1)
-    # session.fit(model, data, initial_guess=None)
+    sim_result = session.simulate(model, data, truth_var, 1)
+    model0, data0 = sim_result.simulation(0)
+    fit0 = session.fit(model0, data0, initial_guess=truth_var)
+    for group_name, group in fit0.items():
+        for key, fit_var in group.items():
+            for c_age, c_time in fit_var.age_time():
+                assert isclose(fit_var[c_age, c_time], truth_var[group_name][key][c_age, c_time], rtol=5e-2)
 
 
 @pytest.mark.parametrize("meas_std_effect", [

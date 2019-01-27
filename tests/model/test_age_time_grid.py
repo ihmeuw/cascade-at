@@ -31,10 +31,12 @@ def test_assign():
     assert int(atg[1, 2010].var_id) == 37
 
 
-def test_create_wrong():
-    with pytest.raises(TypeError):
-        AgeTimeGrid(40, 2010, ["mean"])
+def test_create_one_age_time():
+    atg0 = AgeTimeGrid(40, 2010, ["mean"])
+    assert atg0 is not None
 
+
+def test_create_wrong():
     atg = AgeTimeGrid([40], [2010], "not_a_column")
     assert "not_a_column" in atg.columns
 
