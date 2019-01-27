@@ -1,6 +1,6 @@
 from collections import Iterable
 from contextlib import contextmanager
-from math import nan
+from math import nan, isnan
 from pathlib import Path
 from subprocess import run, PIPE
 
@@ -115,6 +115,10 @@ class Session:
         return self._fit("random", model, data, initial_guess)
 
     def _fit(self, fit_level, model, data, initial_guess):
+        if initial_guess:
+            misalignment = model.alignment_mismatch(initial_guess)
+            if misalignment:
+                raise RuntimeError(f"Model and initial guess are misaligned: {misalignment}.")
         self._setup_model_for_fit(model, data)
         if initial_guess is not None:
             MATHLOG.info(f"Setting initial value for search from user argument.")
@@ -203,6 +207,10 @@ class Session:
         # The data is ordered and stays ordered through
         # to construction of SimulateResult.
         data = data.reset_index(drop=True)
+        if fit_var:
+            misalignment = model.alignment_mismatch(fit_var)
+            if misalignment:
+                raise RuntimeError(f"Model and fit var are misaligned: {misalignment}.")
         self._setup_model_for_fit(model, data)
         self.set_var("truth", fit_var)
         self._run_dismod(["simulate", simulate_count])
@@ -239,6 +247,7 @@ class Session:
         return read_data_residuals(self.dismod_file)
 
     def set_option(self, **kwargs):
+        """Erase an option by setting it to None or nan."""
         option = self.dismod_file.option
         unknowns = list()
         for name, value in kwargs.items():
@@ -250,9 +259,16 @@ class Session:
                 str_value = " ".join(str(x) for x in value)
             elif isinstance(value, bool):
                 str_value = str(value).lower()
+            elif value is None or isnan(value):
+                str_value = None
             else:
                 str_value = str(value)
-            option.loc[option.option_name == name, "option_value"] = str_value
+            if str_value is not None:
+                option.loc[option.option_name == name, "option_value"] = str_value
+            else:
+                option = option.loc[option.option_name != name, :]
+        option = option.reset_index(drop=True).assign(option_id=option.index)
+        self.dismod_file.option = option
         if unknowns:
             raise KeyError(f"Unknown options {unknowns}")
 
@@ -458,7 +474,7 @@ class SimulateResult:
         return self._count
 
     def simulation(self, index):
-        """Retrieve one of the simulations.
+        """Retrieve one of the simulations as a model and data.
 
         Args:
             index (int): Which simulation to retrieve, zero-based.

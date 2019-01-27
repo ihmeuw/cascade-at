@@ -139,7 +139,7 @@ def read_simulation_data(dismod_file, data, index):
 
     keep_sim_columns = ["data_subset_id", "data_sim_value", "data_sim_delta"]
     index_subset = data_sim.loc[data_sim.simulate_index == index, keep_sim_columns]
-    aligned = index_subset.merge(data_subset, on="data_subset_id", how="left")
+    aligned = index_subset.merge(data_subset.reset_index(drop=True), on="data_subset_id", how="left")
     aligned = aligned.drop(columns=["data_subset_id"]).set_index(keys="data_id")
     augmented = data.join(aligned, how="left")
     augmented.loc[augmented.data_sim_value.notna(), "mean"] = augmented.data_sim_value

@@ -252,7 +252,7 @@ def test_fit_sim(locations, dismod):
     data_per_child = 10  # You can change the amount of data.
 
     parent_location = 1
-    children = [parent_location + add_child for add_child in range(n_children)]
+    children = [parent_location + 1 + add_child for add_child in range(n_children)]
     locations = pd.DataFrame(dict(
         name=["Universe"] + [f"child_{cidx}" for cidx in range(n_children)],
         parent_id=[nan] + n_children * [parent_location],
@@ -315,7 +315,12 @@ def test_fit_sim(locations, dismod):
 
     sim_result = session.simulate(model, data, truth_var, 1)
     model0, data0 = sim_result.simulation(0)
-    fit0 = session.fit(model0, data0, initial_guess=truth_var)
+    # The Dismod-AT example doesn't reset zero sum random, but Dismod-AT
+    # complains if zero_sum_random="iota" and there is a separate smooth grid
+    # for each random effect of iota.
+    session.set_option(zero_sum_random=None)
+    fit_result = session.fit(model0, data0, initial_guess=truth_var)
+    fit0 = fit_result.fit
     for group_name, group in fit0.items():
         for key, fit_var in group.items():
             for c_age, c_time in fit_var.age_time():

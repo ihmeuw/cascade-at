@@ -54,6 +54,8 @@ class _PriorGrid(AgeTimeGrid):
 
     def __setitem__(self, at_slice, value):
         """
+        These can't be erased because every grid point gets a prior.
+
         Args:
             at_slice (slice, slice): What to change, as integer offset into ages and times.
             value (priors.Prior): The prior to set, containing dictionary of

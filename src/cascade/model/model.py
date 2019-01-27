@@ -1,3 +1,5 @@
+from collections import Counter
+
 from cascade.dismod.constants import WeightEnum
 from cascade.model.dismod_groups import DismodGroups
 from cascade.model.var import Var
@@ -21,6 +23,9 @@ class Model(DismodGroups):
         self.nonzero_rates = nonzero_rates
         self.location_id = parent_location
         self.child_location = child_location if child_location else list()
+        double_locations = [l for (l, v) in Counter(self.child_location + [parent_location]).items() if v > 1]
+        if double_locations:
+            raise ValueError(f"Multiple locations have same ID {double_locations}")
         # Covariates are here because their reference values are part of
         # the model. Even though avgint and data use them, a model is always
         # written before the avgint and data are written.
@@ -78,8 +83,8 @@ class Model(DismodGroups):
                 for rate_name, grid in group.items():
                     writer.write_rate(rate_name, grid)
             elif group_name == "random_effect":
-                for (covariate, rate_name), grid in group.items():
-                    writer.write_random_effect(covariate, rate_name, grid)
+                for (rate_name, child), grid in group.items():
+                    writer.write_random_effect(rate_name, child, grid)
             elif group_name in {"alpha", "beta", "gamma"}:
                 for (covariate, target), grid in group.items():
                     writer.write_mulcov(group_name, covariate, target, grid)

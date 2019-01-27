@@ -38,7 +38,8 @@ def _construct_vars_one_field(name, var_id, new_var):
     var_column = f"{name}_value"
     with_id = new_var.grid.merge(var_id.grid[["age", "time", "var_id"]], on=["age", "time"], how="left")
     if with_id.var_id.isna().any():
-        raise RuntimeError(f"Internal error: Could not align {id_column} with var_id.")
+        na_vals = with_id[with_id.var_id.isna()]
+        raise RuntimeError(f"Internal error: Could not align {id_column} with var_id. {na_vals}")
     return pd.DataFrame({
         id_column: with_id.var_id.values,
         var_column: with_id["mean"].values,
@@ -184,17 +185,19 @@ def _read_one_prior_sim_grid(model_grid, priors, sim_priors_df, var_grid):
     # For values in the age-time grid, there are three prior types for
     # each value of the grid.
     for age, time in var_grid.age_time():
-        var_id = var_grid[age, time]
+        var_id = int(var_grid[age, time].var_id)
         in_priors = sim_priors_df.var_id == var_id
-        if sum(in_priors):
+        if in_priors.any():
             for kind in ["value", "dage", "dtime"]:
                 prior_mean = float(sim_priors_df[in_priors][f"prior_sim_{kind}"])
                 dest_priors = getattr(priors, kind)
-                source_priors = getattr(model_grid, kind)
-                if not isnan(prior_mean):
-                    dest_priors[age, time] = source_priors[age, time].assign(mean=prior_mean)
-                else:
-                    dest_priors[age, time] = source_priors[age, time]
+                source_prior = getattr(model_grid, kind)[age, time]
+                if not isnan(prior_mean) and source_prior is not None:
+                    dest_priors[age, time] = source_prior.assign(mean=prior_mean)
+                elif source_prior is not None:
+                    dest_priors[age, time] = source_prior
+                # else no prior to set because dage and dtime priors at endpoints
+                # aren't required.
         else:
             for kind in ["value", "dage", "dtime"]:
                 getattr(priors, kind)[age, time] = getattr(model_grid, kind)[age, time]
@@ -203,7 +206,7 @@ def _read_one_prior_sim_grid(model_grid, priors, sim_priors_df, var_grid):
 def _read_one_prior_sim_mulstd(model_grid, priors, sim_priors_df, var_grid):
     # For the mulstd, there are three different var_ids, one for each kind.
     for mulstd_kind in ["value", "dage", "dtime"]:
-        mulstd_var_id = var_grid.get_mulstd(mulstd_kind)
+        mulstd_var_id = float(var_grid.mulstd[mulstd_kind]["var_id"])
         source_prior = getattr(model_grid, mulstd_kind).mulstd_prior
         if not isnan(mulstd_var_id):
             prior_mean = float(sim_priors_df[sim_priors_df.var_id == mulstd_var_id][f"prior_sim_{mulstd_kind}"])
