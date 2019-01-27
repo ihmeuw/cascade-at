@@ -153,14 +153,14 @@ def test_read_simulation_model():
 
     # There are four vars, total, with 12 var_ids.
     var_ids = DismodGroups()
-    var_ids.rate["iota"] = Var([0, 50], [2000], "var_id")
-    var_ids.rate["iota"][0, 2000] = 0
-    var_ids.rate["iota"][50, 2000] = 1
-    var_ids.random_effect[("iota", 2)] = Var([50], [1990, 2000])
-    var_ids.random_effect[("iota", 2)][50, 1990] = 2
-    var_ids.random_effect[("iota", 2)][50, 1990] = 5
+    var_ids.rate["iota"] = AgeTimeGrid([0, 50], [2000], ["var_id"])
+    var_ids.rate["iota"][0, 2000] = [0]
+    var_ids.rate["iota"][50, 2000] = [1]
+    var_ids.random_effect[("iota", 2)] = AgeTimeGrid([50], [1990, 2000], ["var_id"])
+    var_ids.random_effect[("iota", 2)][50, 1990] = [2]
+    var_ids.random_effect[("iota", 2)][50, 1990] = [5]
 
-    var_ids.rate["iota"].set_mulstd("dage", 6)
+    var_ids.rate["iota"].mulstd["dage"].at[0, "var_id"] = 6
 
     db = SimpleNamespace()
     db.prior_sim = pd.DataFrame(dict(

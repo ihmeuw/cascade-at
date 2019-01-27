@@ -32,7 +32,7 @@ class DismodGroups(UserDict):
         if item in self.GROUPS and self.__dict__.get("_frozen", False):
             raise AttributeError(f"Cannot set attribute")
         else:
-            self.__dict__[item] = value
+            object.__setattr__(self, item, value)
 
     def __setitem__(self, key, item):
         """

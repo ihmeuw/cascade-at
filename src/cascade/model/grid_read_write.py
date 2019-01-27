@@ -185,9 +185,12 @@ def _read_one_prior_sim_grid(model_grid, priors, sim_priors_df, var_grid):
     # For values in the age-time grid, there are three prior types for
     # each value of the grid.
     for age, time in var_grid.age_time():
-        var_id = int(var_grid[age, time].var_id)
-        in_priors = sim_priors_df.var_id == var_id
-        if in_priors.any():
+        float_var_id = var_grid[age, time].var_id
+        if not isnan(float_var_id):
+            in_priors = sim_priors_df.var_id == int(float_var_id)
+        else:
+            in_priors = None
+        if in_priors is not None and in_priors.any():
             for kind in ["value", "dage", "dtime"]:
                 prior_mean = float(sim_priors_df[in_priors][f"prior_sim_{kind}"])
                 dest_priors = getattr(priors, kind)
