@@ -523,18 +523,3 @@ class SimulateResult:
         sim_model = read_simulation_model(self._session.dismod_file, self._model, var_id, index)
         sim_data = read_simulation_data(self._session.dismod_file, self._data, index)
         return sim_model, sim_data
-
-    @property
-    def data(self):
-        """Simulation of the data.
-        This is a DataFrame identified by the name of the input data.
-        It is restricted to the fit data subset. It has an extra
-        ``index`` column to identify the simulation index."""
-        raise NotImplementedError(f"Cannot retrieve data simulation table.")
-
-    @property
-    def prior(self):
-        """Simulation of the prior.
-        This is an AgeTimeGrid table where each entry is a set of three
-        priors, and there are sets of values, identified by an index."""
-        raise NotImplementedError(f"Cannot retrieve the prior simulation table.")
