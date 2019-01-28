@@ -52,9 +52,14 @@ def write_data(dismod_file, data, covariate_rename):
         dismod_file.data = dismod_file.empty_table("data")
         return
 
+    required_columns = ["location", "integrand", "density", "mean", "std"]
+    missing_columns = ', '.join(str(mc) for mc in (set(required_columns) - set(data.columns)))
+    if missing_columns:
+        have_columns = ', '.join(str(hc) for hc in data.columns)
+        raise ValueError(f"Data is missing columns {missing_columns}. Have {have_columns}")
     # Some of the columns get the same treatment as the average integrand.
     # This takes care of integrand and location.
-    like_avgint = write_avgint(dismod_file, data, covariate_rename).drop(columns=["avgint_id"])
+    like_avgint = avgint_to_dataframe(dismod_file, data, covariate_rename).drop(columns=["avgint_id"])
     # Other columns have to do with priors.
     with_density = like_avgint.assign(density_id=like_avgint.density.apply(lambda x: DensityEnum[x].value))
     _check_column_assigned(with_density, "density")
@@ -82,7 +87,7 @@ def write_data(dismod_file, data, covariate_rename):
         columns={"mean": "meas_value", "std": "meas_std", "name": "data_name"})
 
 
-def write_avgint(dismod_file, avgint, covariate_rename):
+def avgint_to_dataframe(dismod_file, avgint, covariate_rename):
     """
     Translate integrand name to id. Translate location to node.
     Add weight appropriate for this integrand. Writes to the Dismod file.
@@ -106,12 +111,24 @@ def write_avgint(dismod_file, avgint, covariate_rename):
 
 
 def read_avgint(dismod_file):
+    """Read average integrand cases, translating to locations and covariates."""
     avgint = dismod_file.avgint
     with_integrand = avgint.assign(integrand=avgint.integrand_id.apply(lambda x: IntegrandEnum(x).name))
     with_location = with_integrand.merge(dismod_file.node, on="node_id", how="left") \
         .rename(columns={"c_location_id": "location"})
-    return with_location[
-        ["avgint_id", "location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper"]]
+    usual_columns = ["avgint_id", "location", "integrand", "age_lower", "age_upper",
+                     "time_lower", "time_upper"]
+    covariate_map = _dataframe_as_dict(dismod_file.covariate, "covariate_id", "covariate_name")
+    covariate_rename = {cc: covariate_map[int(cc.lstrip("x_"))] for cc in with_location.columns if cc.startswith("x_")}
+    with_covariates = with_location.rename(columns=covariate_rename)
+    return with_covariates[usual_columns + list(covariate_rename.values())]
+
+
+def _dataframe_as_dict(df, key_column, value_column):
+    """Given DataFrame(id=[1,2,3], name=['a', 'b', 'c']), this gives
+    {1: 'a', 2: 'b', 3: 'c'}.
+    """
+    return {getattr(row, key_column): getattr(row, value_column) for row in df.itertuples()}
 
 
 def _check_column_assigned(with_id, column):

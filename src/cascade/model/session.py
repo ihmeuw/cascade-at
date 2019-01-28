@@ -13,7 +13,7 @@ from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.dismod.serialize import default_integrand_names, make_log_table
 from cascade.model import Model
 from cascade.model.data_read_write import (
-    write_data, write_avgint, read_avgint, read_data_residuals, read_simulation_data
+    write_data, avgint_to_dataframe, read_avgint, read_data_residuals, read_simulation_data
 )
 from cascade.model.grid_read_write import (
     read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_samples,
@@ -119,7 +119,7 @@ class Session:
             misalignment = model.alignment_mismatch(initial_guess)
             if misalignment:
                 raise RuntimeError(f"Model and initial guess are misaligned: {misalignment}.")
-        self._setup_model_for_fit(model, data)
+        self._setup_model_for_fit(model, data, initial_guess)
         if initial_guess is not None:
             MATHLOG.info(f"Setting initial value for search from user argument.")
             self.set_var("start", initial_guess)
@@ -127,7 +127,8 @@ class Session:
         self._run_dismod(["fit", fit_level])
         return FitResult(self, self.get_var("fit"))
 
-    def _setup_model_for_fit(self, model, data):
+    def _setup_model_for_fit(self, model, data, initial_guess):
+        data = Session._point_age_time_to_interval(data)
         extremal = list()
         if data is not None and not data.empty:
             for dimension in ["age", "time"]:
@@ -140,6 +141,8 @@ class Session:
         self._run_dismod(["init"])
         if model.scale_set_by_user:
             self.set_var("scale", model.scale)
+        elif initial_guess is not None:
+            self.set_var("scale", initial_guess)
         else:
             # Assign to the private variable because setting the property
             # indicates that the user of the API wants to set their own scale
@@ -174,10 +177,11 @@ class Session:
         """
         self._check_vars(var)
         model = Model.from_var(var, parent_location, weights=weights, covariates=covariates)
+        avgint = Session._point_age_time_to_interval(avgint)
         extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
                     {avgint.time_lower.min(), avgint.time_upper.max()})
         self.write_model(model, extremal)
-        self.dismod_file.avgint = write_avgint(self.dismod_file, avgint, self._covariate_rename)
+        self.dismod_file.avgint = avgint_to_dataframe(self.dismod_file, avgint, self._covariate_rename)
         self._run_dismod(["init"])
         self.set_var("truth", var)
         self._run_dismod(["predict", "truth_var"])
@@ -211,7 +215,7 @@ class Session:
             misalignment = model.alignment_mismatch(fit_var)
             if misalignment:
                 raise RuntimeError(f"Model and fit var are misaligned: {misalignment}.")
-        self._setup_model_for_fit(model, data)
+        self._setup_model_for_fit(model, data, fit_var)
         self.set_var("truth", fit_var)
         self._run_dismod(["simulate", simulate_count])
         return SimulateResult(self, simulate_count, model, data)
@@ -306,6 +310,7 @@ class Session:
         """Pushes tables to the db file, runs Dismod-AT, and refreshes
         tables written."""
         self.flush()
+        CODELOG.debug(f"Running Dismod-AT {command}")
         with self._close_db_while_running():
             str_command = [str(c) for c in command]
             completed_process = run(["dmdismod", str(self._filename)] + str_command, stdout=PIPE, stderr=PIPE)
@@ -330,6 +335,14 @@ class Session:
             for key, one_var in group.items():
                 one_var.check(f"{group_name}-{key}")
 
+    @staticmethod
+    def _point_age_time_to_interval(data):
+        for at in ["age", "time"]:  # Convert from point ages and times.
+            for lu in ["lower", "upper"]:
+                if f"{at}_{lu}" not in data.columns and at in data.columns:
+                    data = data.assign(**{f"{at}_{lu}": data[at]})
+        return data.drop(columns={"age", "time"} & set(data.columns))
+
     def write_model(self, model, extremal_age_time):
         writer = ModelWriter(self, extremal_age_time)
         model.write(writer)
@@ -343,7 +356,8 @@ class Session:
         avgint = read_avgint(self.dismod_file)
         raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
         not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)].drop(columns=["avgint_id"])
-        return raw.drop(columns=["avgint_id", "predict_id"]), not_predicted
+        edit_columns = raw.drop(columns=["avgint_id", "predict_id"]).rename(columns={"avg_integrand": "mean"})
+        return edit_columns, not_predicted
 
     def _basic_db_setup(self, locations):
         """These things are true for all databases."""

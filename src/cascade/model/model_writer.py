@@ -352,6 +352,11 @@ def _make_covariate_table(covariates):
 
     def cov_col_id_func(query_column):
         """From the original covariate name to the index in SQL file."""
-        return [search.name for search in covariates].index(query_column)
+        try:
+            covariate_id = [search.name for search in covariates].index(query_column)
+        except ValueError as ve:
+            if "is not in list" in str(ve):
+                raise RuntimeError(f"A covariate was not registered with the model. {ve}")
+        return covariate_id
 
     return covariate_columns, cov_col_id_func, renames
