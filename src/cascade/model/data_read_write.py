@@ -1,5 +1,3 @@
-from math import nan
-
 from cascade.core import getLoggers
 from cascade.dismod.constants import DensityEnum, INTEGRAND_TO_WEIGHT, IntegrandEnum
 
@@ -64,25 +62,6 @@ def write_data(dismod_file, data, covariate_rename):
     with_density = like_avgint.assign(density_id=like_avgint.density.apply(lambda x: DensityEnum[x].value))
     _check_column_assigned(with_density, "density")
     with_density = with_density.reset_index(drop=True).drop(columns=["density"])
-    if "name" not in with_density.columns:
-        with_density = with_density.assign(name=with_density.index.astype(str))
-    elif not with_density.name.isnull().empty:
-        raise RuntimeError(f"There are some data values that lack data names.")
-    else:
-        pass  # There are data names everywhere.
-    if "hold_out" not in with_density.columns:
-        with_density = with_density.assign(hold_out=0)
-    for additional in ["nu", "eta"]:
-        if additional not in with_density.columns:
-            with_density = with_density.assign(**{additional: nan})
-    for expand in ["age", "time"]:
-        point_dimension = (f"{expand}_lower" not in with_density.columns and
-                           f"{expand}_upper" not in with_density.columns)
-        if point_dimension and expand in with_density.columns:
-            with_density = with_density.assign(
-                **{f"{expand}_lower": with_density[expand], f"{expand}_upper": with_density[expand]})
-            with_density = with_density.drop(columns=[expand])
-
     dismod_file.data = with_density.rename(
         columns={"mean": "meas_value", "std": "meas_std", "name": "data_name"})
 
@@ -150,15 +129,20 @@ def read_simulation_data(dismod_file, data, index):
     The data has been subset into the data_subset, and then simulate indexes
     into that data subset. This rebuilds back to the original data.
     """
-    # Assumes the order of the original data hasn't changed.
-    data_sim = dismod_file.data_sim
-    data_subset = dismod_file.data_subset
+    # The saved dataset links the unique name to the data_id, but use the data
+    # passed in for the rest.
+    db_data = dismod_file.data
+    # Links data_subset_id to data_id.
+    data_subset = dismod_file.data_subset.reset_index(drop=True)
+    data_sim = dismod_file.data_sim  # The actual answer.
 
     keep_sim_columns = ["data_subset_id", "data_sim_value", "data_sim_delta"]
     index_subset = data_sim.loc[data_sim.simulate_index == index, keep_sim_columns]
-    aligned = index_subset.merge(data_subset.reset_index(drop=True), on="data_subset_id", how="left")
-    aligned = aligned.drop(columns=["data_subset_id"]).set_index(keys="data_id")
-    augmented = data.join(aligned, how="left")
+
+    aligned = index_subset.merge(data_subset, on="data_subset_id", how="left") \
+        .merge(db_data[["data_id", "data_name"]], on="data_id") \
+        .drop(columns=["data_subset_id", "data_id"])
+    augmented = data.merge(aligned, left_on="name", right_on="data_name", how="left").drop(columns="data_name")
     augmented.loc[augmented.data_sim_value.notna(), "mean"] = augmented.data_sim_value
     augmented.loc[augmented.data_sim_delta.notna(), "std"] = augmented.data_sim_delta
     return augmented.drop(columns=["data_sim_value", "data_sim_delta"])

@@ -119,6 +119,7 @@ class Session:
             misalignment = model.alignment_mismatch(initial_guess)
             if misalignment:
                 raise RuntimeError(f"Model and initial guess are misaligned: {misalignment}.")
+        data = Session._amend_data_input(data)
         self._setup_model_for_fit(model, data, initial_guess)
         if initial_guess is not None:
             MATHLOG.info(f"Setting initial value for search from user argument.")
@@ -208,9 +209,8 @@ class Session:
             with an index, and the latter are in a DismodGroups container
             of SmoothGrids.
         """
-        # The data is ordered and stays ordered through
-        # to construction of SimulateResult.
-        data = data.reset_index(drop=True)
+        # Ensure data has name, nu, eta, time_upper and lower.
+        data = Session._amend_data_input(data)
         if fit_var:
             misalignment = model.alignment_mismatch(fit_var)
             if misalignment:
@@ -342,6 +342,28 @@ class Session:
                 if f"{at}_{lu}" not in data.columns and at in data.columns:
                     data = data.assign(**{f"{at}_{lu}": data[at]})
         return data.drop(columns={"age", "time"} & set(data.columns))
+
+    @staticmethod
+    def _amend_data_input(data):
+        """If the data comes in without optional entries, add them.
+        This doesn't translate to internal IDs for Dismod-AT. It rectifies
+        the input, and this is how it should be saved or passed to another tool.
+        """
+        data = Session._point_age_time_to_interval(data)
+
+        if "name" not in data.columns:
+            data = data.assign(name=data.index.astype(str))
+        else:
+            null_names = data[data.name.isnull()]
+            if not null_names.empty:
+                raise RuntimeError(f"There are some data values that lack data names. {null_names}")
+
+        if "hold_out" not in data.columns:
+            data = data.assign(hold_out=0)
+        for additional in ["nu", "eta"]:
+            if additional not in data.columns:
+                data = data.assign(**{additional: nan})
+        return data
 
     def write_model(self, model, extremal_age_time):
         writer = ModelWriter(self, extremal_age_time)

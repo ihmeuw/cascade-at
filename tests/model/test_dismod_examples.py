@@ -250,7 +250,7 @@ def test_fit_sim(locations, dismod):
     iota_parent_true = 0.01
     mulcov_income_iota_true = 1.0
     n_children = 2  # You can change the number of children.
-    data_per_child = 20  # You can change the amount of data.
+    data_per_child = 10  # You can change the amount of data.
 
     parent_location = 1
     children = [parent_location + 1 + add_child for add_child in range(n_children)]
@@ -326,7 +326,6 @@ def test_fit_sim(locations, dismod):
     del option["zero_sum_random"]
     session_sim.set_option(**option)
     sim_result = session_sim.simulate(model, data, truth_var, 1)
-    return
     model0, data0 = sim_result.simulation(0)
     model0.scale = truth_var
     # The Dismod-AT example doesn't reset zero sum random, but Dismod-AT
@@ -341,8 +340,11 @@ def test_fit_sim(locations, dismod):
 
 def _fit_sim_compare_result(fit0, iota_parent_true, mulcov_income_iota_true):
     rate_2 = fit0.rate["iota"][50, 2010] * np.exp(fit0.random_effect[("iota", 2)][50, 2010])
+    assert isclose(rate_2, iota_parent_true, rtol=5e-2)
     rate_3 = fit0.rate["iota"][50, 2010] * np.exp(fit0.random_effect[("iota", 3)][50, 2010])
+    assert isclose(rate_3, iota_parent_true, rtol=5e-2)
     alpha_income = fit0.alpha[("income", "iota")][50, 2010]
+    assert isclose(alpha_income, mulcov_income_iota_true, rtol=5e-2)
     print(f"iota child 2 {iota_parent_true} {rate_2}")
     print(f"iota child 3 {iota_parent_true} {rate_3}")
     print(f"income on iota {mulcov_income_iota_true} {alpha_income}")

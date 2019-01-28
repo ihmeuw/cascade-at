@@ -16,10 +16,15 @@ def test_read_simulation_data():
         mean=np.linspace(0.00, 0.04, 5),
         std=np.linspace(1.0, 1.4, 5),
         nu=np.linspace(0, 1, 5),
+        name=["7", "9", "14", "22", "48"],
     ))
     assert len(data) == 5
 
     db = SimpleNamespace()
+    db.data = pd.DataFrame(dict(
+        data_id=[0, 1, 2, 3, 4],
+        data_name=["7", "9", "14", "22", "48"],
+    ))
     subset_idx = [1, 2, 4]
     db.data_subset = pd.DataFrame(dict(
         data_subset_id=range(3),
@@ -39,7 +44,7 @@ def test_read_simulation_data():
     assert not modified_data.iloc[subset_idx].equals(data.iloc[subset_idx])
     same_idx = list(x for x in range(5) if x not in subset_idx)
     assert modified_data.iloc[same_idx].equals(data.iloc[same_idx])
-    assert {"integrand", "mean", "std", "nu"} == set(c for c in modified_data.columns)
+    assert {"integrand", "mean", "std", "nu", "name"} == set(c for c in modified_data.columns)
     print(data)
     print(modified_data)
     for i in subset_idx:
