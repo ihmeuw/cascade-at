@@ -80,6 +80,9 @@ class SmoothGrid:
             self._view[create_view.name] = _PriorGrid(create_view.name, self.ages, self.times)
 
     def variable_count(self):
+        """A Dismod-AT fit solves for model variables. This counts how many
+        model variables are defined by this SmoothGrid, which indicates how
+        much this SmoothGrid contributes to the size of the problem."""
         return sum(v.variable_count() for v in self._view.values())
 
     def __len__(self):

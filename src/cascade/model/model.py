@@ -16,6 +16,19 @@ class Model(DismodGroups):
         """
         >>> locations = location_hierarchy(execution_context)
         >>> m = Model(["chi", "omega", "iota"], 6, locations)
+
+        Args:
+            nonzero_rates (List[str]): A list of rates, using the Dismod-AT
+                terms for the rates, so they are "iota", "chi", "omega",
+                "rho", and "pini".
+            parent_location (int): The location ID for the parent.
+            child_location (List[int]): List of the children.
+            covariates (List[Covariate]): A list of covariate objects.
+                This supplies the reference values and max differences,
+                used to exclude data by covariate value.
+            weights (Dict[str,Var]): There are four kinds of weights:
+                "constant", "susceptible", "with_condition", and "total".
+                No other weights are used.
         """
         super().__init__()
         self.nonzero_rates = nonzero_rates

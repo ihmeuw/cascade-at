@@ -172,8 +172,11 @@ autodoc_member_order = "bysource"
 
 # Defaults for automodule and autoclass
 # To negate add `:no-undoc-members:` flag to a particular instance
-autodoc_default_flags = ["members", "undoc-members"]
+autodoc_default_flags = []
 
+
+# This patch is here to turn off warnings about duplicate documentation.
+# We put things in references.
 class PatchedPythonDomain(PythonDomain):
     def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
         if 'refspecific' in node:
