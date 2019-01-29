@@ -11,3 +11,4 @@ Developer Manual
    logging
    dismod_at_shape
    versioning
+   design_sketches

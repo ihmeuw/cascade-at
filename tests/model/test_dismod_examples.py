@@ -440,8 +440,8 @@ def test_age_avg_split(locations, dismod):
 
     predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
     assert not_predicted.empty and not predicted.empty
-    assert isclose(predicted.iloc[0]["avg_integrand"], omega_0_1, rtol=1e-10)
-    assert isclose(predicted.iloc[1]["avg_integrand"], omega_1_100, rtol=1e-10)
+    assert isclose(predicted.iloc[0]["mean"], omega_0_1, rtol=1e-10)
+    assert isclose(predicted.iloc[1]["mean"], omega_1_100, rtol=1e-10)
 
 
 # Missing user_diabetes.py
