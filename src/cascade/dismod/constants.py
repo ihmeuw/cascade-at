@@ -5,16 +5,24 @@ from enum import Enum
 class DensityEnum(Enum):
     """The distributions supported by Dismod-AT. They always have these ids."""
     uniform = 0
+    "Uniform Distribution"
     gaussian = 1
+    "Gaussian Distribution"
     laplace = 2
+    "Laplace Distribution"
     students = 3
+    "Students-t Distribution"
     log_gaussian = 4
+    "Log-Gaussian Distribution"
     log_laplace = 5
+    "Log-Laplace Distribution"
     log_students = 6
+    "Log-Students-t Distribution"
 
 
 class RateEnum(Enum):
-    """Rates appear in exactly this order with exactly these rate ids."""
+    """These are the five underlying rates.
+    """
     pini = 0
     """Initial prevalence of the condition at birth, as a fraction of one."""
     iota = 1
@@ -103,7 +111,7 @@ INTEGRAND_TO_WEIGHT = dict(
     relrisk=WeightEnum.constant,
 )
 """Each integrand has a natural association with a particular weight because
-it is a count of events with one of three denominators: susceptibles,
+it is a count of events with one of four denominators: cosntant, susceptibles,
 with-condition, or the total population.
 """
 

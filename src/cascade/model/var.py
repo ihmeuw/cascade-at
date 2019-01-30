@@ -6,11 +6,9 @@ from cascade.model.age_time_grid import AgeTimeGrid
 
 
 class Var(AgeTimeGrid):
-    """A Var is a set of values of a random field on a SmoothGrid.
+    """A Var is a function of age and time, defined by values on a grid.
 
-    It's an AgeTimeGrid, but AgeTimeGrids present each data item
-    as a row. This presents each data item as a float. It also
-    behaves like a continuous function of age and time.
+    The initial state of a model is a Var. The result of a fit is a Var.
     """
     def __init__(self, ages, times, column_name="mean"):
         self._column_name = column_name
@@ -18,7 +16,8 @@ class Var(AgeTimeGrid):
         self._spline = None
 
     def check(self, name=None):
-        """None of the means should be nan. There should only be the
+        """This raises a :py:class:`RuntimeError` if any part of the
+        Var is uninitialized. None of the means should be nan. There should only be the
         three mulstds."""
         if not self.grid[self._column_name].notna().all():
             raise RuntimeError(
@@ -30,19 +29,55 @@ class Var(AgeTimeGrid):
 
     def __setitem__(self, at_slice, value):
         """
+        To set a value on a Var instance, set it on ranges of age and
+        time or at specific ages and times.
+
+        >>> var = Var([0, 10, 20], [2000])
+        >>> var[:, :] = 0.001
+        >>> var[5:50, 2000] = 0.01
+        >>> var[10, :] = 0.02
+
         Args:
             at_slice (slice, slice): What to change, as integer offset into
                 ages and times.
-            value (float): Set with a single floating-point value.
+            value (float): A float or integer.
         """
         super().__setitem__(at_slice, [value])
 
-    def __getitem__(self, item):
-        return float(super().__getitem__(item)[self._column_name])
+    def __getitem__(self, age_and_time):
+        """
+        Gets the value of a Var at a single point. The point has to be
+        one of the ages and times defined when the var was created.
+
+        >>> var = Var([0, 50, 100], [1990, 2000, 2010])
+        >>> var[:, :] = 1e-4
+        >>> assert var[50, 2000] == 1e-4
+
+        Trying to read from an age and time not in the ages and times
+        of the grid will result in a :py:class:`ValueError`.
+
+        An easy way to set values is to use the `age_time` iterator,
+        which loops through the ages and times in the underlying grid.
+
+        >>> for age, time in var.age_time():
+        >>>    var[age, time] = 0.01 * age
+
+        Args:
+            age_and_time (age, time): A two-dimensional index of age and time.
+
+        Returns:
+            float: The value at this age and time.
+        """
+        return float(super().__getitem__(age_and_time)[self._column_name])
 
     def set_mulstd(self, kind, value):
-        """Set the value of the mulstd. Kind must be one of
+        """Set the value of the multiplier on the standard deviation.
+        Kind must be one of
         "value", "dage", or "dtime". The value should be convertible to a float.
+
+        >>> var = Var([50], [2000, 2001, 2002])
+        >>> var.set_mulstd("value", 0.4)
+
         """
         sig = "kind is one of value, dage, dtime, and value is a float."
         if kind not in PriorKindEnum.__members__:
@@ -50,7 +85,19 @@ class Var(AgeTimeGrid):
         self.mulstd[kind].loc[:, self._column_name] = float(value)
 
     def get_mulstd(self, kind):
-        """If the value wasn't set, it will return a nan."""
+        """
+        Get the value of a standard deviation multiplier for a Var.
+
+        >>> var = Var([50], [2000, 2001, 2002])
+        >>> var.set_mulstd("value", 0.4)
+        >>> assert var.get_mulstd("value") == 4
+
+        If the standard deviation multiplier wasn't set, then this will
+        return a nan.
+
+        >>> assert np.isnan(var.get_mulstd("dage"))
+
+        """
         if kind not in PriorKindEnum.__members__:
             raise TypeError(f"Argument is one of value, dage, dtime, not {kind}.")
         return float(self.mulstd[kind][self._column_name])
@@ -59,7 +106,26 @@ class Var(AgeTimeGrid):
         return f"Var({len(self.ages), len(self.times)})"
 
     def __call__(self, age, time):
-        """Call a Var as a function of age and time.
+        """A Var is a function of age and time, and this is how to call it.
+
+        >>> var = Var([0, 100], [1990, 2000])
+        >>> var[0, 1990] = 0
+        >>> var[0, 2000] = 1
+        >>> var[100, 1990] = 2
+        >>> var[100, 2000] = 3
+        >>> for a, t in var.age_time():
+        >>>     print(f"At corner ({a}, {t}), {var(a, t)}")
+        >>> for a, ti in [[53, 1997], [-5, 2000], [120, 2000], [0, 1900], [0, 2010]]:
+        >>>     print(f"Anywhere ({a}, {t}), {var(a, t)}")
+        At corner (0.0, 1990.0), 0.0
+        At corner (0.0, 2000.0), 1.0
+        At corner (100.0, 1990.0), 2.0
+        At corner (100.0, 2000.0), 3.0
+        Anywhere (53, 2000.0), 2.06
+        Anywhere (-5, 2000.0), 1.0
+        Anywhere (120, 2000.0), 3.0
+        Anywhere (0, 2000.0), 1.0
+        Anywhere (0, 2000.0), 1.0
 
         The grid points in a Var represent a continuous function, determined
         by bivariate interpolation. All points outside the grid are equal

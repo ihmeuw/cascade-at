@@ -17,9 +17,11 @@ Dismod Model
 
 .. automodule:: cascade.model.session
     :members:
+    :noindex:
 
 .. automodule:: cascade.model.smooth_grid
     :members:
 
 .. automodule:: cascade.model.var
     :members:
+    :noindex:

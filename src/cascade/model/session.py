@@ -25,6 +25,11 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class Session:
+    """
+    A Session interacts with Dismod-AT. It estimates fits,
+    predicts rates, and simulates by transforming models and data
+    into a native Dismod-AT format. Then it runs Dismod-AT to get answers.
+    """
     def __init__(self, locations, parent_location, filename):
         """
         A session represents a connection with a Dismod-AT backend through
@@ -32,9 +37,13 @@ class Session:
         output.
 
         Args:
-            locations (pd.DataFrame): Initialize here because data refers to this.
+            locations (pd.DataFrame): Both the model and data refer to a
+                hierarchy of locations. Supply those as a DataFrame
+                with ``location_id`` as an integer, ``parent_id`` as an integer,
+                and an optional ``name`` as a string.
             parent_location (int): The session uses parent location to subset
-                                   data, but it isn't in the model.
+                data, but it isn't in the model. This is a location ID supplied
+                in the locations argument.
             filename (str|Path): Location of the Dismod db to overwrite.
         """
         self.dismod_file = DismodFile()
@@ -172,8 +181,8 @@ class Session:
             (pd.DataFrame, pd.DataFrame): The predicted avgints, and a dataframe
             of those not predicted because their covariates are greater than
             ``max_difference`` from the ``reference`` covariate value.
-            Columns in the ``predicted`` are ``predict_id``, ``sample_index``,
-            ``avg_integrand`` (this is the value), ``location``, ``integrand``,
+            Columns in the ``predicted`` are ``sample_index``,
+            ``mean`` (this is the value), ``location``, ``integrand``,
             ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
         """
         self._check_vars(var)
@@ -377,9 +386,9 @@ class Session:
     def get_predict(self):
         avgint = read_avgint(self.dismod_file)
         raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
+        normalized = raw.drop(columns=["avgint_id", "predict_id"]).rename(columns={"avg_integrand": "mean"})
         not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)].drop(columns=["avgint_id"])
-        edit_columns = raw.drop(columns=["avgint_id", "predict_id"]).rename(columns={"avg_integrand": "mean"})
-        return edit_columns, not_predicted
+        return normalized, not_predicted
 
     def _basic_db_setup(self, locations):
         """These things are true for all databases."""
