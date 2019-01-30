@@ -527,7 +527,7 @@ def main(args):
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
 
     if settings.model.drill != "drill":
-        raise NotImplementedError("Only 'drill' mode is currently supported")
+        raise SettingsError("Only 'drill' mode is currently supported")
 
     add_settings_to_execution_context(ec, settings)
     plan = CascadePlan.from_epiviz_configuration(ec, settings)

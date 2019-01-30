@@ -116,7 +116,7 @@ def test_predict(dismod):
     for idx, row in predicted.iterrows():
         # Each Var is a function of age and time.
         input_iota = iota(row.age_lower, row.time_lower)
-        assert np.isclose(input_iota, row["avg_integrand"])
+        assert np.isclose(input_iota, row["mean"])
 
 
 def test_survival(dismod):
@@ -156,7 +156,7 @@ def test_survival(dismod):
     max_err = -inf
     for idx, row in predicted.iterrows():
         S = survival(row.age_lower)
-        y = row["avg_integrand"]
+        y = row["mean"]
         print(f"survival {row.age_lower} {S}-{y}")
         max_err = max(max_err, abs(S - y))
     print(f"Maximum error {max_err}")
@@ -198,7 +198,7 @@ def test_fit_mortality(dismod):
     # we put in. Compare the two by constructing a continuous function from
     # the predicted values and comparing at age points.
     as_var = predicted[predicted.integrand == "mtother"] \
-        .rename(columns={"avg_integrand": "mean", "age_lower": "age", "time_lower": "time"}) \
+        .rename(columns={"age_lower": "age", "time_lower": "time"}) \
         .drop(columns=["sample_index", "location", "integrand", "age_upper", "time_upper"])
     mtother_var = Var(as_var.age.unique(), as_var.time.unique())
     mtother_var.grid = as_var.assign(idx=0)
@@ -220,7 +220,7 @@ def test_fit_mortality(dismod):
         priors.dage[a, t] = Gaussian(mean=0, standard_deviation=0.1, lower=-5, upper=5)
         priors.dtime[a, t] = Gaussian(mean=0, standard_deviation=0.1, lower=-5, upper=5)
 
-    data = predicted.drop(columns=["sample_index"]).rename(columns={"avg_integrand": "mean"})
+    data = predicted.drop(columns=["sample_index"])
     data = data.assign(density="gaussian", std=0.1, eta=1e-4, nu=nan)
 
     result = session.fit(model, data, initial_guess=model_variables)
