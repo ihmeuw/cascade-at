@@ -1,6 +1,6 @@
 from collections import Iterable
 from contextlib import contextmanager
-from math import nan
+from math import nan, isnan
 from pathlib import Path
 from subprocess import run, PIPE
 
@@ -8,12 +8,16 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.constants import DensityEnum, RateEnum, INTEGRAND_TO_WEIGHT, IntegrandEnum, COMMAND_IO
+from cascade.dismod.constants import DensityEnum, RateEnum, COMMAND_IO
 from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.dismod.serialize import default_integrand_names, make_log_table
 from cascade.model import Model
-from cascade.model.model_reader import (
-    read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_data_residuals, read_samples
+from cascade.model.data_read_write import (
+    write_data, avgint_to_dataframe, read_avgint, read_data_residuals, read_simulation_data
+)
+from cascade.model.grid_read_write import (
+    read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_samples,
+    read_simulation_model
 )
 from cascade.model.model_writer import ModelWriter
 
@@ -120,7 +124,12 @@ class Session:
         return self._fit("random", model, data, initial_guess)
 
     def _fit(self, fit_level, model, data, initial_guess):
-        self._setup_model_for_fit(model, data)
+        if initial_guess:
+            misalignment = model.check_alignment(initial_guess)
+            if misalignment:
+                raise RuntimeError(f"Model and initial guess are misaligned: {misalignment}.")
+        data = Session._amend_data_input(data)
+        self._setup_model_for_fit(model, data, initial_guess)
         if initial_guess is not None:
             MATHLOG.info(f"Setting initial value for search from user argument.")
             self.set_var("start", initial_guess)
@@ -128,7 +137,8 @@ class Session:
         self._run_dismod(["fit", fit_level])
         return FitResult(self, self.get_var("fit"))
 
-    def _setup_model_for_fit(self, model, data):
+    def _setup_model_for_fit(self, model, data, initial_guess):
+        data = Session._point_age_time_to_interval(data)
         extremal = list()
         if data is not None and not data.empty:
             for dimension in ["age", "time"]:
@@ -137,10 +147,12 @@ class Session:
                     raise ValueError(f"Dataframe must have age and time columns but has {data.columns}.")
                 extremal.append({data[cols].min().min(), data[cols].max().max()})
         self.write_model(model, extremal)
-        self.write_data(data)
+        write_data(self.dismod_file, data, self._covariate_rename)
         self._run_dismod(["init"])
         if model.scale_set_by_user:
             self.set_var("scale", model.scale)
+        elif initial_guess is not None:
+            self.set_var("scale", initial_guess)
         else:
             # Assign to the private variable because setting the property
             # indicates that the user of the API wants to set their own scale
@@ -175,10 +187,11 @@ class Session:
         """
         self._check_vars(var)
         model = Model.from_var(var, parent_location, weights=weights, covariates=covariates)
+        avgint = Session._point_age_time_to_interval(avgint)
         extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
                     {avgint.time_lower.min(), avgint.time_upper.max()})
         self.write_model(model, extremal)
-        self.dismod_file.avgint = self.write_avgint(avgint)
+        self.dismod_file.avgint = avgint_to_dataframe(self.dismod_file, avgint, self._covariate_rename)
         self._run_dismod(["init"])
         self.set_var("truth", var)
         self._run_dismod(["predict", "truth_var"])
@@ -205,10 +218,16 @@ class Session:
             with an index, and the latter are in a DismodGroups container
             of SmoothGrids.
         """
-        self._setup_model_for_fit(model, data)
+        # Ensure data has name, nu, eta, time_upper and lower.
+        data = Session._amend_data_input(data)
+        if fit_var:
+            misalignment = model.check_alignment(fit_var)
+            if misalignment:
+                raise RuntimeError(f"Model and fit var are misaligned: {misalignment}.")
+        self._setup_model_for_fit(model, data, fit_var)
         self.set_var("truth", fit_var)
         self._run_dismod(["simulate", simulate_count])
-        return SimulateResult(self, simulate_count)
+        return SimulateResult(self, simulate_count, model, data)
 
     def sample(self, simulate_result):
         """Given that a simulate has been run, make samples.
@@ -241,6 +260,7 @@ class Session:
         return read_data_residuals(self.dismod_file)
 
     def set_option(self, **kwargs):
+        """Erase an option by setting it to None or nan."""
         option = self.dismod_file.option
         unknowns = list()
         for name, value in kwargs.items():
@@ -252,9 +272,16 @@ class Session:
                 str_value = " ".join(str(x) for x in value)
             elif isinstance(value, bool):
                 str_value = str(value).lower()
+            elif value is None or isnan(value):
+                str_value = None
             else:
                 str_value = str(value)
-            option.loc[option.option_name == name, "option_value"] = str_value
+            if str_value is not None:
+                option.loc[option.option_name == name, "option_value"] = str_value
+            else:
+                option = option.loc[option.option_name != name, :]
+        option = option.reset_index(drop=True).assign(option_id=option.index)
+        self.dismod_file.option = option
         if unknowns:
             raise KeyError(f"Unknown options {unknowns}")
 
@@ -292,6 +319,7 @@ class Session:
         """Pushes tables to the db file, runs Dismod-AT, and refreshes
         tables written."""
         self.flush()
+        CODELOG.debug(f"Running Dismod-AT {command}")
         with self._close_db_while_running():
             str_command = [str(c) for c in command]
             completed_process = run(["dmdismod", str(self._filename)] + str_command, stdout=PIPE, stderr=PIPE)
@@ -316,6 +344,36 @@ class Session:
             for key, one_var in group.items():
                 one_var.check(f"{group_name}-{key}")
 
+    @staticmethod
+    def _point_age_time_to_interval(data):
+        for at in ["age", "time"]:  # Convert from point ages and times.
+            for lu in ["lower", "upper"]:
+                if f"{at}_{lu}" not in data.columns and at in data.columns:
+                    data = data.assign(**{f"{at}_{lu}": data[at]})
+        return data.drop(columns={"age", "time"} & set(data.columns))
+
+    @staticmethod
+    def _amend_data_input(data):
+        """If the data comes in without optional entries, add them.
+        This doesn't translate to internal IDs for Dismod-AT. It rectifies
+        the input, and this is how it should be saved or passed to another tool.
+        """
+        data = Session._point_age_time_to_interval(data)
+
+        if "name" not in data.columns:
+            data = data.assign(name=data.index.astype(str))
+        else:
+            null_names = data[data.name.isnull()]
+            if not null_names.empty:
+                raise RuntimeError(f"There are some data values that lack data names. {null_names}")
+
+        if "hold_out" not in data.columns:
+            data = data.assign(hold_out=0)
+        for additional in ["nu", "eta"]:
+            if additional not in data.columns:
+                data = data.assign(**{additional: nan})
+        return data
+
     def write_model(self, model, extremal_age_time):
         writer = ModelWriter(self, extremal_age_time)
         model.write(writer)
@@ -325,96 +383,8 @@ class Session:
     def flush(self):
         self.dismod_file.flush()
 
-    def write_avgint(self, avgint):
-        """
-        Translate integrand name to id. Translate location to node.
-        Add weight appropriate for this integrand. Writes to the Dismod file.
-
-        Args:
-            avgint (pd.DataFrame): Columns are ``integrand``, ``location``,
-                ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``.
-        """
-        with_id = avgint.assign(integrand_id=avgint.integrand.apply(lambda x: IntegrandEnum[x].value))
-        self._check_column_assigned(with_id, "integrand")
-        with_weight = with_id.assign(weight_id=with_id.integrand.apply(lambda x: INTEGRAND_TO_WEIGHT[x].value))
-        with_weight = with_weight.drop(columns=["integrand"]).reset_index(drop=True)
-        with_location = with_weight.merge(
-            self.dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id") \
-            .drop(columns=["c_location_id", "location"])
-        with_location = with_location.rename(columns=self.covariate_rename)
-        return with_location.assign(avgint_id=with_location.index)
-
-    @staticmethod
-    def _check_column_assigned(with_id, column):
-        column_id = f"{column}_id"
-        if not with_id[with_id[column_id].isna()].empty:
-            not_found_integrand = with_id[with_id[column_id].isna()][column].unique()
-            kind_enum = globals()[f"{column.capitalize()}Enum"]
-            err_message = (f"The {column} {not_found_integrand} weren't found in the "
-                           f"{column} list {[i.name for i in kind_enum]}.")
-            MATHLOG.error(err_message)
-            raise RuntimeError(err_message)
-
-    def read_avgint(self):
-        avgint = self.dismod_file.avgint
-        with_integrand = avgint.assign(integrand=avgint.integrand_id.apply(lambda x: IntegrandEnum(x).name))
-        with_location = with_integrand.merge(self.dismod_file.node, on="node_id", how="left") \
-            .rename(columns={"c_location_id": "location"})
-        return with_location[
-            ["avgint_id", "location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper"]]
-
-    def write_data(self, data):
-        """
-        Writes a data table. Locations can be any location and will be pruned
-        to those that are descendants of the parent location.
-
-        Args:
-            data (pd.DataFrame): Columns are ``integrand``, ``location``,
-                ``name``, ``hold_out``,
-                ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``,
-                ``density``, ``mean``, ``std``, ``eta``, ``nu``.
-                The ``name`` is optional and will be assigned from the index.
-                In addition, covariate columns are included. If ``hold_out``
-                is missing, it will be assigned ``hold_out=0`` for not held out.
-                If nu or eta aren't there, they will be added. If ages
-                or times are listed as ``age`` and ``time``, they will be
-                considered point values and expanded into upper and lower.
-        """
-        if data is None or data.empty:
-            self.dismod_file.data = self.dismod_file.empty_table("data")
-            return
-
-        # Some of the columns get the same treatment as the average integrand.
-        # This takes care of integrand and location.
-        like_avgint = self.write_avgint(data).drop(columns=["avgint_id"])
-        # Other columns have to do with priors.
-        with_density = like_avgint.assign(density_id=like_avgint.density.apply(lambda x: DensityEnum[x].value))
-        self._check_column_assigned(with_density, "density")
-        with_density = with_density.reset_index(drop=True).drop(columns=["density"])
-        if "name" not in with_density.columns:
-            with_density = with_density.assign(name=with_density.index.astype(str))
-        elif not with_density.name.isnull().empty:
-            raise RuntimeError(f"There are some data values that lack data names.")
-        else:
-            pass  # There are data names everywhere.
-        if "hold_out" not in with_density.columns:
-            with_density = with_density.assign(hold_out=0)
-        for additional in ["nu", "eta"]:
-            if additional not in with_density.columns:
-                with_density = with_density.assign(**{additional: nan})
-        for expand in ["age", "time"]:
-            point_dimension = (f"{expand}_lower" not in with_density.columns and
-                               f"{expand}_upper" not in with_density.columns)
-            if point_dimension and expand in with_density.columns:
-                with_density = with_density.assign(
-                    **{f"{expand}_lower": with_density[expand], f"{expand}_upper": with_density[expand]})
-                with_density = with_density.drop(columns=[expand])
-
-        self.dismod_file.data = with_density.rename(columns={"mean": "meas_value", "std": "meas_std",
-                                                             "name": "data_name"})
-
     def get_predict(self):
-        avgint = self.read_avgint()
+        avgint = read_avgint(self.dismod_file)
         raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
         normalized = raw.drop(columns=["avgint_id", "predict_id"]).rename(columns={"avg_integrand": "mean"})
         not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)].drop(columns=["avgint_id"])
@@ -538,25 +508,27 @@ class FitResult:
 
 class SimulateResult:
     """Outcome of a Dismod-AT Simulate."""
-    def __init__(self, session, count):
+    def __init__(self, session, count, model, data):
         self._session = session
         self._count = count
+        self._model = model
+        self._data = data
 
     @property
     def count(self):
         return self._count
 
-    @property
-    def data(self):
-        """Simulation of the data.
-        This is a DataFrame identified by the name of the input data.
-        It is restricted to the fit data subset. It has an extra
-        ``index`` column to identify the simulation index."""
-        raise NotImplementedError(f"Cannot retrieve data simulation table.")
+    def simulation(self, index):
+        """Retrieve one of the simulations as a model and data.
 
-    @property
-    def prior(self):
-        """Simulation of the prior.
-        This is an AgeTimeGrid table where each entry is a set of three
-        priors, and there are sets of values, identified by an index."""
-        raise NotImplementedError(f"Cannot retrieve the prior simulation table.")
+        Args:
+            index (int): Which simulation to retrieve, zero-based.
+
+        Returns:
+            Model, Data: A new model and data, modified to be
+            the Nth simulation.
+        """
+        var_id = read_var_table_as_id(self._session.dismod_file)
+        sim_model = read_simulation_model(self._session.dismod_file, self._model, var_id, index)
+        sim_data = read_simulation_data(self._session.dismod_file, self._data, index)
+        return sim_model, sim_data

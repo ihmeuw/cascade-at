@@ -209,13 +209,20 @@ class DismodFile:
     def refresh(self, evict_tables=None):
         """ Throw away any un-flushed changes and reread data from disk.
         """
+        evicted = list()
         if evict_tables is None:
+            evicted = list(self._table_data.keys())
             self._table_data = {}
+            self._table_hash = {}
         else:
             to_evict = [evict_tables] if isinstance(evict_tables, str) else evict_tables
             for evict in to_evict:
                 if evict in self._table_data:
                     del self._table_data[evict]
+                if evict in self._table_hash:
+                    del self._table_hash[evict]
+                    evicted.append(evict)
+        CODELOG.debug(f"Evicted from wrapper: {evicted}")
 
     def __getattr__(self, table_name):
         if table_name in self._table_data:

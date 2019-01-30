@@ -32,7 +32,7 @@ class DismodGroups(UserDict):
         if item in self.GROUPS and self.__dict__.get("_frozen", False):
             raise AttributeError(f"Cannot set attribute")
         else:
-            self.__dict__[item] = value
+            object.__setattr__(self, item, value)
 
     def __setitem__(self, key, item):
         """
@@ -65,3 +65,24 @@ class DismodGroups(UserDict):
             for key, value in group.items():
                 message.append(f"  {key}: {value}")
         return linesep.join(message)
+
+    def check_alignment(self, other):
+        """Check whether and where two DismodGroups are misaligned."""
+        one_not_other = list()
+        for group_name, group in self.items():
+            a_keys = list(group.keys())
+            b_keys = list(other[group_name].keys())
+            single_effect = len(a_keys) == 1 or len(b_keys) == 1
+            if group_name == "random_effect" and single_effect:
+                all_effects = a_keys[0][1] is None or b_keys[0][1] is None
+                if single_effect and all_effects:
+                    a_keys = [k[0] for k in a_keys]
+                    b_keys = [k[0] for k in b_keys]
+            a_keys = set(a_keys)
+            b_keys = set(b_keys)
+            if a_keys - b_keys:
+                one_not_other.append(f"left {group_name} has {a_keys - b_keys}")
+            elif b_keys - a_keys:
+                one_not_other.append(f"right {group_name} has {b_keys - a_keys}")
+            # else they agree
+        return one_not_other
