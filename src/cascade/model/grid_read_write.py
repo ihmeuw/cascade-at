@@ -170,6 +170,8 @@ def read_simulation_model(dismod_file, original_model, var_ids, index):
             try:
                 model_grid = original_model[group_name][key]
             except KeyError:
+                # This handles the case that a random effect has one smooth grid
+                # versus a random effect having a smooth grid per child.
                 if (key[0], None) in original_model[group_name]:
                     model_grid = original_model[group_name][(key[0], None)]
                 else:

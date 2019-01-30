@@ -125,7 +125,7 @@ class Session:
 
     def _fit(self, fit_level, model, data, initial_guess):
         if initial_guess:
-            misalignment = model.alignment_mismatch(initial_guess)
+            misalignment = model.check_alignment(initial_guess)
             if misalignment:
                 raise RuntimeError(f"Model and initial guess are misaligned: {misalignment}.")
         data = Session._amend_data_input(data)
@@ -221,7 +221,7 @@ class Session:
         # Ensure data has name, nu, eta, time_upper and lower.
         data = Session._amend_data_input(data)
         if fit_var:
-            misalignment = model.alignment_mismatch(fit_var)
+            misalignment = model.check_alignment(fit_var)
             if misalignment:
                 raise RuntimeError(f"Model and fit var are misaligned: {misalignment}.")
         self._setup_model_for_fit(model, data, fit_var)

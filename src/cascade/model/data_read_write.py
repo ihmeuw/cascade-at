@@ -1,3 +1,5 @@
+import numpy as np
+
 from cascade.core import getLoggers
 from cascade.dismod.constants import DensityEnum, INTEGRAND_TO_WEIGHT, IntegrandEnum
 
@@ -112,8 +114,9 @@ def _dataframe_as_dict(df, key_column, value_column):
 
 def _check_column_assigned(with_id, column):
     column_id = f"{column}_id"
-    if not with_id[with_id[column_id].isna()].empty:
-        not_found_integrand = with_id[with_id[column_id].isna()][column].unique()
+    unassigned_rows = with_id[with_id[column_id].isna()]
+    if np.any(unassigned_rows):
+        not_found_integrand = with_id[unassigned_rows][column].unique()
         kind_enum = globals()[f"{column.capitalize()}Enum"]
         err_message = (f"The {column} {not_found_integrand} weren't found in the "
                        f"{column} list {[i.name for i in kind_enum]}.")

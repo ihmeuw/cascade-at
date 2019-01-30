@@ -44,11 +44,11 @@ def test_misaligned():
     dg1.rate["iota"] = 7
     dg1.gamma[("traffic", 2)] = 9
 
-    left = dg0.alignment_mismatch(dg1)
+    left = dg0.check_alignment(dg1)
     assert not left
 
     dg1.alpha[("sdi", 7)] = 42
-    right = dg0.alignment_mismatch(dg1)
+    right = dg0.check_alignment(dg1)
     assert right is not None
 
 
@@ -62,5 +62,5 @@ def test_aligned_none():
     dg1.rate["iota"] = 7
     dg1.random_effect[("iota", None)] = 9
 
-    left = dg0.alignment_mismatch(dg1)
+    left = dg0.check_alignment(dg1)
     assert not left

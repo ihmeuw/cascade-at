@@ -66,7 +66,7 @@ class DismodGroups(UserDict):
                 message.append(f"  {key}: {value}")
         return linesep.join(message)
 
-    def alignment_mismatch(self, other):
+    def check_alignment(self, other):
         """Check whether and where two DismodGroups are misaligned."""
         one_not_other = list()
         for group_name, group in self.items():
