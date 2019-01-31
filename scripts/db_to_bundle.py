@@ -6,9 +6,28 @@ import pandas as pd
 import numpy as np
 from scipy.stats import norm
 
-from cascade.dismod.constants import DensityEnum
+from cascade.dismod.constants import DensityEnum, IntegrandEnum
 from cascade.dismod.db.wrapper import get_engine
 from cascade.input_data.configuration.id_map import make_integrand_map
+
+MEASURES_ACCEPTABLE_TO_ELMO = {
+    "prevalence",
+    "duration",
+    "yld",
+    "continuous",
+    "cfr",
+    "proportion",
+    "mtstandard",
+    "relrisk",
+    "incidence",
+    "remission",
+    "mtexcess",
+    "pmtexcess",
+    "mtwith",
+    "mtall",
+    "mtspecific",
+    "mtother",
+}
 
 MEASURE_ID_TO_CANONICAL_NAME = {
     24: "acute_inc",
@@ -180,8 +199,16 @@ def main():
 
     # Convert integrands to measures
     integrand_to_measure = {v.value: MEASURE_ID_TO_CANONICAL_NAME[k] for k, v in make_integrand_map().items()}
+    # prevalence and incidence are special because they have more complicated relationships with integrands
+    # than other measuresso clean them up
+    integrand_to_measure[IntegrandEnum.prevalence.value] = "prevalence"
+    integrand_to_measure[IntegrandEnum.Tincidence.value] = "incidence"
+    integrand_to_measure[IntegrandEnum.Sincidence.value] = "incidence"
+
     data["measure"] = data.integrand_id.apply(integrand_to_measure.get)
     data = data.drop("integrand_id", axis=1)
+
+    assert not set(data.measure.unique()) - MEASURES_ACCEPTABLE_TO_ELMO
 
     # Add in the bundle_id
     data = data.assign(bundle_id=args.bundle_id)
