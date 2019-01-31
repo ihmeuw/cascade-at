@@ -20,6 +20,8 @@ MEASURES_ACCEPTABLE_TO_ELMO = {
     "mtstandard",
     "relrisk",
     "incidence",
+    "tincidence",
+    "sincidence",
     "remission",
     "mtexcess",
     "pmtexcess",
@@ -202,8 +204,8 @@ def main():
     # prevalence and incidence are special because they have more complicated relationships with integrands
     # than other measuresso clean them up
     integrand_to_measure[IntegrandEnum.prevalence.value] = "prevalence"
-    integrand_to_measure[IntegrandEnum.Tincidence.value] = "incidence"
-    integrand_to_measure[IntegrandEnum.Sincidence.value] = "incidence"
+    integrand_to_measure[IntegrandEnum.Tincidence.value] = "sincidence"
+    integrand_to_measure[IntegrandEnum.Sincidence.value] = "tincidence"
 
     data["measure"] = data.integrand_id.apply(integrand_to_measure.get)
     data = data.drop("integrand_id", axis=1)
