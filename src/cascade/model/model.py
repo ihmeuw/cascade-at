@@ -171,7 +171,7 @@ class Model(DismodGroups):
         Returns:
             Model: with Uniform distributions everywhere and no mulstd.
         """
-        child_locations = [k[1] for k in var.random_effect.keys()]
+        child_locations = list(sorted({k[1] for k in var.random_effect.keys()}))
         nonzero_rates = list(var.rate.keys())
         model = cls(nonzero_rates, parent_location, child_locations, weights=weights, covariates=covariates)
 
