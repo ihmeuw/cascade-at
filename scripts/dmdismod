@@ -1,8 +1,12 @@
 #!/bin/bash
 SINGULARITY=/ihme/singularity-images/dismod/current.img
+INSTALLED_DISMOD=$(which dismod_at)
 if [ -e "${SINGULARITY}" ]
 then
     exec singularity exec "${SINGULARITY}" /home/root/prefix/dismod_at/bin/dismod_at $*
+elif [ -x "${INSTALLED_DISMOD}" ]
+then
+    dismod_at $*
 else
     TARGET_DIR="$( cd "$(dirname $1)" ; pwd -P )"
     TARGET_DB=$(basename $1)
