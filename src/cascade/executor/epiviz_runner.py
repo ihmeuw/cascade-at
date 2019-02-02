@@ -14,6 +14,8 @@ import shutil
 import pandas as pd
 import numpy as np
 
+from rocketsonde.core import basic_summarizer
+
 import cascade
 from cascade.core.cascade_plan import CascadePlan
 from cascade.input_data.configuration.id_map import make_integrand_map
@@ -30,6 +32,7 @@ from cascade.input_data.db.mortality import (
     get_frozen_cause_specific_mortality_data,
     normalize_mortality_data
 )
+from cascade.executor.usage_reporter import write_summary_to_db
 from cascade.model.operations import set_priors_on_model_context
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
@@ -523,6 +526,8 @@ def main(args):
     """
     start_time = default_timer()
     ec = make_execution_context()
+    ec.resource_monitor.start_monitor()
+    ec.resource_monitor.attach_to_process(os.getpid(), "Main Process")
 
     settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
 
@@ -550,6 +555,12 @@ def main(args):
 
     elapsed_time = timedelta(seconds=default_timer() - start_time)
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")
+
+    ec.resource_monitor.stop_monitor()
+    summaries = basic_summarizer(ec.resource_monitor.records)
+    for pid, summary in summaries.items():
+        key = ec.resource_monitor.user_data(pid)
+        write_summary_to_db(ec, pid, {"mvid": ec.parameters.model_version_id}, key, {}, summary)
 
 
 def one_location_set(ec, settings, posterior_draws_of_previous_fit):
