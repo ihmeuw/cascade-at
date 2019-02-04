@@ -75,11 +75,53 @@ class ObjectWrapper:
         if unknowns:
             raise KeyError(f"Unknown options {unknowns}")
 
-    def write_data(self, data):
+    @property
+    def data(self):
+        raise NotImplementedError("Cannot read data.")
+
+    @data.setter
+    def data(self, data):
         write_data(self.dismod_file, data, self._covariate_rename)
 
-    def write_avgint(self, avgint):
+    @property
+    def avgint(self):
+        raise NotImplementedError("Cannot read avgint.")
+
+    @avgint.setter
+    def avgint(self, avgint):
         self.dismod_file.avgint = avgint_to_dataframe(self.dismod_file, avgint, self.covariate_rename)
+
+    @property
+    def start_var(self):
+        return self.get_var("start")
+
+    @start_var.setter
+    def start_var(self, new_vars):
+        self.set_var("start", new_vars)
+
+    @property
+    def scale_var(self):
+        return self.get_var("scale")
+
+    @scale_var.setter
+    def scale_var(self, new_vars):
+        self.set_var("scale", new_vars)
+
+    @property
+    def fit_var(self):
+        return self.get_var("fit")
+
+    @fit_var.setter
+    def fit_var(self, new_vars):
+        self.set_var("fit", new_vars)
+
+    @property
+    def truth_var(self):
+        return self.get_var("truth")
+
+    @truth_var.setter
+    def truth_var(self, new_vars):
+        self.set_var("truth", new_vars)
 
     def get_var(self, name):
         var_id = read_var_table_as_id(self.dismod_file)
@@ -90,14 +132,17 @@ class ObjectWrapper:
         write_vars(self.dismod_file, new_vars, var_id, name)
         self.flush()
 
-    def get_prior_residuals(self):
+    @property
+    def prior_residuals(self):
         var_id = read_var_table_as_id(self.dismod_file)
         return read_prior_residuals(self.dismod_file, var_id)
 
-    def get_data_residuals(self):
+    @property
+    def data_residuals(self):
         return read_data_residuals(self.dismod_file)
 
-    def read_samples(self):
+    @property
+    def samples(self):
         var_id = read_var_table_as_id(self.dismod_file)
         return read_samples(self.dismod_file, var_id)
 
@@ -113,14 +158,20 @@ class ObjectWrapper:
     def flush(self):
         self.dismod_file.flush()
 
-    def get_predict(self):
+    @property
+    def predict(self):
         avgint = read_avgint(self.dismod_file)
         raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
         normalized = raw.drop(columns=["avgint_id", "predict_id"]).rename(columns={"avg_integrand": "mean"})
         not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)].drop(columns=["avgint_id"])
         return normalized, not_predicted
 
-    def write_locations(self, locations):
+    @property
+    def locations(self):
+        raise NotImplementedError("Cannot get locations")
+
+    @locations.setter
+    def locations(self, locations):
         for required_column in ["parent_id", "location_id"]:
             if required_column not in locations.columns:
                 raise ValueError(f"Locations should be a DataFrame with location_id and parent_id, "
@@ -186,7 +237,7 @@ class ObjectWrapper:
         self.dismod_file = DismodFile()
         self.dismod_file.engine = get_engine(self._filename)
 
-        self.write_locations(locations)
+        self.locations = locations
         # Density table does not depend on model.
         self.dismod_file.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
 
