@@ -1,5 +1,6 @@
 from math import nan
 from pathlib import Path
+from sqlite3 import Connection
 
 import networkx as nx
 import numpy as np
@@ -39,12 +40,52 @@ def basic_model():
     model.rate["omega"] = rate_grid
     model.rate["iota"] = rate_grid
 
-    chi_grid = SmoothGrid(*dense_age_time)
+    # Intentionally weird ages and times.
+    dense_age_time2 = (np.linspace(0, 115, 27), np.linspace(1991, 2014.2, 7))
+    chi_grid = SmoothGrid(*dense_age_time2)
     chi_grid.value[:, :] = Uniform(lower=1e-6, upper=0.3, mean=0.004, eta=eta)
     chi_grid.dage[:, :] = Uniform(lower=-.9, upper=.9, mean=0.0, eta=eta)
     chi_grid.dtime[:, :] = Gaussian(lower=-.8, upper=.8, mean=0.0, standard_deviation=0.4, eta=eta)
     model.rate["chi"] = chi_grid
     return model
+
+
+def _ages_for_underlying_rate(rate_name, conn):
+    rate_to_smooth = dict(
+        conn.execute("select rate_name, parent_smooth_id from rate").fetchall()
+    )
+    points = conn.execute("""
+        select age, time from smooth_grid
+        join age on smooth_grid.age_id = age.age_id
+        join time on smooth_grid.time_id = time.time_id
+        where smooth_grid.smooth_id = ?
+    """, str(rate_to_smooth[rate_name])).fetchall()
+    return {a[0] for a in points}, {t[1] for t in points}
+
+
+def test_model_grids_ok(basic_model, tmp_path):
+    locations = pd.DataFrame(dict(
+        name=["global"],
+        parent_id=[nan],
+        location_id=[1],
+    ))
+    parent_location = 1
+
+    db_file = "grids_ok.db"
+    wrapper = ObjectWrapper(locations, parent_location, db_file)
+    wrapper.model = basic_model
+    wrapper.flush()
+
+    conn = Connection(str(db_file))
+    ages, times = _ages_for_underlying_rate("omega", conn)
+    assert len(ages) == 13
+    assert len(times) == 8
+
+    ages, times = _ages_for_underlying_rate("chi", conn)
+    assert len(ages) == 27
+    assert len(times) == 7
+    for a, b in zip(sorted(ages), np.linspace(0, 115, 27).tolist()):
+        assert np.isclose(a, b)
 
 
 def test_write_rate(basic_model, dismod):
