@@ -161,3 +161,58 @@ def test_unknown_options():
     wrapper.make_new_dismod_file(locations)
     with pytest.raises(KeyError):
         wrapper.set_option(unknown="hiya")
+
+
+def test_write_avgint(basic_model, tmp_path):
+    locations = pd.DataFrame(dict(
+        name=["global", "americas", "asia", "africa"],
+        parent_id=[nan, 1, 1, 1],
+        location_id=[1, 2, 3, 4],
+    ))
+    parent_location = 1
+    db_file = tmp_path / "avgint_test.db"
+    wrapper = ObjectWrapper(locations, parent_location, db_file)
+
+    wrapper.model = basic_model
+
+    point_cnt = 100
+    ages = np.random.choice(np.linspace(0, 120, 121), point_cnt)
+    times = np.random.choice(np.linspace(1990, 2010, 21), point_cnt)
+    integrands = np.random.choice(["mtother", "prevalence", "Sincidence"], point_cnt)
+    locations = np.random.choice([1, 2, 3, 4], point_cnt)
+    traffic = np.random.random(point_cnt)
+    print(ages)
+    input = pd.DataFrame(dict(
+        integrand=integrands,
+        location=locations,
+        age_lower=ages - 0.4,
+        age_upper=ages + 0.4,
+        time_lower=times - 0.4,
+        time_upper=times + 0.4,
+        traffic=traffic,
+    ))
+    wrapper.avgint = input
+    wrapper.close()
+
+    conn = Connection(str(db_file))
+    result = conn.execute("""
+        SELECT ai.avgint_id, integrand.integrand_name, node.c_location_id,
+            ai.age_lower, ai.age_upper, ai.time_lower, ai.time_upper, ai.x_0
+        FROM avgint ai
+        LEFT JOIN integrand on integrand.integrand_id = ai.integrand_id
+        LEFT JOIN node on node.node_id = ai.node_id
+        ORDER BY avgint_id
+    """).fetchall()
+
+    for pidx in range(point_cnt):
+        print(f"{result[pidx]} {integrands[pidx]} {ages[pidx]} {times[pidx]} {locations[pidx]} {traffic[pidx]}")
+
+    for idx, (aid, ig, loc, al, au, tl, tu, x0) in enumerate(result):
+        assert aid == idx
+        assert ig == integrands[idx], f"mismatch integrand at {idx}"
+        assert loc == locations[idx]
+        assert np.isclose(al, ages[idx] - 0.4)
+        assert np.isclose(au, ages[idx] + 0.4)
+        assert np.isclose(tl, times[idx] - 0.4)
+        assert np.isclose(tu, times[idx] + 0.4)
+        assert np.isclose(x0, traffic[idx])

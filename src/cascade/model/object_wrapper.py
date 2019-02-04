@@ -168,6 +168,12 @@ class ObjectWrapper:
     def flush(self):
         self.dismod_file.flush()
 
+    def close(self):
+        self.flush()
+        if self.dismod_file.engine is not None:
+            self.dismod_file.engine.dispose()
+            self.dismod_file.engine = None
+
     @property
     def predict(self):
         avgint = read_avgint(self.dismod_file)
@@ -233,7 +239,9 @@ class ObjectWrapper:
 
     @contextmanager
     def close_db_while_running(self):
-        self.dismod_file.engine.dispose()
+        if self.dismod_file.engine is not None:
+            self.dismod_file.engine.dispose()
+            self.dismod_file.engine = None
         try:
             yield
         finally:
