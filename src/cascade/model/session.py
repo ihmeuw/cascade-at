@@ -118,14 +118,7 @@ class Session:
 
     def _setup_model_for_fit(self, model, data, initial_guess):
         data = Session._point_age_time_to_interval(data)
-        extremal = list()
-        if data is not None and not data.empty:
-            for dimension in ["age", "time"]:
-                cols = [ac for ac in data.columns if ac.startswith(dimension)]
-                if not cols:
-                    raise ValueError(f"Dataframe must have age and time columns but has {data.columns}.")
-                extremal.append({data[cols].min().min(), data[cols].max().max()})
-        self._objects.write_model(model, extremal)
+        self._objects.model = model
         self._objects.set_option(**self._options)
         self._objects.data = data
         self._run_dismod(["init"])
@@ -168,9 +161,7 @@ class Session:
         self._check_vars(var)
         model = Model.from_var(var, parent_location, weights=weights, covariates=covariates)
         avgint = Session._point_age_time_to_interval(avgint)
-        extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
-                    {avgint.time_lower.min(), avgint.time_upper.max()})
-        self._objects.write_model(model, extremal)
+        self._objects.model = model
         self._objects.set_option(**self._options)
         self._objects.avgint = avgint
 

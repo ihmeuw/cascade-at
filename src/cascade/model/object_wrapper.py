@@ -44,11 +44,16 @@ class ObjectWrapper:
         # need to be renamed before writing, and they aren't part of the model.
         self._covariate_rename = dict()
 
-    def write_model(self, model, extremal_age_time):
+    @property
+    def model(self):
+        raise NotImplementedError("Cannot read a model.")
+
+    @model.setter
+    def model(self, new_model):
         """When you write a model, it deletes the file."""
         self.make_new_dismod_file(self._locations_df)
-        writer = ModelWriter(self, extremal_age_time)
-        model.write(writer)
+        writer = ModelWriter(self, {})
+        new_model.write(writer)
         writer.close()
 
     def set_option(self, **kwargs):

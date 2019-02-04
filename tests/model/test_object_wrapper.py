@@ -60,7 +60,7 @@ def test_write_rate(basic_model, dismod):
 
     # This peeks inside the session to test some of its underlying functionality
     # without doing a fit.
-    object_wrapper.write_model(basic_model, ([], []))
+    object_wrapper.model = basic_model
     session._run_dismod(["init"])
     var = object_wrapper.get_var("scale")
     for name in basic_model:
