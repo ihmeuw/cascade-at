@@ -48,31 +48,6 @@ def basic_model():
     return model
 
 
-def test_write_rate(basic_model, dismod):
-    locations = pd.DataFrame(dict(
-        name=["global"],
-        parent_id=[nan],
-        location_id=[1],
-    ))
-    parent_location = 1
-    db_file = Path("rftest.db")
-    session = Session(locations, parent_location, db_file)
-
-    # This peeks inside the session to test some of its underlying functionality
-    # without doing a fit.
-    session.write_model(basic_model, ([], []))
-    session._run_dismod(["init"])
-    var = session.get_var("scale")
-    for name in basic_model:
-        for key, grid in basic_model[name].items():
-            field = var[name][key]
-            print(f"{name}, {key} {len(grid)}, {len(field)}")
-
-    # By 3 because there are three priors for every value,
-    # and this model has no mulstds, which don't always come in sets of 3.
-    assert 3 * var.variable_count() == basic_model.variable_count()
-
-
 def test_predict(dismod):
     iota = Var([0, 20, 120], [2000])
     iota.grid.loc[np.isclose(iota.grid.age, 0), "mean"] = 0.0

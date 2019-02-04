@@ -56,36 +56,3 @@ def test_unknown_options():
     session = Session(locations, parent_location, db_file)
     with pytest.raises(KeyError):
         session.set_option(unknown="hiya")
-
-
-def test_locations():
-    locations = pd.DataFrame(dict(
-        parent_id=[nan, 1, 2, 2],
-        location_id=[1, 2, 3, 4],
-        name=["global", "North America", "United States", "Canada"],
-    ))
-    session = Session(locations, 1, "none.db")
-    node_table = session.dismod_file.node
-    assert len(node_table) == 4
-    for find_col in ["node_id", "node_name", "parent", "c_location_id"]:
-        assert find_col in node_table.columns
-
-    assert node_table.at[1, "c_location_id"] == 2
-    assert node_table.at[1, "parent"] == 0
-    assert node_table.at[1, "node_name"] == "North America"
-
-
-def test_locations_no_name():
-    locations = pd.DataFrame(dict(
-        parent_id=[nan, 1, 2, 2],
-        location_id=[1, 2, 3, 4],
-    ))
-    session = Session(locations, 1, "none.db")
-    node_table = session.dismod_file.node
-    assert len(node_table) == 4
-    for find_col in ["node_id", "node_name", "parent", "c_location_id"]:
-        assert find_col in node_table.columns
-    for loc, node_id in [(1, 0), (2, 1), (3, 2), (4, 3)]:
-        assert session.location_func(loc) == node_id
-
-    assert node_table.at[2, "node_name"] == "3"
