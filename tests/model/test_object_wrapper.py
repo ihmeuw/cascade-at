@@ -80,6 +80,7 @@ def test_locations():
         name=["global", "North America", "United States", "Canada"],
     ))
     session = ObjectWrapper(locations, 1, "none.db")
+    session.make_new_dismod_file(locations)
     node_table = session.dismod_file.node
     assert len(node_table) == 4
     for find_col in ["node_id", "node_name", "parent", "c_location_id"]:
@@ -96,6 +97,7 @@ def test_locations_no_name():
         location_id=[1, 2, 3, 4],
     ))
     session = ObjectWrapper(locations, 1, "none.db")
+    session.make_new_dismod_file(locations)
     node_table = session.dismod_file.node
     assert len(node_table) == 4
     for find_col in ["node_id", "node_name", "parent", "c_location_id"]:
@@ -104,3 +106,17 @@ def test_locations_no_name():
         assert session.location_func(loc) == node_id
 
     assert node_table.at[2, "node_name"] == "3"
+
+
+def test_unknown_options():
+    locations = pd.DataFrame(dict(
+        name=["global"],
+        parent_id=[nan],
+        location_id=[1],
+    ))
+    parent_location = 1
+    db_file = Path("option.db")
+    wrapper = ObjectWrapper(locations, parent_location, db_file)
+    wrapper.make_new_dismod_file(locations)
+    with pytest.raises(KeyError):
+        wrapper.set_option(unknown="hiya")

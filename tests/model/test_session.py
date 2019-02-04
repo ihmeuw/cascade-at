@@ -3,7 +3,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from cascade.model import Session, Var, DismodGroups
 
@@ -43,16 +42,3 @@ def test_options(dismod):
     ))
     # Run a predict in order to verify the options are accepted.
     session.predict(model_var, avgints, parent_location)
-
-
-def test_unknown_options():
-    locations = pd.DataFrame(dict(
-        name=["global"],
-        parent_id=[nan],
-        location_id=[1],
-    ))
-    parent_location = 1
-    db_file = Path("option.db")
-    session = Session(locations, parent_location, db_file)
-    with pytest.raises(KeyError):
-        session.set_option(unknown="hiya")

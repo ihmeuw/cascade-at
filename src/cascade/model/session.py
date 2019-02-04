@@ -15,8 +15,8 @@ CODELOG, MATHLOG = getLoggers(__name__)
 class Session:
     """
     A Session interacts with Dismod-AT. It estimates fits,
-    predicts rates, and simulates by transforming models and data
-    into a native Dismod-AT format. Then it runs Dismod-AT to get answers.
+    predicts rates, and simulates. Collaborates with the ObjectWrapper
+    to manipulate the DismodFile.
     """
     def __init__(self, locations, parent_location, filename):
         """
@@ -40,6 +40,7 @@ class Session:
 
         self._filename = filename
         self._objects = ObjectWrapper(locations, parent_location, filename)
+        self._options = dict()
 
     def fit(self, model, data, initial_guess=None):
         """This is a fit without a predict. If the model
@@ -125,6 +126,7 @@ class Session:
                     raise ValueError(f"Dataframe must have age and time columns but has {data.columns}.")
                 extremal.append({data[cols].min().min(), data[cols].max().max()})
         self._objects.write_model(model, extremal)
+        self._objects.set_option(**self._options)
         self._objects.data = data
         self._run_dismod(["init"])
         if model.scale_set_by_user:
@@ -169,6 +171,7 @@ class Session:
         extremal = ({avgint.age_lower.min(), avgint.age_upper.max()},
                     {avgint.time_lower.min(), avgint.time_upper.max()})
         self._objects.write_model(model, extremal)
+        self._objects.set_option(**self._options)
         self._objects.avgint = avgint
 
         self._run_dismod(["init"])
@@ -221,7 +224,9 @@ class Session:
         return self._objects.samples
 
     def set_option(self, **kwargs):
-        self._objects.set_option(**kwargs)
+        self._options.update(kwargs)
+        if self._objects.dismod_file:
+            self._objects.set_option(**self._options)
 
     def _run_dismod(self, command):
         """Pushes tables to the db file, runs Dismod-AT, and refreshes

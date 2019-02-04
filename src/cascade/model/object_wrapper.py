@@ -36,7 +36,7 @@ class ObjectWrapper:
         self.dismod_file = None
         self.parent_location = parent_location
         self.location_func = None
-        self._make_new_dismod_file(locations)
+        self._locations_df = locations
 
         # From covariate name to the x_<number> name that is used internally.
         # The session knows this piece of information but not the covariate
@@ -45,6 +45,8 @@ class ObjectWrapper:
         self._covariate_rename = dict()
 
     def write_model(self, model, extremal_age_time):
+        """When you write a model, it deletes the file."""
+        self.make_new_dismod_file(self._locations_df)
         writer = ModelWriter(self, extremal_age_time)
         model.write(writer)
         writer.close()
@@ -53,9 +55,13 @@ class ObjectWrapper:
         """Erase an option by setting it to None or nan."""
         option = self.dismod_file.option
         unknowns = list()
-        for name, value in kwargs.items():
+        for name in kwargs.keys():
             if not (option.option_name == name).any():
                 unknowns.append(name)
+        if unknowns:
+            raise KeyError(f"Unknown options {unknowns}")
+
+        for name, value in kwargs.items():
             if isinstance(value, str):
                 str_value = value
             elif isinstance(value, Iterable):
@@ -69,11 +75,10 @@ class ObjectWrapper:
             if str_value is not None:
                 option.loc[option.option_name == name, "option_value"] = str_value
             else:
-                option = option.loc[option.option_name != name, :]
-        option = option.reset_index(drop=True).assign(option_id=option.index)
+                option.loc[option.option_name == name, "option_value"] = nan
+        option = option.reset_index(drop=True)
+        option = option.assign(option_id=option.index)
         self.dismod_file.option = option
-        if unknowns:
-            raise KeyError(f"Unknown options {unknowns}")
 
     @property
     def data(self):
@@ -229,7 +234,7 @@ class ObjectWrapper:
         finally:
             self.dismod_file.engine = get_engine(self._filename)
 
-    def _make_new_dismod_file(self, locations):
+    def make_new_dismod_file(self, locations):
         if self._filename.exists():
             MATHLOG.info(f"{self._filename} exists so overwriting it.")
             self._filename.unlink()
@@ -237,7 +242,9 @@ class ObjectWrapper:
         self.dismod_file = DismodFile()
         self.dismod_file.engine = get_engine(self._filename)
 
-        self.locations = locations
+        self._covariate_rename = dict()
+        if locations is not None:
+            self.locations = locations
         # Density table does not depend on model.
         self.dismod_file.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
 
