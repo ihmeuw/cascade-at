@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import Column, Integer, String, Float, Enum
 from sqlalchemy.ext.declarative import declarative_base
 
+from cascade.dismod.constants import DensityEnum
 from cascade.dismod.db import DismodFileError
 from cascade.dismod.db.metadata import Base as DismodFileBase
 from cascade.dismod.db.wrapper import DismodFile, get_engine, _validate_data, _ordered_by_foreign_key_dependency
@@ -22,7 +23,9 @@ def engine():
 @pytest.fixture
 def base_file(engine):
     dm_file = DismodFile(engine)
-    dm_file.make_densities()
+    density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+    dm_file.density = density.assign(density_id=density.index)
+
     ages = pd.DataFrame({"age": np.array([6.0, 22.0, 48.0])})
     ages["age_id"] = ages.index
     dm_file.age = ages
