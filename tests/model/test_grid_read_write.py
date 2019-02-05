@@ -1,11 +1,19 @@
+from types import SimpleNamespace
+
 import numpy as np
 from numpy import isclose, nan, isnan
 import pandas as pd
 
 from cascade.model.age_time_grid import AgeTimeGrid
-from cascade.model.model_reader import (
-    _read_vars_one_field, _read_residuals_one_field, _samples_one_field, _construct_var_id_from_var_table
+from cascade.model.grid_read_write import (
+    _read_vars_one_field, _read_residuals_one_field, _samples_one_field, _construct_var_id_from_var_table,
+    read_simulation_model
 )
+from cascade.model.model import Model
+from cascade.model.smooth_grid import SmoothGrid
+from cascade.model.dismod_groups import DismodGroups
+from cascade.model.priors import Gaussian, Uniform
+from cascade.model.var import Var
 
 
 def test_read_vars_one_field():
@@ -127,3 +135,53 @@ def test_add_one_field_to_vars():
     assert int(var[0, 2010].var_id) == 5
     assert int(var.mulstd["value"].at[0, "var_id"]) == 6
     assert isnan(var.mulstd["dage"].at[0, "var_id"])
+
+
+def test_read_simulation_model():
+    model = Model(["iota"], 1, [2, 3])
+    model.rate["iota"] = SmoothGrid([0, 50], [2000])
+    model.rate["iota"].value[:, :] = Gaussian(mean=0.01, standard_deviation=0.5)
+    model.rate["iota"].dage[:, :] = Gaussian(mean=0.0, standard_deviation=0.7)
+    model.rate["iota"].dtime[:, :] = Uniform(lower=-0.2, upper=0.2, mean=-0.05)
+    model.random_effect[("iota", 2)] = SmoothGrid([50], [1990, 2000])
+    model.random_effect[("iota", 2)].value[:, :] = Gaussian(mean=0.02, standard_deviation=0.3)
+    model.random_effect[("iota", 2)].dage[:, :] = Gaussian(mean=0.03, standard_deviation=0.5)
+    model.random_effect[("iota", 2)].dtime[:, :] = Gaussian(mean=0.04, standard_deviation=0.6)
+
+    model.rate["iota"].dage.mulstd_prior = Gaussian(mean=3, standard_deviation=50)
+    model.rate["iota"].dtime.mulstd_prior = Gaussian(mean=7, standard_deviation=50)
+
+    # There are four vars, total, with 12 var_ids.
+    var_ids = DismodGroups()
+    var_ids.rate["iota"] = AgeTimeGrid([0, 50], [2000], ["var_id"])
+    var_ids.rate["iota"][0, 2000] = [0]
+    var_ids.rate["iota"][50, 2000] = [1]
+    var_ids.random_effect[("iota", 2)] = AgeTimeGrid([50], [1990, 2000], ["var_id"])
+    var_ids.random_effect[("iota", 2)][50, 1990] = [2]
+    var_ids.random_effect[("iota", 2)][50, 1990] = [5]
+
+    var_ids.rate["iota"].mulstd["dage"].at[0, "var_id"] = 6
+
+    db = SimpleNamespace()
+    db.prior_sim = pd.DataFrame(dict(
+        prior_sim_id=range(3),
+        simulate_index=3,
+        var_id=[0, 5, 6],
+        prior_sim_value=[0.9, 1.1, nan],
+        prior_sim_dage=[0.04, nan, 2.4],
+        prior_sim_dtime=[nan, -0.3, nan],
+    ))
+
+    new_model = read_simulation_model(db, model, var_ids, 3)
+    assert new_model is not None
+    iota = new_model.rate["iota"]
+    # Can use .mean here because is attribute of Prior, which doesn't have
+    # a mean() method.
+    assert iota.value[0, 2000].mean == 0.9
+    assert iota.dage[0, 2000].mean == 0.04
+    assert iota.dtime[0, 2000].mean == -0.05
+    assert iota.value[50, 2000].mean == 0.01
+    assert iota.dage[50, 2000].mean == 0
+    assert iota.dtime[50, 2000].mean == -0.05
+    assert iota.dage.mulstd_prior.mean == 2.4
+    assert iota.dtime.mulstd_prior.mean == 7

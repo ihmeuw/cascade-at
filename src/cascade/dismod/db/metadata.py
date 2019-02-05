@@ -495,6 +495,17 @@ class DataSim(Base):
     data_sim_delta = Column(Float(), nullable=False)
 
 
+class PriorSim(Base):
+    __tablename__ = "prior_sim"
+
+    prior_sim_id = Column(Integer(), primary_key=True, autoincrement=False)
+    simulate_index = Column(Integer(), nullable=False)
+    var_id = Column(Integer(), nullable=False)
+    prior_sim_value = Column(Float(), nullable=True)
+    prior_sim_dage = Column(Float(), nullable=True)
+    prior_sim_dtime = Column(Float(), nullable=True)
+
+
 class Var(Base):
     """Output"""
 

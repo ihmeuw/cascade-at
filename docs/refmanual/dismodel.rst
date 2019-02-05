@@ -12,9 +12,6 @@ Dismod Model
 .. automodule:: cascade.model.model
     :members:
 
-.. automodule:: cascade.model.model_reader
-    :members:
-
 .. automodule:: cascade.model.model_writer
     :members:
 

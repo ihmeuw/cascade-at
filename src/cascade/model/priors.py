@@ -260,5 +260,4 @@ def prior_distribution(parameters):
     elif density == "log_students":
         return LogStudentsT(value, stdev, nu, eta, lower, upper)
     else:
-        CODELOG.error(f"Cannot identify density {density}.")
-        raise PriorError(f"Cannot identify density {density}.")
+        return None
