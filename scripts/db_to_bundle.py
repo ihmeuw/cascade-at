@@ -1,9 +1,10 @@
 import argparse
+import os
 import re
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy.stats import norm
 
 from cascade.dismod.constants import DensityEnum, IntegrandEnum
@@ -132,6 +133,9 @@ DUMMY_VALUES = {
 
 
 def main():
+    readable_by_all = 0o0002
+    os.umask(readable_by_all)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file")
     parser.add_argument("output_file")
