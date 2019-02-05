@@ -10,17 +10,18 @@ class Var(AgeTimeGrid):
 
     The initial state of a model is a Var. The result of a fit is a Var.
     """
-    def __init__(self, ages, times):
-        super().__init__(ages, times, columns=["mean"])
+    def __init__(self, ages, times, column_name="mean"):
+        self._column_name = column_name
+        super().__init__(ages, times, columns=self._column_name)
         self._spline = None
 
     def check(self, name=None):
         """This raises a :py:class:`RuntimeError` if any part of the
         Var is uninitialized. None of the means should be nan. There should only be the
         three mulstds."""
-        if not self.grid["mean"].notna().all():
+        if not self.grid[self._column_name].notna().all():
             raise RuntimeError(
-                f"Var {name} has {self.grid['mean'].isna().sum()} nan values")
+                f"Var {name} has {self.grid[self._column_name].isna().sum()} nan values")
         if set(self.mulstd.keys()) - {"value", "dage", "dtime"}:
             raise RuntimeError(
                 f"Var {name} has mulstds besides the three: {list(self.mulstd.keys())}"
@@ -67,7 +68,7 @@ class Var(AgeTimeGrid):
         Returns:
             float: The value at this age and time.
         """
-        return float(super().__getitem__(age_and_time)["mean"])
+        return float(super().__getitem__(age_and_time)[self._column_name])
 
     def set_mulstd(self, kind, value):
         """Set the value of the multiplier on the standard deviation.
@@ -81,7 +82,7 @@ class Var(AgeTimeGrid):
         sig = "kind is one of value, dage, dtime, and value is a float."
         if kind not in PriorKindEnum.__members__:
             raise TypeError(f"{sig} kind={kind}")
-        self.mulstd[kind].loc[:, "mean"] = float(value)
+        self.mulstd[kind].loc[:, self._column_name] = float(value)
 
     def get_mulstd(self, kind):
         """
@@ -99,7 +100,7 @@ class Var(AgeTimeGrid):
         """
         if kind not in PriorKindEnum.__members__:
             raise TypeError(f"Argument is one of value, dage, dtime, not {kind}.")
-        return float(self.mulstd[kind]["mean"])
+        return float(self.mulstd[kind][self._column_name])
 
     def __str__(self):
         return f"Var({len(self.ages), len(self.times)})"
@@ -151,7 +152,8 @@ class Var(AgeTimeGrid):
         age = np.sort(np.unique(age_time_df.age.values))
         time = np.sort(np.unique(age_time_df.time.values))
         if len(age) > 1 and len(time) > 1:
-            spline = RectBivariateSpline(age, time, ordered["mean"].values.reshape(len(age), len(time)), kx=1, ky=1)
+            heights = ordered[self._column_name].values.reshape(len(age), len(time))
+            spline = RectBivariateSpline(age, time, heights, kx=1, ky=1)
 
             def bivariate_function(x, y):
                 return spline(x, y)[0]
@@ -159,10 +161,10 @@ class Var(AgeTimeGrid):
             return bivariate_function
 
         elif len(age) * len(time) > 1:
-            fill = (ordered["mean"].values[0], ordered["mean"].values[-1])
+            fill = (ordered[self._column_name].values[0], ordered[self._column_name].values[-1])
             independent = age if len(age) != 1 else time
             spline = interp1d(
-                independent, ordered["mean"].values, kind="linear", bounds_error=False, fill_value=fill)
+                independent, ordered[self._column_name].values, kind="linear", bounds_error=False, fill_value=fill)
 
             def age_spline(x, _):
                 return spline(x)
@@ -177,7 +179,7 @@ class Var(AgeTimeGrid):
         elif len(age) == 1 and len(time) == 1:
 
             def constant_everywhere(_a, _t):
-                return ordered["mean"].values[0]
+                return ordered[self._column_name].values[0]
 
             return constant_everywhere
         else:

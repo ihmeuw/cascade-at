@@ -33,22 +33,29 @@ class _PriorGrid(AgeTimeGrid):
 
     @property
     def mulstd_prior(self):
-        """Standard deviation multiplier as a Prior."""
+        """Standard deviation multiplier as a Prior. Returns a Prior
+        or None, if the prior is not defined."""
         # The base class, AgeTimeGrid, has a dictionary of three mulstds.
         # The prior grid uses only one of them.
         return prior_distribution(self._mulstd[self._kind].iloc[0])
 
     @mulstd_prior.setter
     def mulstd_prior(self, value):
-        to_set = value.parameters()
-        to_assign = [to_set[setp] if setp in to_set else nan for setp in self.columns]
-        self._mulstd[self._kind].loc[:, self.columns] = to_assign
+        """Erase a mulstd by setting it to None."""
+        if value is not None:
+            to_set = value.parameters()
+            to_assign = [to_set[setp] if setp in to_set else nan for setp in self.columns]
+            self._mulstd[self._kind].loc[:, self.columns] = to_assign
+        else:
+            self._mulstd[self._kind].loc[:, self.columns] = [None, 0, .1, -inf, inf, nan, nan, None]
 
     def __getitem__(self, at_slice):
         return prior_distribution(super().__getitem__(at_slice).iloc[0])
 
     def __setitem__(self, at_slice, value):
         """
+        These can't be erased because every grid point gets a prior.
+
         Args:
             at_slice (slice, slice): What to change, as integer offset into ages and times.
             value (priors.Prior): The prior to set, containing dictionary of
@@ -153,7 +160,7 @@ def uninformative_grid_from_var(var, strictly_positive):
             "uniform", 1e-2, 1e-9, 5
         ]
     else:
-        smooth_grid.value.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -5, 5, 0]
-    smooth_grid.dage.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -5, 5, 0]
-    smooth_grid.dtime.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -5, 5, 0]
+        smooth_grid.value.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -inf, inf, 0]
+    smooth_grid.dage.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -inf, inf, 0]
+    smooth_grid.dtime.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -inf, inf, 0]
     return smooth_grid

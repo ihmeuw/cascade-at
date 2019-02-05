@@ -31,25 +31,15 @@ class ModelWriter:
      * Rates and integrands are always in the same order.
     """
 
-    def __init__(self, session, data_age_time_bounds):
+    def __init__(self, session):
         """
-
         Args:
             session (Session): The Dismod-AT Session into which this writes.
-            data_age_time_bounds (Tuple(Set(int),Set(int))): a set of ages and
-                a set of times to add to the age and time tables. Dismod-AT
-                requires that all data points in the avgint and data tables
-                be within the min and max of the age and time tables, so this
-                passes in the extremal values.
         """
         self._session = session
         self._dismod_file = session.dismod_file
-        if data_age_time_bounds:
-            self._ages = np.array(list(data_age_time_bounds[0]), dtype=np.float)
-            self._times = np.array(list(data_age_time_bounds[1]), dtype=np.float)
-        else:
-            self._ages = np.empty((0,), dtype=np.float)
-            self._times = np.empty((0,), dtype=np.float)
+        self._ages = np.empty((0,), dtype=np.float)
+        self._times = np.empty((0,), dtype=np.float)
         self._rate_rows = list()  # List of dictionaries for rates.
         self._mulcov_rows = list()  # List of dictionaries for covariate multipliers.
         self._rate_id = dict()  # The rate ids with the primary rates.
@@ -352,6 +342,11 @@ def _make_covariate_table(covariates):
 
     def cov_col_id_func(query_column):
         """From the original covariate name to the index in SQL file."""
-        return [search.name for search in covariates].index(query_column)
+        try:
+            covariate_id = [search.name for search in covariates].index(query_column)
+        except ValueError as ve:
+            if "is not in list" in str(ve):
+                raise RuntimeError(f"A covariate was not registered with the model. {ve}")
+        return covariate_id
 
     return covariate_columns, cov_col_id_func, renames

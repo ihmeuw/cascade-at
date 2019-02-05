@@ -225,7 +225,7 @@ def test_posterior(locations, dismod):
                   )
     session.set_option(**option)
 
-    data = None
+    data = pd.DataFrame()
     simulate_result = session.simulate(model, data, fit_var, number_sample)
     sample_var = session.sample(simulate_result)
     assert sample_var is not None
@@ -244,7 +244,6 @@ def test_posterior(locations, dismod):
     assert isclose(variance_01, 1 / 3, rtol=0.5)
 
 
-@pytest.mark.skip("Finds error in Dismod-AT init")
 def test_fit_sim(locations, dismod):
     """user_fit_sim.py example from Dismod-AT."""
     iota_parent_true = 0.01
@@ -253,18 +252,18 @@ def test_fit_sim(locations, dismod):
     data_per_child = 10  # You can change the amount of data.
 
     parent_location = 1
-    children = [parent_location + add_child for add_child in range(n_children)]
+    children = [parent_location + 1 + add_child for add_child in range(n_children)]
     locations = pd.DataFrame(dict(
         name=["Universe"] + [f"child_{cidx}" for cidx in range(n_children)],
         parent_id=[nan] + n_children * [parent_location],
         location_id=[parent_location] + children,
     ))
 
-    income = Covariate("income", 0.5)
+    income_covariate = Covariate("income", reference=0.5)
 
     # The model sits on one age and time and has only incidence rate, iota.
-    one_age_time = ([50], [2000])
-    model = Model(["iota"], 1, children, covariates=[income])
+    one_age_time = ([50], [2010])
+    model = Model(["iota"], 1, children, covariates=[income_covariate])
     model.rate["iota"] = SmoothGrid(*one_age_time)
     model.rate["iota"].value[:, :] = Uniform(lower=iota_parent_true / 100, upper=1, mean=0.1)
     child_effect = SmoothGrid(*one_age_time)
@@ -283,8 +282,6 @@ def test_fit_sim(locations, dismod):
         density="gaussian",
         mean=0.0,  # Not used because will be simulated.
         std=1e-3,
-        nu=nan,
-        eta=nan,
         income=np.linspace(0, 1, data_per_child * n_children),
     ))
 
@@ -298,7 +295,8 @@ def test_fit_sim(locations, dismod):
     truth_var.alpha[("income", "iota")] = Var(*one_age_time)
     truth_var.alpha[("income", "iota")][:, :] = mulcov_income_iota_true
 
-    session = Session(locations, 1, Path("fit_sim.db"))
+    # Let's fit this problem twice with two different db files and compare.
+    session_fit = Session(locations, 1, Path("fit_sim_pred.db"))
     option = dict(random_seed=0,
                   ode_step_size=10,
                   zero_sum_random="iota",  # Zero-sum random affects result.
@@ -312,10 +310,43 @@ def test_fit_sim(locations, dismod):
                   tolerance_random=1e-8,
                   print_level_random=0,
                   )
-    session.set_option(**option)
+    session_fit.set_option(**option)
 
-    session.simulate(model, data, truth_var, 1)
-    # session.fit(model, data, initial_guess=None)
+    # avgint is a request to evaluate a function at a point. Doesn't specify a prior.
+    avgint = data.drop(columns=["mean", "std", "density"])
+    predicted, not_predicted = session_fit.predict(truth_var, avgint, parent_location, covariates=[income_covariate])
+    # The data needs a prior added, in addition to the predicted value.
+    data_with_priors = predicted.assign(density="gaussian", std=1e-3).drop(columns="sample_index")
+    fit_result = session_fit.fit(model, data_with_priors, truth_var)
+    _fit_sim_compare_result(fit_result.fit, iota_parent_true, mulcov_income_iota_true)
+
+    # Second session, use simulate and then fit.
+    session_sim = Session(locations, 1, Path("fit_simulate.db"))
+    option["zero_sum_random"] = None
+    session_sim.set_option(**option)
+    sim_result = session_sim.simulate(model, data, truth_var, 1)
+    model0, data0 = sim_result.simulation(0)
+    model0.scale = truth_var
+    # The Dismod-AT example doesn't reset zero sum random, but Dismod-AT
+    # complains if zero_sum_random="iota" and there is a separate smooth grid
+    # for each random effect of iota. From Dismod-AT: "found iota in value for
+    # zero_sum_random option and corresponding child_nslist_id not null."
+    session_sim.set_option(zero_sum_random=None)
+    fit_result = session_sim.fit(model0, data0, initial_guess=truth_var)
+    fit0 = fit_result.fit
+    _fit_sim_compare_result(fit0, iota_parent_true, mulcov_income_iota_true)
+
+
+def _fit_sim_compare_result(fit0, iota_parent_true, mulcov_income_iota_true):
+    rate_2 = fit0.rate["iota"][50, 2010] * np.exp(fit0.random_effect[("iota", 2)][50, 2010])
+    assert isclose(rate_2, iota_parent_true, rtol=5e-2)
+    rate_3 = fit0.rate["iota"][50, 2010] * np.exp(fit0.random_effect[("iota", 3)][50, 2010])
+    assert isclose(rate_3, iota_parent_true, rtol=5e-2)
+    alpha_income = fit0.alpha[("income", "iota")][50, 2010]
+    assert isclose(alpha_income, mulcov_income_iota_true, rtol=5e-2)
+    print(f"iota child 2 {iota_parent_true} {rate_2}")
+    print(f"iota child 3 {iota_parent_true} {rate_3}")
+    print(f"income on iota {mulcov_income_iota_true} {alpha_income}")
 
 
 @pytest.mark.parametrize("meas_std_effect", [

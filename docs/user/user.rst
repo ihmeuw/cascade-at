@@ -16,6 +16,7 @@ User Manual
    model
    session
    priors
+   object_wrapper
    canonical
    dmres2csv
    dmsr2csv

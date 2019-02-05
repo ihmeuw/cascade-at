@@ -8,6 +8,7 @@ from cascade.core import getLoggers
 from cascade.dismod.constants import IntegrandEnum, RateEnum, PriorKindEnum
 from cascade.model.age_time_grid import AgeTimeGrid
 from cascade.model.dismod_groups import DismodGroups
+from cascade.model.smooth_grid import SmoothGrid
 from cascade.model.var import Var
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -37,7 +38,8 @@ def _construct_vars_one_field(name, var_id, new_var):
     var_column = f"{name}_value"
     with_id = new_var.grid.merge(var_id.grid[["age", "time", "var_id"]], on=["age", "time"], how="left")
     if with_id.var_id.isna().any():
-        raise RuntimeError(f"Internal error: Could not align {id_column} with var_id.")
+        na_vals = with_id[with_id.var_id.isna()]
+        raise RuntimeError(f"Internal error: Could not align {id_column} with var_id. {na_vals}")
     return pd.DataFrame({
         id_column: with_id.var_id.values,
         var_column: with_id["mean"].values,
@@ -158,25 +160,67 @@ def _samples_one_field(table, id_draw):
     return vals
 
 
-def read_data_residuals(dismod_file):
-    """Reads residuals indexed by the name of the data line.
+def read_simulation_model(dismod_file, original_model, var_ids, index):
+    """After simulate was run, it makes a new model. This takes
+    an existing model and modifies its priors so that we can run again."""
+    sim_priors = dismod_file.prior_sim[dismod_file.prior_sim.simulate_index == index]
+    sim_model = original_model.model_like()
+    for group_name, group in var_ids.items():
+        for key, var_grid in group.items():
+            try:
+                model_grid = original_model[group_name][key]
+            except KeyError:
+                # This handles the case that a random effect has one smooth grid
+                # versus a random effect having a smooth grid per child.
+                if (key[0], None) in original_model[group_name]:
+                    model_grid = original_model[group_name][(key[0], None)]
+                else:
+                    raise
+            constructed_prior_grid = SmoothGrid(var_grid.ages, var_grid.times)
+            _read_one_prior_sim_grid(model_grid, constructed_prior_grid, sim_priors, var_grid)
+            _read_one_prior_sim_mulstd(model_grid, constructed_prior_grid, sim_priors, var_grid)
+            sim_model[group_name][key] = constructed_prior_grid
+    return sim_model
 
-    Args:lagrange_dtime
-        dismod_file: The DismodFile wrapper.
 
-    Returns:
-        DataFrame: Columns are ``name``, ``avg_integrand``,
-        ``weighted_residual``.
-    """
-    # The data table associates data_id with data_name, but data_subset
-    # has an id for all data that were used and will have residuals.
-    data_subset = dismod_file.data_subset.reset_index(drop=True)
-    subset_id_to_name = data_subset.merge(dismod_file.data[["data_id", "data_name"]], on="data_id") \
-        .drop(columns=["data_id"])
-    return dismod_file.fit_data_subset.reset_index(drop=True).merge(
-        subset_id_to_name, left_on="fit_data_subset_id", right_on="data_subset_id") \
-        .drop(columns=["data_subset_id", "fit_data_subset_id"]) \
-        .rename(columns={"data_name": "name"})
+def _read_one_prior_sim_grid(model_grid, priors, sim_priors_df, var_grid):
+    # For values in the age-time grid, there are three prior types for
+    # each value of the grid.
+    for age, time in var_grid.age_time():
+        float_var_id = var_grid[age, time].var_id
+        if not isnan(float_var_id):
+            in_priors = sim_priors_df.var_id == int(float_var_id)
+        else:
+            in_priors = None
+        if in_priors is not None and in_priors.any():
+            for kind in ["value", "dage", "dtime"]:
+                prior_mean = float(sim_priors_df[in_priors][f"prior_sim_{kind}"])
+                dest_priors = getattr(priors, kind)
+                source_prior = getattr(model_grid, kind)[age, time]
+                if not isnan(prior_mean) and source_prior is not None:
+                    dest_priors[age, time] = source_prior.assign(mean=prior_mean)
+                elif source_prior is not None:
+                    dest_priors[age, time] = source_prior
+                # else no prior to set because dage and dtime priors at endpoints
+                # aren't required.
+        else:
+            for kind in ["value", "dage", "dtime"]:
+                getattr(priors, kind)[age, time] = getattr(model_grid, kind)[age, time]
+
+
+def _read_one_prior_sim_mulstd(model_grid, priors, sim_priors_df, var_grid):
+    # For the mulstd, there are three different var_ids, one for each kind.
+    for mulstd_kind in ["value", "dage", "dtime"]:
+        mulstd_var_id = float(var_grid.mulstd[mulstd_kind]["var_id"])
+        source_prior = getattr(model_grid, mulstd_kind).mulstd_prior
+        if not isnan(mulstd_var_id):
+            prior_mean = float(sim_priors_df[sim_priors_df.var_id == mulstd_var_id][f"prior_sim_{mulstd_kind}"])
+            if not isnan(prior_mean):
+                getattr(priors, mulstd_kind).mulstd_prior = source_prior.assign(mean=prior_mean)
+            else:
+                getattr(priors, mulstd_kind).mulstd_prior = source_prior
+        else:
+            getattr(priors, mulstd_kind).mulstd_prior = source_prior
 
 
 def read_var_table_as_id(dismod_file):
