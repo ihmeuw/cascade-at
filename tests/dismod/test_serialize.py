@@ -202,7 +202,8 @@ def test_make_time_table(base_context):
 
 def test_make_prior_table(base_context):
     dm = DismodFile(None)
-    dm.make_densities()
+    density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+    dm.density = density.assign(density_id=density.index)
 
     prior_table, prior_id_func = make_prior_table(base_context, dm.density)
     prior_objects = collect_priors(base_context)
@@ -237,7 +238,8 @@ def test_make_prior_table(base_context):
 
 def test_make_smooth_and_smooth_grid_tables(base_context):
     dm = DismodFile(None)
-    dm.make_densities()
+    density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+    dm.density = density.assign(density_id=density.index)
 
     age_table = make_age_table(base_context)
     time_table = make_time_table(base_context)
@@ -275,7 +277,8 @@ def test_make_data_table(base_context, mock_get_location_hierarchy_from_gbd):
 
 def test_make_rate_and_nslist_tables(base_context):
     dm = DismodFile(None)
-    dm.make_densities()
+    density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+    dm.density = density.assign(density_id=density.index)
     age_table = make_age_table(base_context)
     time_table = make_time_table(base_context)
     prior_table, prior_objects = make_prior_table(base_context, dm.density)
@@ -333,7 +336,12 @@ def test_make_covariate_table(base_context):
         rate_adj.covariate_multipliers.append(wash_cov)
 
     dm = DismodFile(None)
-    dm.make_densities()
+    density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+    dm.density = density.assign(density_id=density.index)
+
+    density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+    dm.density = density.assign(density_id=density.index)
+
     age_table = make_age_table(base_context)
     time_table = make_time_table(base_context)
     prior_table, prior_objects = make_prior_table(base_context, dm.density)

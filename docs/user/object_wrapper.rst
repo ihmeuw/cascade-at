@@ -21,6 +21,14 @@ ObjectWrapper Class
 
     The var tables should all show up as properties.
 
+    .. py:method:: refresh()
+
+       Reread all tables from disk.
+
+    .. py:method:: close()
+
+       Close the db file. Dispose of the sqlite3 connection.
+
     .. py:method:: set_option(option_name=option_value, ...)
 
        Set options. Setting an option to None or nan disables it.
@@ -29,6 +37,10 @@ ObjectWrapper Class
 
        Set the model in order to make a new database, overwriting
        whatever was there. Cannot currently read a model.
+
+    .. py:attribute:: locations
+
+       Set locations from a dataframe.
 
     .. py:attribute:: data
 
@@ -65,10 +77,6 @@ ObjectWrapper Class
        avgints with covariates out of bounds cannot be predicted, so they
        are returned as a separate list.
 
-    .. py:attribute:: locations
-
-       Set locations from a dataframe.
-
     .. py:attribute:: samples
 
        Results of a sample.
@@ -76,11 +84,3 @@ ObjectWrapper Class
     .. py:method:: read_simulation_model_and_data(model, data, index)
 
        Returns a model and a data corresponding to that simulation index.
-
-    .. py:method:: refresh()
-
-       Reread all tables from disk.
-
-    .. py:method:: close()
-
-       Close the db file. Dispose of the sqlite3 connection.

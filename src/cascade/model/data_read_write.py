@@ -121,11 +121,11 @@ def avgint_to_dataframe(dismod_file, avgint, covariate_rename):
     with_weight = with_id.assign(weight_id=with_id.integrand.apply(lambda x: INTEGRAND_TO_WEIGHT[x].value))
     with_weight = with_weight.drop(columns=["integrand"]).reset_index(drop=True)
     with_location = with_weight.merge(
-        dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id") \
+        dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id", how="left") \
         .drop(columns=["c_location_id", "location"])
     _add_data_age_time_range(dismod_file, avgint)
     with_location = with_location.rename(columns=covariate_rename)
-    return with_location.sort_values(by="avgint_id").reset_index(drop=True)
+    return with_location.reset_index(drop=True)
 
 
 def read_avgint(dismod_file):
