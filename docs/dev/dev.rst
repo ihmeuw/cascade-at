@@ -12,3 +12,4 @@ Developer Manual
    dismod_at_shape
    versioning
    design_sketches
+   hdf_design
