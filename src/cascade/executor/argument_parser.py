@@ -143,7 +143,7 @@ class BaseArgumentParser(ArgumentParser):
 
     @staticmethod
     def _logging_configure_root_log(code_log_dir, level):
-        user_code_dir = code_log_dir / getuser() / "cascade"
+        user_code_dir = code_log_dir / getuser() / "dismod"
         try:
             user_code_dir_exists = user_code_dir.exists()
         except (OSError, PermissionError) as uce:

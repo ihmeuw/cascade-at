@@ -84,7 +84,7 @@ def test_code_log(tmpdir):
 
     os.umask(previous_umask)
 
-    base_dir = tmp_dir / getpass.getuser() / "cascade"
+    base_dir = tmp_dir / getpass.getuser() / "dismod"
     logs = list(base_dir.glob("*.log"))
     print(logs)
     code_log = logs[0].read_text().splitlines()
@@ -109,7 +109,7 @@ def test_reduced_code_log(tmpdir):
     codelog.error("errorhumc")
     close_all_handlers()
 
-    base_dir = tmp_dir / getpass.getuser() / "cascade"
+    base_dir = tmp_dir / getpass.getuser() / "dismod"
     code_log = next(base_dir.glob("*.log")).read_text().splitlines()
     assert any(in_line.strip().endswith("warningfoc") for in_line in code_log)
     assert any(in_line.strip().endswith("errorhumc") for in_line in code_log)
