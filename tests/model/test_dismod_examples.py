@@ -322,7 +322,7 @@ def test_fit_sim(locations, dismod):
 
     # Second session, use simulate and then fit.
     session_sim = Session(locations, 1, Path("fit_simulate.db"))
-    del option["zero_sum_random"]
+    option["zero_sum_random"] = None
     session_sim.set_option(**option)
     sim_result = session_sim.simulate(model, data, truth_var, 1)
     model0, data0 = sim_result.simulation(0)

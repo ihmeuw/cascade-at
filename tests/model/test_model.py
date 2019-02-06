@@ -1,5 +1,6 @@
 from math import nan, inf
 from pathlib import Path
+from sqlite3 import Connection
 
 import networkx as nx
 import numpy as np
@@ -45,31 +46,6 @@ def basic_model():
     chi_grid.dtime[:, :] = Gaussian(lower=-.8, upper=.8, mean=0.0, standard_deviation=0.4, eta=eta)
     model.rate["chi"] = chi_grid
     return model
-
-
-def test_write_rate(basic_model, dismod):
-    locations = pd.DataFrame(dict(
-        name=["global"],
-        parent_id=[nan],
-        location_id=[1],
-    ))
-    parent_location = 1
-    db_file = Path("rftest.db")
-    session = Session(locations, parent_location, db_file)
-
-    # This peeks inside the session to test some of its underlying functionality
-    # without doing a fit.
-    session.write_model(basic_model, ([], []))
-    session._run_dismod(["init"])
-    var = session.get_var("scale")
-    for name in basic_model:
-        for key, grid in basic_model[name].items():
-            field = var[name][key]
-            print(f"{name}, {key} {len(grid)}, {len(field)}")
-
-    # By 3 because there are three priors for every value,
-    # and this model has no mulstds, which don't always come in sets of 3.
-    assert 3 * var.variable_count() == basic_model.variable_count()
 
 
 def test_predict(dismod):
@@ -167,6 +143,7 @@ def test_fit_mortality(dismod):
     """Create data for a single-parameter model and fit that data.
     """
     mortality = siler_default()
+
     omega = Var(np.linspace(0, 120, 121), [2000])
     omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
 
@@ -233,3 +210,74 @@ def test_fit_mortality(dismod):
     assert not result.data_residuals.empty
     assert {"avg_integrand", "name", "weighted_residual"} == set(result.data_residuals.columns)
     print(result.data_residuals)
+
+
+def _ages_of_underlying_rate(rate_name, conn):
+    rate_to_smooth = dict(
+        conn.execute(
+            """
+        select rate_name, smooth_id from smooth join rate
+        on rate.parent_smooth_id = smooth_id
+        """
+        )
+    )
+    age_tuples = conn.execute(
+        """
+    select age from age
+    join smooth_grid on smooth_grid.age_id = age.age_id
+    where smooth_id = ?
+    """,
+        str(rate_to_smooth[rate_name])
+    ).fetchall()
+    return [a[0] for a in age_tuples]
+
+
+def test_ages_align(dismod):
+    """Multiple rates have the correct ages when written.
+    """
+    mortality = siler_default()
+
+    omega_ages = np.linspace(0, 120, 7)
+    omega = Var(omega_ages, [2000])
+    omega.grid.loc[:, "mean"] = mortality(omega.grid.age.values)
+
+    iota_ages = np.linspace(0, 120, 27)
+    iota = Var(iota_ages, 2001)
+    iota[:, :] = 0.001
+
+    model_variables = DismodGroups()
+    model_variables.rate["omega"] = omega
+    model_variables.rate["iota"] = iota
+
+    parent_location = 1
+    locations = pd.DataFrame(dict(
+        name=["global"],
+        parent_id=[nan],
+        location_id=[parent_location],
+    ))
+    db_file = "ages_align.db"
+    session = Session(locations, parent_location, Path(db_file))
+    session.set_option(ode_step_size=1)
+    avgints = pd.DataFrame(dict(
+        integrand="susceptible",
+        location=parent_location,
+        age_lower=np.linspace(0, 120, 121),
+        age_upper=np.linspace(0, 120, 121),
+        time_lower=2000,
+        time_upper=2000,
+    ))
+    avgints = pd.concat([avgints, avgints.assign(integrand="mtother")])
+
+    predicted, not_predicted = session.predict(model_variables, avgints, parent_location)
+    assert not_predicted.empty and not predicted.empty
+
+    conn = Connection(db_file)
+    iota_ages_out = _ages_of_underlying_rate("iota", conn)
+    assert len(iota_ages_out) == len(iota_ages)
+    for a, b in zip(sorted(iota_ages), sorted(iota_ages_out)):
+        assert np.isclose(a, b)
+
+    omega_ages_out = _ages_of_underlying_rate("omega", conn)
+    assert len(omega_ages_out) == len(omega_ages)
+    for a, b in zip(sorted(omega_ages), sorted(omega_ages_out)):
+        assert np.isclose(a, b)

@@ -4,24 +4,22 @@ Creates a file for Dismod-AT to read.
 The file format is sqlite3. This uses a local mapping of database tables
 to create it and add tables.
 """
-from textwrap import dedent
 from copy import deepcopy
+from textwrap import dedent
+
+import numpy as np
+import pandas as pd
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
-
-import pandas as pd
-import numpy as np
-
-from sqlalchemy import create_engine
-from sqlalchemy.sql import select, text
-from sqlalchemy.exc import OperationalError, StatementError
 from sqlalchemy import Integer, String, Float, Enum
-
-from cascade.dismod.db.metadata import Base, add_columns_to_table
-from cascade.dismod.constants import DensityEnum
-from cascade.dismod.db import DismodFileError
+from sqlalchemy import create_engine
+from sqlalchemy.exc import OperationalError, StatementError
+from sqlalchemy.sql import select, text
 
 from cascade.core import getLoggers
+from cascade.dismod.db import DismodFileError
+from cascade.dismod.db.metadata import Base, add_columns_to_table
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -169,14 +167,6 @@ class DismodFile:
         """
         CODELOG.debug(f"Creating table subset {tables}")
         Base.metadata.create_all(self.engine, tables, checkfirst=False)
-
-    def make_densities(self):
-        """
-        Dismod documentation says all densities should be in the file,
-        so this puts them all in.
-        """
-        self.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
-        self.density["density_id"] = self.density.index
 
     def __dir__(self):
         attributes = list(self._table_definitions.keys())

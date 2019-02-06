@@ -66,6 +66,34 @@ def write_data(dismod_file, data, covariate_rename):
     with_density = with_density.reset_index(drop=True).drop(columns=["density"])
     dismod_file.data = with_density.rename(
         columns={"mean": "meas_value", "std": "meas_std", "name": "data_name"})
+    _add_data_age_time_range(dismod_file, data)
+
+
+def _add_data_age_time_range(dismod_file, data):
+    """
+    Add to the age and time tables the extremal values of data.
+
+    Dismod-AT uses the age and time table minimum and maximum to determine
+    the extent of integration. If the data exceeds the bounds of priors
+    that are already registered in the age and time table, then you have to
+    add min and max values to those tables.
+    """
+    if data is not None and not data.empty:
+        for dimension in ["age", "time"]:
+            cols = [ac for ac in data.columns if ac.startswith(dimension)]
+            if not cols:
+                raise ValueError(f"Dataframe must have age and time columns but has {data.columns}.")
+            dm_table = getattr(dismod_file, dimension)
+            assert f"{dimension}_id" in dm_table.columns
+            small = data[cols].min().min()
+            if small < dm_table[dimension].min():
+                dm_table = dm_table.append(
+                    {f"{dimension}_id": len(dm_table), dimension: small}, ignore_index=True)
+            large = data[cols].max().max()
+            if large > dm_table[dimension].max():
+                dm_table = dm_table.append(
+                    {f"{dimension}_id": len(dm_table), dimension: large}, ignore_index=True)
+            setattr(dismod_file, dimension, dm_table)
 
 
 def avgint_to_dataframe(dismod_file, avgint, covariate_rename):
@@ -80,15 +108,24 @@ def avgint_to_dataframe(dismod_file, avgint, covariate_rename):
         covariate_rename (Dict[str,str]): Covariates are renamed for underlying
             db file. This is from user names to db file names.
     """
-    with_id = avgint.assign(integrand_id=avgint.integrand.apply(lambda x: IntegrandEnum[x].value))
+    expect_columns = {"integrand", "location", "age_lower", "age_upper",
+                      "time_lower", "time_upper"}
+    if expect_columns - set(avgint.columns):
+        raise KeyError(f"Expect avgint dataframe to have columns {expect_columns} "
+                       f"not {avgint.columns}")
+    avgint = avgint.reset_index(drop=True)
+    # Create the avgint_id early so we can write in the same order it was given.
+    with_id = avgint.assign(avgint_id=avgint.index)
+    with_id = with_id.assign(integrand_id=with_id.integrand.apply(lambda x: IntegrandEnum[x].value))
     _check_column_assigned(with_id, "integrand")
     with_weight = with_id.assign(weight_id=with_id.integrand.apply(lambda x: INTEGRAND_TO_WEIGHT[x].value))
     with_weight = with_weight.drop(columns=["integrand"]).reset_index(drop=True)
     with_location = with_weight.merge(
-        dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id") \
+        dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id", how="left") \
         .drop(columns=["c_location_id", "location"])
+    _add_data_age_time_range(dismod_file, avgint)
     with_location = with_location.rename(columns=covariate_rename)
-    return with_location.assign(avgint_id=with_location.index)
+    return with_location.reset_index(drop=True)
 
 
 def read_avgint(dismod_file):
