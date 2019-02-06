@@ -4,6 +4,7 @@ Entry point for running a the work of a single location in an EpiViz-AT cascade.
 import os
 from bdb import BdbQuit
 from datetime import timedelta
+from pathlib import Path
 from pprint import pformat
 from timeit import default_timer
 
@@ -20,18 +21,20 @@ from cascade.testing_utilities import make_execution_context
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def main(args, cascade_task_identifier):
+def main(args):
     start_time = default_timer()
     execution_context = make_execution_context()
-
     settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
-
     locations = location_hierarchy(execution_context)
     plan = CascadePlan.from_epiviz_configuration(locations, settings)
-    this_location_work = plan.work_for(cascade_task_identifier)
 
-    executor = DismodelExecutor(execution_context, this_location_work)
-    executor.run()
+    for cascade_task_identifier in plan.cascade_jobs:
+        cascade_job, this_location_work = plan.work_for(cascade_task_identifier)
+
+        if cascade_job == "bundle_setup":
+            pass  # Move bundle to next tier
+        elif cascade_job == "estimate_location":
+            dismodel_executor(execution_context, this_location_work)
 
     elapsed_time = timedelta(seconds=default_timer() - start_time)
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")
@@ -43,19 +46,18 @@ def entry(args=None):
     os.umask(readable_by_all)
 
     parser = DMArgumentParser("Run DismodAT from Epiviz")
-    parser.add_argument("db_file_path")
-    parser.add_argument("--settings-file")
+    parser.add_argument("db_file_path", type=Path)
+    parser.add_argument("--settings-file", type=Path)
     parser.add_argument("--no-upload", action="store_true")
     parser.add_argument("--db-only", action="store_true")
-    parser.add_argument("-b", "--bundle-file")
-    parser.add_argument("-s", "--bundle-study-covariates-file")
+    parser.add_argument("-b", "--bundle-file", type=Path)
+    parser.add_argument("-s", "--bundle-study-covariates-file", type=Path)
     parser.add_argument("--skip-cache", action="store_true")
-    parser.add_argument("--num_processes", type=int, default=4,
+    parser.add_argument("--num-processes", type=int, default=4,
                         help="How many subprocesses to start.")
     parser.add_argument("--pdb", action="store_true")
     args = parser.parse_args(args)
 
-    CODELOG.debug(f"args: {args}")
     try:
         software_version = get_distribution("cascade").version
     except DistributionNotFound:

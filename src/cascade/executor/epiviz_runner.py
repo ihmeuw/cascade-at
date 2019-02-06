@@ -546,7 +546,7 @@ def main(args):
 
     posteriors = None
     grandparent_location_id = None
-    for parent_location_id, sub_task_idx in plan.tasks:
+    for parent_location_id, sub_task_idx in plan.cascade_jobs:
         ec.parameters.parent_location_id = parent_location_id
         ec.parameters.grandparent_location_id = grandparent_location_id
         posteriors = one_location_set(ec, settings, posteriors)
