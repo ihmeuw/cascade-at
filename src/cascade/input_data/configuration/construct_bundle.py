@@ -64,7 +64,7 @@ def _normalize_bundle_data(data):
                                       "year_start": "time_lower", "year_end": "time_upper"})
 
 
-def bundle_to_observations(config, bundle_df):
+def bundle_to_observations(bundle_df, parent_location_id, global_data_eta):
     """
     Convert bundle into an internal format. It removes the sex column and changes
     location to node. It also adjusts for the demographic specification.
@@ -74,12 +74,13 @@ def bundle_to_observations(config, bundle_df):
             that these particular observations are from the bundle as
             opposed to ones we add separately. It also keeps the `seq` column
             which aligns bundle data with covariates.
-
+        parent_location_id: Parent location
+        global_data_eta: Default value for eta parameter on distributions.
     """
     if "location_id" in bundle_df.columns:
         location_id = bundle_df["location_id"]
     else:
-        location_id = np.full(len(bundle_df), config.parent_location_id, dtype=np.int)
+        location_id = np.full(len(bundle_df), parent_location_id, dtype=np.int)
 
     # assume using demographic notation because this bundle uses it.
     demographic_interval_specification = 0
@@ -93,7 +94,7 @@ def bundle_to_observations(config, bundle_df):
             "measure": bundle_df["measure"],
             "node_id": pd.Series(location_id, dtype=np.int),
             "density": DensityEnum.gaussian,
-            "eta": config.global_data_eta or np.nan,
+            "eta": global_data_eta or np.nan,
             "weight": weight_method,
             "age_lower": bundle_df["age_lower"],
             "age_upper": bundle_df["age_upper"] + demographic_interval_specification,
@@ -109,7 +110,7 @@ def bundle_to_observations(config, bundle_df):
     )
 
 
-def normalized_bundle_from_database(execution_context, bundle_id=None, tier=3):
+def normalized_bundle_from_database(execution_context, model_version_id, bundle_id=None, tier=3):
     """Get bundle data with associated study covariate labels.
 
     Args:
@@ -121,9 +122,9 @@ def normalized_bundle_from_database(execution_context, bundle_id=None, tier=3):
         bundle data, where the bundle data is a pd.DataFrame.
     """
     if bundle_id is None:
-        bundle_id = _get_bundle_id(execution_context)
+        bundle_id = _get_bundle_id(execution_context, model_version_id)
 
-    bundle = _get_bundle_data(execution_context, bundle_id, tier=tier)
+    bundle = _get_bundle_data(execution_context, model_version_id, bundle_id, tier=tier)
     bundle = _normalize_bundle_data(bundle)
 
     return bundle

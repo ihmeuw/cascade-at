@@ -68,6 +68,7 @@ class CascadePlan:
         else:
             local_settings.model.grandparent_location_id = None
         local_settings.model.children = set(self._locations.successors(parent_location_id))
+        local_settings.model.locations = self._locations
         return "estimate_location", local_settings
 
     @classmethod

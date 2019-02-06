@@ -213,6 +213,10 @@ def compute_age_steps(smallest_step):
 
 
 def prepare_data(execution_context, settings):
+    model_version_id = execution_context.parameters.model_version_id
+    parent_id = execution_context.parameters.parent_location_id
+    gbd_round_id = execution_context.parameters.gbd_round_id
+
     if execution_context.parameters.tier == 3:
         freeze_bundle(execution_context, execution_context.parameters.bundle_id)
 
@@ -221,14 +225,15 @@ def prepare_data(execution_context, settings):
                 f"Cause {execution_context.parameters.add_csmr_cause} "
                 "selected as CSMR source, freezing it's data if it has not already been frozen."
             )
-            load_csmr_to_t3(execution_context)
-        load_asdr_to_t3(execution_context)
+            load_csmr_to_t3(execution_context, model_version_id)
+        load_asdr_to_t3(execution_context, model_version_id, parent_id, gbd_round_id)
 
     if execution_context.parameters.bundle_file:
         bundle = normalized_bundle_from_disk(execution_context.parameters.bundle_file)
     else:
         bundle = normalized_bundle_from_database(
             execution_context,
+            execution_context.parameters.model_version_id,
             bundle_id=execution_context.parameters.bundle_id,
             tier=execution_context.parameters.tier
         )

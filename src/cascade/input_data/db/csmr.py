@@ -121,14 +121,13 @@ def _upload_csmr_data_to_tier_3(cursor, model_version_id, csmr_data):
     CODELOG.debug(f"uploaded {len(csmr_data)} lines of csmr data")
 
 
-def load_csmr_to_t3(execution_context) -> bool:
+def load_csmr_to_t3(execution_context, model_version_id) -> bool:
     """
     Upload to t3_model_version_csmr if it's not already there.
     """
-    model_version_id = execution_context.parameters.model_version_id
     location_and_children = get_descendants(execution_context, children_only=True, include_parent=True)
     database = execution_context.parameters.database
-    locations_with_data_in_t3 = _csmr_in_t3(execution_context, execution_context.parameters.model_version_id)
+    locations_with_data_in_t3 = _csmr_in_t3(execution_context, model_version_id)
     csmr_not_in_t3 = set(location_and_children) - set(locations_with_data_in_t3)
     if csmr_not_in_t3:
         CODELOG.info(f"Uploading csmr data for model_version_id {model_version_id} on '{database}'")

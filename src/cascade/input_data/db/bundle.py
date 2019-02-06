@@ -67,11 +67,9 @@ def _bundle_is_frozen(execution_context):
     return exists == 1
 
 
-def _get_bundle_id(execution_context):
+def _get_bundle_id(execution_context, model_version_id):
     """Gets the bundle id associated with the current model_version_id.
     """
-    model_version_id = execution_context.parameters.model_version_id
-
     query = f"""
     SELECT bundle_id
     FROM epi.model_version
@@ -92,7 +90,7 @@ def _get_bundle_id(execution_context):
         return bundle_ids[0][0]
 
 
-def _get_bundle_data(execution_context, bundle_id, tier=3, exclude_outliers=True):
+def _get_bundle_data(execution_context, model_version_id, bundle_id, tier=3, exclude_outliers=True):
     """
     Downloads the tier 2 or 3 data for the bundle associated with the current
     model_version_id.
@@ -129,7 +127,7 @@ def _get_bundle_data(execution_context, bundle_id, tier=3, exclude_outliers=True
         bundle_data = pd.read_sql(
             query,
             c,
-            params={"bundle_id": bundle_id, "mvid": execution_context.parameters.model_version_id})
+            params={"bundle_id": bundle_id, "mvid": model_version_id})
         MATHLOG.debug(f"Downloaded {len(bundle_data)} lines of bundle_id {bundle_id}")
         if exclude_outliers:
             # The modelers input the group_review flag as group_review=0 but then elmo transforms it to
@@ -205,7 +203,8 @@ def freeze_bundle(execution_context, bundle_id=None) -> bool:
         CODELOG.info(f"Freezing bundle data for model_version_id {model_version_id}")
         if bundle_id is None:
             bundle_id = _get_bundle_id(execution_context)
-        bundle_data = _get_bundle_data(execution_context, bundle_id, tier=2, exclude_outliers=False)
+        bundle_data = _get_bundle_data(
+            execution_context, model_version_id, bundle_id, tier=2, exclude_outliers=False)
         covariate_data = get_study_covariates(execution_context, bundle_id, tier=2)
         with cursor(execution_context) as c:
             _upload_bundle_data_to_tier_3(c, model_version_id, bundle_data)
