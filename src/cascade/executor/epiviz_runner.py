@@ -1,5 +1,6 @@
 from datetime import timedelta
 import os
+import sys
 import logging
 import asyncio
 import math
@@ -365,22 +366,22 @@ def _check_dismod_command(dismod_file, command):
         raise DismodATException(f"DismodAt failed to complete '{command}' command")
 
 
-def run_dismod(dismod_file, command, *args):
+def run_dismod(ec, command, *args):
+    dm_file_path = _get_dismod_db_path(ec.dismodfile)
+
+    command_prefix = ["dmdismod", dm_file_path]
+
+    run_and_watch(command_prefix + [command] + list(args), False, 1, ec.resource_monitor)
+
+    _check_dismod_command(ec.dismodfile, command)
+
+
+async def async_run_dismod(resource_monitor, dismod_file, command, *args):
     dm_file_path = _get_dismod_db_path(dismod_file)
 
     command_prefix = ["dmdismod", dm_file_path]
 
-    run_and_watch(command_prefix + [command] + list(args), False, 1)
-
-    _check_dismod_command(dismod_file, command)
-
-
-async def async_run_dismod(dismod_file, command, *args):
-    dm_file_path = _get_dismod_db_path(dismod_file)
-
-    command_prefix = ["dmdismod", dm_file_path]
-
-    await async_run_and_watch(command_prefix + [command] + list(args), False, 1)
+    await async_run_and_watch(command_prefix + [command] + list(args), False, 1, resource_monitor)
 
     try:
         # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
@@ -397,31 +398,31 @@ async def async_run_dismod(dismod_file, command, *args):
     _check_dismod_command(dismod_file, command)
 
 
-def run_dismod_fit(dismod_file, with_random_effects):
+def run_dismod_fit(ec, with_random_effects):
     random_or_fixed = "both" if with_random_effects else "fixed"
 
-    run_dismod(dismod_file, "fit", random_or_fixed)
+    run_dismod(ec, "fit", random_or_fixed)
 
 
-def run_dismod_predict(dismod_file):
-    run_dismod(dismod_file, "predict", "fit_var")
+def run_dismod_predict(ec):
+    run_dismod(ec, "predict", "fit_var")
 
 
 def make_fixed_effect_samples(execution_context, num_samples):
-    run_dismod(execution_context.dismodfile, "set", "truth_var", "fit_var")
-    run_dismod(execution_context.dismodfile, "simulate", str(num_samples))
+    run_dismod(execution_context, "set", "truth_var", "fit_var")
+    run_dismod(execution_context, "simulate", str(num_samples))
 
 
-async def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
+async def _fit_and_predict_fixed_effect_sample(ec, db_path, sample_id, sem):
     await sem.acquire()
     try:
         with TemporaryDirectory() as d:
             temp_dm_path = Path(d) / "sample.db"
             shutil.copy2(db_path, temp_dm_path)
             dismod_file = DismodFile(get_engine(temp_dm_path))
-            await async_run_dismod(dismod_file, "set", "start_var", "truth_var")
-            await async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
-            await async_run_dismod(dismod_file, "predict", "fit_var")
+            await async_run_dismod(ec.resource_monitor, dismod_file, "set", "start_var", "truth_var")
+            await async_run_dismod(ec.resource_monitor, dismod_file, "fit", "fixed", str(sample_id))
+            await async_run_dismod(ec.resource_monitor, dismod_file, "predict", "fit_var")
 
             fit = dismod_file.fit_var
             fit["sample_index"] = sample_id
@@ -433,11 +434,12 @@ async def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
         sem.release()
 
 
-async def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, samples):
+async def _async_fit_and_predict_fixed_effect_samples(ec, num_processes, dismodfile, samples):
     sem = asyncio.Semaphore(num_processes)
     jobs = []
     for sample in samples:
         jobs.append(_fit_and_predict_fixed_effect_sample(
+            ec,
             dismodfile,
             sample,
             sem
@@ -468,6 +470,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     loop = asyncio.get_event_loop()
     results = loop.run_until_complete(
         _async_fit_and_predict_fixed_effect_samples(
+            execution_context,
             actual_processes,
             execution_context.dismodfile.engine.url.database,
             samples
@@ -527,40 +530,41 @@ def main(args):
     start_time = default_timer()
     ec = make_execution_context()
     ec.resource_monitor.start_monitor()
-    ec.resource_monitor.attach_to_process(os.getpid(), "Main Process")
+    ec.resource_monitor.attach_to_process(os.getpid(), {"command": " ".join([sys.executable] + sys.argv)})
 
-    settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+    try:
+        settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
 
-    if settings.model.drill != "drill":
-        raise SettingsError("Only 'drill' mode is currently supported")
+        if settings.model.drill != "drill":
+            raise SettingsError("Only 'drill' mode is currently supported")
 
-    add_settings_to_execution_context(ec, settings)
-    plan = CascadePlan.from_epiviz_configuration(ec, settings)
+        add_settings_to_execution_context(ec, settings)
+        plan = CascadePlan.from_epiviz_configuration(ec, settings)
 
-    if args.skip_cache:
-        ec.parameters.tier = 2
-    else:
-        ec.parameters.tier = 3
-    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
-                     "bundle_study_covariates_file", "num_processes"]:
-        setattr(ec.parameters, arg_name, getattr(args, arg_name))
+        if args.skip_cache:
+            ec.parameters.tier = 2
+        else:
+            ec.parameters.tier = 3
+        for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
+                         "bundle_study_covariates_file", "num_processes"]:
+            setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
-    posteriors = None
-    grandparent_location_id = None
-    for parent_location_id, sub_task_idx in plan.tasks:
-        ec.parameters.parent_location_id = parent_location_id
-        ec.parameters.grandparent_location_id = grandparent_location_id
-        posteriors = one_location_set(ec, settings, posteriors)
-        grandparent_location_id = parent_location_id
+        posteriors = None
+        grandparent_location_id = None
+        for parent_location_id, sub_task_idx in plan.tasks:
+            ec.parameters.parent_location_id = parent_location_id
+            ec.parameters.grandparent_location_id = grandparent_location_id
+            posteriors = one_location_set(ec, settings, posteriors)
+            grandparent_location_id = parent_location_id
 
-    elapsed_time = timedelta(seconds=default_timer() - start_time)
-    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
-
-    ec.resource_monitor.stop_monitor()
-    summaries = basic_summarizer(ec.resource_monitor.records)
-    for pid, summary in summaries.items():
-        key = ec.resource_monitor.user_data(pid)
-        write_summary_to_db(ec, pid, {"mvid": ec.parameters.model_version_id}, key, {}, summary)
+        elapsed_time = timedelta(seconds=default_timer() - start_time)
+        MATHLOG.debug(f"Completed successfully in {elapsed_time}")
+    finally:
+        ec.resource_monitor.stop_monitor()
+        summaries = basic_summarizer(ec.resource_monitor.records)
+        for pid, summary in summaries.items():
+            key = ec.resource_monitor.user_data(pid)
+            write_summary_to_db(ec, ec.parameters.run_id, {"mvid": ec.parameters.model_version_id}, key, {}, summary)
 
 
 def one_location_set(ec, settings, posterior_draws_of_previous_fit):
@@ -570,8 +574,8 @@ def one_location_set(ec, settings, posterior_draws_of_previous_fit):
     ec.dismodfile = write_dismod_file(mc, ec, ec.parameters.db_file_path)
     sampled_fit = None
     if not ec.parameters.db_only:
-        run_dismod(ec.dismodfile, "init")
-        run_dismod_fit(ec.dismodfile, has_random_effects(mc))
+        run_dismod(ec, "init")
+        run_dismod_fit(ec, has_random_effects(mc))
         MATHLOG.info(f"Successfully fit parent")
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]

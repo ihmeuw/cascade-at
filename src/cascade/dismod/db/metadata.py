@@ -335,6 +335,14 @@ class Option(Base):
     option_value = Column(String(), nullable=False)
 
 
+class Metadata(Base):
+    __tablename__ = "c_metadata"
+
+    c_metadata_id = Column(Integer(), primary_key=True, autoincrement=False)
+    key = Column(String(), unique=True)
+    value = Column(String(), nullable=False)
+
+
 class DataSubset(Base):
     """
     Output, identifies which rows of the data table are included in
