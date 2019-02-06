@@ -1,10 +1,11 @@
 import logging
 from getpass import getuser
+from types import SimpleNamespace
 
 import cascade.executor.dismodel_main
 from cascade.core import getLoggers
 from cascade.executor.argument_parser import EPIVIZ_LOG_DIR, CODE_LOG_DIR
-from cascade.executor.dismodel_main import entry
+from cascade.executor.dismodel_main import entry, main
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -54,3 +55,18 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
     print(f"math log {math_log}")
     math_lines = math_log.open().readlines()
     assert len(math_lines) > 0
+
+
+def test_main(monkeypatch, ihme):
+
+    def mock_estimate(ec, local_settings):
+        pass
+
+    monkeypatch.setattr(cascade.executor.dismodel_main, "estimate_location", mock_estimate)
+
+    args = SimpleNamespace()
+    args.meid = 10427
+    args.mvid = None
+    args.settings_file = None
+
+    main(args)

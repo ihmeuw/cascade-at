@@ -17,6 +17,7 @@ from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
+from cascade.executor.estimate_location import estimate_location
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -25,6 +26,7 @@ def main(args):
     start_time = default_timer()
     execution_context = make_execution_context()
     settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
+    settings.command_args = args
     locations = location_hierarchy(execution_context)
     plan = CascadePlan.from_epiviz_configuration(locations, settings)
 
@@ -34,7 +36,7 @@ def main(args):
         if cascade_job == "bundle_setup":
             pass  # Move bundle to next tier
         elif cascade_job == "estimate_location":
-            dismodel_executor(execution_context, this_location_work)
+            estimate_location(execution_context, this_location_work)
 
     elapsed_time = timedelta(seconds=default_timer() - start_time)
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")

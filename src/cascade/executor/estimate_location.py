@@ -27,13 +27,16 @@ def estimate_location(execution_context, local_settings):
 
 def retrieve_data(execution_context, local_settings):
     data = SimpleNamespace()
+    model_version_id = local_settings.model.model_version_id
+
     if execution_context.parameters.bundle_file:
         data.bundle = normalized_bundle_from_disk(execution_context.parameters.bundle_file)
     else:
+        bundle_id = local_settings.model.bundle_id
         data.bundle = normalized_bundle_from_database(
             execution_context,
-            execution_context.parameters.model_version_id,
-            bundle_id=execution_context.parameters.bundle_id,
+            model_version_id,
+            bundle_id=bundle_id,
             tier=execution_context.parameters.tier
         )
 
