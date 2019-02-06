@@ -1,47 +1,26 @@
-from datetime import timedelta
-import os
-import logging
 import asyncio
+import logging
 import math
+import os
+import shutil
+from bdb import BdbQuit
+from datetime import timedelta
 from pathlib import Path
 from pprint import pformat
-from bdb import BdbQuit
-from pkg_resources import get_distribution, DistributionNotFound
 from tempfile import TemporaryDirectory
 from timeit import default_timer
-import shutil
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from pkg_resources import get_distribution, DistributionNotFound
 
 import cascade
-from cascade.core.cascade_plan import CascadePlan
-from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.core import getLoggers
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.stats import meas_bounds_to_stdev
-from cascade.executor.argument_parser import DMArgumentParser
-from cascade.input_data.db.demographics import age_groups_to_ranges
-from cascade.testing_utilities import make_execution_context
-from cascade.input_data.db.configuration import load_settings
-from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
-from cascade.input_data.db.locations import get_descendants, location_id_from_location_and_level
-from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
-from cascade.input_data.db.mortality import (
-    get_frozen_cause_specific_mortality_data,
-    normalize_mortality_data
-)
-from cascade.model.operations import set_priors_on_model_context
-from cascade.input_data.emr import add_emr_from_prevalence
-from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
-from cascade.input_data.configuration.construct_bundle import (
-    normalized_bundle_from_database,
-    normalized_bundle_from_disk,
-    bundle_to_observations
-)
-from cascade.input_data.db.bundle import freeze_bundle
 from cascade.dismod.serialize import model_to_dismod_file
-from cascade.model.integrands import make_average_integrand_cases_from_gbd
-from cascade.saver.save_model_results import save_model_results
+from cascade.executor.argument_parser import DMArgumentParser
+from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
@@ -49,8 +28,28 @@ from cascade.input_data.configuration.builder import (
     random_effects_from_epiviz,
     build_constraint,
 )
-
-from cascade.core import getLoggers
+from cascade.input_data.configuration.construct_bundle import (
+    normalized_bundle_from_database,
+    normalized_bundle_from_disk,
+    bundle_to_observations
+)
+from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
+from cascade.input_data.db.bundle import freeze_bundle
+from cascade.input_data.db.configuration import load_settings
+from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
+from cascade.input_data.db.demographics import age_groups_to_ranges
+from cascade.input_data.db.locations import location_hierarchy, get_descendants, location_id_from_location_and_level
+from cascade.input_data.db.mortality import (
+    get_frozen_cause_specific_mortality_data,
+    normalize_mortality_data
+)
+from cascade.input_data.emr import add_emr_from_prevalence
+from cascade.model.integrands import make_average_integrand_cases_from_gbd
+from cascade.model.operations import set_priors_on_model_context
+from cascade.saver.save_model_results import save_model_results
+from cascade.stats import meas_bounds_to_stdev
+from cascade.testing_utilities import make_execution_context
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -73,8 +72,9 @@ def add_settings_to_execution_context(ec, settings):
 
     # FIXME: We are using split sex to represent the drill start because
     # there isn't an entry for it in the GUI yet.
+    locations = location_hierarchy(ec)
     ec.parameters.drill_start = location_id_from_location_and_level(
-        ec, settings.model.drill_location, settings.model.split_sex
+        locations, settings.model.drill_location, settings.model.split_sex
     )[0]
 
 
@@ -159,7 +159,9 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
     MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
 
-    children = get_descendants(execution_context, children_only=True)  # noqa: F841
+    locations = location_hierarchy(execution_context)
+    parent_id = execution_context.parameters.parent_location_id
+    children = get_descendants(locations, parent_id, children_only=True)  # noqa: F841
     children_asdr = asdr.query("node_id in @children")
     # Transform the children to be the random effect for the rate.
     parent_value = parent_asdr[["age_lower", "time_lower", "mean"]].rename({"mean": "parent_mean"}, axis=1)
@@ -231,10 +233,11 @@ def prepare_data(execution_context, settings):
             tier=execution_context.parameters.tier
         )
 
-    location_and_descendants = get_descendants(execution_context, include_parent=True)  # noqa: F841
+    locations = location_hierarchy(execution_context)
+    location_id = execution_context.parameters.parent_location_id
+    location_and_descendants = get_descendants(locations, location_id, include_parent=True)  # noqa: F841
 
     bundle = bundle.query("location_id in @location_and_descendants")
-    location_id = execution_context.parameters.parent_location_id
     MATHLOG.info(f"Filtering bundle to location {location_id} and its descendants. {len(bundle)} rows remaining.")
 
     stderr_mask = bundle.standard_error > 0
@@ -530,7 +533,8 @@ def main(args):
         raise SettingsError("Only 'drill' mode is currently supported")
 
     add_settings_to_execution_context(ec, settings)
-    plan = CascadePlan.from_epiviz_configuration(ec, settings)
+    locations = location_hierarchy(ec)
+    plan = CascadePlan.from_epiviz_configuration(locations, settings)
 
     if args.skip_cache:
         ec.parameters.tier = 2

@@ -10,10 +10,11 @@ from timeit import default_timer
 from pkg_resources import get_distribution, DistributionNotFound
 
 from cascade.core import getLoggers
-from cascade.core.cascade_plan import CascadePlan
 from cascade.executor.argument_parser import DMArgumentParser
+from cascade.executor.cascade_plan import CascadePlan
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import load_settings
+from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -25,7 +26,8 @@ def main(args, cascade_task_identifier):
 
     settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
 
-    plan = CascadePlan.from_epiviz_configuration(execution_context, settings)
+    locations = location_hierarchy(execution_context)
+    plan = CascadePlan.from_epiviz_configuration(locations, settings)
     this_location_work = plan.work_for(cascade_task_identifier)
 
     executor = DismodelExecutor(execution_context, this_location_work)
@@ -35,7 +37,8 @@ def main(args, cascade_task_identifier):
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")
 
 
-def entry():
+def entry(args=None):
+    """Allow passing args for testing."""
     readable_by_all = 0o0002
     os.umask(readable_by_all)
 
@@ -48,9 +51,9 @@ def entry():
     parser.add_argument("-s", "--bundle-study-covariates-file")
     parser.add_argument("--skip-cache", action="store_true")
     parser.add_argument("--num_processes", type=int, default=4,
-                        help="How many suprocesses to start.")
+                        help="How many subprocesses to start.")
     parser.add_argument("--pdb", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     CODELOG.debug(f"args: {args}")
     try:

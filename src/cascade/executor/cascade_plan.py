@@ -44,23 +44,28 @@ class CascadePlan:
     def tasks(self):
         return nx.lexicographical_topological_sort(self.task_graph)
 
+    def cascade_job(self, cascade_job_id, settings):
+        """Given settings and an identifier for this job, return a local
+        version of settings that describes this particular job."""
+        return "one_location", settings
+
     @classmethod
-    def from_epiviz_configuration(cls, execution_context, settings):
+    def from_epiviz_configuration(cls, locations, settings):
         plan = cls()
         plan.policies = settings.policies
 
-        plan.locations = location_hierarchy(execution_context)
+        plan.locations = locations
         if hasattr(settings.model, "drill_location_start") and \
                 settings.model.drill_location_start and settings.model.drill_location_end:
             try:
                 drill = location_id_from_start_and_finish(
-                    execution_context, settings.model.drill_location_start, settings.model.drill_location_end)
+                    plan.locations, settings.model.drill_location_start, settings.model.drill_location_end)
             except ValueError as ve:
                 raise InputDataError(f"Location parameter is wrong in settings.") from ve
         elif settings.model.drill_location:
             starting_level = settings.model.split_sex
             end_location = settings.model.drill_location
-            drill = location_id_from_location_and_level(execution_context, end_location, starting_level)
+            drill = location_id_from_location_and_level(plan.locations, end_location, starting_level)
             # Disabling drill setting on previous interface. Remove this elif.
             drill = drill[-1:]
         else:
