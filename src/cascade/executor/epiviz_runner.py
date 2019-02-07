@@ -110,6 +110,21 @@ def add_mortality_data(model_context, execution_context, sex_id):
         add_emr_from_prevalence(model_context, execution_context)
 
 
+def limit_omega_to_observed_times(input_data, asdr, padding=5):
+    """Limit the ASDR used for building an omega constraint to points for times
+    which fall within the extreme values for time in the observed data +/-
+    padding in years
+    """
+    if input_data.times:  # The times are a set so can be tested this way.
+        min_time = np.min(list(input_data.times)) - padding  # noqa: F841
+        max_time = np.max(list(input_data.times)) + padding  # noqa: F841
+        MATHLOG.debug(f"Limiting ASDR data for constructing the omega constraint "
+                      f"to points within the area of time covered by observed data "
+                      f"padded to +/- {padding} years. Total range {min_time} to {max_time}")
+        asdr = asdr.query("time_lower <= @max_time and time_upper >= @min_time")
+    return asdr
+
+
 def add_omega_constraint(model_context, execution_context, sex_id):
     r"""
     Adds a constraint to other-cause mortality rate. Removes mtother,
@@ -144,15 +159,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     asdr["measure"] = "mtall"
     asdr = asdr.rename(columns={"location_id": "node_id"})
     asdr = asdr.query(f"sex_id == @sex_id")
-    if model_context.input_data.times:  # The times are a set so can be tested this way.
-        min_time = np.min(list(model_context.input_data.times))  # noqa: F841
-        max_time = np.max(list(model_context.input_data.times))  # noqa: F841
-        # The % 5 is to exclude annual data points.
-        asdr = asdr.query(
-            "(time_lower >= @min_time and time_lower <= @max_time) or "
-            "(time_upper >= @min_time and time_upper <= @max_time) and "
-            "time_lower % 5 == 0"
-        )
+    asdr = limit_omega_to_observed_times(model_context.input_data, asdr)
 
     parent_asdr = asdr[asdr.node_id == model_context.parameters.parent_location_id]
     if parent_asdr.empty:
