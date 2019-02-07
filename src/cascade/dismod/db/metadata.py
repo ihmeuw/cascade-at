@@ -335,10 +335,10 @@ class Option(Base):
     option_value = Column(String(), nullable=False)
 
 
-class Metadata(Base):
-    __tablename__ = "c_metadata"
+class ExecutionData(Base):
+    __tablename__ = "c_execution_data"
 
-    c_metadata_id = Column(Integer(), primary_key=True, autoincrement=False)
+    c_execution_data_id = Column(Integer(), primary_key=True, autoincrement=False)
     key = Column(String(), unique=True)
     value = Column(String(), nullable=False)
 

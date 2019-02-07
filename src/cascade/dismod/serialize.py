@@ -105,7 +105,7 @@ def model_to_dismod_file(model, execution_context):
 
     bundle_fit.option = make_option_table(model, location_to_node_func)
 
-    bundle_fit.c_metadata = make_metadata_table(execution_context)
+    bundle_fit.c_execution_data = make_execution_data_table(execution_context)
 
     return bundle_fit
 
@@ -670,7 +670,7 @@ def make_option_table(context, location_to_node_func):
     return pd.DataFrame([{"option_name": k, "option_value": v} for k, v in sorted(options.items())])
 
 
-def make_metadata_table(execution_context):
+def make_execution_data_table(execution_context):
     options = {
         "job_id": execution_context.parameters.run_id.hex,
     }
