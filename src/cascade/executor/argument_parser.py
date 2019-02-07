@@ -175,12 +175,7 @@ class BaseArgumentParser(ArgumentParser):
         fmt = "%(levelname)s %(asctime)s %(pathname)s:%(lineno)d: %(message)s"
         datefmt = "%y-%m-%d %H:%M:%S"
         code_handler.setFormatter(logging.Formatter(fmt, datefmt))
-        # The memory handler reduces the number of writes to disk.
-        # It will flush writes when it encounters an ERROR.
-        outer_handler = logging.handlers.MemoryHandler(capacity=128000,
-                                                       target=code_handler)
-        outer_handler.setLevel(level)
-        logging.root.addHandler(outer_handler)
+        logging.root.addHandler(code_handler)
         return code_log_path
 
     @staticmethod
