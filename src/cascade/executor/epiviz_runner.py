@@ -148,7 +148,11 @@ def add_omega_constraint(model_context, execution_context, sex_id):
         min_time = np.min(list(model_context.input_data.times))  # noqa: F841
         max_time = np.max(list(model_context.input_data.times))  # noqa: F841
         # The % 5 is to exclude annual data points.
-        asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
+        asdr = asdr.query(
+            "(time_lower >= @min_time and time_lower <= @max_time) or "
+            "(time_upper >= @min_time and time_upper <= @max_time) and "
+            "time_lower % 5 == 0"
+        )
 
     parent_asdr = asdr[asdr.node_id == model_context.parameters.parent_location_id]
     if parent_asdr.empty:
