@@ -501,7 +501,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     floated = draws_at.assign(covariate_id=draws_at.covariate_id.astype(float))
     CODELOG.debug(f"covariate dtypes {covariate.dtypes}\ndraws {floated.dtypes}")
     draws_covariate = floated.merge(
-        covariate[["covariate_id", "covariate_name"]],
+        covariate.reset_index()[["covariate_id", "covariate_name"]],
         on="covariate_id", how="left"
     )
     node = execution_context.dismodfile.node
