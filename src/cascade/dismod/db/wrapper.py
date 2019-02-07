@@ -367,7 +367,7 @@ class DismodFile:
                         if type(column_object.type) != type(expect[column_type]):  # noqa: E721
                             raise RuntimeError(f"{table_name}.{column_name} got wrong type {column_type}")
 
-                    CODELOG.debug(f"Table integrand {table_info}")
+                    CODELOG.debug(f"Table {table_name} {table_info}")
 
     def diagnostic_print(self):
         """

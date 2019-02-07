@@ -552,7 +552,7 @@ def make_rate_and_nslist_tables(context, smooth_id_func, location_to_node_func):
         nslist_id = np.NaN
         child_smooth_id = np.NaN
         if rate.child_smoothings:
-            if len(rate.child_smoothings) == 1 and rate.child_smoothings[0][0] is None:
+            if len(rate.child_smoothings) == 1:
                 # This is a blanket smoothing for all children
                 child_smooth_id = smooth_id_func(rate.child_smoothings[0][1])
             else:
