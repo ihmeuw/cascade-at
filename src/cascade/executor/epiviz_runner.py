@@ -562,7 +562,7 @@ def main(args):
 
         posteriors = None
         grandparent_location_id = None
-        tasks = plan.tasks
+        tasks = list(plan.tasks)
         # Only take first task because we cannot do the drill.
         if len(tasks) > 0:
             parent_location_id, sub_task_idx = tasks[0]
