@@ -22,6 +22,7 @@ python-dateutil==2.7.3
 pytz==2018.5
 PyYAML==3.13
 requests==2.19.1
+rocketsonde @ git+https://github.com/ihmeuw/rocketsonde.git
 scipy==1.1.0
 setuptools_scm
 six==1.11.0
