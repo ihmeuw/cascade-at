@@ -125,7 +125,7 @@ def limit_omega_to_observed_times(input_data, asdr, padding=5):
         MATHLOG.debug(f"Limiting ASDR data for constructing the omega constraint "
                       f"to points within the area of time covered by observed data "
                       f"padded to +/- {padding} years. Total range {min_time} to {max_time}")
-        asdr = asdr.query("time_lower <= @max_time and time_upper >= @min_time")
+        asdr = asdr.query("time_lower <= @max_time and time_upper >= @min_time and time_lower % 5 == 0")
     return asdr
 
 
@@ -507,7 +507,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     floated = draws_at.assign(covariate_id=draws_at.covariate_id.astype(float))
     CODELOG.debug(f"covariate dtypes {covariate.dtypes}\ndraws {floated.dtypes}")
     draws_covariate = floated.merge(
-        covariate.reset_index()[["covariate_id", "covariate_name"]],
+        covariate.reset_index(drop=True)[["covariate_id", "covariate_name"]],
         on="covariate_id", how="left"
     )
     node = execution_context.dismodfile.node
