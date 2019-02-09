@@ -1,3 +1,4 @@
+from rocketsonde.core import Probe, basic_metric
 from cascade.core.parameters import ParameterProperty
 from cascade.core.input_data import InputData
 from cascade.model.rates import Rate
@@ -13,12 +14,13 @@ class ExecutionContext:
     model executes. This includes paths to data sources, information about
     cluster resources etc.
     """
-    __slots__ = ["_parameters_parameters", "dismodfile"]
+    __slots__ = ["_parameters_parameters", "dismodfile", "resource_monitor"]
 
     parameters = ParameterProperty()
 
     def __init__(self):
         self.dismodfile = None
+        self.resource_monitor = Probe(basic_metric)
 
 
 class _ModelParameters:

@@ -41,7 +41,7 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
             if hasattr(handler, "close"):
                 handler.close()
 
-    code_log_dir = code_dir / getuser() / "cascade"
+    code_log_dir = code_dir / getuser() / "dismod"
     code_log_list = list(code_log_dir.glob("*.log"))
     assert len(code_log_list) == 1
     code_log = code_log_list[0]
@@ -65,7 +65,7 @@ def test_main(monkeypatch, ihme):
     monkeypatch.setattr(cascade.executor.dismodel_main, "estimate_location", mock_estimate)
 
     args = SimpleNamespace()
-    args.meid = 10427
+    args.meid = 23514
     args.mvid = None
     args.settings_file = None
 

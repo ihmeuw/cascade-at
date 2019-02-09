@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import shutil
+import sys
 from bdb import BdbQuit
 from datetime import timedelta
 from pathlib import Path
@@ -13,14 +14,15 @@ from timeit import default_timer
 import numpy as np
 import pandas as pd
 from pkg_resources import get_distribution, DistributionNotFound
+from rocketsonde.core import basic_summarizer
 
 import cascade
 from cascade.core import getLoggers
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.model.serialize import model_to_dismod_file
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
+from cascade.executor.usage_reporter import write_summary_to_db
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
@@ -47,6 +49,7 @@ from cascade.input_data.db.mortality import (
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.operations import set_priors_on_model_context
+from cascade.model.serialize import model_to_dismod_file
 from cascade.saver.save_model_results import save_model_results
 from cascade.stats import meas_bounds_to_stdev
 from cascade.testing_utilities import make_execution_context
@@ -110,6 +113,21 @@ def add_mortality_data(model_context, execution_context, sex_id):
         add_emr_from_prevalence(model_context, execution_context)
 
 
+def limit_omega_to_observed_times(input_data, asdr, padding=5):
+    """Limit the ASDR used for building an omega constraint to points for times
+    which fall within the extreme values for time in the observed data +/-
+    padding in years
+    """
+    if input_data.times:  # The times are a set so can be tested this way.
+        min_time = np.min(list(input_data.times)) - padding  # noqa: F841
+        max_time = np.max(list(input_data.times)) + padding  # noqa: F841
+        MATHLOG.debug(f"Limiting ASDR data for constructing the omega constraint "
+                      f"to points within the area of time covered by observed data "
+                      f"padded to +/- {padding} years. Total range {min_time} to {max_time}")
+        asdr = asdr.query("time_lower <= @max_time and time_upper >= @min_time and time_lower % 5 == 0")
+    return asdr
+
+
 def add_omega_constraint(model_context, execution_context, sex_id):
     r"""
     Adds a constraint to other-cause mortality rate. Removes mtother,
@@ -144,11 +162,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     asdr["measure"] = "mtall"
     asdr = asdr.rename(columns={"location_id": "node_id"})
     asdr = asdr.query(f"sex_id == @sex_id")
-    if model_context.input_data.times:  # The times are a set so can be tested this way.
-        min_time = np.min(list(model_context.input_data.times))  # noqa: F841
-        max_time = np.max(list(model_context.input_data.times))  # noqa: F841
-        # The % 5 is to exclude annual data points.
-        asdr = asdr.query("time_lower >= @min_time and time_upper <= @max_time and time_lower % 5 == 0")
+    asdr = limit_omega_to_observed_times(model_context.input_data, asdr)
 
     parent_asdr = asdr[asdr.node_id == model_context.parameters.parent_location_id]
     if parent_asdr.empty:
@@ -371,22 +385,22 @@ def _check_dismod_command(dismod_file, command):
         raise DismodATException(f"DismodAt failed to complete '{command}' command")
 
 
-def run_dismod(dismod_file, command, *args):
+def run_dismod(ec, command, *args):
+    dm_file_path = _get_dismod_db_path(ec.dismodfile)
+
+    command_prefix = ["dmdismod", dm_file_path]
+
+    run_and_watch(command_prefix + [command] + list(args), False, 1, ec.resource_monitor)
+
+    _check_dismod_command(ec.dismodfile, command)
+
+
+async def async_run_dismod(resource_monitor, dismod_file, command, *args):
     dm_file_path = _get_dismod_db_path(dismod_file)
 
     command_prefix = ["dmdismod", dm_file_path]
 
-    run_and_watch(command_prefix + [command] + list(args), False, 1)
-
-    _check_dismod_command(dismod_file, command)
-
-
-async def async_run_dismod(dismod_file, command, *args):
-    dm_file_path = _get_dismod_db_path(dismod_file)
-
-    command_prefix = ["dmdismod", dm_file_path]
-
-    await async_run_and_watch(command_prefix + [command] + list(args), False, 1)
+    await async_run_and_watch(command_prefix + [command] + list(args), False, 1, resource_monitor)
 
     try:
         # FIXME: dismod damages the terminal charactersitics somehow when it's run concurrently.
@@ -403,31 +417,31 @@ async def async_run_dismod(dismod_file, command, *args):
     _check_dismod_command(dismod_file, command)
 
 
-def run_dismod_fit(dismod_file, with_random_effects):
+def run_dismod_fit(ec, with_random_effects):
     random_or_fixed = "both" if with_random_effects else "fixed"
 
-    run_dismod(dismod_file, "fit", random_or_fixed)
+    run_dismod(ec, "fit", random_or_fixed)
 
 
-def run_dismod_predict(dismod_file):
-    run_dismod(dismod_file, "predict", "fit_var")
+def run_dismod_predict(ec):
+    run_dismod(ec, "predict", "fit_var")
 
 
 def make_fixed_effect_samples(execution_context, num_samples):
-    run_dismod(execution_context.dismodfile, "set", "truth_var", "fit_var")
-    run_dismod(execution_context.dismodfile, "simulate", str(num_samples))
+    run_dismod(execution_context, "set", "truth_var", "fit_var")
+    run_dismod(execution_context, "simulate", str(num_samples))
 
 
-async def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
+async def _fit_and_predict_fixed_effect_sample(ec, db_path, sample_id, sem):
     await sem.acquire()
     try:
         with TemporaryDirectory() as d:
             temp_dm_path = Path(d) / "sample.db"
             shutil.copy2(db_path, temp_dm_path)
             dismod_file = DismodFile(get_engine(temp_dm_path))
-            await async_run_dismod(dismod_file, "set", "start_var", "truth_var")
-            await async_run_dismod(dismod_file, "fit", "fixed", str(sample_id))
-            await async_run_dismod(dismod_file, "predict", "fit_var")
+            await async_run_dismod(ec.resource_monitor, dismod_file, "set", "start_var", "truth_var")
+            await async_run_dismod(ec.resource_monitor, dismod_file, "fit", "fixed", str(sample_id))
+            await async_run_dismod(ec.resource_monitor, dismod_file, "predict", "fit_var")
 
             fit = dismod_file.fit_var
             fit["sample_index"] = sample_id
@@ -439,11 +453,12 @@ async def _fit_and_predict_fixed_effect_sample(db_path, sample_id, sem):
         sem.release()
 
 
-async def _async_fit_and_predict_fixed_effect_samples(num_processes, dismodfile, samples):
+async def _async_fit_and_predict_fixed_effect_samples(ec, num_processes, dismodfile, samples):
     sem = asyncio.Semaphore(num_processes)
     jobs = []
     for sample in samples:
         jobs.append(_fit_and_predict_fixed_effect_sample(
+            ec,
             dismodfile,
             sample,
             sem
@@ -474,6 +489,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     loop = asyncio.get_event_loop()
     results = loop.run_until_complete(
         _async_fit_and_predict_fixed_effect_samples(
+            execution_context,
             actual_processes,
             execution_context.dismodfile.engine.url.database,
             samples
@@ -499,7 +515,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     floated = draws_at.assign(covariate_id=draws_at.covariate_id.astype(float))
     CODELOG.debug(f"covariate dtypes {covariate.dtypes}\ndraws {floated.dtypes}")
     draws_covariate = floated.merge(
-        covariate[["covariate_id", "covariate_name"]],
+        covariate.reset_index(drop=True)[["covariate_id", "covariate_name"]],
         on="covariate_id", how="left"
     )
     node = execution_context.dismodfile.node
@@ -532,34 +548,42 @@ def main(args):
     """
     start_time = default_timer()
     ec = make_execution_context()
+    ec.resource_monitor.start_monitor()
+    ec.resource_monitor.attach_to_process(os.getpid(), {"command": " ".join([sys.executable] + sys.argv)})
 
-    settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+    try:
+        settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+        if settings.model.drill != "drill":
+            raise SettingsError("Only 'drill' mode is currently supported")
 
-    if settings.model.drill != "drill":
-        raise SettingsError("Only 'drill' mode is currently supported")
+        add_settings_to_execution_context(ec, settings)
+        locations = location_hierarchy(ec)
+        plan = CascadePlan.from_epiviz_configuration(locations, settings)
 
-    add_settings_to_execution_context(ec, settings)
-    locations = location_hierarchy(ec)
-    plan = CascadePlan.from_epiviz_configuration(locations, settings)
+        if args.skip_cache:
+            ec.parameters.tier = 2
+        else:
+            ec.parameters.tier = 3
+        for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
+                         "bundle_study_covariates_file", "num_processes"]:
+            setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
-    if args.skip_cache:
-        ec.parameters.tier = 2
-    else:
-        ec.parameters.tier = 3
-    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
-                     "bundle_study_covariates_file", "num_processes"]:
-        setattr(ec.parameters, arg_name, getattr(args, arg_name))
+        posteriors = None
+        grandparent_location_id = None
+        for parent_location_id, sub_task_idx in plan.tasks:
+            ec.parameters.parent_location_id = parent_location_id
+            ec.parameters.grandparent_location_id = grandparent_location_id
+            posteriors = one_location_set(ec, settings, posteriors)
+            grandparent_location_id = parent_location_id
 
-    posteriors = None
-    grandparent_location_id = None
-    for parent_location_id, sub_task_idx in plan.cascade_jobs:
-        ec.parameters.parent_location_id = parent_location_id
-        ec.parameters.grandparent_location_id = grandparent_location_id
-        posteriors = one_location_set(ec, settings, posteriors)
-        grandparent_location_id = parent_location_id
-
-    elapsed_time = timedelta(seconds=default_timer() - start_time)
-    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
+        elapsed_time = timedelta(seconds=default_timer() - start_time)
+        MATHLOG.debug(f"Completed successfully in {elapsed_time}")
+    finally:
+        ec.resource_monitor.stop_monitor()
+        summaries = basic_summarizer(ec.resource_monitor.records)
+        for pid, summary in summaries.items():
+            key = ec.resource_monitor.user_data(pid)
+            write_summary_to_db(ec, ec.parameters.run_id, {"mvid": ec.parameters.model_version_id}, key, {}, summary)
 
 
 def one_location_set(ec, settings, posterior_draws_of_previous_fit):
@@ -569,8 +593,8 @@ def one_location_set(ec, settings, posterior_draws_of_previous_fit):
     ec.dismodfile = write_dismod_file(mc, ec, ec.parameters.db_file_path)
     sampled_fit = None
     if not ec.parameters.db_only:
-        run_dismod(ec.dismodfile, "init")
-        run_dismod_fit(ec.dismodfile, has_random_effects(mc))
+        run_dismod(ec, "init")
+        run_dismod_fit(ec, has_random_effects(mc))
         MATHLOG.info(f"Successfully fit parent")
 
         num_samples = mc.policies["number_of_fixed_effect_samples"]
