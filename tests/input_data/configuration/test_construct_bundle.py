@@ -1,7 +1,6 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from cascade.testing_utilities import make_execution_context
 from cascade.input_data.configuration.construct_bundle import bundle_to_observations
 
 
@@ -23,10 +22,8 @@ def test_bundle_to_observations__global_eta():
         index=[0],
     )
 
-    ec = make_execution_context(global_data_eta=None)
-    observations = bundle_to_observations(ec.parameters, df)
+    observations = bundle_to_observations(df, 90, None)
     assert np.isnan(observations.eta[0])
 
-    ec = make_execution_context(global_data_eta=1.0)
-    observations = bundle_to_observations(ec.parameters, df)
+    observations = bundle_to_observations(df, 90, 1.0)
     assert observations.eta[0] == 1.0

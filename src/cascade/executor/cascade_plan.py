@@ -6,12 +6,27 @@ import networkx as nx
 
 from cascade.core import getLoggers
 from cascade.input_data import InputDataError
+from cascade.input_data.configuration.builder import policies_from_settings
 from cascade.input_data.db.locations import (
     location_id_from_location_and_level, location_id_from_start_and_finish
 )
 
 
 CODELOG, MATHLOG = getLoggers(__name__)
+
+
+class EstimationParameters:
+    def __init__(self, settings, policies, locations,
+                 parent_location_id, grandparent_location_id):
+        self.parent_location_id = parent_location_id
+        self.locations = locations
+        # We pass in the grandparent location ID because, while the location
+        # grandparent is known, this may be the top of a Drill within
+        # those locations.
+        self.grandparent_location_id = grandparent_location_id
+        self.children = list(sorted(set(locations.successors(parent_location_id))))
+        self.settings = settings
+        self.policies = policies
 
 
 class CascadePlan:
@@ -59,16 +74,21 @@ class CascadePlan:
         There are child locations for the last task though.
         """
         local_settings = deepcopy(self._settings)
-        parent_location_id = cascade_job_id[0]
-        local_settings.model.parent_location_id = parent_location_id
         parent_task = list(self._task_graph.in_edges(cascade_job_id))
         if parent_task:
-            # only edge, starting graph node, (location, index)
-            local_settings.model.grandparent_location_id = parent_task[0][0][0]
+            # [only edge][(edge start, edge finish)][(location, index)]
+            grandparent_location_id = parent_task[0][0][0]
         else:
-            local_settings.model.grandparent_location_id = None
-        local_settings.model.children = set(self._locations.successors(parent_location_id))
-        local_settings.model.locations = self._locations
+            grandparent_location_id = None
+
+        print(f"settings {type(self._settings)} {self._settings.policies}")
+        local_settings = EstimationParameters(
+            settings=self._settings,
+            policies=policies_from_settings(self._settings),
+            locations=self._locations,
+            parent_location_id=cascade_job_id[0],
+            grandparent_location_id=grandparent_location_id
+        )
         return "estimate_location", local_settings
 
     @classmethod

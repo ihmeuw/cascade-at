@@ -2,8 +2,9 @@ import networkx as nx
 
 from cascade.core.parameters import _ParameterHierarchy
 from cascade.executor.cascade_plan import CascadePlan
-from cascade.testing_utilities import make_execution_context
+from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
+from cascade.testing_utilities import make_execution_context
 
 
 def test_create(ihme):
@@ -57,10 +58,7 @@ def test_single_start_finish(ihme):
 def test_iterate_tasks(ihme):
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     locations = location_hierarchy(ec)
-    settings = _ParameterHierarchy(
-        model={"split_sex": 2, "drill_location": 6},
-        policies=dict(),
-    )
+    settings = load_settings(ec, None, 267770, None)
     c = CascadePlan.from_epiviz_configuration(locations, settings)
     cnt = 0
     last = -1
@@ -71,12 +69,10 @@ def test_iterate_tasks(ihme):
 
         which, local_settings = c.cascade_job(t)
         assert which in {"estimate_location", "bundle_setup"}
-        assert hasattr(local_settings.model, "parent_location_id")
-        assert local_settings.model.grandparent_location_id == parent
-        parent = local_settings.model.parent_location_id
-        assert len(local_settings.model.children) > 0
+        assert hasattr(local_settings, "parent_location_id")
+        assert local_settings.grandparent_location_id == parent
+        parent = local_settings.parent_location_id
+        assert len(local_settings.children) > 0
 
         cnt += 1
-    # It would be 3, but this has been downgraded to use 1 if you
-    # have split_sex
-    assert cnt == 3
+    assert cnt == 2

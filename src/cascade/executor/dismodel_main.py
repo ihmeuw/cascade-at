@@ -24,14 +24,13 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 def main(args):
     start_time = default_timer()
-    execution_context = make_execution_context()
+    execution_context = make_execution_context(gbd_round_id=5)
     settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
-    settings.command_args = args
     locations = location_hierarchy(execution_context)
     plan = CascadePlan.from_epiviz_configuration(locations, settings)
 
     for cascade_task_identifier in plan.cascade_jobs:
-        cascade_job, this_location_work = plan.work_for(cascade_task_identifier)
+        cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
 
         if cascade_job == "bundle_setup":
             pass  # Move bundle to next tier

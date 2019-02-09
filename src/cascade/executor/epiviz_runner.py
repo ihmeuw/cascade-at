@@ -315,7 +315,8 @@ def model_context_from_settings(execution_context, settings):
 
     bundle = prepare_data(execution_context, settings)
 
-    observations = bundle_to_observations(model_context.parameters, bundle)
+    global_data_eta = model_context.parameters.global_data_eta
+    observations = bundle_to_observations(bundle, model_context.parameters.parent_location_id, global_data_eta)
     model_context.input_data.observations = observations
 
     if execution_context.parameters.add_csmr_cause is not None:
