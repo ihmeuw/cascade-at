@@ -11,7 +11,7 @@ from cascade.model.rates import Smooth
 from cascade.model.priors import Gaussian, Uniform
 from cascade.testing_utilities import make_execution_context
 from cascade.model.covariates import Covariate, CovariateMultiplier
-from cascade.dismod.serialize import (
+from cascade.model.serialize import (
     model_to_dismod_file,
     collect_ages_or_times,
     collect_priors,
@@ -45,7 +45,7 @@ class LocationNode:
 
 @pytest.fixture
 def mock_get_location_hierarchy_from_gbd(mocker):
-    location_hierarchy = mocker.patch("cascade.dismod.serialize.location_hierarchy")
+    location_hierarchy = mocker.patch("cascade.model.serialize.location_hierarchy")
     g = nx.DiGraph()
     g.add_nodes_from([
         (1004, dict(location_name="United Kingdom")),

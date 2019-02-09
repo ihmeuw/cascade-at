@@ -17,7 +17,7 @@ from pkg_resources import get_distribution, DistributionNotFound
 import cascade
 from cascade.core import getLoggers
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.dismod.serialize import model_to_dismod_file
+from cascade.model.serialize import model_to_dismod_file
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException

@@ -74,8 +74,11 @@ def bundle_to_observations(bundle_df, parent_location_id, global_data_eta):
             that these particular observations are from the bundle as
             opposed to ones we add separately. It also keeps the `seq` column
             which aligns bundle data with covariates.
+
         parent_location_id: Parent location
+
         global_data_eta: Default value for eta parameter on distributions.
+
     """
     if "location_id" in bundle_df.columns:
         location_id = bundle_df["location_id"]
