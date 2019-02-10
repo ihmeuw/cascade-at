@@ -44,15 +44,15 @@ the single fit-and-predict first.
  * Input measurements
  * Desired output measurements (avgint)
  * Stats model
-   * Smooth grid of priors
-   * starting var
-   * parent and child locations.
-   * scale var
-   * weights
+    * Smooth grid of priors
+    * starting var
+    * parent and child locations.
+    * scale var
+    * weights
  * Output
-   * fit var
-   * residuals
-   * estimated data out
+    * fit var
+    * residuals
+    * estimated data out
  * Tracing data on the run
  * Provenance on the run
  * Logs from Dismod-AT
@@ -61,11 +61,11 @@ We run a fit-and-predict multiple times, and we track not only the Dismod-AT
 run but also how the Cascade decided to do sets of runs.
 
  * Inputs to Cascade
-   * JSON settings
-   * posteriors
-   * weights
-   * covariate multipliers, if they were set higher in hierarchy
-   * measurements, asdr, csmr
+    * JSON settings
+    * posteriors
+    * weights
+    * covariate multipliers, if they were set higher in hierarchy
+    * measurements, asdr, csmr
  * main fit
  * fit with uncertainty (from fit_var on all samples)
  * estimated data with uncertainty (from predict)
