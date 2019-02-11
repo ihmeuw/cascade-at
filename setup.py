@@ -7,7 +7,8 @@ setup(
     package_dir={"": "src"},
     use_scm_version=True,
     setup_requires=["setuptools_scm"],
-    install_requires=["numpy", "pandas", "scipy", "toml", "sqlalchemy", "networkx", "tables", "python-intervals"],
+    install_requires=["numpy", "pandas", "scipy", "toml", "sqlalchemy", "networkx",
+                      "tables", "python-intervals", "rocketsonde @ git+https://github.com/ihmeuw/rocketsonde.git"],
     extras_require={
         "testing": ["hypothesis", "pytest", "pytest-mock"],
         "documentation": ["sphinx", "sphinx_rtd_theme", "sphinx-autobuild", "sphinxcontrib-napoleon"],

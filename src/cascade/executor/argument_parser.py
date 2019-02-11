@@ -143,7 +143,7 @@ class BaseArgumentParser(ArgumentParser):
 
     @staticmethod
     def _logging_configure_root_log(code_log_dir, level):
-        user_code_dir = code_log_dir / getuser() / "cascade"
+        user_code_dir = code_log_dir / getuser() / "dismod"
         try:
             user_code_dir_exists = user_code_dir.exists()
         except (OSError, PermissionError) as uce:
@@ -175,12 +175,7 @@ class BaseArgumentParser(ArgumentParser):
         fmt = "%(levelname)s %(asctime)s %(pathname)s:%(lineno)d: %(message)s"
         datefmt = "%y-%m-%d %H:%M:%S"
         code_handler.setFormatter(logging.Formatter(fmt, datefmt))
-        # The memory handler reduces the number of writes to disk.
-        # It will flush writes when it encounters an ERROR.
-        outer_handler = logging.handlers.MemoryHandler(capacity=128000,
-                                                       target=code_handler)
-        outer_handler.setLevel(level)
-        logging.root.addHandler(outer_handler)
+        logging.root.addHandler(code_handler)
         return code_log_path
 
     @staticmethod

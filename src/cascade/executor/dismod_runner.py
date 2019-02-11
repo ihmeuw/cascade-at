@@ -144,7 +144,7 @@ async def _read_pipe(pipe, callback=lambda text: None):
         callback(text)
 
 
-def run_and_watch(command, single_use_machine, poll_time):
+def run_and_watch(command, single_use_machine, poll_time, resource_monitor=None):
     """
     Runs a command and logs its stdout and stderr while that command
     runs. The point is two-fold, to gather stdout from the running
@@ -164,7 +164,7 @@ def run_and_watch(command, single_use_machine, poll_time):
         str: The error stream.
     """
     loop = asyncio.get_event_loop()
-    coroutine = async_run_and_watch(command, single_use_machine, poll_time)
+    coroutine = async_run_and_watch(command, single_use_machine, poll_time, resource_monitor)
     result = loop.run_until_complete(coroutine)
     return result
 
@@ -187,7 +187,7 @@ def dismod_report_stderr(text):
         MATHLOG.warning(text, extra=dict(is_dismod_output=True))
 
 
-async def async_run_and_watch(command, single_use_machine, poll_time):
+async def async_run_and_watch(command, single_use_machine, poll_time, resource_monitor=None):
     command = [str(a) for a in command]
     if single_use_machine:
         pre_execution_function = reduce_process_priority
@@ -199,6 +199,8 @@ async def async_run_and_watch(command, single_use_machine, poll_time):
         sub_process = await asyncio.subprocess.create_subprocess_exec(
             *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, preexec_fn=pre_execution_function,
         )
+        if resource_monitor:
+            resource_monitor.attach_to_process(sub_process.pid, {"command": " ".join(command)})
     except ValueError as ve:
         raise Exception(f"Dismod called with invalid arguments {ve}")
     except OSError as ose:

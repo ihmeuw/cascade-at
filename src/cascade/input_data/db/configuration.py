@@ -24,6 +24,8 @@ def load_settings(ec, meid=None, mvid=None, settings_file=None):
     else:
         raise RuntimeError(f"Either meid, mvid, or file must be specified.")
 
+    ec.parameters.model_version_id = found_mvid
+
     return json_settings_to_frozen_settings(raw_settings, found_mvid)
 
 
