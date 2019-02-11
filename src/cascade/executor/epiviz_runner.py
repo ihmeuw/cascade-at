@@ -562,11 +562,13 @@ def main(args):
 
         posteriors = None
         grandparent_location_id = None
-        for parent_location_id, sub_task_idx in plan.tasks:
+        tasks = list(plan.tasks)
+        # Only take first task because we cannot do the drill.
+        if len(tasks) > 0:
+            parent_location_id, sub_task_idx = tasks[0]
             ec.parameters.parent_location_id = parent_location_id
             ec.parameters.grandparent_location_id = grandparent_location_id
-            posteriors = one_location_set(ec, settings, posteriors)
-            grandparent_location_id = parent_location_id
+            one_location_set(ec, settings, posteriors)
 
         elapsed_time = timedelta(seconds=default_timer() - start_time)
         MATHLOG.debug(f"Completed successfully in {elapsed_time}")
