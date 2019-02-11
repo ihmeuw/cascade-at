@@ -56,6 +56,6 @@ def pure_generate_draws(avgint_df, predict_df):
 
     draws = draws.reset_index(level=["avgint_id"])
 
-    draws_df = avgint_df.merge(draws, how="left", on="avgint_id").drop(columns=["avgint_id"])
+    draws_df = avgint_df.reset_index(drop=True).merge(draws, how="left", on="avgint_id").drop(columns=["avgint_id"])
 
     return draws_df
