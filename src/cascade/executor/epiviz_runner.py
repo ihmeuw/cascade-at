@@ -512,7 +512,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     )
     node = execution_context.dismodfile.node
     draws_location = draws_covariate.merge(
-        node[["node_id", "c_location_id"]],
+        node.reset_index(drop=True)[["node_id", "c_location_id"]],
         on="node_id", how="left"
     ).drop(columns=["node_id"]).rename(columns={"c_location_id": "location_id"})
     return draws_location, pd.concat(predict)

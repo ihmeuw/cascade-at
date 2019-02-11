@@ -7,7 +7,7 @@ Statistical operations on the model:
 from copy import copy
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 
 from cascade.core.log import getLoggers
 from cascade.dismod.constants import IntegrandEnum, RateEnum
@@ -134,10 +134,28 @@ def _dataframe_to_bivariate_spline(age_time_df):
     ordered = age_time_df.sort_values(["age", "time"])
     age = np.sort(np.unique(age_time_df.age.values))
     time = np.sort(np.unique(age_time_df.time.values))
-    spline = RectBivariateSpline(age, time, ordered["mean"].values.reshape(len(age), len(time)), kx=1, ky=1)
+    if len(age) == 1 and len(time) == 1:
+        case = "constant"
+        value = ordered["mean"].iloc[0]
+    elif len(age) == 1:
+        case = "time_only"
+        spline = UnivariateSpline(time, ordered["mean"].values, k=1)
+    elif len(time) == 1:
+        case = "age_only"
+        spline = UnivariateSpline(age, ordered["mean"].values, k=1)
+    else:
+        case = "both"
+        spline = RectBivariateSpline(age, time, ordered["mean"].values.reshape(len(age), len(time)), kx=1, ky=1)
 
     def bivariate_function(x, y):
-        return spline(x, y)[0]
+        if case == "constant":
+            return value
+        elif case == "time_only":
+            return spline(y)
+        elif case == "age_only":
+            return spline(x)
+        else:
+            return spline(x, y)[0]
 
     return bivariate_function
 
