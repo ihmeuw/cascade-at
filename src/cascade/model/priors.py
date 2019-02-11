@@ -2,6 +2,7 @@ from copy import copy
 from functools import total_ordering
 
 import numpy as np
+from scipy.stats import norm, laplace, t
 
 from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -92,6 +93,10 @@ class Uniform(_Prior):
         self.mean = mean
         self.eta = eta
 
+    def mle(self, draws):
+        """Using draws, assign a new mean, guaranteed between lower and upper."""
+        return self.assign(mean=min(self.upper, max(self.lower, np.mean(draws))))
+
     def _parameters(self):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean, "eta": self.eta}
 
@@ -103,11 +108,31 @@ class Constant(_Prior):
         super().__init__(name=name)
         self.value = value
 
+    def mle(self, _):
+        """Don't change the const value."""
+        return copy(self)
+
     def _parameters(self):
         return {"lower": self.value, "upper": self.value, "mean": self.value}
 
 
 class Gaussian(_Prior):
+    r"""A Gaussian is
+
+    .. math::
+
+       f(x) = \frac{1}{2\pi \sigma^2} e^{-(x-\mu)^2/(2\sigma^2)}
+
+    where :math:`\sigma` is the variance and :math:`\mu` the mean.
+
+    Args:
+        mean (float): This is :math:`\mu`.
+        standard_deviation (float): This is :math:`\sigma`.
+        lower (float): lower limit.
+        upper (float): upper limit.
+        eta (float): Offset for calculating standard deviation.
+        name (str): Name for this prior.
+    """
     density = "gaussian"
 
     def __init__(self, mean, standard_deviation, lower=float("-inf"), upper=float("inf"), eta=None, name=None):
@@ -121,6 +146,17 @@ class Gaussian(_Prior):
         self.standard_deviation = standard_deviation
         self.eta = eta
 
+    def mle(self, draws):
+        """Assign new mean and stdev, with mean clamped between
+        upper and lower."""
+        # The mean and standard deviation for Dismod-AT match the location
+        # and scale used by Scipy.
+        mean, std = norm.fit(draws)
+        return self.assign(
+            mean=min(self.upper, max(self.lower, mean)),
+            standard_deviation=std
+        )
+
     def _parameters(self):
         return {
             "lower": self.lower,
@@ -132,10 +168,55 @@ class Gaussian(_Prior):
 
 
 class Laplace(Gaussian):
+    r"""
+    This version of the Laplace distribution is parametrized by its variance
+    instead of by scaling of the axis. Usually, the Laplace distribution is
+
+    .. math::
+
+        f(x) = \frac{1}{2b}e^{-|x-\mu|/b}
+
+    where :math:`\mu` is the mean and :math:`b` is the scale, but the
+    variance is :math:`\sigma^2=2b^2`, so the Dismod-AT version looks like
+
+    .. math::
+
+        f(x) = \frac{1}{\sqrt{2\pi\sigma^2}e^{-\sqrt{2}|x-\mu|/\sigma}.
+
+    The standard deviation assigned is :math:`\sigma`.
+    """
     density = "laplace"
+
+    def mle(self, draws):
+        """Assign new mean and stdev, with mean clamped between
+        upper and lower."""
+        mean, scale = laplace.fit(draws)
+        return self.assign(
+            mean=min(self.upper, max(self.lower, mean)),
+            standard_deviation=scale * np.sqrt(2)  # This is the adjustment.
+        )
 
 
 class StudentsT(_Prior):
+    r"""
+    This Students-t must have :math:`\nu>2`.
+    Students-t distribution is usually
+
+    .. math::
+
+        f(x,\nu) = \frac{\Gamma((\nu+1)/2)}{\sqrt{\pi\nu}\Gamma(\nu)}(1+x^2/\nu)^{-(\nu+1)/2}
+
+    with mean 0 for :math:`\nu>1`. The variance is :math:`\nu/(\nu-2)` for
+    :math:`\nu>2`. Dismod-AT rewrites this using :math:`\sigma^2=\nu/(\nu-2)`
+    to get
+
+    .. math::
+
+        f(x) = \frac{\Gamma((\nu+1)/2)}{\sqrt(\pi\nu)\Gamma(\nu/2)}
+               \left(1 + (x-\mu)^2/(\sigma^2(\nu-2))\right)^{-(\nu+1)/2}
+
+
+    """
     density = "students"
 
     def __init__(self, mean, standard_deviation, nu, lower=float("-inf"), upper=float("inf"), eta=None, name=None):
@@ -151,6 +232,16 @@ class StudentsT(_Prior):
         self.nu = nu
         self.eta = eta
 
+    def mle(self, draws):
+        """Assign new mean and stdev, with mean clamped between
+        upper and lower."""
+        # This fixes the nu value.
+        nu, mean, scale = t.fit(draws, fix_df=self.nu)
+        return self.assign(
+            mean=min(self.upper, max(self.lower, mean)),
+            standard_deviation=scale * np.sqrt(nu / (nu - 2))
+        )
+
     def _parameters(self):
         return {
             "lower": self.lower,
@@ -163,6 +254,15 @@ class StudentsT(_Prior):
 
 
 class LogGaussian(_Prior):
+    r"""
+    Dismod-AT parametrizes the Log-Gaussian with the standard deviation
+    as
+
+    .. math::
+
+        f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\log((x-\mu)/\sigma)^2/2}
+
+    """
     density = "log_gaussian"
 
     def __init__(self, mean, standard_deviation, eta, lower=float("-inf"), upper=float("inf"), name=None):
@@ -175,6 +275,15 @@ class LogGaussian(_Prior):
         self.mean = mean
         self.standard_deviation = standard_deviation
         self.eta = eta
+
+    def mle(self, draws):
+        """Assign new mean and stdev, with mean clamped between
+        upper and lower."""
+        # XXX not using MLE. Need to work out math.
+        return self.assign(
+            mean=min(self.upper, max(self.lower, np.mean(draws))),
+            standard_deviation=np.std(draws)
+        )
 
     def _parameters(self):
         return {
@@ -205,6 +314,15 @@ class LogStudentsT(_Prior):
         self.standard_deviation = standard_deviation
         self.nu = nu
         self.eta = eta
+
+    def mle(self, draws):
+        """Assign new mean and stdev, with mean clamped between
+        upper and lower."""
+        # XXX not using MLE. Need to work out math.
+        return self.assign(
+            mean=min(self.upper, max(self.lower, np.mean(draws))),
+            standard_deviation=np.std(draws)
+        )
 
     def _parameters(self):
         return {
