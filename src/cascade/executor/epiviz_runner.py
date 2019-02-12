@@ -3,7 +3,6 @@ import logging
 import math
 import os
 import shutil
-import sys
 from bdb import BdbQuit
 from datetime import timedelta
 from pathlib import Path
@@ -14,7 +13,6 @@ from timeit import default_timer
 import numpy as np
 import pandas as pd
 from pkg_resources import get_distribution, DistributionNotFound
-from rocketsonde.core import basic_summarizer
 
 import cascade
 from cascade.core import getLoggers
@@ -22,7 +20,6 @@ from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
-from cascade.executor.usage_reporter import write_summary_to_db
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
@@ -279,7 +276,7 @@ def prepare_data(execution_context, settings):
     measures_to_exclude = settings.model.exclude_data_for_param
     if measures_to_exclude:
         integrand_map = make_integrand_map()
-        measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude]
+        measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude if m in integrand_map]
         mask = bundle.measure.isin(measures_to_exclude)
         if mask.sum() > 0:
             bundle = bundle[~mask]
@@ -520,7 +517,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     )
     node = execution_context.dismodfile.node
     draws_location = draws_covariate.merge(
-        node[["node_id", "c_location_id"]],
+        node.reset_index(drop=True)[["node_id", "c_location_id"]],
         on="node_id", how="left"
     ).drop(columns=["node_id"]).rename(columns={"c_location_id": "location_id"})
     return draws_location, pd.concat(predict)
@@ -548,42 +545,35 @@ def main(args):
     """
     start_time = default_timer()
     ec = make_execution_context()
-    ec.resource_monitor.start_monitor()
-    ec.resource_monitor.attach_to_process(os.getpid(), {"command": " ".join([sys.executable] + sys.argv)})
 
-    try:
-        settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
-        if settings.model.drill != "drill":
-            raise SettingsError("Only 'drill' mode is currently supported")
+    settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+    if settings.model.drill != "drill":
+        raise SettingsError("Only 'drill' mode is currently supported")
 
-        add_settings_to_execution_context(ec, settings)
-        locations = location_hierarchy(ec)
-        plan = CascadePlan.from_epiviz_configuration(locations, settings)
+    add_settings_to_execution_context(ec, settings)
+    locations = location_hierarchy(ec)
+    plan = CascadePlan.from_epiviz_configuration(locations, settings)
 
-        if args.skip_cache:
-            ec.parameters.tier = 2
-        else:
-            ec.parameters.tier = 3
-        for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
-                         "bundle_study_covariates_file", "num_processes"]:
-            setattr(ec.parameters, arg_name, getattr(args, arg_name))
+    if args.skip_cache:
+        ec.parameters.tier = 2
+    else:
+        ec.parameters.tier = 3
+    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
+                     "bundle_study_covariates_file", "num_processes"]:
+        setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
-        posteriors = None
-        grandparent_location_id = None
-        for parent_location_id, sub_task_idx in plan.tasks:
-            ec.parameters.parent_location_id = parent_location_id
-            ec.parameters.grandparent_location_id = grandparent_location_id
-            posteriors = one_location_set(ec, settings, posteriors)
-            grandparent_location_id = parent_location_id
+    posteriors = None
+    grandparent_location_id = None
+    tasks = list(plan.tasks)
+    # Only take first task because we cannot do the drill.
+    if len(tasks) > 0:
+        parent_location_id, sub_task_idx = tasks[0]
+        ec.parameters.parent_location_id = parent_location_id
+        ec.parameters.grandparent_location_id = grandparent_location_id
+        one_location_set(ec, settings, posteriors)
 
-        elapsed_time = timedelta(seconds=default_timer() - start_time)
-        MATHLOG.debug(f"Completed successfully in {elapsed_time}")
-    finally:
-        ec.resource_monitor.stop_monitor()
-        summaries = basic_summarizer(ec.resource_monitor.records)
-        for pid, summary in summaries.items():
-            key = ec.resource_monitor.user_data(pid)
-            write_summary_to_db(ec, ec.parameters.run_id, {"mvid": ec.parameters.model_version_id}, key, {}, summary)
+    elapsed_time = timedelta(seconds=default_timer() - start_time)
+    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
 
 
 def one_location_set(ec, settings, posterior_draws_of_previous_fit):

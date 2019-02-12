@@ -206,10 +206,10 @@ def main():
     # Convert integrands to measures
     integrand_to_measure = {v.value: MEASURE_ID_TO_CANONICAL_NAME[k] for k, v in make_integrand_map().items()}
     # prevalence and incidence are special because they have more complicated relationships with integrands
-    # than other measuresso clean them up
+    # than other measures so clean them up
     integrand_to_measure[IntegrandEnum.prevalence.value] = "prevalence"
-    integrand_to_measure[IntegrandEnum.Tincidence.value] = "sincidence"
-    integrand_to_measure[IntegrandEnum.Sincidence.value] = "tincidence"
+    integrand_to_measure[IntegrandEnum.Tincidence.value] = "tincidence"
+    integrand_to_measure[IntegrandEnum.Sincidence.value] = "sincidence"
 
     data["measure"] = data.integrand_id.apply(integrand_to_measure.get)
     data = data.drop("integrand_id", axis=1)
