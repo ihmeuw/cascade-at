@@ -13,7 +13,8 @@ def test_load_csmr_to_t3_did_upload(mock_execution_context, mock_database_access
     mock_get_csmr_data = mocker.patch("cascade.input_data.db.csmr.get_csmr_data")
     mock_upload_csmr_data = mocker.patch("cascade.input_data.db.csmr._upload_csmr_data_to_tier_3")
 
-    assert load_csmr_to_t3(mock_execution_context)
+    assert load_csmr_to_t3(mock_execution_context,
+                           mock_execution_context.parameters.model_version_id)
 
     cursor = mock_database_access["cursor"]
     model_version_id = mock_execution_context.parameters.model_version_id
@@ -31,7 +32,8 @@ def test_load_csmr_to_t3_no_upload(mock_execution_context, mock_database_access,
 
     mock_upload_csmr_data = mocker.patch("cascade.input_data.db.csmr._upload_csmr_data_to_tier_3")
 
-    assert not load_csmr_to_t3(mock_execution_context)
+    assert not load_csmr_to_t3(mock_execution_context,
+                               mock_execution_context.parameters.model_version_id)
 
     assert not mock_upload_csmr_data.called
 

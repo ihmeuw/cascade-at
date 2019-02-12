@@ -1,51 +1,25 @@
-from datetime import timedelta
-import os
-import sys
-import logging
 import asyncio
+import logging
 import math
+import os
+import shutil
+from bdb import BdbQuit
+from datetime import timedelta
 from pathlib import Path
 from pprint import pformat
-from bdb import BdbQuit
-from pkg_resources import get_distribution, DistributionNotFound
 from tempfile import TemporaryDirectory
 from timeit import default_timer
-import shutil
 
-import pandas as pd
 import numpy as np
-
-from rocketsonde.core import basic_summarizer
+import pandas as pd
+from pkg_resources import get_distribution, DistributionNotFound
 
 import cascade
-from cascade.core.cascade_plan import CascadePlan
-from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.core import getLoggers
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.stats import meas_bounds_to_stdev
 from cascade.executor.argument_parser import DMArgumentParser
-from cascade.input_data.db.demographics import age_groups_to_ranges
-from cascade.testing_utilities import make_execution_context
-from cascade.input_data.db.configuration import load_settings
-from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
-from cascade.input_data.db.locations import get_descendants, location_id_from_location_and_level
-from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
-from cascade.input_data.db.mortality import (
-    get_frozen_cause_specific_mortality_data,
-    normalize_mortality_data
-)
-from cascade.executor.usage_reporter import write_summary_to_db
-from cascade.model.operations import set_priors_on_model_context
-from cascade.input_data.emr import add_emr_from_prevalence
+from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
-from cascade.input_data.configuration.construct_bundle import (
-    normalized_bundle_from_database,
-    normalized_bundle_from_disk,
-    bundle_to_observations
-)
-from cascade.input_data.db.bundle import freeze_bundle
-from cascade.dismod.serialize import model_to_dismod_file
-from cascade.model.integrands import make_average_integrand_cases_from_gbd
-from cascade.saver.save_model_results import save_model_results
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.builder import (
     initial_context_from_epiviz,
@@ -53,8 +27,29 @@ from cascade.input_data.configuration.builder import (
     random_effects_from_epiviz,
     build_constraint,
 )
-
-from cascade.core import getLoggers
+from cascade.input_data.configuration.construct_bundle import (
+    normalized_bundle_from_database,
+    normalized_bundle_from_disk,
+    bundle_to_observations
+)
+from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
+from cascade.input_data.db.bundle import freeze_bundle
+from cascade.input_data.db.configuration import load_settings
+from cascade.input_data.db.csmr import load_csmr_to_t3, get_csmr_data
+from cascade.input_data.db.demographics import age_groups_to_ranges
+from cascade.input_data.db.locations import location_hierarchy, get_descendants, location_id_from_location_and_level
+from cascade.input_data.db.mortality import (
+    get_frozen_cause_specific_mortality_data,
+    normalize_mortality_data
+)
+from cascade.input_data.emr import add_emr_from_prevalence
+from cascade.model.integrands import make_average_integrand_cases_from_gbd
+from cascade.model.operations import set_priors_on_model_context
+from cascade.model.serialize import model_to_dismod_file
+from cascade.saver.save_model_results import save_model_results
+from cascade.stats import meas_bounds_to_stdev
+from cascade.testing_utilities import make_execution_context
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -77,8 +72,9 @@ def add_settings_to_execution_context(ec, settings):
 
     # FIXME: We are using split sex to represent the drill start because
     # there isn't an entry for it in the GUI yet.
+    locations = location_hierarchy(ec)
     ec.parameters.drill_start = location_id_from_location_and_level(
-        ec, settings.model.drill_location, settings.model.split_sex
+        locations, settings.model.drill_location, settings.model.split_sex
     )[0]
 
 
@@ -174,7 +170,9 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
     MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
 
-    children = get_descendants(execution_context, children_only=True)  # noqa: F841
+    locations = location_hierarchy(execution_context)
+    parent_id = execution_context.parameters.parent_location_id
+    children = get_descendants(locations, parent_id, children_only=True)  # noqa: F841
     children_asdr = asdr.query("node_id in @children")
     # Transform the children to be the random effect for the rate.
     parent_value = parent_asdr[["age_lower", "time_lower", "mean"]].rename({"mean": "parent_mean"}, axis=1)
@@ -226,6 +224,10 @@ def compute_age_steps(smallest_step):
 
 
 def prepare_data(execution_context, settings):
+    model_version_id = execution_context.parameters.model_version_id
+    parent_id = execution_context.parameters.parent_location_id
+    gbd_round_id = execution_context.parameters.gbd_round_id
+
     if execution_context.parameters.tier == 3:
         freeze_bundle(execution_context, execution_context.parameters.bundle_id)
 
@@ -234,22 +236,24 @@ def prepare_data(execution_context, settings):
                 f"Cause {execution_context.parameters.add_csmr_cause} "
                 "selected as CSMR source, freezing it's data if it has not already been frozen."
             )
-            load_csmr_to_t3(execution_context)
-        load_asdr_to_t3(execution_context)
+            load_csmr_to_t3(execution_context, model_version_id)
+        load_asdr_to_t3(execution_context, model_version_id, parent_id, gbd_round_id)
 
     if execution_context.parameters.bundle_file:
         bundle = normalized_bundle_from_disk(execution_context.parameters.bundle_file)
     else:
         bundle = normalized_bundle_from_database(
             execution_context,
+            execution_context.parameters.model_version_id,
             bundle_id=execution_context.parameters.bundle_id,
             tier=execution_context.parameters.tier
         )
 
-    location_and_descendants = get_descendants(execution_context, include_parent=True)  # noqa: F841
+    locations = location_hierarchy(execution_context)
+    location_id = execution_context.parameters.parent_location_id
+    location_and_descendants = get_descendants(locations, location_id, include_parent=True)  # noqa: F841
 
     bundle = bundle.query("location_id in @location_and_descendants")
-    location_id = execution_context.parameters.parent_location_id
     MATHLOG.info(f"Filtering bundle to location {location_id} and its descendants. {len(bundle)} rows remaining.")
 
     stderr_mask = bundle.standard_error > 0
@@ -272,7 +276,7 @@ def prepare_data(execution_context, settings):
     measures_to_exclude = settings.model.exclude_data_for_param
     if measures_to_exclude:
         integrand_map = make_integrand_map()
-        measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude]
+        measures_to_exclude = [integrand_map[m].name for m in measures_to_exclude if m in integrand_map]
         mask = bundle.measure.isin(measures_to_exclude)
         if mask.sum() > 0:
             bundle = bundle[~mask]
@@ -322,7 +326,8 @@ def model_context_from_settings(execution_context, settings):
 
     bundle = prepare_data(execution_context, settings)
 
-    observations = bundle_to_observations(model_context.parameters, bundle)
+    global_data_eta = model_context.parameters.global_data_eta
+    observations = bundle_to_observations(bundle, model_context.parameters.parent_location_id, global_data_eta)
     model_context.input_data.observations = observations
 
     if execution_context.parameters.add_csmr_cause is not None:
@@ -512,7 +517,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     )
     node = execution_context.dismodfile.node
     draws_location = draws_covariate.merge(
-        node[["node_id", "c_location_id"]],
+        node.reset_index(drop=True)[["node_id", "c_location_id"]],
         on="node_id", how="left"
     ).drop(columns=["node_id"]).rename(columns={"c_location_id": "location_id"})
     return draws_location, pd.concat(predict)
@@ -540,42 +545,35 @@ def main(args):
     """
     start_time = default_timer()
     ec = make_execution_context()
-    ec.resource_monitor.start_monitor()
-    ec.resource_monitor.attach_to_process(os.getpid(), {"command": " ".join([sys.executable] + sys.argv)})
 
-    try:
-        settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+    settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+    if settings.model.drill != "drill":
+        raise SettingsError("Only 'drill' mode is currently supported")
 
-        if settings.model.drill != "drill":
-            raise SettingsError("Only 'drill' mode is currently supported")
+    add_settings_to_execution_context(ec, settings)
+    locations = location_hierarchy(ec)
+    plan = CascadePlan.from_epiviz_configuration(locations, settings)
 
-        add_settings_to_execution_context(ec, settings)
-        plan = CascadePlan.from_epiviz_configuration(ec, settings)
+    if args.skip_cache:
+        ec.parameters.tier = 2
+    else:
+        ec.parameters.tier = 3
+    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
+                     "bundle_study_covariates_file", "num_processes"]:
+        setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
-        if args.skip_cache:
-            ec.parameters.tier = 2
-        else:
-            ec.parameters.tier = 3
-        for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
-                         "bundle_study_covariates_file", "num_processes"]:
-            setattr(ec.parameters, arg_name, getattr(args, arg_name))
+    posteriors = None
+    grandparent_location_id = None
+    tasks = list(plan.tasks)
+    # Only take first task because we cannot do the drill.
+    if len(tasks) > 0:
+        parent_location_id, sub_task_idx = tasks[0]
+        ec.parameters.parent_location_id = parent_location_id
+        ec.parameters.grandparent_location_id = grandparent_location_id
+        one_location_set(ec, settings, posteriors)
 
-        posteriors = None
-        grandparent_location_id = None
-        for parent_location_id, sub_task_idx in plan.tasks:
-            ec.parameters.parent_location_id = parent_location_id
-            ec.parameters.grandparent_location_id = grandparent_location_id
-            posteriors = one_location_set(ec, settings, posteriors)
-            grandparent_location_id = parent_location_id
-
-        elapsed_time = timedelta(seconds=default_timer() - start_time)
-        MATHLOG.debug(f"Completed successfully in {elapsed_time}")
-    finally:
-        ec.resource_monitor.stop_monitor()
-        summaries = basic_summarizer(ec.resource_monitor.records)
-        for pid, summary in summaries.items():
-            key = ec.resource_monitor.user_data(pid)
-            write_summary_to_db(ec, ec.parameters.run_id, {"mvid": ec.parameters.model_version_id}, key, {}, summary)
+    elapsed_time = timedelta(seconds=default_timer() - start_time)
+    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
 
 
 def one_location_set(ec, settings, posterior_draws_of_previous_fit):
