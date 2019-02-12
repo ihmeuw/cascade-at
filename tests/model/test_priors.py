@@ -103,7 +103,7 @@ def test_validate_standard_deviation():
     assert "must be positive" in str(excinfo.value)
 
 
-@pytest.mark.parametrize("bad_nu", [-1, 1, 2, 1.99])
+@pytest.mark.parametrize("bad_nu", [-1, -3, 0, 2, 1.99])
 def test_validate_nu(bad_nu):
     with pytest.raises(PriorError) as excinfo:
         StudentsT(0, 1, bad_nu)

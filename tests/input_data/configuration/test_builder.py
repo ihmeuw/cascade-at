@@ -55,7 +55,7 @@ def base_config():
                             "density": "log_students",
                             "mean": 0,
                             "std": 0.25,
-                            "nu": 1,
+                            "nu": 2.7,
                             "eta": 0,
                         }
                     ],
@@ -81,7 +81,7 @@ def base_config():
                             "min": 0.00001,
                             "mean": 0.00002,
                             "std": 0.25,
-                            "nu": 1,
+                            "nu": 2.5,
                         }
                     ],
                 }
@@ -107,7 +107,8 @@ def test_make_smooth(base_config):
     assert smooth.d_time_priors.priors == {priors.Gaussian(mean=0, standard_deviation=0.2, name="dT")}
     assert smooth.value_priors.priors == {
         priors.Gaussian(mean=1e-05, standard_deviation=0.3, name="value", lower=1e-05),
-        priors.StudentsT(mean=2e-05, standard_deviation=0.25, nu=1, lower=1e-05, name="value_20.0_40.0_1995.0_2005.0"),
+        priors.StudentsT(mean=2e-05, standard_deviation=0.25,
+                         nu=2.4, lower=1e-05, name="value_20.0_40.0_1995.0_2005.0"),
     }
     assert set(smooth.grid.ages) == {0.0, 20.0, 40.0, 60.0, 80.0}
     assert set(smooth.grid.times) == {1990.0, 1995.0, 2000.0, 2005.0, 2010.0}
@@ -118,7 +119,7 @@ def test_make_smooth(base_config):
                 expected = priors.StudentsT(mean=2e-05,
                                             standard_deviation=0.25,
                                             lower=1e-05,
-                                            nu=1,
+                                            nu=3.1,
                                             name="value_20.0_40.0_1995.0_2005.0")
                 assert smooth.value_priors[20, 2000].prior == expected
             else:
@@ -174,7 +175,7 @@ def test_covariates_from_settings_logic(base_config, ihme):
                 "density": "students",
                 "mean": 0,
                 "std": 0.25,
-                "nu": 1,
+                "nu": 2.8,
             }
         ],
     }
