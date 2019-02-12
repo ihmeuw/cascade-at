@@ -432,7 +432,7 @@ async def _fit_and_predict_fixed_effect_sample(ec, db_path, sample_id, sem):
             shutil.copy2(db_path, temp_dm_path)
             dismod_file = DismodFile(get_engine(temp_dm_path))
             await async_run_dismod(ec.resource_monitor, dismod_file, "set", "start_var", "truth_var")
-            await async_run_dismod(ec.resource_monitor, dismod_file, "fit", "fixed", str(sample_id))
+            await async_run_dismod(ec.resource_monitor, dismod_file, "fit", "both", str(sample_id))
             await async_run_dismod(ec.resource_monitor, dismod_file, "predict", "fit_var")
 
             fit = dismod_file.fit_var
