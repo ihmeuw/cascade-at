@@ -2,7 +2,7 @@ from copy import copy
 from functools import total_ordering
 
 import numpy as np
-from scipy.stats import norm, laplace, t
+import scipy.stats as stats
 
 from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -75,14 +75,22 @@ def _validate_standard_deviation(standard_deviation):
 
 
 def _validate_nu(nu):
-    if nu is None or np.isnan(nu) or nu < 0:
-        raise PriorError(f"Nu must be positive: nu={nu}")
+    if nu is None or np.isnan(nu) or nu <= 2:
+        raise PriorError(f"Nu must be greater than 2: nu={nu}")
 
 
 class Uniform(_Prior):
     density = "uniform"
 
     def __init__(self, lower, upper, mean=None, eta=None, name=None):
+        """
+        Args:
+            lower (float): Lower bound
+            upper (float): Upper bound
+            mean (float): Doesn't make sense, but it's used to seed solver.
+            eta (float): Used for logarithmic distributions.
+            name (str): A name in case this is a pet prior.
+        """
         super().__init__(name=name)
         if mean is None:
             mean = (upper + lower) / 2
@@ -94,8 +102,27 @@ class Uniform(_Prior):
         self.eta = eta
 
     def mle(self, draws):
-        """Using draws, assign a new mean, guaranteed between lower and upper."""
+        """Using draws, assign a new mean, guaranteed between lower and upper.
+
+        Args:
+            draws (np.ndarray): 1D array of floats.
+
+        Returns:
+            Uniform: A new distribution with the mean set to the mean of draws.
+        """
         return self.assign(mean=min(self.upper, max(self.lower, np.mean(draws))))
+
+    def rvs(self, size=1, random_state=None):
+        """Sample from this distribution.
+
+        Args:
+            size (int): Number of random variates, default 1.
+            random_state (numpy.random.RandomState): For repeatable draws.
+
+        Returns:
+            np.ndarray: Of size=size with floats.
+        """
+        return stats.uniform.rvs(loc=self.lower, scale=self.upper - self.lower, size=size, random_state=random_state)
 
     def _parameters(self):
         return {"lower": self.lower, "upper": self.upper, "mean": self.mean, "eta": self.eta}
@@ -105,12 +132,30 @@ class Constant(_Prior):
     density = "uniform"
 
     def __init__(self, value, name=None):
+        """
+
+        Args:
+            value (float): The const value.
+            name (str): A name for this prior, e.g. Susan.
+        """
         super().__init__(name=name)
         self.value = value
 
-    def mle(self, _):
+    def mle(self, _=None):
         """Don't change the const value."""
         return copy(self)
+
+    def rvs(self, size=1, random_state=None):
+        """Sample from this distribution.
+
+        Args:
+            size (int): Number of random variates, default 1.
+            random_state (numpy.random.RandomState): For repeatable draws.
+
+        Returns:
+            np.ndarray: Of size=size with floats.
+        """
+        return np.full((size,), self.value, dtype=np.float)
 
     def _parameters(self):
         return {"lower": self.value, "upper": self.value, "mean": self.value}
@@ -148,14 +193,42 @@ class Gaussian(_Prior):
 
     def mle(self, draws):
         """Assign new mean and stdev, with mean clamped between
-        upper and lower."""
+        upper and lower.
+
+        Args:
+            draws (np.ndarray): A 1D array of floats.
+
+        Returns:
+            Gaussian: With mean and stdev set, where mean is between upper
+            and lower, by force. Upper and lower are unchanged.
+        """
         # The mean and standard deviation for Dismod-AT match the location
         # and scale used by Scipy.
-        mean, std = norm.fit(draws)
+        mean, std = stats.norm.fit(draws)
         return self.assign(
             mean=min(self.upper, max(self.lower, mean)),
             standard_deviation=std
         )
+
+    def rvs(self, size=1, random_state=None):
+        """Sample from this distribution.
+
+        Args:
+            size (int): Number of random variates, default 1.
+            random_state (numpy.random.RandomState): For repeatable draws.
+
+        Returns:
+            np.ndarray: Of size=size with floats.
+        """
+        vals = np.empty((0,), dtype=np.float)
+        while vals.shape[0] < size:
+            redraw_cnt = size - vals.shape[0] + 10
+            draws = stats.norm.rvs(
+                loc=self.mean, scale=self.standard_deviation,
+                size=redraw_cnt, random_state=random_state)
+            draws = draws[(self.lower < draws) & (draws < self.upper)]
+            vals = np.concatenate([vals, draws])
+        return vals[:size]
 
     def _parameters(self):
         return {
@@ -181,7 +254,7 @@ class Laplace(Gaussian):
 
     .. math::
 
-        f(x) = \frac{1}{\sqrt{2\pi\sigma^2}e^{-\sqrt{2}|x-\mu|/\sigma}.
+        f(x) = \frac{1}{\sqrt{2\pi\sigma^2}}e^{-\sqrt{2}|x-\mu|/\sigma}.
 
     The standard deviation assigned is :math:`\sigma`.
     """
@@ -189,12 +262,39 @@ class Laplace(Gaussian):
 
     def mle(self, draws):
         """Assign new mean and stdev, with mean clamped between
-        upper and lower."""
-        mean, scale = laplace.fit(draws)
+        upper and lower.
+
+        Args:
+            draws (np.ndarray): A 1D array of floats.
+
+        Returns:
+            Gaussian: With mean and stdev set, where mean is between upper
+            and lower, by force. Upper and lower are unchanged.
+        """
+        mean, scale = stats.laplace.fit(draws)
         return self.assign(
             mean=min(self.upper, max(self.lower, mean)),
             standard_deviation=scale * np.sqrt(2)  # This is the adjustment.
         )
+
+    def rvs(self, size=1, random_state=None):
+        """Sample from this distribution.
+
+        Args:
+            size (int): Number of random variates, default 1.
+            random_state (numpy.random.RandomState): For repeatable draws.
+
+        Returns:
+            np.ndarray: Of size=size with floats.
+        """
+        vals = np.empty((0,), dtype=np.float)
+        while vals.shape[0] < size:
+            redraw_cnt = size - vals.shape[0] + 10
+            draws = stats.laplace.rvs(
+                loc=self.mean, scale=self.standard_deviation / np.sqrt(2), size=redraw_cnt, random_state=random_state)
+            draws = draws[(self.lower < draws) & (draws < self.upper)]
+            vals = np.concatenate([vals, draws])
+        return vals[:size]
 
 
 class StudentsT(_Prior):
@@ -234,13 +334,42 @@ class StudentsT(_Prior):
 
     def mle(self, draws):
         """Assign new mean and stdev, with mean clamped between
-        upper and lower."""
+         upper and lower.
+
+         Args:
+             draws (np.ndarray): A 1D array of floats.
+
+         Returns:
+             Gaussian: With mean and stdev set, where mean is between upper
+             and lower, by force. Upper and lower are unchanged.
+         """
         # This fixes the nu value.
-        nu, mean, scale = t.fit(draws, fix_df=self.nu)
+        nu, mean, scale = stats.t.fit(draws, fix_df=self.nu)
         return self.assign(
             mean=min(self.upper, max(self.lower, mean)),
             standard_deviation=scale * np.sqrt(nu / (nu - 2))
         )
+
+    def rvs(self, size=1, random_state=None):
+        """Sample from this distribution.
+
+        Args:
+            size (int): Number of random variates, default 1.
+            random_state (numpy.random.RandomState): For repeatable draws.
+
+        Returns:
+            np.ndarray: Of size=size with floats.
+        """
+        vals = np.empty((0,), dtype=np.float)
+        std_scale = np.sqrt(self.nu / (self.nu - 2))
+        while vals.shape[0] < size:
+            redraw_cnt = size - vals.shape[0] + 10
+            draws = stats.t.rvs(
+                loc=self.mean, scale=self.standard_deviation / std_scale, df=self.nu,
+                size=redraw_cnt, random_state=random_state)
+            draws = draws[(self.lower < draws) & (draws < self.upper)]
+            vals = np.concatenate([vals, draws])
+        return vals[:size]
 
     def _parameters(self):
         return {
@@ -278,12 +407,39 @@ class LogGaussian(_Prior):
 
     def mle(self, draws):
         """Assign new mean and stdev, with mean clamped between
-        upper and lower."""
-        # XXX not using MLE. Need to work out math.
+        upper and lower.
+
+        Args:
+            draws (np.ndarray): A 1D array of floats.
+
+        Returns:
+            Gaussian: With mean and stdev set, where mean is between upper
+            and lower, by force. Upper and lower are unchanged.
+        """
         return self.assign(
             mean=min(self.upper, max(self.lower, np.mean(draws))),
-            standard_deviation=np.std(draws)
+            standard_deviation=np.std(draws),
         )
+
+    def rvs(self, size=1, random_state=None):
+        """Sample from this distribution.
+
+        Args:
+            size (int): Number of random variates, default 1.
+            random_state (numpy.random.RandomState): For repeatable draws.
+
+        Returns:
+            np.ndarray: Of size=size with floats.
+        """
+        vals = np.empty((0,), dtype=np.float)
+        while vals.shape[0] < size:
+            redraw_cnt = size - vals.shape[0] + 10
+            draws = stats.lognorm.rvs(
+                loc=self.mean, s=self.standard_deviation, scale=np.exp(self.mean),
+                size=redraw_cnt, random_state=random_state)
+            draws = draws[(self.lower < draws) & (draws < self.upper)]
+            vals = np.concatenate([vals, draws])
+        return vals[:size]
 
     def _parameters(self):
         return {
@@ -318,7 +474,6 @@ class LogStudentsT(_Prior):
     def mle(self, draws):
         """Assign new mean and stdev, with mean clamped between
         upper and lower."""
-        # XXX not using MLE. Need to work out math.
         return self.assign(
             mean=min(self.upper, max(self.lower, np.mean(draws))),
             standard_deviation=np.std(draws)
