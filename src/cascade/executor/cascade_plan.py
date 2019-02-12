@@ -2,15 +2,15 @@
 Specification for a whole cascade.
 """
 from copy import deepcopy
+
 import networkx as nx
 
 from cascade.core import getLoggers
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.builder import policies_from_settings
 from cascade.input_data.db.locations import (
-    location_id_from_location_and_level, location_id_from_start_and_finish
+    location_id_from_start_and_finish
 )
-
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -24,7 +24,7 @@ class EstimationParameters:
         # grandparent is known, this may be the top of a Drill within
         # those locations.
         self.grandparent_location_id = grandparent_location_id
-        self.children = list(sorted(set(locations.successors(parent_location_id))))
+        self.children = list(sorted(locations.successors(parent_location_id)))
         self.settings = settings
         self.policies = policies
 
@@ -77,7 +77,7 @@ class CascadePlan:
         parent_task = list(self._task_graph.in_edges(cascade_job_id))
         if parent_task:
             # [only edge][(edge start, edge finish)][(location, index)]
-            grandparent_location_id = parent_task[0][0][0]
+            grandparent_location_id = self._location_of_cascade_job(parent_task[0][0])
         else:
             grandparent_location_id = None
 
@@ -86,7 +86,7 @@ class CascadePlan:
             settings=self._settings,
             policies=policies_from_settings(self._settings),
             locations=self._locations,
-            parent_location_id=cascade_job_id[0],
+            parent_location_id=self._location_of_cascade_job(cascade_job_id),
             grandparent_location_id=grandparent_location_id
         )
         return "estimate_location", local_settings
@@ -102,10 +102,6 @@ class CascadePlan:
                     plan._locations, settings.model.drill_location_start, settings.model.drill_location_end)
             except ValueError as ve:
                 raise InputDataError(f"Location parameter is wrong in settings.") from ve
-        elif settings.model.drill_location:
-            starting_level = settings.model.split_sex
-            end_location = settings.model.drill_location
-            drill = location_id_from_location_and_level(plan._locations, end_location, starting_level)
         else:
             MATHLOG.error(f"Looking for drill start and finish and cannot find "
                           f"drill location start and end.")
@@ -119,3 +115,6 @@ class CascadePlan:
         # Add a custom graph attribute to record the tree root.
         plan._task_graph.graph["root"] = tasks[0]
         return plan
+
+    def _location_of_cascade_job(self, cascade_job_id):
+        return cascade_job_id[0]

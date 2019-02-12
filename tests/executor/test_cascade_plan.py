@@ -7,30 +7,6 @@ from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
 
 
-def test_create(ihme):
-    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
-    locations = location_hierarchy(ec)
-    settings = _ParameterHierarchy(
-        model={"split_sex": 3, "drill_location": 6},
-        policies=dict(),
-    )
-    c = CascadePlan.from_epiviz_configuration(locations, settings)
-    assert len(c._task_graph.nodes) == 2
-    print(nx.to_edgelist(c._task_graph))
-
-
-def test_single(ihme):
-    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
-    locations = location_hierarchy(ec)
-    settings = _ParameterHierarchy(
-        model={"split_sex": 4, "drill_location": 6},
-        policies=dict(),
-    )
-    c = CascadePlan.from_epiviz_configuration(locations, settings)
-    assert len(c._task_graph.nodes) == 1
-    print(nx.to_edgelist(c._task_graph))
-
-
 def test_create_start_finish(ihme):
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     locations = location_hierarchy(ec)

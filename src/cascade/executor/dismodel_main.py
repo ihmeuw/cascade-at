@@ -8,16 +8,14 @@ from pathlib import Path
 from pprint import pformat
 from timeit import default_timer
 
-from pkg_resources import get_distribution, DistributionNotFound
-
-from cascade.core import getLoggers
+from cascade.core import getLoggers, __version__
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.estimate_location import estimate_location
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
-from cascade.executor.estimate_location import estimate_location
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -59,12 +57,7 @@ def entry(args=None):
     parser.add_argument("--pdb", action="store_true")
     args = parser.parse_args(args)
 
-    try:
-        software_version = get_distribution("cascade").version
-    except DistributionNotFound:
-        # package is not installed
-        software_version = "unavailable"
-    MATHLOG.debug(f"Cascade version {software_version}.")
+    MATHLOG.debug(f"Cascade version {__version__}.")
     if "JOB_ID" in os.environ:
         MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
 
