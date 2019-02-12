@@ -1,5 +1,6 @@
 from datetime import timedelta
 import os
+import sys
 import logging
 import asyncio
 import math
@@ -13,6 +14,8 @@ import shutil
 
 import pandas as pd
 import numpy as np
+
+from rocketsonde.core import basic_summarizer
 
 import cascade
 from cascade.core.cascade_plan import CascadePlan
@@ -30,6 +33,7 @@ from cascade.input_data.db.mortality import (
     get_frozen_cause_specific_mortality_data,
     normalize_mortality_data
 )
+from cascade.executor.usage_reporter import write_summary_to_db
 from cascade.model.operations import set_priors_on_model_context
 from cascade.input_data.emr import add_emr_from_prevalence
 from cascade.executor.dismod_runner import run_and_watch, async_run_and_watch, DismodATException
@@ -536,35 +540,44 @@ def main(args):
     """
     start_time = default_timer()
     ec = make_execution_context()
+    ec.resource_monitor.start_monitor()
+    ec.resource_monitor.attach_to_process(os.getpid(), {"command": " ".join([sys.executable] + sys.argv)})
 
-    settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
+    try:
+        settings = load_settings(ec, args.meid, args.mvid, args.settings_file)
 
-    if settings.model.drill != "drill":
-        raise SettingsError("Only 'drill' mode is currently supported")
+        if settings.model.drill != "drill":
+            raise SettingsError("Only 'drill' mode is currently supported")
 
-    add_settings_to_execution_context(ec, settings)
-    plan = CascadePlan.from_epiviz_configuration(ec, settings)
+        add_settings_to_execution_context(ec, settings)
+        plan = CascadePlan.from_epiviz_configuration(ec, settings)
 
-    if args.skip_cache:
-        ec.parameters.tier = 2
-    else:
-        ec.parameters.tier = 3
-    for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
-                     "bundle_study_covariates_file", "num_processes"]:
-        setattr(ec.parameters, arg_name, getattr(args, arg_name))
+        if args.skip_cache:
+            ec.parameters.tier = 2
+        else:
+            ec.parameters.tier = 3
+        for arg_name in ["db_only", "db_file_path", "no_upload", "bundle_file",
+                         "bundle_study_covariates_file", "num_processes"]:
+            setattr(ec.parameters, arg_name, getattr(args, arg_name))
 
-    posteriors = None
-    grandparent_location_id = None
-    tasks = list(plan.tasks)
-    # Only take first task because we cannot do the drill.
-    if len(tasks) > 0:
-        parent_location_id, sub_task_idx = tasks[0]
-        ec.parameters.parent_location_id = parent_location_id
-        ec.parameters.grandparent_location_id = grandparent_location_id
-        one_location_set(ec, settings, posteriors)
+        posteriors = None
+        grandparent_location_id = None
+        tasks = list(plan.tasks)
+        # Only take first task because we cannot do the drill.
+        if len(tasks) > 0:
+            parent_location_id, sub_task_idx = tasks[0]
+            ec.parameters.parent_location_id = parent_location_id
+            ec.parameters.grandparent_location_id = grandparent_location_id
+            one_location_set(ec, settings, posteriors)
 
-    elapsed_time = timedelta(seconds=default_timer() - start_time)
-    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
+        elapsed_time = timedelta(seconds=default_timer() - start_time)
+        MATHLOG.debug(f"Completed successfully in {elapsed_time}")
+    finally:
+        ec.resource_monitor.stop_monitor()
+        summaries = basic_summarizer(ec.resource_monitor.records)
+        for pid, summary in summaries.items():
+            key = ec.resource_monitor.user_data(pid)
+            write_summary_to_db(ec, ec.parameters.run_id, {"mvid": ec.parameters.model_version_id}, key, {}, summary)
 
 
 def one_location_set(ec, settings, posterior_draws_of_previous_fit):

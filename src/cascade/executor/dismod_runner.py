@@ -199,6 +199,8 @@ async def async_run_and_watch(command, single_use_machine, poll_time, resource_m
         sub_process = await asyncio.subprocess.create_subprocess_exec(
             *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, preexec_fn=pre_execution_function,
         )
+        if resource_monitor:
+            resource_monitor.attach_to_process(sub_process.pid, {"command": " ".join(command)})
     except ValueError as ve:
         raise Exception(f"Dismod called with invalid arguments {ve}")
     except OSError as ose:
