@@ -114,5 +114,5 @@ def test_SmoothingPrior__global_nu():
         }
     )
     assert set(f.validate_and_normalize()) == {
-        ("prior", "prior", "Parameters incompatible with density 'students': Nu must be positive: nu=None")
+        ("prior", "prior", "Parameters incompatible with density 'students': Nu must be greater than 2: nu=None")
     }
