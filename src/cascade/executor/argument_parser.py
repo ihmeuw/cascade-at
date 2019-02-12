@@ -18,8 +18,8 @@ from cascade.executor.math_log import MathLogFormatter
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
-EPIVIZ_LOG_DIR = Path("/ihme/epi/dismod_at/logs")
-CODE_LOG_DIR = Path("/ihme/temp/sgeoutput")
+EPIVIZ_LOG_DIR = Path("epi/dismod_at/logs")
+CODE_LOG_DIR = Path("temp/sgeoutput")
 
 
 class ArgumentException(Exception):
@@ -65,6 +65,8 @@ class BaseArgumentParser(ArgumentParser):
         self.add_argument("--modlevel", type=str, default="debug", help="Log level for specified modules")
         self.add_argument("--epiviz-log", type=Path, default=EPIVIZ_LOG_DIR, help="Directory for EpiViz log")
         self.add_argument("--code-log", type=Path, default=CODE_LOG_DIR, help="Directory for code log")
+        self.add_argument("--root-dir", type=Path, default=Path("/ihme"),
+                          help="Directory to use as root for logs.")
 
         arguments = toml.loads(pkg_resources.resource_string("cascade.executor", "data/parameters.toml").decode())
         arg_types = dict(bool=bool, str=str, float=float, int=int)
@@ -135,8 +137,8 @@ class BaseArgumentParser(ArgumentParser):
         logging.root.addHandler(root_handler)
         logging.root.setLevel(level)
 
-        code_log = BaseArgumentParser._logging_configure_root_log(args.code_log, level)
-        BaseArgumentParser._logging_configure_mathlog(args.mvid, args.epiviz_log)
+        code_log = BaseArgumentParser._logging_configure_root_log(args.root_dir / args.code_log, level)
+        BaseArgumentParser._logging_configure_mathlog(args.mvid, args.root_dir / args.epiviz_log)
         BaseArgumentParser._logging_individual_modules(args.logmod, args.modlevel)
         if code_log:  # Tell the math log people where the code log is located.
             logging.getLogger("cascade.math").info(f"Code log is at {code_log}")

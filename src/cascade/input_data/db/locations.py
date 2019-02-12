@@ -35,21 +35,20 @@ def location_hierarchy(execution_context):
     return G
 
 
-def get_descendants(execution_context, children_only=False, include_parent=False):
+def get_descendants(locations, location_id, children_only=False, include_parent=False):
     """
     Retrieves a parent and direct children, or all descendants, or not the
     parent.
 
     Args:
-        execution_context:
+        locations: Graph of locations from ``location_hierarchy``
+        location_id: The location for which to get descendants.
         children_only (bool): Exclude children of the children and below.
         include_parent (bool): Add the parent location to return results.
 
     Returns:
         set of location IDs
     """
-    location_id = execution_context.parameters.parent_location_id
-    locations = location_hierarchy(execution_context)
     if children_only:
         nodes = set(locations.successors(location_id))
     else:
@@ -64,11 +63,11 @@ def get_descendants(execution_context, children_only=False, include_parent=False
     return list(nodes)
 
 
-def location_id_from_start_and_finish(execution_context, start, finish):
+def location_id_from_start_and_finish(locations, start, finish):
     """ Find the set of locations from a parent to a child.
 
     Args:
-        execution_context:
+        locations: Graph of locations.
         start (int): location ID at which to start the cascade
         finish (int): location ID of a descendant of the start, possibly
                       the same location ID as the start, itself.
@@ -82,7 +81,6 @@ def location_id_from_start_and_finish(execution_context, start, finish):
     """
     start = int(start)
     finish = int(finish)
-    locations = location_hierarchy(execution_context)
     try:
         drill_nodes = nx.ancestors(locations, finish) | {finish}
     except nx.NetworkXError as nxe:
@@ -95,12 +93,12 @@ def location_id_from_start_and_finish(execution_context, start, finish):
     return drill
 
 
-def location_id_from_location_and_level(execution_context, location_id, target_level):
+def location_id_from_location_and_level(locations, location_id, target_level):
     """ Find the set of locations from the destination location to
     the ``target_level`` above that location.
 
     Args:
-        execution_context:
+        locations: Graph of locations.
         location_id (int): the location to search up from
         target_level (str,int): A level in the hierarchy where 1==global and larger numbers are more detailed
                       and the string "most_detailed" indicates the most detailed level.
@@ -118,7 +116,6 @@ def location_id_from_location_and_level(execution_context, location_id, target_l
         in the future. There may be a more future-proof version of this that loads stuff out of the
         epi.cascade_level table instead of hard coding it.
     """
-    locations = location_hierarchy(execution_context)
     if target_level == "most_detailed":
         if not list(locations.successors(location_id)):
             return [location_id]

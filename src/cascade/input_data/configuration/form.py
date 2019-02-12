@@ -165,7 +165,7 @@ class StudyCovariate(Form):
     measure_id = IntField(display="Measure")
     mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
     transformation = IntField(display="Transformation")
-    at_dependence = IntField(display="AT dependence")
+    age_time_specific = IntField(display="Age and Time specific")
 
     age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
     time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
@@ -183,7 +183,7 @@ class CountryCovariate(Form):
     measure_id = IntField(display="Measure")
     mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
     transformation = IntField(display="Transformation")
-    at_dependence = IntField(display="AT dependence")
+    age_time_specific = IntField(display="Age and Time specific")
 
     age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
     time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
