@@ -37,7 +37,7 @@ def retrieve_data(execution_context, local_settings):
     if local_settings.data_access.bundle_file:
         data.bundle = normalized_bundle_from_disk(local_settings.data_access.bundle_file)
     else:
-        bundle_id = local_settings.data_access.model.bundle_id
+        bundle_id = local_settings.data_access.bundle_id
         data.bundle = normalized_bundle_from_database(
             execution_context,
             model_version_id,
@@ -46,8 +46,8 @@ def retrieve_data(execution_context, local_settings):
         )
 
     ages_df = db_queries.get_age_metadata(
-        age_group_set_id=local_settings.policies.age_group_set_id,
-        gbd_round_id=local_settings.ihme_parameters.gbd_round_id
+        age_group_set_id=local_settings.data_access.age_group_set_id,
+        gbd_round_id=local_settings.data_access.gbd_round_id
     )
 
     # This comes in yearly from 1950 to 2018

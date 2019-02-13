@@ -5,7 +5,7 @@ Specification for a whole cascade.
 import networkx as nx
 
 from cascade.core import getLoggers
-from cascade.core.parameters import ParameterProperty
+from cascade.core.parameters import ParameterProperty, _ParameterHierarchy
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.builder import policies_from_settings
 from cascade.input_data.db.locations import (
@@ -99,23 +99,24 @@ class CascadePlan:
             grandparent_location_id=grandparent_location_id,
             sex_id=self._settings.model.drill_sex,
         )
-        local_settings.data_access = dict(
+        local_settings.data_access = _ParameterHierarchy(**dict(
             gbd_round_id=self._settings.gbd_round_id,
             modelable_entity_id=self._settings.model.modelable_entity_id,
             model_version_id=self._settings.model.model_version_id,
             settings_file=self._args.settings_file,
             bundle_file=self._args.bundle_file,
+            bundle_id=self._settings.model.bundle_id,
             bundle_study_covariates_file=self._args.bundle_study_covariates_file,
             tier=2 if self._args.skip_cache else 3,
             age_group_set_id=policies["age_group_set_id"],
             with_hiv=policies["with_hiv"]
-        )
-        local_settings.run = dict(
+        ))
+        local_settings.run = _ParameterHierarchy(**dict(
             no_upload=self._args.no_upload,
             db_only=self._args.db_only,
             num_processes=self._args.num_processes,
             pdb=self._args.pdb,
-        )
+        ))
         return "estimate_location", local_settings
 
     @classmethod
