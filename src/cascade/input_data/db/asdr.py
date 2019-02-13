@@ -28,7 +28,9 @@ def _asdr_in_t3(execution_context, model_version_id):
 
 
 def get_asdr_data(gbd_round_id, location_and_children):
-
+    r"""Gets the age-specific death rate from IHME databases.
+    This is :math:`{}_nm_x`, the mortality rate.
+    """
     demo_dict = db_queries.get_demographics(gbd_team="epi", gbd_round_id=gbd_round_id)
     age_group_ids = demo_dict["age_group_id"]
     sex_ids = demo_dict["sex_id"]

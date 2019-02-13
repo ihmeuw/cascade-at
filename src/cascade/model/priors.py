@@ -142,7 +142,7 @@ class Constant(_Prior):
         self.value = value
 
     def mle(self, _=None):
-        """Don't change the const value."""
+        """Don't change the const value. It is unaffected by this call."""
         return copy(self)
 
     def rvs(self, size=1, random_state=None):
@@ -407,7 +407,7 @@ class LogGaussian(_Prior):
 
     def mle(self, draws):
         """Assign new mean and stdev, with mean clamped between
-        upper and lower.
+        upper and lower. This does a fit using a normal distribution.
 
         Args:
             draws (np.ndarray): A 1D array of floats.
@@ -416,9 +416,12 @@ class LogGaussian(_Prior):
             Gaussian: With mean and stdev set, where mean is between upper
             and lower, by force. Upper and lower are unchanged.
         """
+        # The mean and standard deviation for Dismod-AT match the location
+        # and scale used by Scipy.
+        mean, std = stats.norm.fit(draws)
         return self.assign(
-            mean=min(self.upper, max(self.lower, np.mean(draws))),
-            standard_deviation=np.std(draws),
+            mean=min(self.upper, max(self.lower, mean)),
+            standard_deviation=std
         )
 
     def rvs(self, size=1, random_state=None):
@@ -473,10 +476,21 @@ class LogStudentsT(_Prior):
 
     def mle(self, draws):
         """Assign new mean and stdev, with mean clamped between
-        upper and lower."""
+        upper and lower. This does a fit using a normal distribution.
+
+        Args:
+            draws (np.ndarray): A 1D array of floats.
+
+        Returns:
+            Gaussian: With mean and stdev set, where mean is between upper
+            and lower, by force. Upper and lower are unchanged.
+        """
+        # The mean and standard deviation for Dismod-AT match the location
+        # and scale used by Scipy.
+        mean, std = stats.norm.fit(draws)
         return self.assign(
-            mean=min(self.upper, max(self.lower, np.mean(draws))),
-            standard_deviation=np.std(draws)
+            mean=min(self.upper, max(self.lower, mean)),
+            standard_deviation=std
         )
 
     def _parameters(self):

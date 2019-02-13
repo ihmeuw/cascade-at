@@ -17,35 +17,13 @@ from cascade.model import (
     Model, Session, DismodGroups, Var, SmoothGrid,
     Uniform, Gaussian
 )
+from cascade.input_data.db.asdr import get_asdr_data
 
 LOGGER = logging.getLogger(__name__)
 
 
-def get_asdr_data(location_and_children, gbd_round_id):
-    r"""Gets the age-specific death rate from IHME databases.
-    This is :math:`{}_nm_x`, the mortality rate.
-    """
-    demo_dict = db_queries.get_demographics(gbd_team="epi", gbd_round_id=gbd_round_id)
-    age_group_ids = demo_dict["age_group_id"]
-    sex_ids = demo_dict["sex_id"]
-
-    asdr = db_queries.get_envelope(
-        location_id=location_and_children,
-        year_id=-1,
-        gbd_round_id=gbd_round_id,
-        age_group_id=age_group_ids,
-        sex_id=sex_ids,
-        with_hiv=True,
-        rates=True,
-    ).drop(columns=["run_id"])
-
-    asdr = asdr[asdr["mean"].notnull()]
-
-    return asdr
-
-
 def get_mtall(location_id, sex_id, gbd_round_id, age_group_set_id):
-    asdr = get_asdr_data([location_id], gbd_round_id)
+    asdr = get_asdr_data(gbd_round_id, [location_id])
     ages_df = db_queries.get_age_metadata(age_group_set_id=age_group_set_id, gbd_round_id=gbd_round_id)
     assert not (set(asdr.age_group_id.unique()) - set(ages_df.age_group_id.values))
     return asdr_by_sex(asdr, ages_df, sex_id)
