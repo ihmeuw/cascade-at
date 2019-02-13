@@ -46,12 +46,13 @@ What are the use-cases?
 Nice-to-haves:
 
  * Know which parameters were read or unread.
+ * Freeze parameters within the scope where they are treated as parameters.
  * Have strict typing for parameters.
  * Have a description for each parameter.
  * Store them hierarchically.
  * Access all parameters within "your" section of the hierarchy.
  * Difference between parameters sets.
- * Dot access with completion.
+ * Dot access with tab-completion.
 
 The Cascade Plancan transform settings into an internal representation of
 parameters. Why transform it?
@@ -61,3 +62,12 @@ parameters. Why transform it?
 
 Those reasons aren't super-strong. Meet the use cases. That's what we
 need to do.
+
+We have the following at our disposal.
+
+ *  *Configuration* - Validates and presents the EpiViz-AT form.
+ *  *Settings file* - Stores typed parameters with descriptions.
+ *  *Args* - Argparse output used to initialize some parameters.
+ *  *Policies* - A sub-section of configuration we use to store settings.
+ *  *Python dataclasses* - Basically a struct.
+ *  *Parameters module* - It's like the logging module, but for parameters.

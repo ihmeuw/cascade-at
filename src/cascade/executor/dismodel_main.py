@@ -25,7 +25,7 @@ def main(args):
     execution_context = make_execution_context(gbd_round_id=5)
     settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
     locations = location_hierarchy(execution_context)
-    plan = CascadePlan.from_epiviz_configuration(locations, settings)
+    plan = CascadePlan.from_epiviz_configuration(locations, settings, args)
 
     for cascade_task_identifier in plan.cascade_jobs:
         cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
@@ -44,18 +44,7 @@ def entry(args=None):
     readable_by_all = 0o0002
     os.umask(readable_by_all)
 
-    parser = DMArgumentParser("Run DismodAT from Epiviz")
-    parser.add_argument("db_file_path", type=Path)
-    parser.add_argument("--settings-file", type=Path)
-    parser.add_argument("--no-upload", action="store_true")
-    parser.add_argument("--db-only", action="store_true")
-    parser.add_argument("-b", "--bundle-file", type=Path)
-    parser.add_argument("-s", "--bundle-study-covariates-file", type=Path)
-    parser.add_argument("--skip-cache", action="store_true")
-    parser.add_argument("--num-processes", type=int, default=4,
-                        help="How many subprocesses to start.")
-    parser.add_argument("--pdb", action="store_true")
-    args = parser.parse_args(args)
+    args = parse_arguments(args)
 
     MATHLOG.debug(f"Cascade version {__version__}.")
     if "JOB_ID" in os.environ:
@@ -90,6 +79,22 @@ def entry(args=None):
         else:
             MATHLOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
             raise
+
+
+def parse_arguments(args):
+    parser = DMArgumentParser("Run DismodAT from Epiviz")
+    parser.add_argument("db_file_path", type=Path)
+    parser.add_argument("--settings-file", type=Path)
+    parser.add_argument("--no-upload", action="store_true")
+    parser.add_argument("--db-only", action="store_true")
+    parser.add_argument("-b", "--bundle-file", type=Path)
+    parser.add_argument("-s", "--bundle-study-covariates-file", type=Path)
+    parser.add_argument("--skip-cache", action="store_true")
+    parser.add_argument("--num-processes", type=int, default=4,
+                        help="How many subprocesses to start.")
+    parser.add_argument("--pdb", action="store_true")
+    args = parser.parse_args(args)
+    return args
 
 
 if __name__ == "__main__":

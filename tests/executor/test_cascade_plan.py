@@ -1,41 +1,44 @@
 import networkx as nx
 
-from cascade.core.parameters import _ParameterHierarchy
 from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
 
 
 def test_create_start_finish(ihme):
+    args = parse_arguments(None)
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     locations = location_hierarchy(ec)
-    settings = _ParameterHierarchy(
-        model={"split_sex": 3, "drill_location_start": 4, "drill_location_end": 6},
-        policies=dict(),
-    )
-    c = CascadePlan.from_epiviz_configuration(locations, settings)
+    settings = load_settings(ec, 23514, None, None)
+    settings.model.split_sex = 3
+    settings.model.drill_location_start = 4
+    settings.model.drill_locaiton_end = 6
+    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     assert len(c._task_graph.nodes) == 3
     print(nx.to_edgelist(c._task_graph))
 
 
 def test_single_start_finish(ihme):
+    args = parse_arguments(None)
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     locations = location_hierarchy(ec)
-    settings = _ParameterHierarchy(
-        model={"split_sex": 4, "drill_location_start": 6, "drill_location_end": 6},
-        policies=dict(),
-    )
-    c = CascadePlan.from_epiviz_configuration(locations, settings)
+    settings = load_settings(ec, 23514, None, None)
+    settings.model.split_sex = 3
+    settings.model.drill_location_start = 6
+    settings.model.drill_locaiton_end = 6
+    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     assert len(c._task_graph.nodes) == 1
     print(nx.to_edgelist(c._task_graph))
 
 
 def test_iterate_tasks(ihme):
+    args = parse_arguments(None)
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     locations = location_hierarchy(ec)
     settings = load_settings(ec, None, 267770, None)
-    c = CascadePlan.from_epiviz_configuration(locations, settings)
+    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     cnt = 0
     last = -1
     parent = None
