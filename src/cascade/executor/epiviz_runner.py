@@ -496,6 +496,13 @@ def fit_and_predict_fixed_effect_samples(execution_context):
     var_table = var_table.reset_index(drop=True)  # var_id is both an index and a column.
     all_fits = pd.concat(fit)
     all_fits = all_fits.reset_index(drop=True)  # fit_var_id is both an index and a column.
+    all_predicts = pd.concat(predict)
+
+    # Write the total results back out to the dismodfile for reference.
+    execution_context.dismodfile.sample = all_fits[["sample_index", "fit_var_id", "fit_var_value"]] \
+        .rename(columns={"fit_var_id": "var_id", "fit_var_value": "var_value"})
+    execution_context.dismodfile.predict = all_predicts
+
     draws = all_fits.merge(var_table, left_on="fit_var_id", right_on="var_id", how="left")
     age = execution_context.dismodfile.age.reset_index(drop=True)
     time = execution_context.dismodfile.time.reset_index(drop=True)
@@ -515,7 +522,7 @@ def fit_and_predict_fixed_effect_samples(execution_context):
         node.reset_index(drop=True)[["node_id", "c_location_id"]],
         on="node_id", how="left"
     ).drop(columns=["node_id"]).rename(columns={"c_location_id": "location_id"})
-    return draws_location, pd.concat(predict)
+    return draws_location, all_predicts
 
 
 def has_random_effects(model):
