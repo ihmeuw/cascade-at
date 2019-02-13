@@ -22,8 +22,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def get_asdr_data(location_and_children, gbd_round_id):
-    """Gets the age-specific death rate from IHME databases.
-    This is ${}_nm_x$, the mortality rate.
+    r"""Gets the age-specific death rate from IHME databases.
+    This is :math:`{}_nm_x`, the mortality rate.
     """
     demo_dict = db_queries.get_demographics(gbd_team="epi", gbd_round_id=gbd_round_id)
     age_group_ids = demo_dict["age_group_id"]
