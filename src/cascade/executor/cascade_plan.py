@@ -1,7 +1,6 @@
 """
 Specification for a whole cascade.
 """
-from copy import deepcopy
 
 import networkx as nx
 
@@ -15,11 +14,21 @@ from cascade.input_data.db.locations import (
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
+class IHMEDataParameters:
+    def __init__(self, gbd_round_id, modelable_entity_id, model_version_id):
+        self.gbd_round_id = gbd_round_id
+        self.modelable_entity_id = modelable_entity_id
+        self.model_version_id = model_version_id
+
+
 class EstimationParameters:
-    def __init__(self, settings, policies, locations,
+    def __init__(self, settings, policies, ihme_parameters, locations,
                  parent_location_id, grandparent_location_id):
+        assert isinstance(ihme_parameters, IHMEDataParameters)
+
         self.parent_location_id = parent_location_id
         self.locations = locations
+        self.ihme_parameters = ihme_parameters
         # We pass in the grandparent location ID because, while the location
         # grandparent is known, this may be the top of a Drill within
         # those locations.
@@ -73,7 +82,6 @@ class CascadePlan:
         so a drill starting halfway will not have a grandparent location.
         There are child locations for the last task though.
         """
-        local_settings = deepcopy(self._settings)
         parent_task = list(self._task_graph.in_edges(cascade_job_id))
         if parent_task:
             # [only edge][(edge start, edge finish)][(location, index)]
@@ -82,9 +90,15 @@ class CascadePlan:
             grandparent_location_id = None
 
         print(f"settings {type(self._settings)} {self._settings.policies}")
+        ihme_parameters = IHMEDataParameters(
+            self._settings.gbd_round_id,
+            self._settings.model.modelable_entity_id,
+            self._settings.model.model_version_id
+        )
         local_settings = EstimationParameters(
             settings=self._settings,
             policies=policies_from_settings(self._settings),
+            ihme_parameters=ihme_parameters,
             locations=self._locations,
             parent_location_id=self._location_of_cascade_job(cascade_job_id),
             grandparent_location_id=grandparent_location_id

@@ -17,48 +17,20 @@ from cascade.model import (
     Model, Session, DismodGroups, Var, SmoothGrid,
     Uniform, Gaussian
 )
-from cascade.input_data.db.asdr import get_asdr_data
+from cascade.input_data.db.asdr import asdr_as_fit_input
 
 LOGGER = logging.getLogger(__name__)
 
 
-def get_mtall(location_id, sex_id, gbd_round_id, age_group_set_id):
-    asdr = get_asdr_data(gbd_round_id, [location_id])
-    ages_df = db_queries.get_age_metadata(age_group_set_id=age_group_set_id, gbd_round_id=gbd_round_id)
-    assert not (set(asdr.age_group_id.unique()) - set(ages_df.age_group_id.values))
-    return asdr_by_sex(asdr, ages_df, sex_id)
-
-
-def bounds_to_stdev(df):
-    """Given an upper and lower bound, calculate a standard deviation."""
-    with_std = df.assign(std=(df.upper - df.lower) / (2 * 1.96))
-    return with_std.drop(columns=["upper", "lower"])
-
-
-def asdr_by_sex(asdr, ages, sex_id):
-    """Incoming age-specific death rate has ``age_id`` and upper and lower
-    bounds. This translates those into age-ranges, time-ranges, and standard
-    deviations."""
-    without_weight = ages.drop(columns=["age_group_weight_value"])
-    as_up_low = without_weight.rename({"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"},
-                                      axis="columns")
-    with_ages = asdr.merge(as_up_low, on="age_group_id", how="left")
-    with_upper = with_ages.assign(time_upper=with_ages.year_id + 1)
-    with_times = with_upper.rename(columns=dict(year_id="time_lower"))
-    with_std = bounds_to_stdev(with_times)
-    rest = with_std.assign(
-        integrand="mtother",
-        location=location_id,
-        hold_out=0,
-        density="gaussian",
-        eta=nan,
-        nu=nan,
-    )
-    trimmed = rest.drop(columns=["age_group_id", "location_id"])
-    return trimmed[trimmed.sex_id == sex_id].drop(columns=["sex_id"])
-
-
 def construct_weights(initial_mtother_guess, locations, ages, times, location_id, step_size):
+    """A weight is a function of age and time that is the population of a state.
+    For incidence, that state is susceptible. For excess mortality, that
+    state is with-condition. It is the state individuals leave. For total
+    mortality, it's susceptible plus with-condition.
+
+    This function makes a rough estimate of the population size in order to use
+    it as a weight on total mortality.
+    """
     susceptible_places = pd.DataFrame(dict(
         integrand="susceptible",
         location=location_id,
@@ -308,9 +280,11 @@ sex_id = 1
 gbd_round_id = 5
 age_group_set_id = 12
 
+ages_df = db_queries.get_age_metadata(age_group_set_id=age_group_set_id, gbd_round_id=gbd_round_id)
 # This comes in yearly from 1950 to 2018
-mtother = get_mtall(location_id, sex_id, gbd_round_id, age_group_set_id)
-# Reduce years by factor.
+mtother = asdr_as_fit_input(location_id, sex_id, gbd_round_id, ages_df, with_hiv=True)
+# Reduce years by factor because it's slow with too much data.
+# Maybe smarter to work with a dense set of years, so limit to 1990-2000?
 mtother = mtother[(mtother.time_lower % 10) < 0.1]
 
 

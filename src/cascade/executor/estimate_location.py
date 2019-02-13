@@ -1,11 +1,13 @@
 from types import SimpleNamespace
 
 from cascade.core import getLoggers
+from cascade.core.db import db_queries
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
     normalized_bundle_from_disk,
     bundle_to_observations
 )
+from cascade.input_data.db.asdr import asdr_as_fit_input
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -27,7 +29,7 @@ def estimate_location(execution_context, local_settings):
 
 def retrieve_data(execution_context, local_settings):
     data = SimpleNamespace()
-    model_version_id = local_settings.model.model_version_id
+    model_version_id = local_settings.ihme_parameters.model_version_id
 
     if execution_context.parameters.bundle_file:
         data.bundle = normalized_bundle_from_disk(execution_context.parameters.bundle_file)
@@ -39,6 +41,15 @@ def retrieve_data(execution_context, local_settings):
             bundle_id=bundle_id,
             tier=execution_context.parameters.tier
         )
+
+    ages_df = db_queries.get_age_metadata(
+        age_group_set_id=local_settings.policies.age_group_set_id,
+        gbd_round_id=local_settings.ihme_parameters.gbd_round_id
+    )
+    # This comes in yearly from 1950 to 2018
+    data.age_specific_death_rate = asdr_as_fit_input(
+        local_settings.location_id, local_settings.sex_id,
+        local_settings.gbd_round_id, ages_df, with_hiv=local_settings.with_hiv)
 
     return data
 

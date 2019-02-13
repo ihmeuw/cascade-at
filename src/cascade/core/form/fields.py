@@ -8,6 +8,11 @@ from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
+class BoolField(SimpleTypeField):
+    def __init__(self, *args, **kwargs):
+        super().__init__(int, *args, **kwargs)
+
+
 class IntField(SimpleTypeField):
     def __init__(self, *args, **kwargs):
         super().__init__(int, *args, **kwargs)
