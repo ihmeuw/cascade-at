@@ -12,7 +12,7 @@ def set_priors_from_draws(model, draws):
 
     Args:
         model (Model): A complete model for this location. It will be modified.
-        draws (List[Var]): A list of fits to this location.
+        draws (List[DismodGroups]): A list of fits to this location.
     """
     if len(draws) == 0:
         return
@@ -40,7 +40,7 @@ def set_priors_from_parent_draws(model, draws):
 
     Args:
         model (Model): A complete model for this location. It will be modified.
-        draws (List[Var]): A list of fits to the parent of this location.
+        draws (List[DismodGroups]): A list of fits to the parent of this location.
     """
     if draws is None:
         return
@@ -76,7 +76,20 @@ def set_priors_from_parent_draws(model, draws):
 
 
 def gather_draws_for_grid(draws, group_name, key, ages, times):
-    # Gather data from incoming draws into an array of (draw, age, time)
+    """Gather data from incoming draws into an array of (draw, age, time)
+
+    Args:
+        draws (List[Var]): The draws are a list of Var fits.
+        group_name (str): rate, random_effect, alpha, beta, gamma
+        key (str): Key within the group.
+        ages (np.ndarray): ages
+        times (np.ndarray): times
+
+    Returns:
+        (np.ndarray, np.ndarray, np.ndarray): 3 numpy arrays
+        of shape (age, time, draws) where the second two have one-fewer ages
+        and one-fewer times.
+    """
     draw_data = np.zeros((len(draws), len(ages), len(times)))
     for didx in range(len(draws)):
         one_draw = draws[didx][group_name][key]
@@ -91,9 +104,23 @@ def gather_draws_for_grid(draws, group_name, key, ages, times):
 
 
 def gather_draws_for_child_grid(draws, group_name, key, ages, times, location_id):
-    # Gather data from incoming draws into an array of (draw, age, time)
-    # The form for the child with random effect comes from
-    # https://bradbell.github.io/dismod_at/doc/avg_integrand.htm
+    """
+    Gather data from incoming draws into an array of (draw, age, time)
+    The form for the child with random effect comes from
+    https://bradbell.github.io/dismod_at/doc/avg_integrand.htm
+
+    Args:
+        draws (List[Var]): The draws are a list of Var fits.
+        group_name (str): rate, random_effect, alpha, beta, gamma
+        key (str): Key within the group.
+        ages (np.ndarray): ages
+        times (np.ndarray): times
+
+    Returns:
+        (np.ndarray, np.ndarray, np.ndarray): 3 numpy arrays
+        of shape (age, time, draws) where the second two have one-fewer ages
+        and one-fewer times.
+    """
     draw_data = np.zeros((len(draws), len(ages), len(times)))
     for didx in range(len(draws)):
         underlying = draws[didx][group_name][key]

@@ -124,6 +124,7 @@ def grid(non_negative, rng, single_age=False):
         grid_case["age_grid"] = "0"
     elif age_choice == 2:
         grid_case["age_grid"] = "0 1 5 10"
+    # else 0 use default ages
     if single_age:
         grid_case["age_grid"] = "0"
     time_choice = rng.choice([0, 1, 2])
@@ -131,6 +132,7 @@ def grid(non_negative, rng, single_age=False):
         grid_case["time_grid"] = "2000"
     elif time_choice == 2:
         grid_case["time_grid"] = "2000 2005 2010"
+    # else 0 use default times
     return grid_case
 
 
