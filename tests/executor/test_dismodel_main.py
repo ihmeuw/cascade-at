@@ -1,11 +1,10 @@
 import logging
 from getpass import getuser
-from types import SimpleNamespace
 
 import cascade.executor.dismodel_main
 from cascade.core import getLoggers
 from cascade.executor.argument_parser import EPIVIZ_LOG_DIR, CODE_LOG_DIR
-from cascade.executor.dismodel_main import entry, main
+from cascade.executor.dismodel_main import entry, main, parse_arguments
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -64,9 +63,5 @@ def test_main(monkeypatch, ihme):
 
     monkeypatch.setattr(cascade.executor.dismodel_main, "estimate_location", mock_estimate)
 
-    args = SimpleNamespace()
-    args.meid = 23514
-    args.mvid = None
-    args.settings_file = None
-
+    args = parse_arguments("z.db --mvid 267770".split())
     main(args)

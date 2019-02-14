@@ -12,6 +12,7 @@ import numpy as np
 
 from cascade.core.form import (
     Form,
+    BoolField,
     IntField,
     FloatField,
     StrField,
@@ -247,7 +248,9 @@ class Policies(Form):
         [0, 1], constructor=int, default=0, display="Estimate EMR from prevalance", nullable=True
     )
     use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
-    number_of_fixed_effect_samples = IntField(default=10, nullable=True)
+    number_of_fixed_effect_samples = IntField(default=30, nullable=True)
+    with_hiv = BoolField(default=True, nullable=True, display="Whether to get ASDR with HIV deaths.")
+    age_group_set_id = IntField(default=12, nullable=True, display="Age groups for analysis work.")
 
 
 class Configuration(Form):

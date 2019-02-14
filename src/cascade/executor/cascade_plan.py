@@ -1,11 +1,11 @@
 """
 Specification for a whole cascade.
 """
-from copy import deepcopy
 
 import networkx as nx
 
 from cascade.core import getLoggers
+from cascade.core.parameters import ParameterProperty, _ParameterHierarchy
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.builder import policies_from_settings
 from cascade.input_data.db.locations import (
@@ -16,15 +16,21 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class EstimationParameters:
-    def __init__(self, settings, policies, locations,
-                 parent_location_id, grandparent_location_id):
+    def __init__(self, settings, policies, children,
+                 parent_location_id, grandparent_location_id, sex_id):
+
         self.parent_location_id = parent_location_id
-        self.locations = locations
-        # We pass in the grandparent location ID because, while the location
-        # grandparent is known, this may be the top of a Drill within
-        # those locations.
+        self.sex_id = sex_id
+        self.data_access = ParameterProperty()
+        """These decide which data to get."""
+
+        self.run = ParameterProperty()
+        """These affect how the program runs but not its results."""
+
         self.grandparent_location_id = grandparent_location_id
-        self.children = list(sorted(locations.successors(parent_location_id)))
+        """Can be null at top of drill, even when not global location."""
+
+        self.children = children
         self.settings = settings
         self.policies = policies
 
@@ -57,6 +63,7 @@ class CascadePlan:
         self._locations = None
         self._task_graph = None
         self._settings = settings
+        self._args = None
 
     @property
     def cascade_jobs(self):
@@ -73,7 +80,6 @@ class CascadePlan:
         so a drill starting halfway will not have a grandparent location.
         There are child locations for the last task though.
         """
-        local_settings = deepcopy(self._settings)
         parent_task = list(self._task_graph.in_edges(cascade_job_id))
         if parent_task:
             # [only edge][(edge start, edge finish)][(location, index)]
@@ -82,19 +88,50 @@ class CascadePlan:
             grandparent_location_id = None
 
         print(f"settings {type(self._settings)} {self._settings.policies}")
+        parent_location_id = self._location_of_cascade_job(cascade_job_id)
+
+        policies = policies_from_settings(self._settings)
         local_settings = EstimationParameters(
             settings=self._settings,
-            policies=policies_from_settings(self._settings),
-            locations=self._locations,
-            parent_location_id=self._location_of_cascade_job(cascade_job_id),
-            grandparent_location_id=grandparent_location_id
+            policies=policies,
+            children=list(sorted(self._locations.successors(parent_location_id))),
+            parent_location_id=parent_location_id,
+            grandparent_location_id=grandparent_location_id,
+            sex_id=self._settings.model.drill_sex,
         )
+        local_settings.data_access = _ParameterHierarchy(**dict(
+            gbd_round_id=self._settings.gbd_round_id,
+            modelable_entity_id=self._settings.model.modelable_entity_id,
+            model_version_id=self._settings.model.model_version_id,
+            settings_file=self._args.settings_file,
+            bundle_file=self._args.bundle_file,
+            bundle_id=self._settings.model.bundle_id,
+            bundle_study_covariates_file=self._args.bundle_study_covariates_file,
+            tier=2 if self._args.skip_cache else 3,
+            age_group_set_id=policies["age_group_set_id"],
+            with_hiv=policies["with_hiv"]
+        ))
+        local_settings.run = _ParameterHierarchy(**dict(
+            no_upload=self._args.no_upload,
+            db_only=self._args.db_only,
+            num_processes=self._args.num_processes,
+            pdb=self._args.pdb,
+        ))
         return "estimate_location", local_settings
 
     @classmethod
-    def from_epiviz_configuration(cls, locations, settings):
+    def from_epiviz_configuration(cls, locations, settings, args):
+        """
+
+        Args:
+            locations (nx.Graph): A graph of locations in a hierarchy.
+            settings (Configuration): The EpiViz-AT Form (in form.py)
+            args (argparse.Namespace): Parsed arguments.
+
+        """
         plan = cls(settings)
         plan._locations = locations
+        plan._args = args
         if hasattr(settings.model, "drill_location_start") and \
                 settings.model.drill_location_start and settings.model.drill_location_end:
             try:

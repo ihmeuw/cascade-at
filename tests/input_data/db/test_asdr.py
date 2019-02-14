@@ -1,4 +1,4 @@
-from cascade.input_data.db.asdr import load_asdr_to_t3
+from cascade.input_data.db.asdr import load_asdr_to_t3, get_asdr_data
 
 
 def test_load_asdr_to_t3_did_upload(mock_execution_context, mock_database_access, mocker):
@@ -47,3 +47,9 @@ def test_load_asdr_to_t3_no_upload(mock_execution_context, mock_database_access,
     assert not load_asdr_to_t3(mock_execution_context, model_version_id, parent_id, gbd_round_id)
 
     assert not mock_upload_asdr_data.called
+
+
+def test_asdr_columns(ihme):
+    asdr = get_asdr_data(5, [101], with_hiv=True)
+    assert not asdr.duplicated(["age_group_id", "location_id", "year_id", "sex_id"]).any()
+    assert (asdr.location_id == 101).all()

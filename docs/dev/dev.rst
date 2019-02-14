@@ -14,3 +14,4 @@ Developer Manual
    bundle_upload
    design_sketches
    design_ev_main
+   parameters
