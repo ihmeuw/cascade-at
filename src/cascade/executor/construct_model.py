@@ -25,11 +25,22 @@ def rectangular_data_to_var(gridded_data):
     return guess
 
 
+def const_value(value):
+
+    def at_function(age, time):
+        return value
+
+    return at_function
+
+
 def construct_model(data, local_settings):
     ages = np.array(local_settings.settings.model.default_age_grid, dtype=np.float)
     times = np.array(local_settings.settings.model.default_time_grid, dtype=np.float)
 
-    initial_mtother_guess = rectangular_data_to_var(data.age_specific_death_rate)
+    if data.age_specific_death_rate:
+        initial_mtother_guess = rectangular_data_to_var(data.age_specific_death_rate)
+    else:
+        initial_mtother_guess = const_value(0.01)
 
     model = Model(nonzero_rates=["omega"],
                   parent_location=local_settings.parent_location_id,
