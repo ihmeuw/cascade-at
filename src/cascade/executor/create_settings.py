@@ -193,6 +193,31 @@ def create_settings(rng):
         if exists:
             case["rate"].append(rate_grid(rate, rng))
 
+    random_effects = add_random_effects(children, has, rate, rng)
+
+    # Only add to dict if there are some?
+    if random_effects:
+        case["random_effect"] = random_effects
+
+    add_covariates(case, covariates, rng)
+    try:
+        config = json_settings_to_frozen_settings(case, 267890)
+    except SettingsError:
+        pprint(case, indent=2)
+        raise
+    return config
+
+
+def add_covariates(case, covariates, rng):
+    for ckind in ["study", "country"]:
+        scovariates = list()
+        for cov_idx in range(rng.randint(4)):
+            scovariates.append(covariate(ckind, covariates[cov_idx], rng))
+        if scovariates:
+            case[f"{ckind}_covariate"] = scovariates
+
+
+def add_random_effects(children, has, rate, rng):
     random_effects = list()
     if children:
         for random_effect, exists in has.items():
@@ -209,23 +234,7 @@ def create_settings(rng):
                     grid_case["rate"] = random_effect
                     grid_case["location"] = child
                     random_effects.append(grid_case)
-
-    # Only add to dict if there are some?
-    if random_effects:
-        case["random_effect"] = random_effects
-
-    for ckind in ["study", "country"]:
-        scovariates = list()
-        for cov_idx in range(rng.randint(4)):
-            scovariates.append(covariate(ckind, covariates[cov_idx], rng))
-        if scovariates:
-            case[f"{ckind}_covariate"] = scovariates
-    try:
-        config = json_settings_to_frozen_settings(case, 267890)
-    except SettingsError:
-        pprint(case, indent=2)
-        raise
-    return config
+    return random_effects
 
 
 def create_local_settings(rng):
