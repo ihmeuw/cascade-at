@@ -108,6 +108,23 @@ class Model(DismodGroups):
             else:
                 raise RuntimeError(f"Unknown kind of field {group_name}")
 
+    def var_from_mean(self):
+        # Call the mean mu because mean is a function.
+        mu = DismodGroups()
+        for group_name, group in self.items():
+            if group_name != "random_effect":
+                for key, grid in group.items():
+                    mu[group_name][key] = grid.var_from_mean()
+            else:
+                for key, grid in group.items():
+                    # One Random Effect grid creates many child vars.
+                    if key[1] is None:
+                        for child in self.child_location:
+                            mu[group_name][(key[0], child)] = grid.var_from_mean()
+                    else:
+                        mu[group_name][key] = grid.var_from_mean()
+        return mu
+
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return NotImplemented

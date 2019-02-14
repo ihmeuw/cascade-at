@@ -42,6 +42,9 @@ def set_priors_from_parent_draws(model, draws):
         model (Model): A complete model for this location. It will be modified.
         draws (List[Var]): A list of fits to the parent of this location.
     """
+    if draws is None:
+        return
+
     assert len(draws) > 0
 
     for group_name, group in model.items():
@@ -60,7 +63,8 @@ def set_priors_from_parent_draws(model, draws):
                     draws, group_name, key, ages, times, model.location_id)
                 CODELOG.debug(f"Child prior found for {group_name} {key}")
             elif group_name != "rate":
-                draw_value, draw_dage, draw_dtime = gather_draws_for_grid(draws, group_name, key, ages, times)
+                draw_value, draw_dage, draw_dtime = gather_draws_for_grid(
+                    draws, group_name, key, ages, times)
                 CODELOG.debug(f"Prior found for {group_name} {key}")
             else:
                 CODELOG.debug(f"No prior found for {group_name} {key}")
@@ -105,6 +109,9 @@ def gather_draws_for_child_grid(draws, group_name, key, ages, times, location_id
 
 
 def estimate_grid_parameters(grid_priors, draws, ages, times):
+    assert isinstance(draws, np.ndarray)
+    assert len(draws.shape) == 3
+
     for aidx, tidx in it.product(range(len(ages)), range(len(times))):
         age = ages[aidx]
         time = times[tidx]
