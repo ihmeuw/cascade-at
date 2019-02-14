@@ -11,7 +11,7 @@ def test_create_start_finish(ihme):
     args = parse_arguments(["z.db"])
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     locations = location_hierarchy(ec)
-    settings = load_settings(ec, 23514, None, None)
+    settings = load_settings(ec, None, 267845, None)
     settings.model.split_sex = 3
     settings.model.drill_location_start = 4
     settings.model.drill_location_end = 6
@@ -24,7 +24,7 @@ def test_single_start_finish(ihme):
     args = parse_arguments(["z.db"])
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     locations = location_hierarchy(ec)
-    settings = load_settings(ec, 23514, None, None)
+    settings = load_settings(ec, None, 267845, None)
     settings.model.split_sex = 3
     settings.model.drill_location_start = 6
     settings.model.drill_location_end = 6
