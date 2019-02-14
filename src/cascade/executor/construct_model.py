@@ -49,7 +49,6 @@ def construct_model(data, local_settings):
                   covariates=None)
     omega_grid = SmoothGrid(ages=ages, times=times)
     omega_grid.value[:, :] = Uniform(lower=0, upper=1.5, mean=0.01)
-    # omega_grid.value[:, :] = Gaussian(lower=0, upper=1.5, mean=0.01, standard_deviation=value_stdev)
     # XXX This for-loop sets the mean as the initial guess because the fit command
     # needs the initial var and scale var to be on the same age-time grid, and
     # this set is not. The session could switch it to the other age-time grid.
