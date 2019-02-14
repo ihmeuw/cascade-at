@@ -1,10 +1,12 @@
 import networkx as nx
+from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
+from cascade.executor.create_settings import create_settings
 
 
 def test_create_start_finish(ihme):
@@ -55,3 +57,17 @@ def test_iterate_tasks(ihme):
 
         cnt += 1
     assert cnt == 2
+
+
+def test_random_settings():
+    rng = RandomState(342523)
+    args = parse_arguments(["z.db"])
+    locations = nx.DiGraph()
+    locations.add_edges_from([(1, 2), (1, 3), (1, 4), (1, 5)])
+    for i in range(100):
+        settings = create_settings(rng)
+        c = CascadePlan.from_epiviz_configuration(locations, settings, args)
+        for j in c.cascade_jobs:
+            job_kind, job_args = c.cascade_job(j)
+            assert job_kind == "estimate_location"
+            assert job_args is not None
