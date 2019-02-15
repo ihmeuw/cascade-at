@@ -85,7 +85,7 @@ def test_priors_from_draws_fair(monkeypatch):
 
             set_priors_from_draws(model, draws)
 
-            seen = list()
+            seen.clear()
 
 
 def test_estimate_grid_parameters_fair():

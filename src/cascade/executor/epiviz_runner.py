@@ -72,7 +72,7 @@ def add_settings_to_execution_context(ec, settings):
 
     # FIXME: We are using split sex to represent the drill start because
     # there isn't an entry for it in the GUI yet.
-    locations = location_hierarchy(ec)
+    locations = location_hierarchy(ec.parameters.gbd_round_id, location_set_version_id=429)
     ec.parameters.drill_start = location_id_from_location_and_level(
         locations, settings.model.drill_location, settings.model.split_sex
     )[0]
@@ -170,7 +170,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
     MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
 
-    locations = location_hierarchy(execution_context.parameters.gbd_round_id, location_set_id=35)
+    locations = location_hierarchy(execution_context.parameters.gbd_round_id, location_set_version_id=429)
     parent_id = execution_context.parameters.parent_location_id
     children = get_descendants(locations, parent_id, children_only=True)  # noqa: F841
     children_asdr = asdr.query("node_id in @children")

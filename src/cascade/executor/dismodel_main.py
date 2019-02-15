@@ -26,7 +26,6 @@ def main(args):
     start_time = default_timer()
     execution_context = make_execution_context(gbd_round_id=6)
     settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
-    print(settings.location_set_version_id)
     locations = location_hierarchy(
         location_set_version_id=settings.location_set_version_id,
         gbd_round_id=settings.gbd_round_id

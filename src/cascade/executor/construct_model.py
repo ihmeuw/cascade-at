@@ -39,10 +39,9 @@ def construct_model(data, local_settings):
     default_age_time["age"] = np.linspace(0, 100, 21)
     default_age_time["time"] = np.linspace(1990, 2015, 6)
     for kind in ["age", "time"]:
-        if hasattr(ev_settings.model, f"dfault_{kind}_grid"):
-            default_grid = getattr(ev_settings.model, f"dfault_{kind}_grid")
-            if default_grid is not None:
-                default_age_time[kind] = np.sort(np.array(default_grid, dtype=np.float))
+        default_grid = getattr(ev_settings.model, f"default_{kind}_grid")
+        if default_grid is not None:
+            default_age_time[kind] = np.sort(np.array(default_grid, dtype=np.float))
 
     # Use this age and time when a smooth grid doesn't depend on age and time.
     single_age = default_age_time["age"][:1]

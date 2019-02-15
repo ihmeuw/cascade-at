@@ -18,7 +18,7 @@ class Model(DismodGroups):
     """
     def __init__(self, nonzero_rates, parent_location, child_location=None, covariates=None, weights=None):
         """
-        >>> locations = location_hierarchy(6, age_group_set_id=35)
+        >>> locations = location_hierarchy(6, location_set_version_id=429)
         >>> m = Model(["chi", "omega", "iota"], 6, locations.successors(6))
 
         Args:

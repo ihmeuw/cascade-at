@@ -12,7 +12,7 @@ from cascade.executor.create_settings import create_settings
 def test_create_start_finish(ihme):
     args = parse_arguments(["z.db"])
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
-    locations = location_hierarchy(6, location_set_id=35)
+    locations = location_hierarchy(6, location_set_version_id=429)
     settings = load_settings(ec, None, 267845, None)
     settings.model.split_sex = 3
     settings.model.drill_location_start = 4
@@ -25,7 +25,7 @@ def test_create_start_finish(ihme):
 def test_single_start_finish(ihme):
     args = parse_arguments(["z.db"])
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
-    locations = location_hierarchy(6, location_set_id=35)
+    locations = location_hierarchy(6, location_set_version_id=429)
     settings = load_settings(ec, None, 267845, None)
     settings.model.split_sex = 3
     settings.model.drill_location_start = 6
@@ -38,7 +38,7 @@ def test_single_start_finish(ihme):
 def test_iterate_tasks(ihme):
     args = parse_arguments(["z.db"])
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
-    locations = location_hierarchy(6, location_set_id=35)
+    locations = location_hierarchy(6, location_set_version_id=429)
     settings = load_settings(ec, None, 267770, None)
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     cnt = 0
