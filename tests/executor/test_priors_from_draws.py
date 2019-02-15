@@ -10,7 +10,10 @@ from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.construct_model import construct_model
 from cascade.executor.create_settings import create_settings
 from cascade.executor.dismodel_main import parse_arguments
-from cascade.executor.priors_from_draws import set_priors_from_parent_draws, estimate_grid_parameters
+import cascade.executor.priors_from_draws
+from cascade.executor.priors_from_draws import (
+    set_priors_from_parent_draws, estimate_grid_parameters, set_priors_from_draws
+)
 from cascade.model.priors import Uniform, Gaussian
 from cascade.model.smooth_grid import SmoothGrid
 
@@ -26,10 +29,20 @@ def jitter_one_grid(var, rng):
         var[age, time] = (1 + 0.1 * (rng.uniform() - 0.5)) * var[age, time]
 
 
-def test_priors_from_draws_fair():
-    """Stochastic draw construction, can be long-running."""
+def test_priors_from_draws_fair(monkeypatch):
+    """Stochastic draw construction."""
+    # The goal is to check that the logic of which grids are applied is correct.
+    seen = list()
+
+    def _gather(grid_draws, ages, times):
+        seen.append((grid_draws._group, grid_draws._key, grid_draws.__class__.__name__))
+        a = np.full((len(ages), len(times), len(grid_draws)), 0.01, dtype=np.float)
+        return a, a[:-1, :, :], a[:, :-1, :]
+
+    monkeypatch.setattr(cascade.executor.priors_from_draws, "gather_draws_for_grid", _gather)
+
     rng = RandomState(2340238)
-    draw_cnt = 3
+    draw_cnt = 3  # Can be long-running. Increase for focused testing.
     for i in range(5):
         args = parse_arguments(["z.db"])
         locations = nx.DiGraph()
@@ -38,22 +51,41 @@ def test_priors_from_draws_fair():
         c = CascadePlan.from_epiviz_configuration(locations, settings, args)
         j = list(c.cascade_jobs)
         draws = None
+        parent_model_has_random_effects = False
+
         for job in j:
             job_kind, job_args = c.cascade_job(job)
             data = SimpleNamespace()
             data.age_specific_death_rate = None
             model = construct_model(data, job_args)
 
+            # We aren't asking whether the values are correct but whether
+            # the logic paths work.
             set_priors_from_parent_draws(model, draws)
+
+            if draws is not None:
+                base_rate_set = False
+                for group, key, klass in seen:
+                    if group == "rate" and klass == "RandomEffectDrawFunction":
+                        base_rate_set = True
+                    assert group != "random_effect", "random effects should never be set"
+                if parent_model_has_random_effects:
+                    assert base_rate_set, f"base rate unset {seen}"
 
             draws = list()
             for draw_idx in range(draw_cnt):
                 var = model.var_from_mean()
                 jitter(var, rng)
                 draws.append(var)
+            parent_model_has_random_effects = len(model.random_effect) > 0
+
+            set_priors_from_draws(model, draws)
+
+            seen = list()
 
 
 def test_estimate_grid_parameters_fair():
+    """Tests for a single grid whether its priors are set in order."""
     draw_cnt = 1000
     rng = RandomState(2340238)
     ages = np.linspace(0, 100, 5)
