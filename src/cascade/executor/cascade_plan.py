@@ -17,7 +17,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 class EstimationParameters:
     def __init__(self, settings, policies, children,
-                 parent_location_id, grandparent_location_id, sex_id):
+                 parent_location_id, grandparent_location_id, sex_id, number_of_fixed_effect_samples):
 
         self.parent_location_id = parent_location_id
         self.sex_id = sex_id
@@ -33,6 +33,7 @@ class EstimationParameters:
         self.children = children
         self.settings = settings
         self.policies = policies
+        self.number_of_fixed_effect_samples = number_of_fixed_effect_samples
 
 
 class CascadePlan:
@@ -81,7 +82,7 @@ class CascadePlan:
         There are child locations for the last task though.
         """
         parent_task = list(self._task_graph.in_edges(cascade_job_id))
-        if parent_task:
+        if parent_task and self._job_kind(parent_task[0][0]) == "estimate_location":
             # [only edge][(edge start, edge finish)][(location, index)]
             grandparent_location_id = self._location_of_cascade_job(parent_task[0][0])
         else:
@@ -98,6 +99,7 @@ class CascadePlan:
             parent_location_id=parent_location_id,
             grandparent_location_id=grandparent_location_id,
             sex_id=self._settings.model.drill_sex,
+            number_of_fixed_effect_samples=policies["number_of_fixed_effect_samples"],
         )
         local_settings.data_access = _ParameterHierarchy(**dict(
             gbd_round_id=self._settings.gbd_round_id,
@@ -109,7 +111,10 @@ class CascadePlan:
             bundle_study_covariates_file=self._args.bundle_study_covariates_file,
             tier=2 if self._args.skip_cache else 3,
             age_group_set_id=policies["age_group_set_id"],
-            with_hiv=policies["with_hiv"]
+            with_hiv=policies["with_hiv"],
+            cod_version=self._settings.csmr_cod_output_version_id,
+            location_set_version_id=self._settings.location_set_version_id,
+            add_csmr_cause=self._settings.model.add_csmr_cause,
         ))
         local_settings.run = _ParameterHierarchy(**dict(
             no_upload=self._args.no_upload,
@@ -117,7 +122,7 @@ class CascadePlan:
             num_processes=self._args.num_processes,
             pdb=self._args.pdb,
         ))
-        return "estimate_location", local_settings
+        return self._job_kind(cascade_job_id), local_settings
 
     @classmethod
     def from_epiviz_configuration(cls, locations, settings, args):
@@ -144,7 +149,12 @@ class CascadePlan:
                           f"drill location start and end.")
             raise InputDataError(f"Missing drill location start and end.")
         MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
-        tasks = [(drill_location, 0) for drill_location in drill]
+        drill = list(drill)
+        if args.skip_cache:
+            setup_task = []
+        else:
+            setup_task = [(drill[0], "bundle_setup")]
+        tasks = setup_task + [(drill_location, 0) for drill_location in drill]
         task_pairs = list(zip(tasks[:-1], tasks[1:]))
         plan._task_graph = nx.DiGraph()
         plan._task_graph.add_nodes_from(tasks)
@@ -152,6 +162,12 @@ class CascadePlan:
         # Add a custom graph attribute to record the tree root.
         plan._task_graph.graph["root"] = tasks[0]
         return plan
+
+    def _job_kind(self, cascade_job_id):
+        if cascade_job_id[1] == "bundle_setup":
+            return "bundle_setup"
+        else:
+            return "estimate_location"
 
     def _location_of_cascade_job(self, cascade_job_id):
         return cascade_job_id[0]

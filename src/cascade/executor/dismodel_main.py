@@ -10,8 +10,10 @@ from timeit import default_timer
 
 from cascade.core import getLoggers, __version__
 from cascade.executor.argument_parser import DMArgumentParser
+from cascade.executor.cascade_logging import logging_config
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.estimate_location import estimate_location
+from cascade.executor.setup_tier import setup_tier_data
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
@@ -22,16 +24,20 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 def main(args):
     start_time = default_timer()
-    execution_context = make_execution_context(gbd_round_id=5)
+    execution_context = make_execution_context(gbd_round_id=6)
     settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
-    locations = location_hierarchy(execution_context)
+    locations = location_hierarchy(
+        location_set_version_id=settings.location_set_version_id,
+        gbd_round_id=settings.gbd_round_id
+    )
     plan = CascadePlan.from_epiviz_configuration(locations, settings, args)
 
     for cascade_task_identifier in plan.cascade_jobs:
         cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
 
         if cascade_job == "bundle_setup":
-            pass  # Move bundle to next tier
+            # Move bundle to next tier
+            setup_tier_data(execution_context, this_location_work.data_access, this_location_work.parent_location_id)
         elif cascade_job == "estimate_location":
             estimate_location(execution_context, this_location_work)
 
@@ -45,6 +51,7 @@ def entry(args=None):
     os.umask(readable_by_all)
 
     args = parse_arguments(args)
+    logging_config(args)
 
     MATHLOG.debug(f"Cascade version {__version__}.")
     if "JOB_ID" in os.environ:

@@ -18,8 +18,8 @@ class Model(DismodGroups):
     """
     def __init__(self, nonzero_rates, parent_location, child_location=None, covariates=None, weights=None):
         """
-        >>> locations = location_hierarchy(execution_context)
-        >>> m = Model(["chi", "omega", "iota"], 6, locations)
+        >>> locations = location_hierarchy(6, location_set_version_id=429)
+        >>> m = Model(["chi", "omega", "iota"], 6, locations.successors(6))
 
         Args:
             nonzero_rates (List[str]): A list of rates, using the Dismod-AT

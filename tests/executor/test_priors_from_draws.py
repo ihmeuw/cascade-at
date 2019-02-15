@@ -46,8 +46,9 @@ def test_priors_from_draws_fair(monkeypatch):
     for i in range(5):
         args = parse_arguments(["z.db"])
         locations = nx.DiGraph()
-        locations.add_edges_from([(1, 2), (1, 3), (1, 4), (1, 5), (3, 6), (3, 7)])
-        settings = create_settings(rng)
+        children = [4, 31, 64, 103, 137, 158, 166]
+        locations.add_edges_from([(1, c) for c in children])
+        settings = create_settings(rng, children)
         c = CascadePlan.from_epiviz_configuration(locations, settings, args)
         j = list(c.cascade_jobs)
         draws = None
@@ -55,8 +56,11 @@ def test_priors_from_draws_fair(monkeypatch):
 
         for job in j:
             job_kind, job_args = c.cascade_job(job)
+            if job_kind != "estimate_location":
+                continue
+
             data = SimpleNamespace()
-            data.age_specific_death_rate = None
+            data.locations = locations
             model = construct_model(data, job_args)
 
             # We aren't asking whether the values are correct but whether
@@ -81,7 +85,7 @@ def test_priors_from_draws_fair(monkeypatch):
 
             set_priors_from_draws(model, draws)
 
-            seen = list()
+            seen.clear()
 
 
 def test_estimate_grid_parameters_fair():

@@ -1,12 +1,11 @@
 import numpy as np
 import pandas as pd
 
+from cascade.core import getLoggers
+from cascade.core.db import dataframe_from_disk
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
-from cascade.dismod.constants import DensityEnum
-from cascade.core.db import dataframe_from_disk
-from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -94,20 +93,19 @@ def bundle_to_observations(bundle_df, parent_location_id, global_data_eta):
     MATHLOG.info(f"The set of weights for this bundle is {weight_method}.")
     return pd.DataFrame(
         {
-            "measure": bundle_df["measure"],
-            "node_id": pd.Series(location_id, dtype=np.int),
-            "density": DensityEnum.gaussian,
+            "integrand": bundle_df["measure"],
+            "location": location_id,
+            "density": "gaussian",
             "eta": global_data_eta or np.nan,
-            "weight": weight_method,
             "age_lower": bundle_df["age_lower"],
             "age_upper": bundle_df["age_upper"] + demographic_interval_specification,
             # The years should be floats in the bundle.
             "time_lower": bundle_df["time_lower"].astype(np.float),
             "time_upper": bundle_df["time_upper"].astype(np.float) + demographic_interval_specification,
             "mean": bundle_df["mean"],
-            "standard_error": bundle_df["standard_error"],
+            "std": bundle_df["standard_error"],
             "sex_id": bundle_df["sex_id"],
-            "seq": bundle_df["seq"],
+            "name": bundle_df["seq"].astype(str),
             "hold_out": bundle_df["hold_out"],
         }
     )

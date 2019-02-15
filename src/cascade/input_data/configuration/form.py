@@ -121,6 +121,7 @@ class Smoothing(Form):
     default = SmoothingPriorGroup(display="Defaults")
     mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
     detail = FormList(SmoothingPrior, nullable=True, display="Detail")
+    age_time_specific = IntField(display="Age and Time specific", nullable=True)
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
@@ -280,9 +281,10 @@ class Configuration(Form):
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)
     csmr_cod_output_version_id = IntField()
+    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
 
     csmr_mortality_output_version_id = Dummy()
-    location_set_version_id = Dummy()
+    location_set_version_id = IntField(default=429, nullable=True)
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)

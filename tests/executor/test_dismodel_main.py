@@ -63,5 +63,5 @@ def test_main(monkeypatch, ihme):
 
     monkeypatch.setattr(cascade.executor.dismodel_main, "estimate_location", mock_estimate)
 
-    args = parse_arguments("z.db --mvid 267770".split())
+    args = parse_arguments("z.db --mvid 267737".split())
     main(args)

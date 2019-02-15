@@ -16,6 +16,7 @@ from copy import deepcopy
 from pprint import pprint
 
 import networkx as nx
+from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.dismodel_main import parse_arguments
@@ -42,7 +43,7 @@ BASE_CASE = {
         "drill": "drill",
         "drill_sex": 2,
         "drill_location_start": 1,
-        "drill_location_end": 3,
+        "drill_location_end": 137,
         "zero_sum_random": [
             "iota",
             "rho",
@@ -153,7 +154,7 @@ def covariate(study_country, covariate_idx, rng):
     return grid_case
 
 
-def create_settings(rng):
+def create_settings(rng, locations):
     """
     Makes a random settings, as though EpiViz-AT made it.
 
@@ -169,7 +170,7 @@ def create_settings(rng):
 
     # The parent location id is 1
     # Would you ever have one child random effect?
-    child_selection = [None, [2], [2, 3, 4]]
+    child_selection = [None, [locations[0]], locations]
     children = child_selection[rng.choice([0, 1, 2], p=[0.2, 0.05, 0.75])]
 
     covariates = [1604, 2453, 6497]
@@ -222,7 +223,7 @@ def add_covariates(case, covariates, rng):
 def add_random_effects(children, has, rate, rng):
     random_effects = list()
     if children:
-        for random_effect, exists in has.items():
+        for random_effect, exists in [(x, y) for (x, y) in has.items() if y]:
             single_age = rate == "pini"
             choice = rng.choice(["none", "all", "every"])
             if choice == "all":
@@ -239,14 +240,16 @@ def add_random_effects(children, has, rate, rng):
     return random_effects
 
 
-def create_local_settings(rng):
+def create_local_settings(rng=None):
     """Make a local settings object, all the way from the EpiViz-AT form."""
+    rng = rng if rng else RandomState(3242352)
     args = parse_arguments(["z.db"])
     locations = nx.DiGraph()
-    locations.add_edges_from([(1, 2), (1, 3), (1, 4), (1, 5)])
-    settings = create_settings(rng)
+    children = [4, 31, 64, 103, 137, 158, 166]
+    locations.add_edges_from([(1, c) for c in children])
+    settings = create_settings(rng, children)
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     j = list(c.cascade_jobs)
-    job_kind, job_args = c.cascade_job(j[rng.randint(len(j))])
+    job_kind, job_args = c.cascade_job(j[rng.randint(1, len(j))])
     assert job_kind == "estimate_location"
-    return job_args
+    return job_args, locations

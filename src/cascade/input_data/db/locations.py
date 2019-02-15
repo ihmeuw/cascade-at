@@ -6,13 +6,14 @@ from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def location_hierarchy(execution_context):
+def location_hierarchy(gbd_round_id, location_set_version_id=None, location_set_id=None):
     """
     The GBD location hierarchy as a networkx graph where each node is the
     location id, and its properties are all properties returned by
     the dbtrees library. For instance
 
-    >>> locations = location_hierarchy(ec)
+    >>> locations = location_hierarchy(6, location_set_id=35)
+    >>> locations = location_hierarchy(6, location_set_version_id=429)
     >>> assert locations.nodes[1]["level"] == 0
     >>> assert locations.nodes[13]["location_name"] == "Malaysia"
     >>> assert locations.successors(5) == [6, 7, 8]
@@ -24,8 +25,16 @@ def location_hierarchy(execution_context):
     Returns:
         nx.DiGraph: Each node is the location id as an integer.
     """
+    choose_by = dict()
+    if location_set_id:
+        choose_by["location_set_id"] = location_set_id
+    elif location_set_version_id:
+        choose_by["location_set_version_id"] = location_set_version_id
+    else:
+        raise TypeError(f"Must specify either location set version or location set.")
+
     location_df = db_queries.get_location_metadata(
-        location_set_id=35, gbd_round_id=execution_context.parameters.gbd_round_id)
+        gbd_round_id=gbd_round_id, **choose_by)
     G = nx.DiGraph()
     G.add_nodes_from([(int(row.location_id), row._asdict()) for row in location_df.itertuples()])
     # GBD encodes the global node as having itself as a parent.
@@ -84,7 +93,7 @@ def location_id_from_start_and_finish(locations, start, finish):
     try:
         drill_nodes = nx.ancestors(locations, finish) | {finish}
     except nx.NetworkXError as nxe:
-        raise ValueError(f"Location {finish} isn't in the location set.") from nxe
+        raise ValueError(f"Location {finish} isn't in the location set {list(locations.nodes)}.") from nxe
     drill_to_top = list(nx.topological_sort(nx.subgraph(locations, nbunch=drill_nodes)))
     try:
         drill = drill_to_top[drill_to_top.index(start):]

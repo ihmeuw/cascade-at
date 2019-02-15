@@ -51,7 +51,7 @@ def test_omega_constraint_as_effect(ihme, monkeypatch):
     """Assert that the omega constraint is an effect"""
     parent_id = 6
     ec = make_execution_context(model_version_id=265976, gbd_round_id=5, parent_location_id=parent_id, tier=3)
-    locations = location_hierarchy(ec)
+    locations = location_hierarchy(6, location_set_id=35)
     children = get_descendants(locations, parent_id, children_only=True)
     assert len(children) > 0
     mc = ModelContext()
