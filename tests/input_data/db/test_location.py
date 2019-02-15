@@ -2,7 +2,6 @@ import networkx as nx
 import pytest
 
 from cascade.input_data.db.locations import get_descendants, location_id_from_location_and_level, location_hierarchy
-from cascade.testing_utilities import make_execution_context
 
 
 class MockLocation:
@@ -120,8 +119,7 @@ def test_location_id_from_location_and_level__too_low(sample_locations):
 
 
 def test_location_hierarchy_networkx(ihme):
-    ec = make_execution_context(gbd_round_id=5)
-    locs = location_hierarchy(ec)
+    locs = location_hierarchy(6, location_set_id=35)
     assert nx.is_directed_acyclic_graph(locs)
     assert nx.dag_longest_path_length(locs) == 6
     assert nx.dag_longest_path(locs)[0] == 1
@@ -130,7 +128,6 @@ def test_location_hierarchy_networkx(ihme):
 
 
 def test_ancestors_level(ihme):
-    ec = make_execution_context(gbd_round_id=5)
-    locs = location_hierarchy(ec)
+    locs = location_hierarchy(6, location_set_id=35)
     drill = list(nx.topological_sort(nx.subgraph(locs, nbunch=nx.ancestors(locs, 491))))
     assert drill == [1, 4, 5, 6]

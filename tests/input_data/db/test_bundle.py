@@ -54,7 +54,8 @@ def test_freeze_bundle__did_freeze(mock_execution_context, mock_database_access,
         "cascade.input_data.db.bundle.get_study_covariates")
     mock_put_covariate_data = mocker.patch("cascade.input_data.db.bundle._upload_study_covariates_to_tier_3")
 
-    assert freeze_bundle(mock_execution_context)
+    mvid = 12345
+    assert freeze_bundle(mock_execution_context, mvid)
 
     cursor = mock_database_access["cursor"]
     model_version_id = mock_execution_context.parameters.model_version_id
@@ -70,7 +71,8 @@ def test_freeze_bundle__did_not_freeze(mock_execution_context, mock_database_acc
     mock_put_bundle_data = mocker.patch("cascade.input_data.db.bundle._upload_bundle_data_to_tier_3")
     mock_put_covariate_data = mocker.patch("cascade.input_data.db.bundle._upload_study_covariates_to_tier_3")
 
-    assert not freeze_bundle(mock_execution_context)
+    mvid = 234
+    assert not freeze_bundle(mock_execution_context, mvid)
 
     assert not mock_put_bundle_data.called
     assert not mock_put_covariate_data.called

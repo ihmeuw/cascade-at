@@ -170,7 +170,7 @@ def add_omega_constraint(model_context, execution_context, sex_id):
     model_context.rates.omega.parent_smooth = build_constraint(parent_asdr)
     MATHLOG.debug(f"Add {parent_asdr.shape[0]} omega constraints from age-standardized death rate data to the parent.")
 
-    locations = location_hierarchy(execution_context)
+    locations = location_hierarchy(execution_context.parameters.gbd_round_id, location_set_id=35)
     parent_id = execution_context.parameters.parent_location_id
     children = get_descendants(locations, parent_id, children_only=True)  # noqa: F841
     children_asdr = asdr.query("node_id in @children")
@@ -229,7 +229,7 @@ def prepare_data(execution_context, settings):
     gbd_round_id = execution_context.parameters.gbd_round_id
 
     if execution_context.parameters.tier == 3:
-        freeze_bundle(execution_context, execution_context.parameters.bundle_id)
+        freeze_bundle(execution_context, model_version_id, execution_context.parameters.bundle_id)
 
         if execution_context.parameters.add_csmr_cause is not None:
             MATHLOG.info(

@@ -6,7 +6,6 @@ from numpy import nan
 from cascade.core.db import cursor, db_queries
 from cascade.core.log import getLoggers
 from cascade.input_data.db import AGE_GROUP_SET_ID
-from cascade.input_data.db.locations import get_descendants, location_hierarchy
 from cascade.stats.estimation import bounds_to_stdev
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -151,13 +150,13 @@ def _upload_asdr_data_to_tier_3(gbd_round_id, cursor, model_version_id, asdr_dat
     CODELOG.debug(f"uploaded {len(asdr_data)} lines of asdr data")
 
 
-def load_asdr_to_t3(execution_context, model_version_id, parent_location_id, gbd_round_id) -> bool:
+def load_asdr_to_t3(execution_context, data_access, location_and_children):
     """
     Upload to t3_model_version_asdr if it's not already there.
     """
+    model_version_id = data_access.model_version_id
+    gbd_round_id = data_access.gbd_round_id
     database = execution_context.parameters.database
-    locations = location_hierarchy(execution_context)
-    location_and_children = get_descendants(locations, parent_location_id, children_only=True, include_parent=True)
     locations_with_asdr_in_t3 = _asdr_in_t3(execution_context, model_version_id)
     missing_from_t3 = set(location_and_children) - set(locations_with_asdr_in_t3)
     if missing_from_t3:

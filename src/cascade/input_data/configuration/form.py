@@ -282,7 +282,7 @@ class Configuration(Form):
     csmr_cod_output_version_id = IntField()
 
     csmr_mortality_output_version_id = Dummy()
-    location_set_version_id = Dummy()
+    location_set_version_id = IntField(default=35, nullable=True)
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)

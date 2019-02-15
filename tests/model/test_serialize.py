@@ -266,16 +266,6 @@ def test_make_node_table(base_context, mock_get_location_hierarchy_from_gbd):
     assert_frame_equal(node_table, expected, check_like=True)
 
 
-def test_live_locations_node_table(ihme):
-    """Ensure Global has no parent."""
-    ec = make_execution_context(gbd_round_id=5)
-    node_table, location_to_node_func = make_node_table(ec)
-    first_row = node_table.iloc[0]
-    assert np.isnan(first_row.parent)
-    assert first_row.c_location_id == 1
-    assert first_row.node_id == 0
-
-
 def test_make_data_table(base_context, mock_get_location_hierarchy_from_gbd):
     node_table, _ = make_node_table(base_context)
     renames = dict(x_sex="x_0")

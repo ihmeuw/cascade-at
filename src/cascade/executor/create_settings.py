@@ -247,6 +247,6 @@ def create_local_settings(rng):
     settings = create_settings(rng)
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     j = list(c.cascade_jobs)
-    job_kind, job_args = c.cascade_job(j[rng.randint(len(j))])
+    job_kind, job_args = c.cascade_job(j[rng.randint(1, len(j))])
     assert job_kind == "estimate_location"
     return job_args

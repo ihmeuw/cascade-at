@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from cascade.core import getLoggers
 from cascade.core.db import db_queries
+from cascade.executor.construct_model import construct_model
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
     normalized_bundle_from_disk,
@@ -24,15 +25,18 @@ def estimate_location(execution_context, local_settings):
             a location ID corresponding to the location for this fit.
     """
     input_data = retrieve_data(execution_context, local_settings)
-    computed_fit = compute_location(input_data, execution_context, local_settings)
+    construct_model(input_data, local_settings)
+    computed_fit = compute_location(input_data, local_settings)
     save_outputs(computed_fit, execution_context, local_settings)
 
 
 def retrieve_data(execution_context, local_settings):
     data = SimpleNamespace()
-    model_version_id = local_settings.data_access.model_version_id
+    data_access = local_settings.data_access
+    model_version_id = data_access.model_version_id
 
-    data.locations = location_hierarchy(execution_context)
+    data.locations = location_hierarchy(
+        data_access.gbd_round_id, location_set_version_id=data_access.location_set_version_id)
 
     if local_settings.data_access.bundle_file:
         data.bundle = normalized_bundle_from_disk(local_settings.data_access.bundle_file)
@@ -58,7 +62,7 @@ def retrieve_data(execution_context, local_settings):
     return data
 
 
-def compute_location(input_data, execution_context, local_settings):
+def compute_location(input_data, local_settings):
 
     parent_location_id = local_settings.parent_location_id
     global_data_eta = local_settings.settings.eta

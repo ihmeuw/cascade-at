@@ -49,11 +49,9 @@ BUNDLE_COLUMNS = [
 ]
 
 
-def _bundle_is_frozen(execution_context):
+def _bundle_is_frozen(execution_context, model_version_id):
     """Checks if data for the current model_version_id already exists in tier 3.
     """
-
-    model_version_id = execution_context.parameters.model_version_id
     query = """
     select exists(
              select * from epi.t3_model_version_dismod
@@ -180,7 +178,7 @@ def _upload_study_covariates_to_tier_3(cursor, model_version_id, covariate_data)
     CODELOG.debug(f"uploaded {len(covariate_data)} lines of covariate")
 
 
-def freeze_bundle(execution_context, bundle_id=None) -> bool:
+def freeze_bundle(execution_context, model_version_id, bundle_id=None) -> bool:
     """Freezes the bundle data attached to the current model_version_id if necessary.
 
     The freezing process works as follows:
@@ -191,10 +189,7 @@ def freeze_bundle(execution_context, bundle_id=None) -> bool:
     Returns:
       True if any data was promoted and False otherwise
     """
-
-    model_version_id = execution_context.parameters.model_version_id
-
-    if _bundle_is_frozen(execution_context):
+    if _bundle_is_frozen(execution_context, model_version_id):
         CODELOG.info(
             f"Bundle data for model_version_id {model_version_id} already frozen, doing nothing."
         )
@@ -202,10 +197,10 @@ def freeze_bundle(execution_context, bundle_id=None) -> bool:
     else:
         CODELOG.info(f"Freezing bundle data for model_version_id {model_version_id}")
         if bundle_id is None:
-            bundle_id = _get_bundle_id(execution_context)
+            bundle_id = _get_bundle_id(execution_context, model_version_id)
         bundle_data = _get_bundle_data(
             execution_context, model_version_id, bundle_id, tier=2, exclude_outliers=False)
-        covariate_data = get_study_covariates(execution_context, bundle_id, tier=2)
+        covariate_data = get_study_covariates(execution_context, bundle_id, model_version_id, tier=2)
         with cursor(execution_context) as c:
             _upload_bundle_data_to_tier_3(c, model_version_id, bundle_data)
             _upload_study_covariates_to_tier_3(c, model_version_id, covariate_data)
