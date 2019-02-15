@@ -17,7 +17,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 class EstimationParameters:
     def __init__(self, settings, policies, children,
-                 parent_location_id, grandparent_location_id, sex_id):
+                 parent_location_id, grandparent_location_id, sex_id, number_of_fixed_effect_samples):
 
         self.parent_location_id = parent_location_id
         self.sex_id = sex_id
@@ -33,6 +33,7 @@ class EstimationParameters:
         self.children = children
         self.settings = settings
         self.policies = policies
+        self.number_of_fixed_effect_samples = number_of_fixed_effect_samples
 
 
 class CascadePlan:
@@ -98,6 +99,7 @@ class CascadePlan:
             parent_location_id=parent_location_id,
             grandparent_location_id=grandparent_location_id,
             sex_id=self._settings.model.drill_sex,
+            number_of_fixed_effect_samples=policies["number_of_fixed_effect_samples"],
         )
         local_settings.data_access = _ParameterHierarchy(**dict(
             gbd_round_id=self._settings.gbd_round_id,

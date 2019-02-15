@@ -93,7 +93,7 @@ def location_id_from_start_and_finish(locations, start, finish):
     try:
         drill_nodes = nx.ancestors(locations, finish) | {finish}
     except nx.NetworkXError as nxe:
-        raise ValueError(f"Location {finish} isn't in the location set.") from nxe
+        raise ValueError(f"Location {finish} isn't in the location set {list(locations.nodes)}.") from nxe
     drill_to_top = list(nx.topological_sort(nx.subgraph(locations, nbunch=drill_nodes)))
     try:
         drill = drill_to_top[drill_to_top.index(start):]
