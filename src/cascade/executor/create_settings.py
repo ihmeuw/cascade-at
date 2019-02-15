@@ -16,6 +16,7 @@ from copy import deepcopy
 from pprint import pprint
 
 import networkx as nx
+from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.dismodel_main import parse_arguments
@@ -239,8 +240,9 @@ def add_random_effects(children, has, rate, rng):
     return random_effects
 
 
-def create_local_settings(rng):
+def create_local_settings(rng=None):
     """Make a local settings object, all the way from the EpiViz-AT form."""
+    rng = rng if rng else RandomState(3242352)
     args = parse_arguments(["z.db"])
     locations = nx.DiGraph()
     locations.add_edges_from([(1, 2), (1, 3), (1, 4), (1, 5)])

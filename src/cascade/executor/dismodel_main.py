@@ -10,6 +10,7 @@ from timeit import default_timer
 
 from cascade.core import getLoggers, __version__
 from cascade.executor.argument_parser import DMArgumentParser
+from cascade.executor.cascade_logging import logging_config
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.estimate_location import estimate_location
 from cascade.executor.setup_tier import setup_tier_data
@@ -51,6 +52,7 @@ def entry(args=None):
     os.umask(readable_by_all)
 
     args = parse_arguments(args)
+    logging_config(args)
 
     MATHLOG.debug(f"Cascade version {__version__}.")
     if "JOB_ID" in os.environ:

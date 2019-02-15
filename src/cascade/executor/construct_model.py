@@ -34,8 +34,9 @@ def const_value(value):
 
 
 def construct_model(data, local_settings):
-    ages = np.array(local_settings.settings.model.default_age_grid, dtype=np.float)
-    times = np.array(local_settings.settings.model.default_time_grid, dtype=np.float)
+    ev_settings = local_settings.settings
+    default_ages = np.array(ev_settings.model.default_age_grid, dtype=np.float)
+    default_times = np.array(ev_settings.model.default_time_grid, dtype=np.float)
 
     if data.age_specific_death_rate:
         initial_mtother_guess = rectangular_data_to_var(data.age_specific_death_rate)
@@ -47,7 +48,7 @@ def construct_model(data, local_settings):
                   child_location=[],
                   weights=None,
                   covariates=None)
-    omega_grid = SmoothGrid(ages=ages, times=times)
+    omega_grid = SmoothGrid(ages=default_ages, times=default_times)
     omega_grid.value[:, :] = Uniform(lower=0, upper=1.5, mean=0.01)
     # XXX This for-loop sets the mean as the initial guess because the fit command
     # needs the initial var and scale var to be on the same age-time grid, and

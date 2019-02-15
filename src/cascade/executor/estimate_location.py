@@ -10,6 +10,7 @@ from cascade.input_data.configuration.construct_bundle import (
 )
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.locations import location_hierarchy
+from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -25,8 +26,10 @@ def estimate_location(execution_context, local_settings):
             a location ID corresponding to the location for this fit.
     """
     input_data = retrieve_data(execution_context, local_settings)
-    construct_model(input_data, local_settings)
-    computed_fit = compute_location(input_data, local_settings)
+    modified_data = modify_input_data(input_data, local_settings)
+    model = construct_model(modified_data, local_settings)
+    set_priors_from_parent_draws(model, input_data.draws)
+    computed_fit = compute_location(modified_data.observations, local_settings)
     save_outputs(computed_fit, execution_context, local_settings)
 
 
@@ -41,11 +44,10 @@ def retrieve_data(execution_context, local_settings):
     if local_settings.data_access.bundle_file:
         data.bundle = normalized_bundle_from_disk(local_settings.data_access.bundle_file)
     else:
-        bundle_id = local_settings.data_access.bundle_id
         data.bundle = normalized_bundle_from_database(
             execution_context,
             model_version_id,
-            bundle_id=bundle_id,
+            bundle_id=local_settings.data_access.bundle_id,
             tier=local_settings.data_access.tier
         )
 
@@ -59,16 +61,27 @@ def retrieve_data(execution_context, local_settings):
         local_settings.parent_location_id, local_settings.sex_id,
         local_settings.data_access.gbd_round_id, ages_df, with_hiv=local_settings.data_access.with_hiv)
 
+    # These are the draws as output of the parent location.
+    data.draws = None
+
     return data
 
 
+def modify_input_data(input_data, local_settings):
+    ev_settings = local_settings.settings
+    # These are suitable for input to the fit.
+    input_data.observations = bundle_to_observations(
+        input_data.bundle,
+        local_settings.parent_location_id,
+        ev_settings.eta
+    )
+    # ev_settings.data_eta_by_integrand is a dummy in form.py.
+    MATHLOG.info(f"Ignoring data_eta_by_integrand")
+    return input_data
+
+
 def compute_location(input_data, local_settings):
-
-    parent_location_id = local_settings.parent_location_id
-    global_data_eta = local_settings.settings.eta
-    observations = bundle_to_observations(input_data.bundle, parent_location_id, global_data_eta)
-
-    return observations
+    return None
 
 
 def save_outputs(computed_fit, execution_context, local_settings):
