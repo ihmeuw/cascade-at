@@ -6,6 +6,7 @@ import pandas as pd
 from cascade.dismod.constants import PriorKindEnum
 from cascade.model.age_time_grid import AgeTimeGrid
 from cascade.model.priors import prior_distribution
+from cascade.model.var import Var
 
 
 class _PriorGrid(AgeTimeGrid):
@@ -91,6 +92,18 @@ class SmoothGrid:
         model variables are defined by this SmoothGrid, which indicates how
         much this SmoothGrid contributes to the size of the problem."""
         return sum(v.variable_count() for v in self._view.values())
+
+    def var_from_mean(self):
+        """Given a prior grid, create a Var from the mean of the value priors.
+
+        Returns:
+            Var: A new Var object with the same ages and times and value
+            equal to the mean.
+        """
+        var = Var(self.ages, self.times)
+        for age, time in self.age_time():
+            var[age, time] = self.value[age, time].mean
+        return var
 
     def __len__(self):
         return self.variable_count()
