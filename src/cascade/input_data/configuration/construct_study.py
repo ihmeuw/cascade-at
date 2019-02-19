@@ -124,7 +124,8 @@ def get_bundle_study_covariates(model_context, bundle_id, execution_context, tie
     if execution_context.parameters.bundle_study_covariates_file:
         sparse_covariate_data = dataframe_from_disk(execution_context.parameters.bundle_study_covariates_file)
     else:
-        sparse_covariate_data = get_study_covariates(execution_context, bundle_id, tier=tier)
+        mvid = execution_context.parameters.model_version_id
+        sparse_covariate_data = get_study_covariates(execution_context, bundle_id, mvid, tier=tier)
     unique_ids = list(sorted(sparse_covariate_data.study_covariate_id.unique()))
     records = CovariateRecords("study")
     id_to_name = covariate_ids_to_names(execution_context, unique_ids)

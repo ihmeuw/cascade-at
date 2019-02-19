@@ -105,6 +105,8 @@ def model_to_dismod_file(model, execution_context):
 
     bundle_fit.option = make_option_table(model, location_to_node_func)
 
+    bundle_fit.c_execution_data = make_execution_data_table(execution_context)
+
     return bundle_fit
 
 
@@ -552,7 +554,7 @@ def make_rate_and_nslist_tables(context, smooth_id_func, location_to_node_func):
         nslist_id = np.NaN
         child_smooth_id = np.NaN
         if rate.child_smoothings:
-            if len(rate.child_smoothings) == 1 and rate.child_smoothings[0][0] is None:
+            if len(rate.child_smoothings) == 1:
                 # This is a blanket smoothing for all children
                 child_smooth_id = smooth_id_func(rate.child_smoothings[0][1])
             else:
@@ -666,6 +668,14 @@ def make_option_table(context, location_to_node_func):
     }
 
     return pd.DataFrame([{"option_name": k, "option_value": v} for k, v in sorted(options.items())])
+
+
+def make_execution_data_table(execution_context):
+    options = {
+        "job_id": execution_context.parameters.run_id.hex,
+    }
+
+    return pd.DataFrame([{"key": k, "value": v} for k, v in sorted(options.items())])
 
 
 def _infer_rate_case(context):

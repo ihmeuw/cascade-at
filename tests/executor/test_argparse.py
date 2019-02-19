@@ -8,6 +8,7 @@ import stat
 import toml
 
 from cascade.executor.argument_parser import DMArgumentParser, ArgumentException
+from cascade.executor.cascade_logging import logging_config
 
 
 def test_argparse_happy():
@@ -52,7 +53,7 @@ def test_math_log(tmpdir):
     # The math log will ignore the -v here, which sets others to DEBUG level.
     args = parser.parse_args([
         "-v", "--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
-
+    logging_config(args)
     mathlog = logging.getLogger("cascade.math.complicated")
     mathlog.debug("debugfi")
     mathlog.info("infofum")
@@ -73,7 +74,8 @@ def test_code_log(tmpdir):
     previous_umask = os.umask(0o002)
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    parser.parse_args(["--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    logging_config(args)
 
     codelog = logging.getLogger("cascade.whatever.complicated")
     codelog.debug("debugfil")
@@ -84,7 +86,7 @@ def test_code_log(tmpdir):
 
     os.umask(previous_umask)
 
-    base_dir = tmp_dir / getpass.getuser() / "cascade"
+    base_dir = tmp_dir / getpass.getuser() / "dismod"
     logs = list(base_dir.glob("*.log"))
     print(logs)
     code_log = logs[0].read_text().splitlines()
@@ -99,8 +101,9 @@ def test_code_log(tmpdir):
 def test_reduced_code_log(tmpdir):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    parser.parse_args(
+    args = parser.parse_args(
         ["-q", "--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    logging_config(args)
 
     codelog = logging.getLogger("cascade.whatever.complicated")
     codelog.debug("debugfic")
@@ -109,7 +112,7 @@ def test_reduced_code_log(tmpdir):
     codelog.error("errorhumc")
     close_all_handlers()
 
-    base_dir = tmp_dir / getpass.getuser() / "cascade"
+    base_dir = tmp_dir / getpass.getuser() / "dismod"
     code_log = next(base_dir.glob("*.log")).read_text().splitlines()
     assert any(in_line.strip().endswith("warningfoc") for in_line in code_log)
     assert any(in_line.strip().endswith("errorhumc") for in_line in code_log)
@@ -120,7 +123,8 @@ def test_reduced_code_log(tmpdir):
 def test_math_log_fail_bad_dir(tmpdir, capsys):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    parser.parse_args(["--mvid", "2347", "--epiviz-log", "bogus", "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", "bogus", "--code-log", str(tmp_dir)])
+    logging_config(args)
     close_all_handlers()
 
     logging.getLogger("cascade.whatever.complicated")
@@ -130,7 +134,8 @@ def test_math_log_fail_bad_dir(tmpdir, capsys):
 def test_math_log_fail_no_mvid(tmpdir, capsys):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    parser.parse_args(["--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    logging_config(args)
 
     logging.getLogger("cascade.whatever.complicated")
     assert "no mvid" in capsys.readouterr().err
@@ -141,7 +146,8 @@ def test_math_log_fail_subdir_fail(tmpdir, capsys):
     ez_log = tmp_dir / "ezlog"
     ez_log.mkdir(mode=stat.S_IWUSR)  # This should be a creative failure.
     parser = DMArgumentParser()
-    parser.parse_args(["--mvid", "2347", "--epiviz-log", str(ez_log), "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", str(ez_log), "--code-log", str(tmp_dir)])
+    logging_config(args)
 
     logging.getLogger("cascade.whatever.complicated")
     assert "Could not make" in capsys.readouterr().err

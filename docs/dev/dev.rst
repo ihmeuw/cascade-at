@@ -11,5 +11,9 @@ Developer Manual
    logging
    dismod_at_shape
    versioning
+   bundle_upload
    design_sketches
    hdf_design
+   design_ev_main
+   parameters
+

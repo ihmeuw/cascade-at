@@ -29,8 +29,8 @@ idx measure_id                                     measure_name
 14          15                    Cause-specific mortality rate mtspecific
 15          16                       Other cause mortality rate mtother
 16          17                               Case fatality rate
-17          18                                       Proportion Sincidence
-18          19                                       Continuous Sincidence
+17          18                                       Proportion
+18          19                                       Continuous
 19          20                                    Survival Rate
 20          21                                Disability Weight
 21          22                               Chronic Prevalence

@@ -1,6 +1,6 @@
 #!/bin/bash
 SINGULARITY=/ihme/singularity-images/dismod/current.img
-INSTALLED_DISMOD=$(which dismod_at)
+INSTALLED_DISMOD=$(which dismod_at 2>/dev/null)
 if [ -e "${SINGULARITY}" ]
 then
     exec singularity exec "${SINGULARITY}" /home/root/prefix/dismod_at/bin/dismod_at $*

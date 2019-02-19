@@ -38,7 +38,7 @@ from cascade.testing_utilities import make_execution_context
 from cascade.dismod.constants import IntegrandEnum
 from cascade.dismod.db.wrapper import get_engine
 from cascade.core.context import ModelContext
-from cascade.dismod.serialize import model_to_dismod_file
+from cascade.model.serialize import model_to_dismod_file
 from cascade.model.grids import AgeTimeGrid, PriorGrid
 from cascade.model.priors import Uniform
 from cascade.model.rates import Smooth

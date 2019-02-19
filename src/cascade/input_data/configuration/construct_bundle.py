@@ -1,12 +1,11 @@
 import numpy as np
 import pandas as pd
 
+from cascade.core import getLoggers
+from cascade.core.db import dataframe_from_disk
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
-from cascade.dismod.constants import DensityEnum
-from cascade.core.db import dataframe_from_disk
-from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -64,7 +63,7 @@ def _normalize_bundle_data(data):
                                       "year_start": "time_lower", "year_end": "time_upper"})
 
 
-def bundle_to_observations(config, bundle_df):
+def bundle_to_observations(bundle_df, parent_location_id, global_data_eta):
     """
     Convert bundle into an internal format. It removes the sex column and changes
     location to node. It also adjusts for the demographic specification.
@@ -75,11 +74,15 @@ def bundle_to_observations(config, bundle_df):
             opposed to ones we add separately. It also keeps the `seq` column
             which aligns bundle data with covariates.
 
+        parent_location_id: Parent location
+
+        global_data_eta: Default value for eta parameter on distributions.
+
     """
     if "location_id" in bundle_df.columns:
         location_id = bundle_df["location_id"]
     else:
-        location_id = np.full(len(bundle_df), config.parent_location_id, dtype=np.int)
+        location_id = np.full(len(bundle_df), parent_location_id, dtype=np.int)
 
     # assume using demographic notation because this bundle uses it.
     demographic_interval_specification = 0
@@ -90,26 +93,25 @@ def bundle_to_observations(config, bundle_df):
     MATHLOG.info(f"The set of weights for this bundle is {weight_method}.")
     return pd.DataFrame(
         {
-            "measure": bundle_df["measure"],
-            "node_id": pd.Series(location_id, dtype=np.int),
-            "density": DensityEnum.gaussian,
-            "eta": config.global_data_eta or np.nan,
-            "weight": weight_method,
+            "integrand": bundle_df["measure"],
+            "location": location_id,
+            "density": "gaussian",
+            "eta": global_data_eta or np.nan,
             "age_lower": bundle_df["age_lower"],
             "age_upper": bundle_df["age_upper"] + demographic_interval_specification,
             # The years should be floats in the bundle.
             "time_lower": bundle_df["time_lower"].astype(np.float),
             "time_upper": bundle_df["time_upper"].astype(np.float) + demographic_interval_specification,
             "mean": bundle_df["mean"],
-            "standard_error": bundle_df["standard_error"],
+            "std": bundle_df["standard_error"],
             "sex_id": bundle_df["sex_id"],
-            "seq": bundle_df["seq"],
+            "name": bundle_df["seq"].astype(str),
             "hold_out": bundle_df["hold_out"],
         }
     )
 
 
-def normalized_bundle_from_database(execution_context, bundle_id=None, tier=3):
+def normalized_bundle_from_database(execution_context, model_version_id, bundle_id=None, tier=3):
     """Get bundle data with associated study covariate labels.
 
     Args:
@@ -121,9 +123,9 @@ def normalized_bundle_from_database(execution_context, bundle_id=None, tier=3):
         bundle data, where the bundle data is a pd.DataFrame.
     """
     if bundle_id is None:
-        bundle_id = _get_bundle_id(execution_context)
+        bundle_id = _get_bundle_id(execution_context, model_version_id)
 
-    bundle = _get_bundle_data(execution_context, bundle_id, tier=tier)
+    bundle = _get_bundle_data(execution_context, model_version_id, bundle_id, tier=tier)
     bundle = _normalize_bundle_data(bundle)
 
     return bundle

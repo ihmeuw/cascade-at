@@ -12,6 +12,7 @@ import numpy as np
 
 from cascade.core.form import (
     Form,
+    BoolField,
     IntField,
     FloatField,
     StrField,
@@ -120,6 +121,7 @@ class Smoothing(Form):
     default = SmoothingPriorGroup(display="Defaults")
     mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
     detail = FormList(SmoothingPrior, nullable=True, display="Detail")
+    age_time_specific = IntField(display="Age and Time specific", nullable=True)
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
@@ -165,7 +167,7 @@ class StudyCovariate(Form):
     measure_id = IntField(display="Measure")
     mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
     transformation = IntField(display="Transformation")
-    at_dependence = IntField(display="AT dependence")
+    age_time_specific = IntField(display="Age and Time specific")
 
     age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
     time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
@@ -183,7 +185,7 @@ class CountryCovariate(Form):
     measure_id = IntField(display="Measure")
     mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
     transformation = IntField(display="Transformation")
-    at_dependence = IntField(display="AT dependence")
+    age_time_specific = IntField(display="Age and Time specific")
 
     age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
     time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
@@ -198,6 +200,7 @@ class CountryCovariate(Form):
 class Model(Form):
     modelable_entity_id = IntField()
     model_version_id = IntField(nullable=True)
+    random_seed = IntField()
     minimum_meas_cv = FloatField(nullable=True)
     add_csmr_cause = IntField(nullable=True, display="CSMR cause")
     title = StrField(nullable=True, display="Title")
@@ -247,7 +250,9 @@ class Policies(Form):
         [0, 1], constructor=int, default=0, display="Estimate EMR from prevalance", nullable=True
     )
     use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
-    number_of_fixed_effect_samples = IntField(default=10, nullable=True)
+    number_of_fixed_effect_samples = IntField(default=30, nullable=True)
+    with_hiv = BoolField(default=True, nullable=True, display="Whether to get ASDR with HIV deaths.")
+    age_group_set_id = IntField(default=12, nullable=True, display="Age groups for analysis work.")
 
 
 class Configuration(Form):
@@ -276,9 +281,10 @@ class Configuration(Form):
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)
     csmr_cod_output_version_id = IntField()
+    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
 
     csmr_mortality_output_version_id = Dummy()
-    location_set_version_id = Dummy()
+    location_set_version_id = IntField(default=429, nullable=True)
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)

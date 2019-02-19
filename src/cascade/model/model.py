@@ -18,8 +18,8 @@ class Model(DismodGroups):
     """
     def __init__(self, nonzero_rates, parent_location, child_location=None, covariates=None, weights=None):
         """
-        >>> locations = location_hierarchy(execution_context)
-        >>> m = Model(["chi", "omega", "iota"], 6, locations)
+        >>> locations = location_hierarchy(6, location_set_version_id=429)
+        >>> m = Model(["chi", "omega", "iota"], 6, locations.successors(6))
 
         Args:
             nonzero_rates (List[str]): A list of rates, using the Dismod-AT
@@ -107,6 +107,23 @@ class Model(DismodGroups):
                     writer.write_mulcov(group_name, covariate, target, grid)
             else:
                 raise RuntimeError(f"Unknown kind of field {group_name}")
+
+    def var_from_mean(self):
+        # Call the mean mu because mean is a function.
+        mu = DismodGroups()
+        for group_name, group in self.items():
+            if group_name != "random_effect":
+                for key, grid in group.items():
+                    mu[group_name][key] = grid.var_from_mean()
+            else:
+                for key, grid in group.items():
+                    # One Random Effect grid creates many child vars.
+                    if key[1] is None:
+                        for child in self.child_location:
+                            mu[group_name][(key[0], child)] = grid.var_from_mean()
+                    else:
+                        mu[group_name][key] = grid.var_from_mean()
+        return mu
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):

@@ -1,13 +1,13 @@
-from cascade.executor.epiviz_runner import add_mortality_data, add_omega_constraint
-from cascade.testing_utilities import make_execution_context
-from cascade.core.context import ModelContext
-import cascade.input_data.db.mortality
-from cascade.model.priors import Constant
-from cascade.input_data.db.locations import get_descendants
-
 import numpy as np
 import pandas as pd
 import pytest
+
+import cascade.input_data.db.mortality
+from cascade.core.context import ModelContext
+from cascade.executor.epiviz_runner import add_mortality_data, add_omega_constraint
+from cascade.input_data.db.locations import get_descendants, location_hierarchy
+from cascade.model.priors import Constant
+from cascade.testing_utilities import make_execution_context
 
 
 @pytest.mark.parametrize("sexes", [1, 2])
@@ -51,7 +51,8 @@ def test_omega_constraint_as_effect(ihme, monkeypatch):
     """Assert that the omega constraint is an effect"""
     parent_id = 6
     ec = make_execution_context(model_version_id=265976, gbd_round_id=5, parent_location_id=parent_id, tier=3)
-    children = get_descendants(ec, children_only=True)
+    locations = location_hierarchy(6, location_set_id=35)
+    children = get_descendants(locations, parent_id, children_only=True)
     assert len(children) > 0
     mc = ModelContext()
     mc.parameters.parent_location_id = parent_id
