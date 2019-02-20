@@ -1,34 +1,40 @@
-from h5py import File
+from itertools import product
+
+import numpy as np
+
+from cascade.model.var import Var
 
 
-class axis_cache:
-    def __init__(self, hdf_destination, cache_name):
-        self._file_group = hdf_destination.create_group(cache_name)
-
-    def get_axis(self, ages, times):
-        pass  # either return a known one or make one.
+class SerializationError(Exception):
+    """An error serializing data."""
 
 
+def write_var(hdf_group, var, name):
+    ages = var.ages
+    times = var.times
 
-def save_dismod_groups(hdf_destination, dg):
-    for group_name, dismod_group in dg.items():
-        sub_hdf_group = hdf_destination.create_group(group_name)
-        for key, grid in dismod_group.items():
-            if group_name == "rate":
-                keys = dict(rate=key)
-            elif group_name == "random_effect":
-                keys = dict(rate=key[0], location=key[1])
-            elif group_name == "alpha":
-                keys = dict(covariate=key[0], rate=key[1])
-            elif group_name == "beta":
-                keys = dict(covariate=key[0], integrand=key[1])
-            elif group_name == "alpha":
-                keys = dict(covariate=key[0], integrand=key[1])
-            else:
-                raise RuntimeError(f"Unknown group name {group_name}.")
-            # priors have 3 grids per group.
-            save_single_grid(sub_hdf_group, keys, grid)
+    ds = hdf_group.create_dataset(name, (len(ages), len(times)), dtype=np.float)
+    for aidx, tidx in product(range(len(ages)), range(len(times))):
+        ds[aidx, tidx] = var[ages[aidx], times[tidx]]
+
+    for scale_idx, kind in enumerate(["age", "time"]):
+        hdf_group[f"{name}_{kind}"] = [ages, times][scale_idx]
+        ds.dims.create_scale(hdf_group[f"{name}_{kind}"], kind)
+        ds.dims[scale_idx].attach_scale(hdf_group[f"{name}_{kind}"])
+
+    ds.attrs["cascade_type"] = "Var"
+
+    return None
 
 
-def save_single_grid(hdf_destination, keys, dismod_age_time_grid):
-    if the age_time_grid has 1 dimension, then save in 2d, else 3d.
+def read_var(hdf_group, name):
+    ds = hdf_group[name]
+    if "cascade_type" not in ds.attrs or ds.attrs["cascade_type"] != "Var":
+        raise SerializationError(f"Expected {name} to be a var")
+
+    ages = ds.dims[0][0]
+    times = ds.dims[1][0]
+    var = Var(ages, times)
+    for aidx, tidx in product(range(ds.shape[0]), range(ds.shape[1])):
+        var[ages[aidx], times[tidx]] = ds[aidx, tidx]
+    return var
