@@ -142,10 +142,15 @@ class AgeTimeGrid:
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return NotImplemented
-        if self.mulstd != other.mulstd:
+        if set(self.mulstd.keys()) != set(other.mulstd.keys()):
             return False
+        for mul_key in self.mulstd.keys():
+            try:
+                pd.testing.assert_frame_equal(self.mulstd[mul_key], other.mulstd[mul_key])
+            except AssertionError:
+                return False
         try:
-            pd.testing.assert_frame_equal(self.grid, other.grid)
+            pd.testing.assert_frame_equal(self.grid, other.grid, check_like=True, check_exact=False)
             return True
         except AssertionError as ae:
             if "values are different" in str(ae):
