@@ -3,9 +3,38 @@
 HDF Design
 ==========
 
-This is how to format an HDF5 storage file.
-The main tool is `h5py <http://docs.h5py.org/en/stable/index.html>`_,
-whose documentation is sufficient. For more background, read
+Why Make an HDF File Format?
+----------------------------
+
+The Cascade is a distributed computation that can take more than a week.
+It has three storage needs:
+
+ 1.  Inputs come from databases of measurement data, mortality rates, and
+     covariates. Because inputs can change, they are cached in a database
+     called "tier 3." This document proposes to store the same data
+     in a file because that protects from database inaccessibility and
+     would permit computation in the cloud.
+
+ 2.  Estimation runs at different levels of the hierarchy exchange
+     results in order to inform the next level down the hierarchy.
+     This has to be stored somewhere, and HDF is the default format.
+
+ 3.  The final results can be large and should be efficient for reading,
+     more than for writing. Here, we can make a significant improvement
+     on how easily draws can be read because we can control the order
+     in which data is stored, across draws, ages, times, and measures.
+
+In sum, this provides a single file to record a whole Cascade while,
+at the same time, it permits data management within that file. For instance,
+it is possible to delete all draws from all of the files without
+disturbing descriptions of input data or models.
+
+
+Structure
+---------
+
+The main tool is the library `h5py <http://docs.h5py.org/en/stable/index.html>`_,
+whose documentation is good. For more background, read
 the `HDF5 Documentatiion <https://support.hdfgroup.org/HDF5/doc/index.html>`_.
 
 This is a file format both for single runs of Dismod-AT through the Cascade
@@ -18,21 +47,24 @@ managing data, and observations (input data) and samples can be deleted
 separately. Observation data can also be shared among estimations.
 In order to manage these three directories separately, it is much simpler
 if there are no links from one to the other. HDF doesn't store data in the
-group hierarchy you assign. It presents data that way. Data isn't deleted
-until all links to that data are gone.
+group hierarchy you assign. It presents data that way. The way HDF works,
+data isn't deleted until all links to that data are gone.
 
- * ``observation/`` These are inputs that look like Pandas dataframes.
+ * ``input/`` These are inputs that look like Pandas dataframes.
     * ``measurement/`` This is data from surveys and hospital data.
     * ``asdr/`` Age-specific death rates.
     * ``csmr/`` Cause-specific mortality rates.
+    * ``covariates/`` These will also be shared down the hierarchy.
+    * ``locations/``
+    * ``epiviz_settings`` Specification from the user interface.
  * ``estimation/`` Contains the bulk of the global work.
     * ``{location_id}/`` Could be separated by location, or other designation.
        * Cascade info
        * Main fit
        * Output from simulations.
-    * ``weights/`` These are shared down the hierarchy.
-    * ``covariates/`` These will also be shared down the hierarchy.
-    * ``locations/``
+       * ``weights/`` There are three weights: susceptible, with-condition, and total.
+       * scaling variables if used.
+       * initial guess, if used.
  * ``sampling/`` A mirror structure contains runs for sampling around fit results.
     * ``{location_id}/{sample_id}/`` A model is stored in here.
 
@@ -59,17 +91,3 @@ the single fit-and-predict first.
 
 We run a fit-and-predict multiple times, and we track not only the Dismod-AT
 run but also how the Cascade decided to do sets of runs.
-
- * Inputs to Cascade
-    * JSON settings
-    * posteriors
-    * weights
-    * covariate multipliers, if they were set higher in hierarchy
-    * measurements, asdr, csmr
- * main fit
- * fit with uncertainty (from fit_var on all samples)
- * estimated data with uncertainty (from predict)
- * 10-1000 sample fits
- * Cascade log
- * Cascade tracing
- * Cascade provenance

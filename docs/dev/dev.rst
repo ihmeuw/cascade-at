@@ -7,6 +7,7 @@ Developer Manual
 
    dbsync
    meid_quota
+   inputs_outputs.rst
    testing
    logging
    dismod_at_shape
