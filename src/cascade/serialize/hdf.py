@@ -1,9 +1,12 @@
 from itertools import product
 
 import numpy as np
+from numpy import nan
 
 from cascade.model.dismod_groups import DismodGroups
+from cascade.model.smooth_grid import SmoothGrid
 from cascade.model.var import Var
+from cascade.model.priors import DENSITY_ID_TO_PRIOR
 
 
 class SerializationError(Exception):
@@ -76,6 +79,15 @@ def read_group(hdf_group):
 def write_dimension(hdf_group, dim_type, values):
     """Given an HDF group, write a set of ages or times,
     possibly sharing a set of ages or times that already exist."""
+    # h5py recommends using S for arrays of fixed-size strings.
+    if isinstance(values, np.ndarray) and not np.issubdtype(values.dtype, np.number):
+        values = values.astype("S")
+    else:
+        if len(values) > 0 and isinstance(values[0], str):
+            values = np.array(values, dtype="S")
+        else:
+            values = np.array(values, dtype=np.float)
+
     base_name = f"{dim_type}{len(values)}"
     dim_idx = 0
     dim_name = f"{base_name}_{dim_idx}"
@@ -86,8 +98,7 @@ def write_dimension(hdf_group, dim_type, values):
         dim_idx += 1
         dim_name = f"{base_name}_{dim_idx}"
 
-    dim_value = hdf_group.create_dataset(dim_name, (len(values),), dtype=np.float)
-    dim_value[:] = values
+    dim_value = hdf_group.create_dataset(dim_name, data=values)
     return dim_value
 
 
@@ -121,3 +132,61 @@ def read_var(ds):
         var[ages[aidx], times[tidx]] = ds[aidx, tidx]
 
     return var
+
+
+PRIOR_KINDS = ["value", "dage", "dtime"]
+PRIOR_NAMES = ["density", "mean", "std", "lower", "upper", "eta", "nu"]
+DENSITY_TO_ID = {di.density: di_key for (di_key, di) in DENSITY_ID_TO_PRIOR.items()}
+
+
+def write_smooth_grid(hdf_group, smooth_grid, name):
+    ages = smooth_grid.ages
+    times = smooth_grid.times
+
+    data = np.zeros((len(PRIOR_KINDS), len(ages), len(times), len(PRIOR_NAMES)), dtype=np.float)
+    for kind_idx, kind in enumerate(["value", "dage", "dtime"]):
+        one_prior = getattr(smooth_grid, kind).grid
+        for row_idx, row in one_prior.iterrows():
+            aidx = np.where(ages == row.age)[0]
+            tidx = np.where(times == row.time)[0]
+            density_id = DENSITY_TO_ID.get(row.density, nan)
+            to_write = [density_id, row["mean"], row["std"], row.lower, row.upper, row.eta, row.nu]
+            data[kind_idx, aidx, tidx, :] = to_write
+
+    ds = hdf_group.create_dataset(name, data=data)
+
+# The dict is ordered, so this order is the same as the shape when
+    # calling create_dataset.
+    scales = dict(
+        prior_kind=PRIOR_KINDS,
+        age=ages,
+        time=times,
+        prior=PRIOR_NAMES,
+    )
+    for scale_idx, kind in enumerate(scales.keys()):
+        dimension = write_dimension(hdf_group, kind, scales[kind])
+        ds.dims.create_scale(dimension, kind)
+        ds.dims[scale_idx].attach_scale(dimension)
+
+    ds.attrs["cascade_type"] = "SmoothGrid"
+    return ds
+
+
+def read_smooth_grid(ds):
+    if ds.attrs["cascade_type"] != "SmoothGrid":
+        raise SerializationError(f"Expected {ds} to be a SmoothGrid")
+
+    # The 1 and 2 change when the shape of create_dataset changes.
+    ages = ds.dims[1][0][:]
+    times = ds.dims[2][0][:]
+    smooth = SmoothGrid(ages, times)
+    for kind_idx, kind in enumerate(PRIOR_KINDS):
+        grid = getattr(smooth, kind).grid
+        for aidx, tidx in product(range(len(ages)), range(len(times))):
+            age = ages[aidx]
+            time = times[tidx]
+            to_set = dict(zip(PRIOR_NAMES, ds[kind_idx, aidx, tidx, :]))
+            to_set["density"] = DENSITY_ID_TO_PRIOR.get(int(to_set["density"]), nan).density
+            grid.loc[(grid.age == age) & (grid.time == time), list(to_set.keys())] = to_set.values()
+
+    return smooth

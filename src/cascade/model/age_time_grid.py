@@ -5,8 +5,10 @@ from math import nan, inf
 import numpy as np
 import pandas as pd
 
+from cascade.core import getLoggers
 from cascade.dismod.constants import PriorKindEnum
 
+CODELOG, MATHLOG = getLoggers(__name__)
 GRID_SNAP_DISTANCE = 1 / timedelta(days=365).total_seconds()
 """Times within one second are considered equal."""
 
@@ -141,19 +143,23 @@ class AgeTimeGrid:
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
+            CODELOG.debug(f"SmoothGrid not equal to {other}")
             return NotImplemented
         if set(self.mulstd.keys()) != set(other.mulstd.keys()):
+            CODELOG.debug(f"Different number of mulstd keys")
             return False
         for mul_key in self.mulstd.keys():
             try:
                 pd.testing.assert_frame_equal(self.mulstd[mul_key], other.mulstd[mul_key])
             except AssertionError:
+                CODELOG.debug("assert frame equal false on mulstd")
                 return False
         try:
             pd.testing.assert_frame_equal(self.grid, other.grid, check_like=True, check_exact=False)
             return True
         except AssertionError as ae:
             if "values are different" in str(ae):
+                CODELOG.debug("assert frame equal false on grid")
                 return False
             else:
                 raise

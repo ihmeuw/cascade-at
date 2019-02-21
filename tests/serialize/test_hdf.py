@@ -1,9 +1,15 @@
+import numpy as np
 from h5py import File
 from numpy import isclose
 
-from cascade.model.var import Var
 from cascade.model.dismod_groups import DismodGroups
-from cascade.serialize.hdf import write_var, read_var, write_group, read_group
+from cascade.model.smooth_grid import SmoothGrid
+from cascade.model.var import Var
+from cascade.serialize.hdf import (
+    write_var, read_var, write_group, read_group, write_smooth_grid,
+    read_smooth_grid
+)
+from cascade.model.priors import Uniform, Gaussian
 
 
 def test_write_vars_one_field(tmp_path):
@@ -58,3 +64,22 @@ def test_write_groups(tmp_path):
 
     assert rg.rate["iota"] == dg.rate["iota"]
     assert rg.random_effect[("omega", 1)] == dg.random_effect[("omega", 1)]
+
+
+def test_write_smooth_grid(tmp_path):
+    ages = np.array([0, 20.0, 100])
+    times = np.array([1990, 2015])
+    sg = SmoothGrid(ages, times)
+    sg.value[:, :] = Uniform(lower=0, upper=1, mean=0.1)
+    sg.dage[:, :] = Gaussian(mean=0.1, standard_deviation=0.2)
+    sg.dtime[:, :] = Gaussian(mean=-0.1, standard_deviation=0.3)
+
+    with File(str(tmp_path / "dg.hdf5"), "w") as f:
+        g = f.create_group("groupgroup")
+        write_smooth_grid(g, sg, "mygrid")
+
+    with File(str(tmp_path / "dg.hdf5"), "r") as r:
+        g = r["groupgroup"]
+        rg = read_smooth_grid(g["mygrid"])
+
+    assert sg == rg
