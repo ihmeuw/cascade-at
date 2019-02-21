@@ -80,6 +80,8 @@ class MathLogFormatter(Formatter):
             message += f"<span class='line_prefix'><span class='level_name {level_class}'>{record.levelname}</span> "
             message += f"<span class='function_name'>{record.funcName}</span></span>"
             message += record.getMessage().replace("\n", "<br/>\n")
+            if record.exc_info:
+                message += "<pre class='stacktrace_block'>" + self.formatException(record.exc_info) + "</pre>"
         else:
             message += record.getMessage()
         self.last_event = record.created
