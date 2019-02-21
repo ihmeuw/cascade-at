@@ -665,6 +665,7 @@ def make_option_table(context, location_to_node_func):
         "ode_step_size": f"{context.parameters.ode_step_size}",
         "age_avg_split": " ".join([str(aas) for aas in context.parameters.additional_ode_steps]),
         "quasi_fixed": "false",
+        "meas_std_effect": "add_var_scale_log",
     }
 
     return pd.DataFrame([{"option_name": k, "option_value": v} for k, v in sorted(options.items())])
