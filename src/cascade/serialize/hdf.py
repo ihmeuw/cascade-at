@@ -13,7 +13,15 @@ class SerializationError(Exception):
     """An error serializing data."""
 
 
-def write_group(hdf_group, dismod_group):
+def write_var_group(hdf_group, dismod_group):
+    write_group(hdf_group, dismod_group, write_var)
+
+
+def write_grid_group(hdf_group, dismod_group):
+    write_group(hdf_group, dismod_group, write_smooth_grid)
+
+
+def write_group(hdf_group, dismod_group, writer):
     """
     Writes a DismodGroups object into an HDF Group. Assumes that there
     is nothing in the HDF Group. This arranges all the names within that
@@ -22,6 +30,7 @@ def write_group(hdf_group, dismod_group):
     Args:
         hdf_group (h5py.Group): The HDF Group into which to write.
         dismod_group (DismodGroups): The Dismod objects to write.
+        writer (function): This writes whatever is in the group
     """
     for group_name, group in dismod_group.items():
         for key, item in group.items():
@@ -35,7 +44,7 @@ def write_group(hdf_group, dismod_group):
                 key_name = "_".join(str(k) for k in key)
                 description = dict(dismod_group=group_name, key0=key[0], key1=key[1])
             name = f"{group_name}_{key_name}"
-            ds = write_var(hdf_group, item, name)
+            ds = writer(hdf_group, item, name)
             # Add to the dataset the keys that DismodGroups uses to track
             # each value.
             for desc_key, desc_value in description.items():
@@ -46,12 +55,21 @@ def write_group(hdf_group, dismod_group):
                         raise RuntimeError(f"Could not write {desc_value} as attr of type {type(desc_value)}")
 
 
-def read_group(hdf_group):
+def read_var_group(hdf_group):
+    return read_group(hdf_group, read_var)
+
+
+def read_grid_group(hdf_group):
+    return read_group(hdf_group, read_smooth_grid)
+
+
+def read_group(hdf_group, reader):
     """
     Reads a DismodGroup of Var.
 
     Args:
         hdf_group (h5py.Group): The HDF Group into which to write.
+        reader (function): Reads whatever it is from the file.
 
     Returns:
         DismodGroups
@@ -72,7 +90,7 @@ def read_group(hdf_group):
                     key = (str(key0), None)
                 else:  # Rate
                     key = str(key0)
-                group[key] = read_var(ds)
+                group[key] = reader(ds)
     return dismod_group
 
 
