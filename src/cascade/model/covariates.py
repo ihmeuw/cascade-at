@@ -1,6 +1,9 @@
 """
 Represents covariates in the model.
 """
+from numbers import Number
+from numpy import isnan
+
 from cascade.core import getLoggers
 from cascade.model.rates import Smooth
 
@@ -59,7 +62,7 @@ class Covariate:
 
     @max_difference.setter
     def max_difference(self, difference):
-        if difference is None:
+        if difference is None or isinstance(difference, Number) and isnan(difference):
             self._max_difference = None
         else:
             diff = float(difference)

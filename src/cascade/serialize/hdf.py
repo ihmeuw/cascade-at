@@ -1,10 +1,12 @@
 from itertools import product
 
 import numpy as np
-from numpy import nan
+from numpy import nan, isnan
 
+from cascade.model.covariates import Covariate
 from cascade.model.dismod_groups import DismodGroups
 from cascade.model.smooth_grid import SmoothGrid
+from cascade.model.model import Model
 from cascade.model.var import Var
 from cascade.model.priors import DENSITY_ID_TO_PRIOR
 
@@ -55,26 +57,27 @@ def write_group(hdf_group, dismod_group, writer):
                         raise RuntimeError(f"Could not write {desc_value} as attr of type {type(desc_value)}")
 
 
-def read_var_group(hdf_group):
-    return read_group(hdf_group, read_var)
+def read_var_group(hdf_group, groups=None):
+    return read_group(hdf_group, read_var, groups)
 
 
-def read_grid_group(hdf_group):
-    return read_group(hdf_group, read_smooth_grid)
+def read_grid_group(hdf_group, groups=None):
+    return read_group(hdf_group, read_smooth_grid, groups)
 
 
-def read_group(hdf_group, reader):
+def read_group(hdf_group, reader, groups=None):
     """
     Reads a DismodGroup of Var.
 
     Args:
         hdf_group (h5py.Group): The HDF Group into which to write.
         reader (function): Reads whatever it is from the file.
+        groups (DismodGroups): A pre-existing DismodGroups.
 
     Returns:
         DismodGroups
     """
-    dismod_group = DismodGroups()
+    dismod_group = groups if groups else DismodGroups()
     for group_name, group in dismod_group.items():
         datasets = [ds_name for ds_name in hdf_group.keys() if ds_name.startswith(group_name)]
         for ds_name in datasets:
@@ -214,3 +217,65 @@ def read_smooth_grid(ds):
             grid.loc[(grid.age == age) & (grid.time == time), list(to_set.keys())] = to_set.values()
 
     return smooth
+
+
+def write_covariates(hdf_group, name, covariates):
+    """Write covariates using a complex dtype."""
+    longest = max(len(c.name) for c in covariates)
+    dt = np.dtype([("name", np.bytes_, longest + 1), ("reference", np.float), ("max_difference", np.float)])
+    data = np.empty((len(covariates),), dtype=dt)
+    for write_idx, write_cov in enumerate(covariates):
+        if write_cov.max_difference is None:
+            max_diff = nan
+        else:
+            max_diff = write_cov.max_difference
+        data[write_idx] = (write_cov.name, write_cov.reference, max_diff)
+    hdf_group.create_dataset(name, data=data)
+
+
+def read_covariates(hdf_group, name):
+    if name not in hdf_group:
+        return list()
+
+    covariates = list()
+    for row in np.nditer(hdf_group[name]):
+        name = str(row["name"].astype("U"))
+        print(f"cov {name} {type(name)} {row['reference']}")
+        covariates.append(
+            Covariate(name, row["reference"], row["max_difference"]))
+    return covariates
+
+
+def write_model(hdf_group, model):
+    priors = hdf_group.create_group("priors")
+    write_grid_group(priors, model)
+    hdf_group.create_dataset("child_location", data=model.child_location)
+    write_covariates(hdf_group, "covariates", model.covariates)
+    for weight_name, weight in model.weights.items():
+        write_var_group(hdf_group.create_group(f"weight_{weight_name}"), weight)
+
+    if model.scale_set_by_user and model.scale is not None:
+        write_var_group(hdf_group.create_group("scale", model.scale))
+
+    hdf_group.attrs["nonzero_rates"] = model.nonzero_rates
+    hdf_group.attrs["location_id"] = model.location_id
+
+    hdf_group.attrs["cascade_type"] = "Model"
+
+
+def read_model(hdf_group):
+    if "cascade_type" not in hdf_group.attrs or hdf_group.attrs["cascade_type"] != "Model":
+        raise SerializationError(f"Expected a model for {hdf_group}")
+
+    nonzero_rates = hdf_group.attrs["nonzero_rates"]
+    parent_location = hdf_group.attrs["location_id"]
+    children = hdf_group["child_location"][:].tolist()
+    covariates = read_covariates(hdf_group, "covariates")
+    weight_names = ["_".join(w.split("_")[1:]) for w in hdf_group if w.startswith("weight")]
+    weights = dict()
+    for wn in weight_names:
+        weights[wn] = read_var_group(hdf_group[f"weight_{wn}"])
+
+    model = Model(nonzero_rates, parent_location, children, covariates, weights)
+    read_grid_group(hdf_group, model)
+    return model

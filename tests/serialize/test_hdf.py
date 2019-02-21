@@ -11,7 +11,7 @@ from cascade.model.covariates import Covariate
 from cascade.model.var import Var
 from cascade.serialize.hdf import (
     write_var, read_var, write_var_group, read_var_group, write_smooth_grid,
-    read_smooth_grid, write_grid_group, read_grid_group
+    read_smooth_grid, write_grid_group, read_grid_group, write_model, read_model
 )
 from cascade.model.priors import Uniform, Gaussian
 
@@ -123,7 +123,7 @@ def test_write_smooth_grid(tmp_path):
     assert sg == rg
 
 
-def test_write_model(basic_model, tmp_path):
+def test_write_smooth_grid_group(basic_model, tmp_path):
     with File(str(tmp_path / "dg.hdf5"), "w") as f:
         g = f.create_group("groupgroup")
         write_grid_group(g, basic_model)
@@ -131,3 +131,19 @@ def test_write_model(basic_model, tmp_path):
     with File(str(tmp_path / "dg.hdf5"), "r") as r:
         g = r["groupgroup"]
         read_model = read_grid_group(g)
+
+
+def test_write_model(basic_model, tmp_path):
+    with File(str(tmp_path / "dg.hdf5"), "w") as f:
+        g = f.create_group("groupgroup")
+        write_model(g, basic_model)
+
+    with File(str(tmp_path / "dg.hdf5"), "r") as r:
+        g = r["groupgroup"]
+        model = read_model(g)
+
+    assert (model.nonzero_rates == basic_model.nonzero_rates).all()
+    assert model.location_id == basic_model.location_id
+    assert model.child_location == basic_model.child_location
+    assert len(model.covariates) == len(basic_model.covariates)
+    assert model.covariates == basic_model.covariates
