@@ -674,6 +674,8 @@ def entry():
         else:
             MATHLOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
             raise
+    finally:
+        MATHLOG.info("Exiting", extra=dict(assure_timestamp=True))
 
 
 if __name__ == "__main__":
