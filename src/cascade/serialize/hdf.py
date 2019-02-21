@@ -111,7 +111,10 @@ def write_dimension(hdf_group, dim_type, values):
     dim_name = f"{base_name}_{dim_idx}"
     while dim_name in hdf_group:
         compare_axis = hdf_group[dim_name]
-        if np.allclose(values, compare_axis):
+        if np.issubdtype(values.dtype, np.number):
+            if np.allclose(values, compare_axis):
+                return compare_axis
+        elif np.all(values == compare_axis):
             return compare_axis
         dim_idx += 1
         dim_name = f"{base_name}_{dim_idx}"
@@ -204,7 +207,10 @@ def read_smooth_grid(ds):
             age = ages[aidx]
             time = times[tidx]
             to_set = dict(zip(PRIOR_NAMES, ds[kind_idx, aidx, tidx, :]))
-            to_set["density"] = DENSITY_ID_TO_PRIOR.get(int(to_set["density"]), nan).density
+            try:
+                to_set["density"] = DENSITY_ID_TO_PRIOR.get(int(to_set["density"]), nan).density
+            except ValueError:
+                to_set["density"] = None
             grid.loc[(grid.age == age) & (grid.time == time), list(to_set.keys())] = to_set.values()
 
     return smooth

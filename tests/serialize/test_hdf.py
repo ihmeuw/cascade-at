@@ -126,8 +126,8 @@ def test_write_smooth_grid(tmp_path):
 def test_write_model(basic_model, tmp_path):
     with File(str(tmp_path / "dg.hdf5"), "w") as f:
         g = f.create_group("groupgroup")
-        write_grid_group(g, basic_model, "mygrid")
+        write_grid_group(g, basic_model)
 
     with File(str(tmp_path / "dg.hdf5"), "r") as r:
         g = r["groupgroup"]
-        read_model = read_grid_group(g["mygrid"])
+        read_model = read_grid_group(g)
