@@ -1,14 +1,17 @@
 from itertools import product
 
 import numpy as np
-from numpy import nan, isnan
+from numpy import nan
 
+from cascade.core import getLoggers
 from cascade.model.covariates import Covariate
 from cascade.model.dismod_groups import DismodGroups
-from cascade.model.smooth_grid import SmoothGrid
 from cascade.model.model import Model
-from cascade.model.var import Var
 from cascade.model.priors import DENSITY_ID_TO_PRIOR
+from cascade.model.smooth_grid import SmoothGrid
+from cascade.model.var import Var
+
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class SerializationError(Exception):
@@ -237,12 +240,14 @@ def read_covariates(hdf_group, name):
     if name not in hdf_group:
         return list()
 
+    # Each element of the row has name, ref, max_diff
+    # and each of those is an "array scalar" in numpy.
     covariates = list()
     for row in np.nditer(hdf_group[name]):
         name = str(row["name"].astype("U"))
-        print(f"cov {name} {type(name)} {row['reference']}")
-        covariates.append(
-            Covariate(name, row["reference"], row["max_difference"]))
+        reference = float(row["reference"])
+        max_difference = float(row["max_difference"])
+        covariates.append(Covariate(name, reference, max_difference))
     return covariates
 
 
