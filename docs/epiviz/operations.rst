@@ -1,6 +1,8 @@
-**********
-Operations
-**********
+.. _operations-and-maintenance:
+
+**************************
+Operations and Maintenance
+**************************
 
 .. toctree::
    :maxdepth: 2

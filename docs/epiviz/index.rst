@@ -2,14 +2,15 @@
 Command-line EpiViz
 ###################
 
+EpiViz-AT is the user interface for Dismod-AT at
+IHME. This documents the Python wrapper that EpiViz-AT
+calls to run Dismod-AT.
+
 .. toctree::
    :maxdepth: 2
 
    overview
-   examples
+   tools
    studycountry
    countryinterp
-   bundle_upload
-   dmres2csv
-   dmsr2csv
    operations
