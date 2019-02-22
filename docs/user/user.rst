@@ -6,17 +6,6 @@ User Manual
    :maxdepth: 2
 
    install
-   dismodat
-   rates
-   covariates
+   concepts/dismodat
    FitTutorial
-   var
-   smooth_grid
-   dismod_groups
-   model
-   session
-   priors
-   object_wrapper
-   canonical
-   dmres2csv
-   dmsr2csv
+   api/api

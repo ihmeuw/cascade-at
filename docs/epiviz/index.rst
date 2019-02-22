@@ -7,3 +7,9 @@ Command-line EpiViz
 
    overview
    examples
+   studycountry
+   countryinterp
+   bundle_upload
+   dmres2csv
+   dmsr2csv
+   operations
