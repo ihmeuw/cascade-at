@@ -15,3 +15,4 @@ EpiViz-AT Inputs
    emr_from_prevalence
    other_cause
    epiviz_settings
+   data_eta_cv

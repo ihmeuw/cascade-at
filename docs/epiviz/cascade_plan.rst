@@ -53,6 +53,8 @@ What Affects the Plan
     the drill will include both male and femal.
  *  The "exclude data" option for priors determines which
     posterior draws of integrands to add to the child estimations.
+ *  The split sex option determines at what level of the location hierarchy
+    to solve male and female as separate estimations.
 
 .. _number-of-estimations:
 
