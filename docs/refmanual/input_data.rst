@@ -20,6 +20,9 @@ Input Data Functionality
 
 .. automodule:: cascade.input_data.configuration.form
 
+    .. autoclass:: SmoothingPrior
+        :members:
+
     .. autoclass:: Configuration
         :members:
 

@@ -30,6 +30,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 
 class SmoothingPrior(Form):
+    """Priors for smoothing."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.prior_object = None
