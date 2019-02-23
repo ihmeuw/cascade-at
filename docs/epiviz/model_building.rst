@@ -9,4 +9,5 @@ Model Building
 
    session_options
    omega_constraint
+   prior_eta
    posteriors_to_priors

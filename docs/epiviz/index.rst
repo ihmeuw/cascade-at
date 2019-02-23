@@ -14,4 +14,5 @@ calls to run Dismod-AT.
    inputs
    outputs
    cascade_plan
+   model_building
    operations
