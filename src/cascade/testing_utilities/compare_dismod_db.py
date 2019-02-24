@@ -24,3 +24,13 @@ def record_differences(table_name, conna, connb):
     sm = SequenceMatcher()
     sm.set_seqs(*records)
     return sm.get_opcodes()
+
+# opcodes are replace, delete, insert, equal
+# (tag, i0, i1, j0, j1). How do we interpret replace?
+
+def test_usage():
+    diff = compare("rftest.db", "rftest.db")
+    assert "age" not in a
+    assert "age" changed
+    assert options.quasi_fixed changed
+    assert len(a.data) < len(b.data)
