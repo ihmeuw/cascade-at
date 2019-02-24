@@ -247,6 +247,8 @@ def create_local_settings(rng=None):
     locations = nx.DiGraph()
     children = [4, 31, 64, 103, 137, 158, 166]
     locations.add_edges_from([(1, c) for c in children])
+    for lidx, n in enumerate(locations.nodes):
+        locations.nodes[n]["location_name"] = chr(ord("a") + lidx)
     settings = create_settings(rng, children)
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     j = list(c.cascade_jobs)
