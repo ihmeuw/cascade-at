@@ -19,12 +19,8 @@ Input Data Functionality
     :members:
 
 .. automodule:: cascade.input_data.configuration.form
-
-    .. autoclass:: SmoothingPrior
-        :members:
-
-    .. autoclass:: Configuration
-        :members:
+    :members:
+    :undoc-members:
 
 .. automodule:: cascade.input_data.configuration.construct_study
     :members:

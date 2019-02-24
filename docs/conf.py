@@ -174,8 +174,9 @@ autodoc_member_order = "bysource"
 # To negate add `:no-undoc-members:` flag to a particular instance
 autodoc_default_flags = []
 
+# Can't mock numpy because it causes a LooseVersion error.
 autodoc_mock_imports = [
-    "numpy", "pandas", "scipy", "toml", "sqlalchemy", "networkx",
+    "pandas", "scipy", "toml", "sqlalchemy", "networkx",
     "tables", "intervals", "rocketsonde"]
 
 

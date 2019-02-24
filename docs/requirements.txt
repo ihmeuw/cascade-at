@@ -2,6 +2,7 @@
 # sphinx, sphinx_rtd_theme, sphinx-autobuild, sphinxcontrib-napoleon
 # Other Cascade package requirements are mocked in conf.py
 # autodoc_mock_imports.
+# Numpy is here because if it's not, there is a LooseVersion error.
 alabaster==0.7.11
 argh==0.26.2
 Babel==2.6.0
@@ -12,6 +13,7 @@ idna==2.7
 imagesize==1.0.0
 Jinja2==2.10
 livereload==2.5.2
+numpy
 MarkupSafe==1.0
 packaging==17.1
 pathtools==0.1.2
