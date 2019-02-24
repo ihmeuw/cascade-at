@@ -1,5 +1,4 @@
 import numpy as np
-from pandas.testing import assert_frame_equal
 from scipy.interpolate import RectBivariateSpline, interp1d
 
 from cascade.dismod.constants import PriorKindEnum
