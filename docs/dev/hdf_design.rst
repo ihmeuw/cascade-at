@@ -35,19 +35,22 @@ Structure
 
 The main tool is the library `h5py <http://docs.h5py.org/en/stable/index.html>`_,
 whose documentation is good. For more background, read
-the `HDF5 Documentatiion <https://support.hdfgroup.org/HDF5/doc/index.html>`_.
+the `HDF5 Documentation <https://support.hdfgroup.org/HDF5/doc/index.html>`_.
 
 This is a file format both for single runs of Dismod-AT through the Cascade
 and for full global runs. It have an atomic store-this-one-fit and a larger
 set of rules around how to store multiple fits for a global Cascade.
 
-For the global Cascade, separate observation from estimation from sampling
-because the structure in the HDF file is both for finding data and for
-managing data, and observations (input data) and samples can be deleted
-separately. Observation data can also be shared among estimations.
-In order to manage these three directories separately, it is much simpler
-if there are no links from one to the other. HDF doesn't store data in the
-group hierarchy you assign. It presents data that way. The way HDF works,
+This document plans how to put everything about a global Cascade run
+into one file, but that doesn't mean all of the data in that same file
+has the same lifetime, the same compression, or the same clients reading
+and writing. The structure of the HDF file will reflect the different
+kinds of data management. We put data that is managed similarly into
+the same top-level HDF Group. Those three groups will be input data,
+estimation models, and output data. While we use the three top-level
+groups for management, HDF's implementation
+doesn't store data in the group hierarchy you assign. It presents
+data that way. The way HDF works,
 data isn't deleted until all links to that data are gone.
 
  * ``input/`` These are inputs that look like Pandas dataframes.

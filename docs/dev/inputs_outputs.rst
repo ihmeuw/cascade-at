@@ -10,7 +10,8 @@ Tier 3 Data
   The input data is *partially* recorded in the tier 3 storage, which contains
   the bundle, covariates, age-specific death rate (ASDR), and cause-specific mortality
   rate (CSMR). Not in the tier 3 data are location sets, age groups, year ids, or
-  sex id definitions.
+  sex id definitions. Derived or imputed data, such as excess mortality rate (EMR)
+  isn't stored there, either.
 
    * Bundle - As many data points as we have for the world.
    * Covariates - Number of covariates times number of nonzero entries for this bundle.
@@ -72,8 +73,10 @@ Dismod-AT Logs
   These get embedded in the Cascade logs, but it is worth mentioning that
   the log-level used for Dismod-AT can make the logs get very large,
   because Dismod-AT can log every step of its nonlinear solver. Dismod-AT
-  logs have two levels, and we really need the top-level log in order
-  to determine the quality of a fit.
+  logs have two levels, a high-level report from Dismod-AT itself, and
+  a low-level report from the Ipopt optimizer that converges within each
+  of the Dismod-AT time steps. We need the Dismod-AT convergence data more
+  than data on iterations by Ipopt.
 
 Fits
   The output of the main fit and of the draws, which determine uncertainty,
@@ -83,7 +86,8 @@ Fits
   Fits also include "standard deviation multipliers" which are hyper-priors
   on the standard deviation of the priors. There are up to three per
   underlying rate in the problem. There can be five rates, and each rate
-  generally has about 30 age points. A rate can have five year points or
+  generally has about 30 age points. A rate's smooth grid tends to have
+  either one time point, about five time points, or
   a point for every year, which is about 68 points. So this number is
   between 3 rates x 5 years x 30 points = 450 and 5 rates x 68 years
   x 30 points = 10200 points. This is per-run of Dismod-AT, so there would
@@ -99,8 +103,9 @@ Prior Residuals
 Data Residuals
   These are one value per data point to indicate how far the data, as
   predicted by the fit, is from the actual measurement data. There are data
-  residuals for every estimation run, so each data point will have five
-  residuals for the five levels where it is used.
+  residuals for every estimation run, so each data point will have residuals
+  for every level of the location hierarchy where it is used, so that's about
+  five.
 
 Draw Files
   Finally, results of calculations are in "draw files." These draw files
