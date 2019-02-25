@@ -12,8 +12,10 @@ grid at 1 point or >1 point for age or time
 priors present or absent on value, dage, dtime
 bounds upper/lower can differ between rates, res, and covariates.
 """
+from configparser import ConfigParser
 from copy import deepcopy
 from pprint import pprint
+from textwrap import dedent
 
 import networkx as nx
 from numpy.random import RandomState
@@ -95,7 +97,7 @@ BASE_CASE = {
 }
 
 
-def grid(non_negative, rng, single_age=False):
+def grid(non_negative, rng, name, single_age=False):
     grid_case = {
         "default": {
             "value": {
@@ -114,13 +116,13 @@ def grid(non_negative, rng, single_age=False):
                 "std": 0.1
             }
         },
-        "age_time_specific": rng.choice([0, 1], p=[0.25, 0.75]),
+        "age_time_specific": rng.choice([0, 1], p=[0.25, 0.75], name=f"{name}.at_specific"),
     }
     if non_negative:
         # The min has to be > 0?
-        grid_case["default"]["value"]["min"] = rng.choice([1e-4])
+        grid_case["default"]["value"]["min"] = rng.choice([1e-4], name=f"{name}.min")
         grid_case["default"]["value"]["mean"] = grid_case["default"]["value"]["min"] + 1e-2
-    age_choice = rng.choice([0, 1, 2])
+    age_choice = rng.choice([0, 1, 2], name=f"{name}.age_cnt")
     if age_choice == 1:
         grid_case["age_grid"] = "0"
     elif age_choice == 2:
@@ -128,7 +130,7 @@ def grid(non_negative, rng, single_age=False):
     # else 0 use default ages
     if single_age:
         grid_case["age_grid"] = "0"
-    time_choice = rng.choice([0, 1, 2])
+    time_choice = rng.choice([0, 1, 2], name=f"{name}.time_cnt")
     if time_choice == 1:
         grid_case["time_grid"] = "2000"
     elif time_choice == 2:
@@ -139,35 +141,109 @@ def grid(non_negative, rng, single_age=False):
 
 def rate_grid(rate, rng):
     single_age = rate == "pini"
-    grid_case = grid(True, rng, single_age)
+    grid_case = grid(True, rng, single_age=single_age, name=f"{rate}")
     grid_case["rate"] = rate
     return grid_case
 
 
-def covariate(study_country, covariate_idx, rng):
+def add_random_effects(children, rate_name, rng):
+    random_effects = list()
+    single_age = rate_name == "pini"
+    if children:
+        for child in children:
+            grid_case = grid(False, rng, single_age=single_age, name=f"re.{rate_name}.{child}")
+            grid_case["rate"] = rate_name
+            grid_case["location"] = child
+            random_effects.append(grid_case)
+    else:
+        grid_case = grid(False, rng, single_age=single_age, name=f"re.{rate_name}")
+        grid_case["rate"] = rate_name
+        grid_case["location"] = None
+        random_effects.append(grid_case)
+    return random_effects
+
+
+def covariate(study_country, covariate_idx, nonzero_rates, rng, name):
     assert study_country in ["study", "country"]
-    grid_case = grid(False, rng)
-    grid_case["mulcov_type"] = rng.choice(["meas_std", "meas_value", "rate_value"])
-    grid_case["measure_id"] = 41
+    grid_case = grid(False, rng, name=f"{name}")
+    grid_case["mulcov_type"] = rng.choice(["meas_std", "meas_value", "rate_value"], name=f"{name}.covtype")
+    if grid_case["mulcov_type"] == "rate_value":
+        chosen = rng.choice(nonzero_rates, name=f"{name}.rate")
+        grid_case["measure_id"] = dict(iota=41, rho=7, pini=5, chi=9, omega=16).get(chosen)
+    else:
+        grid_case["measure_id"] = 15
     grid_case[f"{study_country}_covariate_id"] = covariate_idx
     grid_case["transformation"] = 0
     return grid_case
 
 
-def create_settings(rng, locations):
+def add_covariates(case, covariates, nonzero_rates, rng):
+    for ckind in ["study", "country"]:
+        scovariates = list()
+        for make_cov in covariates:
+            include = rng.choice([False, True], p=[0.7, 0.3], name=f"{ckind}.{make_cov}")
+            if include:
+                scovariates.append(
+                    covariate(ckind, make_cov, nonzero_rates, rng, name=f"{ckind}.{make_cov}"))
+        if scovariates:
+            case[f"{ckind}_covariate"] = scovariates
+
+
+class SettingsChoices:
+    """
+    This class will fix certain choices to given values. Its input is
+    a list of key-value pairs, set up as for a section of a ConfigParser,
+    although this adds the section title for you.
+    """
+    def __init__(self, rng=None, settings=None):
+        if isinstance(settings, str):
+            parser = ConfigParser()
+            parser.read_string("[settings]\n" + dedent(settings))
+            self.answers = parser["settings"]
+        else:
+            self.answers = dict()
+        self.rng = rng
+        self.random = list()
+
+    def choice(self, choices, name=None, p=None):
+        if name in self.answers:
+            value = self.answers[name]
+            try:
+                value = int(value)
+            except ValueError:
+                try:
+                    value = float(value)
+                except ValueError:
+                    pass
+            return value
+        else:
+            assert self.rng, f"Unexpected setting chosen {name} {choices}"
+            self.random.append((name, choices))
+            return self.rng.choice(choices, p=p)
+
+
+def create_settings(choices, locations=None):
     """
     Makes a random settings, as though EpiViz-AT made it.
 
     Args:
-        rng (numpy.random.RandomState): Create with ``RandomState(2324234)``.
+        choices (SettingsChoice): Create with ``RandomState(2324234)``.
         locations (nx.DiGraph): List of locations.
 
     Returns:
         dict: A dictionary that looks like parsed JSON from EpiViz-AT.
     """
+    if isinstance(choices, RandomState):
+        rng = SettingsChoices(choices)
+    elif isinstance(choices, SettingsChoices):
+        rng = choices
+    else:
+        raise ValueError(f"choices object should be a SettingsChoices or rng not {type(choices)}")
+    locations = locations if locations else make_locations(4)
+
     has = dict()
     for rate, likely in [("iota", 0.1), ("rho", 0.7), ("omega", 0), ("chi", 0.1), ("pini", 0.7)]:
-        has[rate] = rng.uniform() > likely
+        has[rate] = rng.choice([False, True], p=[likely, 1 - likely], name=rate)
 
     covariates = [1604, 2453, 6497]
 
@@ -175,8 +251,8 @@ def create_settings(rng, locations):
     if has["pini"]:
         case["model"]["birth_prev"] = 1
 
-    case["model"]["add_calc_emr"] = rng.choice([0, 1])
-    case["model"]["constrain_omega"] = rng.choice([0, 1], p=[0.1, 0.9])
+    case["model"]["add_calc_emr"] = rng.choice([0, 1], name="emr")
+    case["model"]["constrain_omega"] = rng.choice([0, 1], p=[0.1, 0.9], name="constrain_omega")
 
     # Guarantee at least one nonzero rate, after constraint of omega.
     if case["model"]["constrain_omega"] == 1:
@@ -196,10 +272,9 @@ def create_settings(rng, locations):
     # Use the last location as the drill end possibility.
     last_location = list(nx.topological_sort(locations))[-1]
     drill = sorted(nx.ancestors(locations, last_location))
-    start_loc_idx = rng.randint(0, len(drill))
-    end_loc_idx = rng.randint(start_loc_idx, len(drill))
-    start_loc = drill[start_loc_idx]
-    end_loc = drill[end_loc_idx]
+    start_loc = rng.choice(drill, name="drill_start")
+    start_loc_idx = drill.index(start_loc)
+    end_loc = rng.choice(drill[start_loc_idx:], name="drill_end")
     case["model"]["drill_location_start"] = start_loc
     case["model"]["drill_location_end"] = end_loc
 
@@ -208,8 +283,9 @@ def create_settings(rng, locations):
     # b) For every single location in the hierarchy.
     # Choose this by rate
     rate_specifies_re_by_location = dict()
-    for rate_name in [x for (x, y) in has.items() if y]:
-        choice = rng.choice(["none", "all", "every"])
+    nonzero_rates = [x for (x, y) in has.items() if y]
+    for rate_name in nonzero_rates:
+        choice = rng.choice(["none", "all", "every"], name=f"re.{rate_name}")
         # none means no random effects.
         # all means every single location.
         # every means each location gets a new one.
@@ -232,39 +308,13 @@ def create_settings(rng, locations):
     if random_effects:
         case["random_effect"] = random_effects
 
-    add_covariates(case, covariates, rng)
+    add_covariates(case, covariates, nonzero_rates, rng)
     try:
         config = json_settings_to_frozen_settings(case, 267890)
     except SettingsError:
         pprint(case, indent=2)
         raise
     return config
-
-
-def add_covariates(case, covariates, rng):
-    for ckind in ["study", "country"]:
-        scovariates = list()
-        for cov_idx in range(rng.randint(4)):
-            scovariates.append(covariate(ckind, covariates[cov_idx], rng))
-        if scovariates:
-            case[f"{ckind}_covariate"] = scovariates
-
-
-def add_random_effects(children, rate_name, rng):
-    random_effects = list()
-    single_age = rate_name == "pini"
-    if children:
-        for child in children:
-            grid_case = grid(False, rng, single_age)
-            grid_case["rate"] = rate_name
-            grid_case["location"] = child
-            random_effects.append(grid_case)
-    else:
-        grid_case = grid(False, rng, single_age)
-        grid_case["rate"] = rate_name
-        grid_case["location"] = None
-        random_effects.append(grid_case)
-    return random_effects
 
 
 def make_locations(depth):
@@ -277,15 +327,21 @@ def make_locations(depth):
     return locations
 
 
-def create_local_settings(rng=None):
+def create_local_settings(rng=None, settings=None, locations=None):
     """Make a local settings object, all the way from the EpiViz-AT form."""
     rng = rng if rng else RandomState(3242352)
+    if isinstance(rng, RandomState):
+        choices = SettingsChoices(rng, settings)
+    else:
+        choices = rng
     args = parse_arguments(["z.db"])
-    depth = 3
-    locations = make_locations(depth)
-    settings = create_settings(rng, locations)
+    depth = 4
+    locations = locations if locations else make_locations(depth)
+    settings = create_settings(choices, locations)
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    j = list(c.cascade_jobs)
-    job_kind, job_args = c.cascade_job(j[rng.randint(1, len(j))])
+    j = list(c.cascade_jobs)[1:]
+    job_choice = choices.choice(list(range(len(j))), name="job_idx")
+    job_kind, job_args = c.cascade_job(j[job_choice])
+    print("\n".join(f"{k} = {v}" for (k, v) in choices.random))
     assert job_kind == "estimate_location"
     return job_args, locations
