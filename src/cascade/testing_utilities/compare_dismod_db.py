@@ -13,7 +13,7 @@ class CompareDatabases:
     def table_diffs(self):
         sm = SequenceMatcher()
         sm.set_seqs(*self.tables)
-        return [op for op in sm.get_opcodes() if op[0] is not "equal"]
+        return [op for op in sm.get_opcodes() if op[0] != "equal"]
 
     def different_tables(self):
         """Which tables are different, except for the log, which always differs."""
@@ -21,7 +21,7 @@ class CompareDatabases:
         differ = set()
         for c in common:
             ops = self.record_differences(c)
-            if [op for op in ops if op[0] is not "equal"]:
+            if [op for op in ops if op[0] != "equal"]:
                 differ.add(c)
         return differ - {"log"}
 
@@ -35,7 +35,7 @@ class CompareDatabases:
         records = [sorted(connl.execute(f"select * from {table_name}")) for connl in self.conn]
         sm = SequenceMatcher()
         sm.set_seqs(*records)
-        diff_ops = [op for op in sm.get_opcodes() if op[0] is not "equal"]
+        diff_ops = [op for op in sm.get_opcodes() if op[0] != "equal"]
         diffs = list()
         for tag, i0, i1, j0, j1 in diff_ops:
             if tag == "replace":
