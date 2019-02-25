@@ -68,7 +68,7 @@ def test_random_settings():
     children = [4, 31, 64, 103, 137, 158, 166]
     locations.add_edges_from([(1, c) for c in children])
     for i in range(100):
-        settings = create_settings(rng, children)
+        settings = create_settings(rng, locations)
         c = CascadePlan.from_epiviz_configuration(locations, settings, args)
         for idx, j in enumerate(c.cascade_jobs):
             job_kind, job_args = c.cascade_job(j)

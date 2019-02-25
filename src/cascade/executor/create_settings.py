@@ -43,7 +43,7 @@ BASE_CASE = {
         "drill": "drill",
         "drill_sex": 2,
         "drill_location_start": 1,
-        "drill_location_end": 137,
+        "drill_location_end": 40,
         "zero_sum_random": [
             "iota",
             "rho",
@@ -52,7 +52,7 @@ BASE_CASE = {
         "quasi_fixed": 0,
         "addl_ode_stpes": "0.015625 0.03125 0.0625 0.125 0.25 0.5",
         "title": "LBW / running on NAME",
-        "drill_location": 137
+        "drill_location": 40
     },
     "max_num_iter": {
         "fixed": 100,
@@ -160,6 +160,7 @@ def create_settings(rng, locations):
 
     Args:
         rng (numpy.random.RandomState): Create with ``RandomState(2324234)``.
+        locations (nx.DiGraph): List of locations.
 
     Returns:
         dict: A dictionary that looks like parsed JSON from EpiViz-AT.
@@ -167,11 +168,6 @@ def create_settings(rng, locations):
     has = dict()
     for rate, likely in [("iota", 0.1), ("rho", 0.7), ("omega", 0), ("chi", 0.1), ("pini", 0.7)]:
         has[rate] = rng.uniform() > likely
-
-    # The parent location id is 1
-    # Would you ever have one child random effect?
-    child_selection = [None, [locations[0]], locations]
-    children = child_selection[rng.choice([0, 1, 2], p=[0.2, 0.05, 0.75])]
 
     covariates = [1604, 2453, 6497]
 
@@ -196,7 +192,41 @@ def create_settings(rng, locations):
         if exists:
             case["rate"].append(rate_grid(rate, rng))
 
-    random_effects = add_random_effects(children, has, rate, rng)
+    location_root = 1
+    # Use the last location as the drill end possibility.
+    last_location = list(nx.topological_sort(locations))[-1]
+    drill = sorted(nx.ancestors(locations, last_location))
+    start_loc_idx = rng.randint(0, len(drill))
+    end_loc_idx = rng.randint(start_loc_idx, len(drill))
+    start_loc = drill[start_loc_idx]
+    end_loc = drill[end_loc_idx]
+    case["model"]["drill_location_start"] = start_loc
+    case["model"]["drill_location_end"] = end_loc
+
+    # We specify priors of random effects either
+    # a) Once for the whole hierarchy, or
+    # b) For every single location in the hierarchy.
+    # Choose this by rate
+    rate_specifies_re_by_location = dict()
+    for rate_name in [x for (x, y) in has.items() if y]:
+        choice = rng.choice(["none", "all", "every"])
+        # none means no random effects.
+        # all means every single location.
+        # every means each location gets a new one.
+        if rate in {"all", "every"}:
+            rate_specifies_re_by_location[rate_name] = choice == "every"
+        else:
+            pass  # Don't record this rate as needing a random effect.
+
+    random_effects = list()
+    # Iterates over every set of parent and children in the graph.
+    for rate_name, by_location in rate_specifies_re_by_location:
+        if by_location:
+            # You have to do _all_ of them.
+            for parent, children in nx.bfs_successors(locations, location_root):
+                random_effects.extend(add_random_effects(children, rate_name, rng))
+        else:
+            add_random_effects(None, rate_name, rng)
 
     # Only add to dict if there are some?
     if random_effects:
@@ -220,36 +250,40 @@ def add_covariates(case, covariates, rng):
             case[f"{ckind}_covariate"] = scovariates
 
 
-def add_random_effects(children, has, rate, rng):
+def add_random_effects(children, rate_name, rng):
     random_effects = list()
+    single_age = rate_name == "pini"
     if children:
-        for random_effect, exists in [(x, y) for (x, y) in has.items() if y]:
-            single_age = rate == "pini"
-            choice = rng.choice(["none", "all", "every"])
-            if choice == "all":
-                grid_case = grid(False, rng, single_age)
-                grid_case["rate"] = random_effect
-                grid_case["location"] = 1
-                random_effects.append(grid_case)
-            elif choice == "every":
-                for child in children:
-                    grid_case = grid(False, rng, single_age)
-                    grid_case["rate"] = random_effect
-                    grid_case["location"] = child
-                    random_effects.append(grid_case)
+        for child in children:
+            grid_case = grid(False, rng, single_age)
+            grid_case["rate"] = rate_name
+            grid_case["location"] = child
+            random_effects.append(grid_case)
+    else:
+        grid_case = grid(False, rng, single_age)
+        grid_case["rate"] = rate_name
+        grid_case["location"] = None
+        random_effects.append(grid_case)
     return random_effects
+
+
+def make_locations(depth):
+    """Creates locations of given depth as a balanced tree. Root is 1."""
+    arity = 3
+    zero_based = nx.balanced_tree(arity, depth, nx.DiGraph)
+    locations = nx.relabel_nodes(zero_based, {i: i + 1 for i in range(len(zero_based))})
+    for lidx, n in enumerate(locations.nodes):
+        locations.nodes[n]["location_name"] = str(lidx)
+    return locations
 
 
 def create_local_settings(rng=None):
     """Make a local settings object, all the way from the EpiViz-AT form."""
     rng = rng if rng else RandomState(3242352)
     args = parse_arguments(["z.db"])
-    locations = nx.DiGraph()
-    children = [4, 31, 64, 103, 137, 158, 166]
-    locations.add_edges_from([(1, c) for c in children])
-    for lidx, n in enumerate(locations.nodes):
-        locations.nodes[n]["location_name"] = chr(ord("a") + lidx)
-    settings = create_settings(rng, children)
+    depth = 3
+    locations = make_locations(depth)
+    settings = create_settings(rng, locations)
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     j = list(c.cascade_jobs)
     job_kind, job_args = c.cascade_job(j[rng.randint(1, len(j))])

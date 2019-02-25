@@ -1,3 +1,5 @@
+from pathlib import Path
+import pickle
 from types import SimpleNamespace
 
 from numpy.random import RandomState
@@ -13,6 +15,7 @@ def test_construct_model_fair(dismod, tmp_path):
     filename = tmp_path / "z.db" if lose_file else "model_fair.db"
     rng = RandomState(424324)
     for i in range(10):
+        rng_state = rng.get_state()
         local_settings, locations = create_local_settings(rng)
         data = SimpleNamespace()
         data.locations = locations
@@ -21,4 +24,8 @@ def test_construct_model_fair(dismod, tmp_path):
         assert len(model.rate.keys()) > 0
         session = Session(location_hierarchy_to_dataframe(locations),
                           parent_location=1, filename=filename)
-        session.setup_model_for_fit(model)
+        try:
+            session.setup_model_for_fit(model)
+        except AssertionError:
+            pickle.dump(rng_state, Path(f"fail_state{i}.pkl").open("wb"))
+            raise
