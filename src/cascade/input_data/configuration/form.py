@@ -220,6 +220,7 @@ class Model(Form):
     additional_ode_steps = StringListField(constructor=float, nullable=True,
                                            display="Advanced additional ODE steps")
     split_sex = OptionField(["most_detailed", "1", "2", "3", "4", "5"], display="Split sex (Being used as Drill Start)")
+    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
     zero_sum_random = ListField(nullable=True, display="Zero-sum random effects")
     bound_frac_fixed = FloatField(
         default=1e-2, nullable=True,
@@ -340,7 +341,6 @@ class Configuration(Form):
     # Unclear how this differs from csmr_cod_output_version_id. Has same value.
     csmr_mortality_output_version_id = Dummy()
     location_set_version_id = IntField(default=429, nullable=True)
-    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)

@@ -11,12 +11,14 @@ class CompareDatabases:
         self.tables = [sorted([x[0] for x in connl.execute(SQLITE_TABLES)]) for connl in self.conn]
 
     def table_diffs(self):
+        """Which tables were added or deleted."""
         sm = SequenceMatcher()
         sm.set_seqs(*self.tables)
         return [op for op in sm.get_opcodes() if op[0] != "equal"]
 
     def different_tables(self):
-        """Which tables are different, except for the log, which always differs."""
+        """Which tables that exist in both are different,
+        except for the log, which always differs."""
         common = sorted(set(self.tables[0]) & set(self.tables[1]))
         differ = set()
         for c in common:
