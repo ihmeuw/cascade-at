@@ -189,39 +189,6 @@ def add_covariates(case, covariates, nonzero_rates, rng):
             case[f"{ckind}_covariate"] = scovariates
 
 
-class SettingsChoices:
-    """
-    This class will fix certain choices to given values. Its input is
-    a list of key-value pairs, set up as for a section of a ConfigParser,
-    although this adds the section title for you.
-    """
-    def __init__(self, rng=None, settings=None):
-        if isinstance(settings, str):
-            parser = ConfigParser()
-            parser.read_string("[settings]\n" + dedent(settings))
-            self.answers = parser["settings"]
-        else:
-            self.answers = dict()
-        self.rng = rng
-        self.random = list()
-
-    def choice(self, choices, name=None, p=None):
-        if name in self.answers:
-            value = self.answers[name]
-            try:
-                value = int(value)
-            except ValueError:
-                try:
-                    value = float(value)
-                except ValueError:
-                    pass
-            return value
-        else:
-            assert self.rng, f"Unexpected setting chosen {name} {choices}"
-            self.random.append((name, choices))
-            return self.rng.choice(choices, p=p)
-
-
 def create_settings(choices, locations=None):
     """
     Makes a random settings, as though EpiViz-AT made it.
@@ -244,6 +211,7 @@ def create_settings(choices, locations=None):
     has = dict()
     for rate, likely in [("iota", 0.1), ("rho", 0.7), ("omega", 0), ("chi", 0.1), ("pini", 0.7)]:
         has[rate] = rng.choice([False, True], p=[likely, 1 - likely], name=rate)
+    nonzero_rates = [x for (x, y) in has.items() if y]
 
     covariates = [1604, 2453, 6497]
 
@@ -264,9 +232,8 @@ def create_settings(choices, locations=None):
             has["omega"] = True
 
     case["rate"] = list()
-    for rate, exists in has.items():
-        if exists:
-            case["rate"].append(rate_grid(rate, rng))
+    for rate in nonzero_rates:
+        case["rate"].append(rate_grid(rate, rng))
 
     location_root = 1
     # Use the last location as the drill end possibility.
@@ -278,22 +245,20 @@ def create_settings(choices, locations=None):
     case["model"]["drill_location_start"] = start_loc
     case["model"]["drill_location_end"] = end_loc
 
-    # We specify priors of random effects either
-    # a) Once for the whole hierarchy, or
-    # b) For every single location in the hierarchy.
-    # Choose this by rate
-    rate_specifies_re_by_location = dict()
-    nonzero_rates = [x for (x, y) in has.items() if y]
-    for rate_name in nonzero_rates:
-        choice = rng.choice(["none", "all", "every"], name=f"re.{rate_name}")
-        # none means no random effects.
-        # all means every single location.
-        # every means each location gets a new one.
-        if rate in {"all", "every"}:
-            rate_specifies_re_by_location[rate_name] = choice == "every"
-        else:
-            pass  # Don't record this rate as needing a random effect.
+    rate_specifies_re_by_location = which_random_effects(nonzero_rates, rate, rng)
 
+    add_chosen_random_effects(case, location_root, locations, rate_specifies_re_by_location, rng)
+
+    add_covariates(case, covariates, nonzero_rates, rng)
+    try:
+        config = json_settings_to_frozen_settings(case, 267890)
+    except SettingsError:
+        pprint(case, indent=2)
+        raise
+    return config
+
+
+def add_chosen_random_effects(case, location_root, locations, rate_specifies_re_by_location, rng):
     random_effects = list()
     # Iterates over every set of parent and children in the graph.
     for rate_name, by_location in rate_specifies_re_by_location:
@@ -303,18 +268,64 @@ def create_settings(choices, locations=None):
                 random_effects.extend(add_random_effects(children, rate_name, rng))
         else:
             add_random_effects(None, rate_name, rng)
-
     # Only add to dict if there are some?
     if random_effects:
         case["random_effect"] = random_effects
 
-    add_covariates(case, covariates, nonzero_rates, rng)
-    try:
-        config = json_settings_to_frozen_settings(case, 267890)
-    except SettingsError:
-        pprint(case, indent=2)
-        raise
-    return config
+
+def which_random_effects(nonzero_rates, rate, rng):
+    # We specify priors of random effects either
+    # a) Once for the whole hierarchy, or
+    # b) For every single location in the hierarchy.
+    # Choose this by rate
+    rate_specifies_re_by_location = dict()
+    for rate_name in nonzero_rates:
+        choice = rng.choice(["none", "all", "every"], name=f"re.{rate_name}")
+        # none means no random effects.
+        # all means every single location.
+        # every means each location gets a new one.
+        if rate in {"all", "every"}:
+            rate_specifies_re_by_location[rate_name] = choice == "every"
+        else:
+            pass  # Don't record this rate as needing a random effect.
+    return rate_specifies_re_by_location
+
+
+class SettingsChoices:
+    """
+    This class will fix certain choices to given values. Its input is
+    a list of key-value pairs, set up as for a section of a ConfigParser,
+    although this adds the section title for you.
+    """
+    def __init__(self, rng=None, settings=None):
+        if isinstance(settings, str):
+            parser = ConfigParser()
+            parser.read_string("[settings]\n" + dedent(settings))
+            self.answers = parser["settings"]
+        else:
+            self.answers = dict()
+        self.rng = rng
+        self.random = list()
+
+    def choice(self, choices, name=None, p=None):
+        if name in self.answers:
+            value = self.answers[name]
+            # ConfigParser returns strings.
+            try:
+                value = int(value)
+            except ValueError:
+                try:
+                    value = float(value)
+                except ValueError:
+                    if value.lower() == "true":
+                        return True
+                    elif value.lower() == "false":
+                        return False
+            return value
+        else:
+            assert self.rng, f"Unexpected setting chosen {name} {choices}"
+            self.random.append((name, choices))
+            return self.rng.choice(choices, p=p)
 
 
 def make_locations(depth):
@@ -342,6 +353,5 @@ def create_local_settings(rng=None, settings=None, locations=None):
     j = list(c.cascade_jobs)[1:]
     job_choice = choices.choice(list(range(len(j))), name="job_idx")
     job_kind, job_args = c.cascade_job(j[job_choice])
-    print("\n".join(f"{k} = {v}" for (k, v) in choices.random))
     assert job_kind == "estimate_location"
     return job_args, locations
