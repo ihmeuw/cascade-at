@@ -1,5 +1,8 @@
+from collections import defaultdict
 from timeit import default_timer as timer
 from types import SimpleNamespace
+
+from numpy import nan
 
 from cascade.core import getLoggers
 from cascade.core.db import db_queries
@@ -11,6 +14,7 @@ from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_disk,
     bundle_to_observations
 )
+from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.model.session import Session
@@ -78,14 +82,25 @@ def modify_input_data(input_data, local_settings):
     ev_settings = local_settings.settings
     # These are suitable for input to the fit.
     if hasattr(ev_settings.eta, "data") and ev_settings.eta.data:
-        data_eta = float(ev_settings.eta.data)
+        data_eta = defaultdict(lambda: float(ev_settings.eta.data))
     else:
-        data_eta = None
+        data_eta = defaultdict(lambda: nan)
+    id_to_integrand = make_integrand_map()
+    for set_eta in ev_settings.data_eta_by_integrand:
+        data_eta[id_to_integrand[set_eta.integrand_measure_id]] = float(set_eta.value)
+
+    if hasattr(ev_settings.model, "data_density") and ev_settings.model.data_density:
+        density = defaultdict(lambda: ev_settings.model.data_density)
+    else:
+        density = defaultdict(lambda: "gaussian")
+    for set_density in ev_settings.data_density_by_integrand:
+        density[id_to_integrand[set_density.integrand_measure_id]] = set_density.value
 
     input_data.observations = bundle_to_observations(
         input_data.bundle,
         local_settings.parent_location_id,
-        data_eta
+        data_eta,
+        density,
     )
     input_data.observations = input_data.observations.drop(columns="sex_id")
     # ev_settings.data_eta_by_integrand is a dummy in form.py.

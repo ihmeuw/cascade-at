@@ -230,6 +230,7 @@ class Model(Form):
         display="allowed modification to point to move it within bounds"
     )
     rate_case = Dummy()
+    data_density = StrField(nullable=True, display="Data density")
 
     def _full_form_validation(self, root):
         errors = []
@@ -246,6 +247,16 @@ class Model(Form):
 class Eta(Form):
     priors = FloatField(nullable=True)
     data = FloatField(nullable=True)
+
+
+class DataEta(Form):
+    integrand_measure_id = IntField(nullable=True)
+    value = FloatField(nullable=True)
+
+
+class DataDensity(Form):
+    value = StrField(nullable=True)
+    integrand_measure_id = IntField(nullable=True)
 
 
 class StudentsDOF(Form):
@@ -326,10 +337,10 @@ class Configuration(Form):
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)
     csmr_cod_output_version_id = IntField()
-    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
-
+    # Unclear how this differs from csmr_cod_output_version_id. Has same value.
     csmr_mortality_output_version_id = Dummy()
     location_set_version_id = IntField(default=429, nullable=True)
+    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)
@@ -338,6 +349,6 @@ class Configuration(Form):
     print_level = FixedRandomInt(display="Print level")
     accept_after_max_steps = FixedRandomInt(display="Max backtracking")
     tolerance = FixedRandomFloat(display="Desired relative convergence tolerance")
-    data_eta_by_integrand = Dummy()
-    data_density_by_integrand = Dummy()
-    config_version = Dummy()
+    data_eta_by_integrand = FormList(DataEta)
+    data_density_by_integrand = FormList(DataDensity)
+    config_version = IntField(nullable=True, display="Settings version")
