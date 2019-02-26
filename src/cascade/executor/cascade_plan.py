@@ -88,7 +88,6 @@ class CascadePlan:
         else:
             grandparent_location_id = None
 
-        print(f"settings {type(self._settings)} {self._settings.policies}")
         parent_location_id = self._location_of_cascade_job(cascade_job_id)
 
         policies = policies_from_settings(self._settings)

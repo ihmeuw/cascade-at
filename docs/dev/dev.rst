@@ -14,5 +14,8 @@ and design documents gathered during development.
    dismod_at_shape
    versioning
    design_sketches
+   inputs_outputs
+   hdf_design
    design_ev_main
    parameters
+

@@ -1,6 +1,7 @@
 """
 testing of covariate multipliers.
 """
+from numpy import nan
 import pytest
 
 from cascade.model import covariates
@@ -58,6 +59,12 @@ def test_create_covariate(cov, ref, diff):
     covariates.Covariate(cov, ref, diff)
 # What happens downstream if you don't set the reference on a covariate column?
 # When does that get checked?
+
+
+def test_set_nan():
+    c = covariates.Covariate("chewing_gum", 0, nan)
+    assert c.max_difference is None
+    assert c.reference == 0
 
 
 @pytest.mark.parametrize("name,ref,diff", [

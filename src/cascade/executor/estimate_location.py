@@ -1,9 +1,8 @@
+from collections import defaultdict
 from timeit import default_timer as timer
 from types import SimpleNamespace
 
-import networkx as nx
 from numpy import nan
-import pandas as pd
 
 from cascade.core import getLoggers
 from cascade.core.db import db_queries
@@ -15,8 +14,9 @@ from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_disk,
     bundle_to_observations
 )
+from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.asdr import asdr_as_fit_input
-from cascade.input_data.db.locations import location_hierarchy
+from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.model.session import Session
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -81,35 +81,32 @@ def retrieve_data(execution_context, local_settings):
 def modify_input_data(input_data, local_settings):
     ev_settings = local_settings.settings
     # These are suitable for input to the fit.
-    if hasattr(ev_settings.eta, "data") and ev_settings.eta.data:
-        data_eta = float(ev_settings.eta.data)
+    if not ev_settings.eta.is_field_unset("data") and ev_settings.eta.data:
+        data_eta = defaultdict(lambda: float(ev_settings.eta.data))
     else:
-        data_eta = None
+        data_eta = defaultdict(lambda: nan)
+    id_to_integrand = make_integrand_map()
+    for set_eta in ev_settings.data_eta_by_integrand:
+        data_eta[id_to_integrand[set_eta.integrand_measure_id]] = float(set_eta.value)
+
+    if not ev_settings.model.is_field_unset("data_density") and ev_settings.model.data_density:
+        density = defaultdict(lambda: ev_settings.model.data_density)
+    else:
+        density = defaultdict(lambda: "gaussian")
+    for set_density in ev_settings.data_density_by_integrand:
+        density[id_to_integrand[set_density.integrand_measure_id]] = set_density.value
 
     input_data.observations = bundle_to_observations(
         input_data.bundle,
         local_settings.parent_location_id,
-        data_eta
+        data_eta,
+        density,
     )
     input_data.observations = input_data.observations.drop(columns="sex_id")
     # ev_settings.data_eta_by_integrand is a dummy in form.py.
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
 
-    sorted_locations = list(nx.lexicographical_topological_sort(input_data.locations))
-    parents = list()
-    names = list()
-    for l in sorted_locations:
-        parent = list(input_data.locations.predecessors(l))
-        if parent:
-            parents.append(parent[0])
-        else:
-            parents.append(nan)
-        names.append(input_data.locations.nodes[l]["location_name"])
-    input_data.locations_df = pd.DataFrame(dict(
-        location_id=sorted_locations,
-        parent_id=parents,
-        name=names,
-    ))
+    input_data.locations_df = location_hierarchy_to_dataframe(input_data.locations)
     return input_data
 
 
