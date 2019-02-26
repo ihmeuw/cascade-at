@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from numpy import nan
 
 from cascade.core import getLoggers
+from cascade.core.db import dataframe_from_disk
 from cascade.core.db import db_queries
 from cascade.executor.construct_model import construct_model
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
@@ -17,6 +18,7 @@ from cascade.input_data.configuration.construct_bundle import (
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
+from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model.session import Session
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -48,8 +50,8 @@ def retrieve_data(execution_context, local_settings):
     data.locations = location_hierarchy(
         data_access.gbd_round_id, location_set_version_id=data_access.location_set_version_id)
 
-    if local_settings.data_access.bundle_file:
-        data.bundle = normalized_bundle_from_disk(local_settings.data_access.bundle_file)
+    if data_access.bundle_file:
+        data.bundle = normalized_bundle_from_disk(data_access.bundle_file)
     else:
         data.bundle = normalized_bundle_from_database(
             execution_context,
@@ -57,16 +59,21 @@ def retrieve_data(execution_context, local_settings):
             bundle_id=local_settings.data_access.bundle_id,
             tier=local_settings.data_access.tier
         )
-
+    if data_access.bundle_study_covariates_file:
+        data.sparse_covariate_data = dataframe_from_disk(data_access.bundle_study_covariates_file)
+    else:
+        mvid = data_access.model_version_id
+        data.sparse_covariate_data = get_study_covariates(
+            execution_context, data_access.bundle_id, mvid, tier=data_access.tier)
     ages_df = db_queries.get_age_metadata(
-        age_group_set_id=local_settings.data_access.age_group_set_id,
-        gbd_round_id=local_settings.data_access.gbd_round_id
+        age_group_set_id=data_access.age_group_set_id,
+        gbd_round_id=data_access.gbd_round_id
     )
 
     # This comes in yearly from 1950 to 2018
     data.age_specific_death_rate = asdr_as_fit_input(
         local_settings.parent_location_id, local_settings.sex_id,
-        local_settings.data_access.gbd_round_id, ages_df, with_hiv=local_settings.data_access.with_hiv)
+        data_access.gbd_round_id, ages_df, with_hiv=data_access.with_hiv)
 
     # These are the draws as output of the parent location.
     data.draws = None

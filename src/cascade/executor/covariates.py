@@ -12,7 +12,7 @@ def country_covariate_names():
     return covariate_df.to_dict()["covariate_name_short"]
 
 
-class CovariateMultiplier:
+class EpiVizCovariateMultiplier:
     """Used to build priors for this covariate multiplier."""
     def __init__(self, covariate, settings):
         """
@@ -88,6 +88,6 @@ def create_covariate_specifications(study, country):
         # This tells us what the data is for the column.
         covariate_id = getattr(setting, f"{kind}_covariate_id")
         spec = (kind, covariate_id, setting.transformation)
-        multipliers.append(CovariateMultiplier(covariate_dict[spec], setting))
+        multipliers.append(EpiVizCovariateMultiplier(covariate_dict[spec], setting))
 
     return multipliers, sorted(covariate_dict.values())
