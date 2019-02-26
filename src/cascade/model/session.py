@@ -1,6 +1,7 @@
+import asyncio
 from math import nan
 from pathlib import Path
-from subprocess import run, PIPE
+import re
 
 import pandas as pd
 
@@ -235,16 +236,11 @@ class Session:
         CODELOG.debug(f"Running Dismod-AT {command}")
         with self._objects.close_db_while_running():
             str_command = [str(c) for c in command]
-            completed_process = run(["dmdismod", str(self._filename)] + str_command, stdout=PIPE, stderr=PIPE)
-            dm_out = completed_process.stdout.decode()
-            dm_err = completed_process.stderr.decode()
-            if completed_process.returncode != 0:
-                MATHLOG.error(dm_out)
-                MATHLOG.error(dm_err)
-            assert completed_process.returncode == 0, f"return code is {completed_process.returncode}"
+            return_code, stdout, stderr = _run_with_async_logging(["dmdismod", str(self._filename)] + str_command)
+            assert return_code == 0, f"return code is {return_code}"
         if command[0] in COMMAND_IO:
             self._objects.refresh(COMMAND_IO[command[0]].output)
-        return dm_out, dm_err
+        return stdout, stderr
 
     @staticmethod
     def _check_vars(var):
@@ -349,3 +345,62 @@ class SimulateResult:
             the Nth simulation.
         """
         return self._file_objects.read_simulation_model_and_data(self._model, self._data, index)
+
+
+async def _read_pipe(pipe, callback=lambda text: None):
+    """Read from a pipe until it closes.
+
+    Args:
+        pipe: The pipe to read from
+        callback: a callable which will be invoked each time data is read from the pipe
+    """
+    while not pipe.at_eof():
+        text = await pipe.read(2 ** 16)
+        text = text.decode("utf-8")
+        callback(text)
+
+
+_NONWHITESPACE = re.compile(r"\S")
+
+
+def dismod_report_info(accumulator):
+    """This ensures MATHLOG messages have a function name in the log.
+    Otherwise, they show <lambda> as the function name.
+    """
+    def inner(text):
+        MATHLOG.info(text, extra=dict(is_dismod_output=True))
+        accumulator.append(text)
+    return inner
+
+
+def dismod_report_stderr(accumulator):
+    """This ensures MATHLOG messages have a function name in the log.
+    Otherwise, they show <lambda> as the function name.
+    """
+    def inner(text):
+        if re.search(_NONWHITESPACE, text):
+            MATHLOG.warning(text, extra=dict(is_dismod_output=True))
+            accumulator.append(text)
+    return inner
+
+
+def _run_with_async_logging(command):
+    loop = asyncio.get_event_loop()
+
+    async def coroutine():
+        sub_process = await asyncio.subprocess.create_subprocess_exec(
+            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout_accumulator = []
+        stderr_accumulator = []
+        std_out_task = loop.create_task(_read_pipe(sub_process.stdout, dismod_report_info(stdout_accumulator)))
+        std_err_task = loop.create_task(_read_pipe(sub_process.stderr, dismod_report_stderr(stderr_accumulator)))
+
+        await sub_process.wait()
+        await std_out_task
+        await std_err_task
+
+        return sub_process.returncode, "".join(stdout_accumulator), "".join(stderr_accumulator)
+
+    return loop.run_until_complete(coroutine())
