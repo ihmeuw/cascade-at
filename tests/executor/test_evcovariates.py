@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from cascade.executor.covariates import create_covariate_specifications, EpiVizCovariate
+from cascade.executor.covariate_description import create_covariate_specifications, EpiVizCovariate
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def test_create_covariates(covariate_settings):
     multipliers, covariates = create_covariate_specifications(study, country)
     assert len(multipliers) == 5
     assert len(covariates) == 4
-    # Assign fake names so we can test this without IHME
+    # Assign fake names so we can test this without IHME databases.
     for cov in covariates:
         cov.name = f"{cov.covariate_id}_{cov.transformation_id}"
 
@@ -85,4 +85,5 @@ def test_create_covariates(covariate_settings):
     }
     for cov in covariates:
         assert cov.spec in check_covs
-    # Ordering for covariates isn't working, and I don't know why.
+    # Ordering for covariates isn't working.
+    # Cannot assert that the first two are the sex and one covariates.

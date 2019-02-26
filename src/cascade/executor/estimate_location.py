@@ -8,6 +8,7 @@ from cascade.core import getLoggers
 from cascade.core.db import dataframe_from_disk
 from cascade.core.db import db_queries
 from cascade.executor.construct_model import construct_model
+from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.construct_bundle import (
@@ -35,14 +36,17 @@ def estimate_location(execution_context, local_settings):
             a location ID corresponding to the location for this fit.
     """
     input_data = retrieve_data(execution_context, local_settings)
-    modified_data = modify_input_data(input_data, local_settings)
-    model = construct_model(modified_data, local_settings)
+    covariate_multipliers, covariate_data_spec = create_covariate_specifications(
+        local_settings.settings.country_covariate, local_settings.settings.study_covariate
+    )
+    modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
+    model = construct_model(modified_data, local_settings, covariate_multipliers)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
     save_outputs(computed_fit, draws, execution_context, local_settings)
 
 
-def retrieve_data(execution_context, local_settings):
+def retrieve_data(execution_context, local_settings, covariate_data_spec):
     data = SimpleNamespace()
     data_access = local_settings.data_access
     model_version_id = data_access.model_version_id
@@ -59,12 +63,14 @@ def retrieve_data(execution_context, local_settings):
             bundle_id=local_settings.data_access.bundle_id,
             tier=local_settings.data_access.tier
         )
+    # Study covariates will have columns {"bundle_id", "seq", "study_covariate_id"}.
     if data_access.bundle_study_covariates_file:
         data.sparse_covariate_data = dataframe_from_disk(data_access.bundle_study_covariates_file)
     else:
         mvid = data_access.model_version_id
         data.sparse_covariate_data = get_study_covariates(
             execution_context, data_access.bundle_id, mvid, tier=data_access.tier)
+
     ages_df = db_queries.get_age_metadata(
         age_group_set_id=data_access.age_group_set_id,
         gbd_round_id=data_access.gbd_round_id
@@ -85,7 +91,7 @@ def retrieve_data(execution_context, local_settings):
     return data
 
 
-def modify_input_data(input_data, local_settings):
+def modify_input_data(input_data, local_settings, covariate_data_spec):
     ev_settings = local_settings.settings
     # These are suitable for input to the fit.
     if not ev_settings.eta.is_field_unset("data") and ev_settings.eta.data:
@@ -110,6 +116,7 @@ def modify_input_data(input_data, local_settings):
         density,
     )
     input_data.observations = input_data.observations.drop(columns="sex_id")
+
     # ev_settings.data_eta_by_integrand is a dummy in form.py.
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
 

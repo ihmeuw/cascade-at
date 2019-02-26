@@ -7,6 +7,7 @@ from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.construct_model import construct_model
+from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import (
     create_local_settings, create_settings, SettingsChoices, make_locations
 )
@@ -91,7 +92,10 @@ def make_local_settings(given_settings):
 def make_a_db(local_settings, locations, filename):
     data = SimpleNamespace()
     data.locations = locations
-    model = construct_model(data, local_settings)
+    covariate_multipliers, covariate_data_spec = create_covariate_specifications(
+        local_settings.settings.country_covariate, local_settings.settings.study_covariate
+    )
+    model = construct_model(data, local_settings, covariate_multipliers)
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
     session.set_option(**make_options(local_settings.settings))
@@ -104,7 +108,10 @@ def construct_model_fair(filename, rng_state):
     local_settings, locations = create_local_settings(rng)
     data = SimpleNamespace()
     data.locations = locations
-    model = construct_model(data, local_settings)
+    covariate_multipliers, covariate_data_spec = create_covariate_specifications(
+        local_settings.settings.country_covariate, local_settings.settings.study_covariate
+    )
+    model = construct_model(data, local_settings, covariate_multipliers)
     assert len(model.rate.keys()) > 0
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
