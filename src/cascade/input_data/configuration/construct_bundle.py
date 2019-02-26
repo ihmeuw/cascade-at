@@ -1,5 +1,8 @@
+from collections import defaultdict
+
 import numpy as np
 import pandas as pd
+from numpy import nan
 
 from cascade.core import getLoggers
 from cascade.core.db import dataframe_from_disk
@@ -63,7 +66,7 @@ def _normalize_bundle_data(data):
                                       "year_start": "time_lower", "year_end": "time_upper"})
 
 
-def bundle_to_observations(bundle_df, parent_location_id, global_data_eta):
+def bundle_to_observations(bundle_df, parent_location_id, data_eta, density):
     """
     Convert bundle into an internal format. It removes the sex column and changes
     location to node. It also adjusts for the demographic specification.
@@ -76,13 +79,18 @@ def bundle_to_observations(bundle_df, parent_location_id, global_data_eta):
 
         parent_location_id: Parent location
 
-        global_data_eta: Default value for eta parameter on distributions.
+        data_eta: Default value for eta parameter on distributions as
+            a dictionary from measure name to float.
+        density: Default values for density parameter on distributions as
+            a dictionary from measure name to string.
 
     """
     if "location_id" in bundle_df.columns:
         location_id = bundle_df["location_id"]
     else:
         location_id = np.full(len(bundle_df), parent_location_id, dtype=np.int)
+    data_eta = data_eta if data_eta else defaultdict(lambda: nan)
+    density = density if density else defaultdict(lambda: "gaussian")
 
     # assume using demographic notation because this bundle uses it.
     demographic_interval_specification = 0
@@ -95,8 +103,10 @@ def bundle_to_observations(bundle_df, parent_location_id, global_data_eta):
         {
             "integrand": bundle_df["measure"],
             "location": location_id,
-            "density": "gaussian",
-            "eta": global_data_eta or np.nan,
+            # Using getitem instead of get because defaultdict.get returns None
+            # when the item is missing.
+            "density": bundle_df["measure"].apply(density.__getitem__),
+            "eta": bundle_df["measure"].apply(data_eta.__getitem__),
             "age_lower": bundle_df["age_lower"],
             "age_upper": bundle_df["age_upper"] + demographic_interval_specification,
             # The years should be floats in the bundle.

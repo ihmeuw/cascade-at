@@ -86,6 +86,7 @@ class Model(DismodGroups):
 
     def write(self, writer):
         self._ensure_weights()
+        self._check()
         writer.start_model(self.nonzero_rates, self.child_location)
         for group in self.values():
             for grid in group.values():
@@ -151,6 +152,16 @@ class Model(DismodGroups):
             if kind not in self.weights:
                 self.weights[kind] = Var(*one_age_time)
                 self.weights[kind].grid.loc[:, "mean"] = 1.0
+
+    def _check(self):
+        child_specific_rate = dict()
+        for rate, child in self.random_effect:
+            child_specific = child is not None
+            if rate in child_specific_rate and child_specific_rate[rate] != child_specific:
+                raise RuntimeError(f"Model random effect for {rate} has both child-specific "
+                                   "and all-child specifications")
+            else:
+                child_specific_rate[rate] = child_specific
 
     @staticmethod
     def _check_covariates(covariates):
