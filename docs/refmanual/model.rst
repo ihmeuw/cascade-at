@@ -19,6 +19,8 @@ Priors
 ------
 .. automodule:: cascade.model.priors
     :members:
+    :undoc-members:
+    :inherited-members:
 
 
 Age-Time and Prior Grids
