@@ -81,7 +81,7 @@ def retrieve_data(execution_context, local_settings):
 def modify_input_data(input_data, local_settings):
     ev_settings = local_settings.settings
     # These are suitable for input to the fit.
-    if hasattr(ev_settings.eta, "data") and ev_settings.eta.data:
+    if not ev_settings.eta.is_field_unset("data") and ev_settings.eta.data:
         data_eta = defaultdict(lambda: float(ev_settings.eta.data))
     else:
         data_eta = defaultdict(lambda: nan)
@@ -89,7 +89,7 @@ def modify_input_data(input_data, local_settings):
     for set_eta in ev_settings.data_eta_by_integrand:
         data_eta[id_to_integrand[set_eta.integrand_measure_id]] = float(set_eta.value)
 
-    if hasattr(ev_settings.model, "data_density") and ev_settings.model.data_density:
+    if not ev_settings.model.is_field_unset("data_density") and ev_settings.model.data_density:
         density = defaultdict(lambda: ev_settings.model.data_density)
     else:
         density = defaultdict(lambda: "gaussian")

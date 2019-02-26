@@ -79,7 +79,7 @@ def construct_model_rates(default_age_time, single_age_time, ev_settings, model)
 
 
 def construct_grid_ages_times(default_age_time, single_age_time, smooth):
-    if hasattr(smooth, "age_time_specific") and smooth.age_time_specific == 0:
+    if not smooth.is_field_unset("age_time_specific") and smooth.age_time_specific == 0:
         return single_age_time
 
     ages = smooth.age_grid
@@ -102,8 +102,6 @@ def construct_model_random_effects(default_age_time, single_age_time, ev_setting
     """The settings may have random effects for many locations which aren't children
     of the current parent location. Only those random effects that apply to the children
     explicitly or to all locations (specified as location=None) are included."""
-    if not hasattr(ev_settings, "random_effect"):
-        return
     if not ev_settings.random_effect:
         return
 
@@ -117,7 +115,7 @@ def construct_model_random_effects(default_age_time, single_age_time, ev_setting
             else:
                 pass  # An unset prior should be unused (dage for one age, dtime for one time)
 
-        if hasattr(smooth, "location") and smooth.location in model.child_location:
+        if not smooth.is_field_unset("location") and smooth.location in model.child_location:
             location = smooth.location
         else:
             # One smooth for all children when there isn't a child location.
