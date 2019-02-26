@@ -10,8 +10,9 @@ There are three reasons to use a covariate.
 
 *Study Covariate*
     The covariate marks a set of studies that behave differently.
-    For instance, that set may have different criteria for incipience
-    of a disease. We assign a covariate to the set of studies
+    For instance, different sets of measurements may have different
+    criteria for when a person is said to have the disease.
+    We assign a covariate to the set of studies
     to account for bias from study design.
 
 *Sex Covariate*
@@ -33,7 +34,7 @@ Dismod-AT applies covariate effects to one of three different variables.
 It either uses the covariate to `predict the underlying rate`_,
 or it applies the covariate to predict the measured data. It can
 be an effect on either the `measured data value`_ or the
-observation data `standard deviation`_. Dismod-AT calls these
+observation data `standard deviation`_. Dismod-AT calls these, respectively,
 the alpha, beta, and gamma covariates.
 
 As a rule of thumb, the three uses of covariates apply

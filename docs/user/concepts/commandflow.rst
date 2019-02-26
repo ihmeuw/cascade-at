@@ -10,7 +10,8 @@ They correspond to different sequences of
 
 .. _stream-out-prevalence:
 
-**Stream Out Prevalence** The simplest use of Dismod-AT is to ask it to run the ODE on known
+**Stream Out Prevalence** The simplest use of Dismod-AT is to ask it to run the
+ordinary differential equation on known
 rates and produce prevalence, death, and integrands derived from these.
 
   1. *Precondition* Provide known values for all rates over the whole

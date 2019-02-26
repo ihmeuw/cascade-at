@@ -13,7 +13,8 @@ all individuals in that population. For instance, the remission rate,
 as a function of age, averages over all the different times someone
 may have entered the with-condition state.
 
-The Dismod-AT compartmental model has four *Dismod-AT primary rates,*
+The Dismod-AT `compartmental model <https://en.wikipedia.org/wiki/Multi-compartment_model>`_
+has four *Dismod-AT primary rates,*
 all of which are hazard rates,
 
  * Susceptible Incidence rate, :math:`\iota`

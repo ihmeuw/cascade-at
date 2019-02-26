@@ -14,7 +14,8 @@ It takes a little work to parametrize an interpolated function of age and time.
 
  * At each of the control points of the age time grid, Dismod-AT will evaluate
    how close the rate or covariate multiplier is to some reference value. At these
-   points, we define prior distributions. Cascade makes these *value priors*
+   points, we define prior distributions. Cascade makes these
+   :ref:`value priors <prior-specification>`
    part of the :py:class:`PriorGrid <cascade.model.grids.PriorGrid>`.
 
  * It's rare to have data points that are dense across all of age and time.

@@ -30,9 +30,10 @@ duplicate the column.
 Usage
 -----
 
-Skip for now how to obtain covariate data from IHME resources
-for a given bundle. Assume the input data has covariate columns
-associated with it.
+Covariate data is columns in the input DataFrame and in the average
+integrand DataFrame. Let's not discuss here how to obtain this covariate
+data, but discuss what Dismod-AT needs to know about those
+covariate columns in order to use it for a fit.
 
 In order to use a covariate column as a country covariate, specify
 
