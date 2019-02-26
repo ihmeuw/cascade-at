@@ -108,7 +108,7 @@ class Session:
             if misalignment:
                 raise RuntimeError(f"Model and initial guess are misaligned: {misalignment}.")
         data = Session._amend_data_input(data)
-        self._setup_model_for_fit(model, data, initial_guess)
+        self.setup_model_for_fit(model, data, initial_guess)
         if initial_guess is not None:
             MATHLOG.info(f"Setting initial value for search from user argument.")
             self._objects.start_var = initial_guess
@@ -116,7 +116,16 @@ class Session:
         dm_out, dm_err = self._run_dismod(["fit", fit_level])
         return FitResult(self._objects, self._objects.fit_var, dm_out, dm_err)
 
-    def _setup_model_for_fit(self, model, data, initial_guess):
+    def setup_model_for_fit(self, model, data=None, initial_guess=None):
+        """Writes a model and options to a db file and runs init on it.
+        This isn't normally run in the course of work but can be helpful
+        if you want to tweak the db file before running a fit.
+
+        Args:
+            model (Model): The model object.
+            data (pd.DataFrame|None): Can be None.
+            initial_guess (Var|None): Initial values, can be None.
+        """
         data = Session._point_age_time_to_interval(data)
         self._objects.model = model
         self._objects.set_option(**self._options)
@@ -197,7 +206,7 @@ class Session:
             misalignment = model.check_alignment(fit_var)
             if misalignment:
                 raise RuntimeError(f"Model and fit var are misaligned: {misalignment}.")
-        self._setup_model_for_fit(model, data, fit_var)
+        self.setup_model_for_fit(model, data, fit_var)
         self._objects.truth_var = fit_var
         self._run_dismod(["simulate", simulate_count])
         return SimulateResult(self._objects, simulate_count, model, data)
@@ -245,6 +254,8 @@ class Session:
 
     @staticmethod
     def _point_age_time_to_interval(data):
+        if data is None:
+            return
         for at in ["age", "time"]:  # Convert from point ages and times.
             for lu in ["lower", "upper"]:
                 if f"{at}_{lu}" not in data.columns and at in data.columns:

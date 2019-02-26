@@ -1,16 +1,15 @@
 from itertools import product
 from types import SimpleNamespace
 
-import networkx as nx
 import numpy as np
 from numpy import inf
 from numpy.random import RandomState
 
+import cascade.executor.priors_from_draws
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.construct_model import construct_model
-from cascade.executor.create_settings import create_settings
+from cascade.executor.create_settings import create_settings, make_locations
 from cascade.executor.dismodel_main import parse_arguments
-import cascade.executor.priors_from_draws
 from cascade.executor.priors_from_draws import (
     set_priors_from_parent_draws, estimate_grid_parameters, set_priors_from_draws
 )
@@ -45,10 +44,8 @@ def test_priors_from_draws_fair(monkeypatch):
     draw_cnt = 3  # Can be long-running. Increase for focused testing.
     for i in range(5):
         args = parse_arguments(["z.db"])
-        locations = nx.DiGraph()
-        children = [4, 31, 64, 103, 137, 158, 166]
-        locations.add_edges_from([(1, c) for c in children])
-        settings = create_settings(rng, children)
+        locations = make_locations(3)
+        settings = create_settings(rng, locations)
         c = CascadePlan.from_epiviz_configuration(locations, settings, args)
         j = list(c.cascade_jobs)
         draws = None

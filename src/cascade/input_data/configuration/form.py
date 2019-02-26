@@ -201,7 +201,7 @@ class Model(Form):
     modelable_entity_id = IntField()
     model_version_id = IntField(nullable=True)
     random_seed = IntField()
-    minimum_meas_cv = FloatField(nullable=True)
+    minimum_meas_cv = FloatField(nullable=True, display="Data CV floor")
     add_csmr_cause = IntField(nullable=True, display="CSMR cause")
     title = StrField(nullable=True, display="Title")
     description = StrField(nullable=True, display="Description")
@@ -220,8 +220,18 @@ class Model(Form):
     additional_ode_steps = StringListField(constructor=float, nullable=True,
                                            display="Advanced additional ODE steps")
     split_sex = OptionField(["most_detailed", "1", "2", "3", "4", "5"], display="Split sex (Being used as Drill Start)")
-
+    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
+    zero_sum_random = ListField(nullable=True, display="Zero-sum random effects")
+    bound_frac_fixed = FloatField(
+        default=1e-2, nullable=True,
+        display="allowed modification to point to move it within bounds"
+    )
+    bound_random = FloatField(
+        nullable=True,
+        display="allowed modification to point to move it within bounds"
+    )
     rate_case = Dummy()
+    data_density = StrField(nullable=True, display="Data density")
 
     def _full_form_validation(self, root):
         errors = []
@@ -240,9 +250,46 @@ class Eta(Form):
     data = FloatField(nullable=True)
 
 
+class DataEta(Form):
+    integrand_measure_id = IntField(nullable=True)
+    value = FloatField(nullable=True)
+
+
+class DataDensity(Form):
+    value = StrField(nullable=True)
+    integrand_measure_id = IntField(nullable=True)
+
+
 class StudentsDOF(Form):
     priors = FloatField(nullable=True)
     data = FloatField(nullable=True)
+
+
+class DerivativeTest(Form):
+    fixed = OptionField(
+        ["none", "first-order", "second-order", "only-second-order",
+         "adaptive", "trace-adaptive"],
+        default="none",
+        display="test for these derivatives",
+        nullable=True
+    )
+    random = OptionField(
+        ["none", "first-order", "second-order", "only-second-order",
+         "adaptive", "trace-adaptive"],
+        default="none",
+        display="test for these derivatives",
+        nullable=True
+    )
+
+
+class FixedRandomInt(Form):
+    fixed = IntField(nullable=True)
+    random = IntField(nullable=True)
+
+
+class FixedRandomFloat(Form):
+    fixed = FloatField(nullable=True)
+    random = FloatField(nullable=True)
 
 
 class Policies(Form):
@@ -253,6 +300,16 @@ class Policies(Form):
     number_of_fixed_effect_samples = IntField(default=30, nullable=True)
     with_hiv = BoolField(default=True, nullable=True, display="Whether to get ASDR with HIV deaths.")
     age_group_set_id = IntField(default=12, nullable=True, display="Age groups for analysis work.")
+    meas_std_effect = OptionField(
+        ["add_std_scale_all", "add_std_scale_log", "add_var_scale_all", "add_var_scale_log"],
+        default="add_var_scale_log",
+        display="Measurement standard deviation effect",
+        nullable=True
+    )
+    limited_memory_max_history_fixed = IntField(
+        default=30, nullable=True,
+        display="number of most recent iterations taken into account for quasi-Newton"
+    )
 
 
 class Configuration(Form):
@@ -281,18 +338,17 @@ class Configuration(Form):
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)
     csmr_cod_output_version_id = IntField()
-    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
-
+    # Unclear how this differs from csmr_cod_output_version_id. Has same value.
     csmr_mortality_output_version_id = Dummy()
     location_set_version_id = IntField(default=429, nullable=True)
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(Dummy)
-    derivative_test = Dummy()
-    max_num_iter = Dummy()
-    print_level = Dummy()
-    accept_after_max_steps = Dummy()
-    tolerance = Dummy()
-    data_eta_by_integrand = Dummy()
-    data_density_by_integrand = Dummy()
-    config_version = Dummy()
+    derivative_test = DerivativeTest(display="Derivative test")
+    max_num_iter = FixedRandomInt(display="Max ipopt iterations")
+    print_level = FixedRandomInt(display="Print level")
+    accept_after_max_steps = FixedRandomInt(display="Max backtracking")
+    tolerance = FixedRandomFloat(display="Desired relative convergence tolerance")
+    data_eta_by_integrand = FormList(DataEta)
+    data_density_by_integrand = FormList(DataDensity)
+    config_version = IntField(nullable=True, display="Settings version")

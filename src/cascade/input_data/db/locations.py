@@ -1,4 +1,6 @@
 import networkx as nx
+from numpy import nan
+import pandas as pd
 
 from cascade.core.db import db_queries
 from cascade.core import getLoggers
@@ -42,6 +44,31 @@ def location_hierarchy(gbd_round_id, location_set_version_id=None, location_set_
                       for row in location_df[location_df.location_id != 1].itertuples()])
     G.graph["root"] = 1  # Global is the root location_id
     return G
+
+
+def location_hierarchy_to_dataframe(locations):
+    """Converts the tree of locations into a Pandas Dataframe suitable
+    for passing to a Session.
+
+    Args:
+        locations (nx.DiGraph): A locations, as returned by
+            :py:function:`cascade.input_data.db.locations.location_hierarchy`_.
+    """
+    sorted_locations = list(nx.lexicographical_topological_sort(locations))
+    parents = list()
+    names = list()
+    for l in sorted_locations:
+        parent = list(locations.predecessors(l))
+        if parent:
+            parents.append(parent[0])
+        else:
+            parents.append(nan)
+        names.append(locations.nodes[l]["location_name"])
+    return pd.DataFrame(dict(
+        location_id=sorted_locations,
+        parent_id=parents,
+        name=names,
+    ))
 
 
 def get_descendants(locations, location_id, children_only=False, include_parent=False):
