@@ -1,24 +1,20 @@
 import numpy as np
 import pandas as pd
 
-from cascade.testing_utilities import make_execution_context
 from cascade.dismod.constants import IntegrandEnum
-
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 
 
 def test_make_average_integrand_cases_from_gbd(mocker):
-    get_age_groups = mocker.patch("cascade.model.integrands.get_age_groups")
-    get_years = mocker.patch("cascade.model.integrands.get_years")
-
-    get_age_groups.return_value = pd.DataFrame(
+    age_groups = pd.DataFrame(
         [[0, 1], [1, 4], [4, 82]], columns=["age_group_years_start", "age_group_years_end"]
     )
-    get_years.return_value = [1990, 1995, 2000]
+    years = [1990, 1995, 2000]
 
-    ec = make_execution_context(parent_location_id=180)
+    parent_location_id = 180
 
-    average_integrand_cases = make_average_integrand_cases_from_gbd(ec, [1, 2])
+    average_integrand_cases = make_average_integrand_cases_from_gbd(
+        age_groups, years, [1, 2], parent_location_id)
 
     assert np.all(average_integrand_cases.node_id == 180)
     for (age_lower, age_upper) in {(0, 1), (1, 4), (4, 82)}:
@@ -35,17 +31,15 @@ def test_make_average_integrand_cases_from_gbd(mocker):
 
 
 def test_make_average_integrand_cases_from_gbd__with_birth_prevalence(mocker):
-    get_age_groups = mocker.patch("cascade.model.integrands.get_age_groups")
-    get_years = mocker.patch("cascade.model.integrands.get_years")
-
-    get_age_groups.return_value = pd.DataFrame(
+    age = pd.DataFrame(
         [[0, 1], [1, 4], [4, 82]], columns=["age_group_years_start", "age_group_years_end"]
     )
-    get_years.return_value = [1990, 1995, 2000]
+    years = [1990, 1995, 2000]
 
-    ec = make_execution_context(parent_location_id=180)
+    parent_location_id = 180
 
-    average_integrand_cases = make_average_integrand_cases_from_gbd(ec, [1, 2], include_birth_prevalence=True)
+    average_integrand_cases = make_average_integrand_cases_from_gbd(
+        age, years, [1, 2], parent_location_id, include_birth_prevalence=True)
 
     birth_rows = average_integrand_cases.query("age_lower == 0 and age_upper == 0")
     assert all(birth_rows.integrand_name == "prevalence")

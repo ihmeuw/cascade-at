@@ -15,3 +15,12 @@ Executor Functionality
 
 .. automodule:: cascade.executor.epiviz_runner
     :members:
+
+.. automodule:: cascade.executor.covariate_description
+    :members:
+    :undoc-members:
+
+
+.. automodule:: cascade.testing_utilities.fake_data
+    :members:
+    :undoc-members:

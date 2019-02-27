@@ -58,7 +58,7 @@ def test_priors_from_draws_fair(monkeypatch):
 
             data = SimpleNamespace()
             data.locations = locations
-            model = construct_model(data, job_args)
+            model = construct_model(data, job_args, [])
 
             # We aren't asking whether the values are correct but whether
             # the logic paths work.

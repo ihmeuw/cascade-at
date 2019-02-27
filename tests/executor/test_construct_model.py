@@ -7,6 +7,7 @@ from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.construct_model import construct_model
+from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import (
     create_local_settings, create_settings, SettingsChoices, make_locations
 )
@@ -45,25 +46,29 @@ def base_settings():
     re.iota = all
     re.omega = all
     re.chi = all
+    study.0 = False
+    study.11 = True
+    study.11.at_specific = 0
+    study.11.age_cnt = 1
+    study.11.time_cnt = 1
+    study.11.covtype = rate_value
+    study.11.rate = chi
     study.1604 = True
     study.1604.at_specific = 0
     study.1604.age_cnt = 1
     study.1604.time_cnt = 1
     study.1604.covtype = meas_std
-    study.2453 = False
-    study.6497 = False
-    country.1604 = True
-    country.1604.at_specific = 0
-    country.1604.age_cnt = 1
-    country.1604.time_cnt = 1
-    country.1604.covtype = rate_value
-    country.1604.rate = iota
-    country.2453 = True
-    country.2453.at_specific = 0
-    country.2453.age_cnt = 1
-    country.2453.time_cnt = 1
-    country.2453.covtype = meas_std
-    country.6497 = False
+    country.156 = True
+    country.156.at_specific = 0
+    country.156.age_cnt = 1
+    country.156.time_cnt = 1
+    country.156.covtype = rate_value
+    country.156.rate = iota
+    country.1998 = True
+    country.1998.at_specific = 0
+    country.1998.age_cnt = 1
+    country.1998.time_cnt = 1
+    country.1998.covtype = meas_std
     job_idx = 0
     """
 
@@ -91,7 +96,10 @@ def make_local_settings(given_settings):
 def make_a_db(local_settings, locations, filename):
     data = SimpleNamespace()
     data.locations = locations
-    model = construct_model(data, local_settings)
+    covariate_multipliers, covariate_data_spec = create_covariate_specifications(
+        local_settings.settings.country_covariate, local_settings.settings.study_covariate
+    )
+    model = construct_model(data, local_settings, covariate_multipliers)
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
     session.set_option(**make_options(local_settings.settings))
@@ -104,7 +112,10 @@ def construct_model_fair(filename, rng_state):
     local_settings, locations = create_local_settings(rng)
     data = SimpleNamespace()
     data.locations = locations
-    model = construct_model(data, local_settings)
+    covariate_multipliers, covariate_data_spec = create_covariate_specifications(
+        local_settings.settings.country_covariate, local_settings.settings.study_covariate
+    )
+    model = construct_model(data, local_settings, covariate_multipliers)
     assert len(model.rate.keys()) > 0
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
@@ -126,12 +137,12 @@ def change_setting(settings, name, value):
     setattr(obj, members[-1], value)
 
 
-def test_construct_model_fair(dismod, tmp_path):
+@pytest.mark.parametrize("draw", list(range(10)))
+def test_construct_model_fair(dismod, tmp_path, draw):
     lose_file = True
     filename = tmp_path / "z.db" if lose_file else "model_fair.db"
-    rng = RandomState(424324)
-    for i in range(10):
-        construct_model_fair(filename, rng.get_state())
+    rng = RandomState(424324 + 979834 * draw)
+    construct_model_fair(filename, rng.get_state())
 
 
 def test_same_settings(dismod, tmp_path, base_settings, reference_db):
