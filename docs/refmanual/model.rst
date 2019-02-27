@@ -34,4 +34,3 @@ Covariates
 
 .. automodule:: cascade.model.covariates
     :members:
-

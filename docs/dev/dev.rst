@@ -17,5 +17,6 @@ and design documents gathered during development.
    inputs_outputs
    hdf_design
    design_ev_main
+   covariate_design
    parameters
 

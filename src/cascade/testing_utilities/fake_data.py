@@ -15,7 +15,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 def retrieve_fake_data(execution_context, local_settings, covariate_data_spec):
     """Like :py:func:`cascade.executor.estimate_location` except makes
-    all fake data."""
+    all fake data. This is deterministic."""
     data = SimpleNamespace()
     data_access = local_settings.data_access
     parent_id = local_settings.parent_location_id
