@@ -38,7 +38,8 @@ def find_covariate_names(execution_context, epiviz_covariates):
 def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_covariates):
     """
     Add study and country covariates, properly transformed, to observations
-    and average integrand cases.
+    and average integrand cases. The strategy is to add them directly to the
+    DataFrame for observations and average integrand cases.
 
     Args:
         execution_context: Execution context for db and file access.
