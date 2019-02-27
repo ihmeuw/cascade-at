@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 
 from cascade.core.log import getLoggers
-from cascade.input_data.configuration.builder import COVARIATE_TRANSFORMS
 from cascade.input_data.configuration.construct_study import (
     add_study_covariate_to_observations
 )
@@ -13,20 +12,10 @@ from cascade.input_data.db.study_covariates import covariate_ids_to_names
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def transformed_name(covariate_name, study_country, transform_id):
-    settings_transform = COVARIATE_TRANSFORMS[transform_id]
-    transform_name = settings_transform.__name__
-    MATHLOG.info(f"Transforming {covariate_name} with {transform_name}")
-    if study_country == "study":
-        assert transform_id == 0
-        return f"s_{covariate_name}"
-    else:
-        return f"c_{covariate_name}_{transform_name}"
-
-
 def find_covariate_names(execution_context, epiviz_covariates):
-    study_covariate_ids = set([evc.covariate_id for evc in epiviz_covariates if evc.study_country == "study"])
-    study_covariate_ids |= {0, 1604}
+    study_covariate_ids = {evc.covariate_id for evc in epiviz_covariates if evc.study_country == "study"}
+    sex_and_one_covariates = {0, 1604}
+    study_covariate_ids |= sex_and_one_covariates
     study_id_to_name = covariate_ids_to_names(execution_context, study_covariate_ids)
     CODELOG.debug(f"Study covariates for this model {study_id_to_name}")
     study_id_to_name = {si: f"s_{sn}" for (si, sn) in study_id_to_name.items()}
