@@ -51,16 +51,6 @@ class MockLocation:
         return recursive_children(self)
 
 
-@pytest.fixture
-def mock_locations(mocker):
-    locations = mocker.patch("cascade.input_data.db.locations.location_hierarchy")
-    G = nx.DiGraph()
-    G.add_nodes_from(list(range(8)))
-    G.add_edges_from([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6), (6, 7)])
-    assert len(G.nodes) == 8
-    locations.return_value = G
-
-
 def test_get_descendants__all_descendants(mock_locations):
     ec = make_execution_context(parent_location_id=0)
     # descendants of global
