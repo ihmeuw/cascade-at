@@ -9,6 +9,7 @@ from cascade.core.db import dataframe_from_disk
 from cascade.core.db import db_queries
 from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_description import create_covariate_specifications
+from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.construct_bundle import (
@@ -48,6 +49,7 @@ def estimate_location(execution_context, local_settings):
 
 
 def retrieve_data(execution_context, local_settings, covariate_data_spec):
+    """Gets data from the outside world."""
     data = SimpleNamespace()
     data_access = local_settings.data_access
     model_version_id = data_access.model_version_id
@@ -64,6 +66,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
             bundle_id=local_settings.data_access.bundle_id,
             tier=local_settings.data_access.tier
         )
+    print(f"bundle columns {data.bundle.columns}")
     # Study covariates will have columns {"bundle_id", "seq", "study_covariate_id"}.
     if data_access.bundle_study_covariates_file:
         data.sparse_covariate_data = dataframe_from_disk(data_access.bundle_study_covariates_file)
@@ -89,6 +92,8 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
         local_settings.parent_location_id, local_settings.sex_id,
         data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
 
+    data.study_id_to_name, data.country_id_to_name = find_covariate_names(
+        execution_context, covariate_data_spec)
     # These are the draws as output of the parent location.
     data.draws = None
 
@@ -100,6 +105,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
 
 
 def modify_input_data(input_data, local_settings, covariate_data_spec):
+    """Transforms data to input for model."""
     ev_settings = local_settings.settings
     # These are suitable for input to the fit.
     if not ev_settings.eta.is_field_unset("data") and ev_settings.eta.data:
@@ -117,6 +123,7 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     for set_density in ev_settings.data_density_by_integrand:
         density[id_to_integrand[set_density.integrand_measure_id]] = set_density.value
 
+    # These observations still have a seq column.
     input_data.observations = bundle_to_observations(
         input_data.bundle,
         local_settings.parent_location_id,
@@ -128,6 +135,8 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
 
     input_data.locations_df = location_hierarchy_to_dataframe(input_data.locations)
+
+    add_covariate_data_to_observations_and_avgints(input_data, local_settings, covariate_data_spec)
     return input_data
 
 
@@ -188,9 +197,9 @@ def make_draws(model, input_data, max_fit, local_settings):
         CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
         if sim_fit_result.success:
             draws.append(sim_fit_result.fit)
-            print(f"sim fit {draw_idx} success")
+            CODELOG.debug(f"sim fit {draw_idx} success")
         else:
-            print(f"sim fit {draw_idx} not successful in {fit_file}.")
+            CODELOG.debug(f"sim fit {draw_idx} not successful in {fit_file}.")
         # XXX make the Session close or be a contextmanager.
         del sim_session
     return draws

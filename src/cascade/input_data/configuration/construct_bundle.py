@@ -116,6 +116,7 @@ def bundle_to_observations(bundle_df, parent_location_id, data_eta, density):
             "std": bundle_df["standard_error"],
             "sex_id": bundle_df["sex_id"],
             "name": bundle_df["seq"].astype(str),
+            "seq": bundle_df["seq"],  # Keep this until study covariates are added.
             "hold_out": bundle_df["hold_out"],
         }
     )
