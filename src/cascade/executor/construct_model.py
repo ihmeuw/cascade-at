@@ -2,7 +2,7 @@ import numpy as np
 
 from cascade.core.log import getLoggers
 from cascade.model import (
-    Model, Var, SmoothGrid
+    Model, Var, SmoothGrid, Covariate
 )
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -54,28 +54,32 @@ def construct_model(data, local_settings, covariate_multipliers):
         nonzero_rates=nonzero_rates,
         parent_location=parent_location_id,
         child_location=list(data.locations.successors(parent_location_id)),
+        covariates=covariates_list(covariate_multipliers),
         weights=None,
-        covariates=None
     )
 
     construct_model_rates(default_age_time, single_age_time, ev_settings, model)
     construct_model_random_effects(default_age_time, single_age_time, ev_settings, model)
+    construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model)
 
     return model
 
 
 def construct_model_rates(default_age_time, single_age_time, ev_settings, model):
     for smooth in ev_settings.rate:
-        ages, times = construct_grid_ages_times(default_age_time, single_age_time, smooth)
-
-        rate_grid = SmoothGrid(ages=ages, times=times)
-        for kind in ["value", "dage", "dtime"]:
-            if getattr(smooth.default, kind) is not None:
-                getattr(rate_grid, kind)[:, :] = getattr(smooth.default, kind).prior_object
-            else:
-                pass  # An unset prior should be unused (dage for one age, dtime for one time)
-
+        rate_grid = smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth)
         model.rate[smooth.rate] = rate_grid
+
+
+def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
+    ages, times = construct_grid_ages_times(default_age_time, single_age_time, smooth)
+    rate_grid = SmoothGrid(ages=ages, times=times)
+    for kind in ["value", "dage", "dtime"]:
+        if getattr(smooth.default, kind) is not None:
+            getattr(rate_grid, kind)[:, :] = getattr(smooth.default, kind).prior_object
+        else:
+            pass  # An unset prior should be unused (dage for one age, dtime for one time)
+    return rate_grid
 
 
 def construct_grid_ages_times(default_age_time, single_age_time, smooth):
@@ -84,7 +88,8 @@ def construct_grid_ages_times(default_age_time, single_age_time, smooth):
 
     ages = smooth.age_grid
     if ages is None:
-        if smooth.rate == "pini":
+        # hasattr because this may be a Smoothing form or a Covariate form.
+        if hasattr(smooth, "rate") and smooth.rate == "pini":
             ages = np.array([0], dtype=np.float)
         else:
             ages = default_age_time["age"]
@@ -106,18 +111,37 @@ def construct_model_random_effects(default_age_time, single_age_time, ev_setting
         return
 
     for smooth in ev_settings.random_effect:
-        ages, times = construct_grid_ages_times(default_age_time, single_age_time, smooth)
-
-        rate_grid = SmoothGrid(ages=ages, times=times)
-        for kind in ["value", "dage", "dtime"]:
-            if getattr(smooth.default, kind) is not None:
-                getattr(rate_grid, kind)[:, :] = getattr(smooth.default, kind).prior_object
-            else:
-                pass  # An unset prior should be unused (dage for one age, dtime for one time)
+        re_grid = smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth)
 
         if not smooth.is_field_unset("location") and smooth.location in model.child_location:
             location = smooth.location
         else:
             # One smooth for all children when there isn't a child location.
             location = None
-        model.random_effect[(smooth.rate, location)] = rate_grid
+        model.random_effect[(smooth.rate, location)] = re_grid
+
+
+def construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model):
+    """The covariat multipliers are of all types: alpha, beta, and gamma. This adds
+    their priors to the Model.
+
+    Args:
+        default_age_time (Tuple[ndarray,ndarray]): ages and times
+        single_age_time (float, float): The single age and time to use if it's
+            a point value.
+        covariate_multipliers (List[EpiVizCovariateMultiplier): A list of specifications
+            for covariate multipliers. This assumes data has already been read,
+            because that data determines names for the multipliers.
+    """
+    for mulcov in covariate_multipliers:
+        grid = smooth_grid_from_smoothing_form(default_age_time, single_age_time, mulcov.grid_spec)
+        model[mulcov.group][mulcov.key] = grid
+
+
+def covariates_list(covariate_multipliers):
+    covariates = set(mulcov.covariate for mulcov in covariate_multipliers)
+    ordered = list(covariates)
+    covariate_list = list()
+    for c in ordered:
+        covariate_list.append(Covariate(c.name, 0))
+    return covariate_list

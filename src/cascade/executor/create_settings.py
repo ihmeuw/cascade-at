@@ -237,11 +237,11 @@ def create_settings(choices, locations=None):
     # Use the last location as the drill end possibility.
     last_location = list(nx.topological_sort(locations))[-1]
     drill = sorted(nx.ancestors(locations, last_location))
-    start_loc = rng.choice(drill, name="drill_start")
-    start_loc_idx = drill.index(start_loc)
-    end_loc = rng.choice(drill[start_loc_idx:], name="drill_end")
-    case["model"]["drill_location_start"] = start_loc
-    case["model"]["drill_location_end"] = end_loc
+    start_loc = rng.choice(list(range(len(drill))), name="drill_start")
+    print(f"drill {drill}")
+    end_loc = rng.choice(list(range(len(drill[start_loc:]))), name="drill_end")
+    case["model"]["drill_location_start"] = drill[start_loc]
+    case["model"]["drill_location_end"] = drill[start_loc:][end_loc]
 
     rate_specifies_re_by_location = which_random_effects(nonzero_rates, rate, rng)
 

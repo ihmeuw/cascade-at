@@ -23,6 +23,8 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec):
     data.locations = location_hierarchy(
         data_access.gbd_round_id, location_set_version_id=data_access.location_set_version_id)
     children = get_descendants(data.locations, parent_id, children_only=True)
+    if not children:
+        children = [parent_id]
     seqs = list(range(10, 110))
     data.bundle = pd.DataFrame(dict(
         seq=seqs,

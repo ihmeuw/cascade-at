@@ -1,21 +1,24 @@
 import pickle
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import CascadePlan
-from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import (
-    create_local_settings, create_settings, SettingsChoices, make_locations
+    create_local_settings, create_settings, SettingsChoices
 )
 from cascade.executor.dismodel_main import parse_arguments
+from cascade.executor.estimate_location import (
+    modify_input_data, construct_model
+)
 from cascade.executor.session_options import make_options
-from cascade.input_data.db.locations import location_hierarchy_to_dataframe
+from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.model.session import Session
+from cascade.testing_utilities import make_execution_context
 from cascade.testing_utilities.compare_dismod_db import CompareDatabases
+from cascade.testing_utilities.fake_data import retrieve_fake_data
 
 
 @pytest.fixture
@@ -41,8 +44,8 @@ def base_settings():
     chi.min = 0.0001
     chi.age_cnt = 1
     chi.time_cnt = 2
-    drill_start = 2
-    drill_end = 14
+    drill_start = 0
+    drill_end = -1
     re.iota = all
     re.omega = all
     re.chi = all
@@ -82,8 +85,7 @@ def reference_db(base_settings):
 def make_local_settings(given_settings):
     choices = SettingsChoices(settings=given_settings)
     args = parse_arguments(["z.db"])
-    depth = 4
-    locations = make_locations(depth)
+    locations = location_hierarchy(gbd_round_id=6, location_set_version_id=429)
     settings = create_settings(choices, locations)
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
     j = list(c.cascade_jobs)[1:]
@@ -94,28 +96,31 @@ def make_local_settings(given_settings):
 
 
 def make_a_db(local_settings, locations, filename):
-    data = SimpleNamespace()
-    data.locations = locations
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
-    model = construct_model(data, local_settings, covariate_multipliers)
+    ec = make_execution_context()
+    input_data = retrieve_fake_data(ec, local_settings, covariate_data_spec)
+    modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
+    model = construct_model(modified_data, local_settings, covariate_multipliers)
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
     session.set_option(**make_options(local_settings.settings))
     session.setup_model_for_fit(model)
 
 
-def construct_model_fair(filename, rng_state):
+def construct_model_fair(ec, filename, rng_state):
     rng = RandomState()
     rng.set_state(rng_state)
-    local_settings, locations = create_local_settings(rng)
-    data = SimpleNamespace()
-    data.locations = locations
+
+    locations = location_hierarchy(gbd_round_id=6, location_set_version_id=429)
+    local_settings, locations = create_local_settings(rng, locations=locations)
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
-    model = construct_model(data, local_settings, covariate_multipliers)
+    input_data = retrieve_fake_data(ec, local_settings, covariate_data_spec)
+    modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
+    model = construct_model(modified_data, local_settings, covariate_multipliers)
     assert len(model.rate.keys()) > 0
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
@@ -138,14 +143,15 @@ def change_setting(settings, name, value):
 
 
 @pytest.mark.parametrize("draw", list(range(10)))
-def test_construct_model_fair(dismod, tmp_path, draw):
+def test_construct_model_fair(ihme, tmp_path, draw):
     lose_file = True
     filename = tmp_path / "z.db" if lose_file else "model_fair.db"
+    ec = make_execution_context()
     rng = RandomState(424324 + 979834 * draw)
-    construct_model_fair(filename, rng.get_state())
+    construct_model_fair(ec, filename, rng.get_state())
 
 
-def test_same_settings(dismod, tmp_path, base_settings, reference_db):
+def test_same_settings(ihme, tmp_path, base_settings, reference_db):
     filename = tmp_path / "single_settings.db"
     local_settings, locations = make_local_settings(base_settings)
     make_a_db(local_settings, locations, filename)
@@ -176,7 +182,7 @@ def test_same_settings(dismod, tmp_path, base_settings, reference_db):
     ("settings.tolerance.fixed", 1.23, "tolerance_fixed"),
     ("settings.tolerance.random", 1.23, "tolerance_random"),
 ])
-def test_option_settings(dismod, tmp_path, base_settings, reference_db, setstr, val, opt):
+def test_option_settings(ihme, tmp_path, base_settings, reference_db, setstr, val, opt):
     filename = tmp_path / "single_settings.db"
     local_settings, locations = make_local_settings(base_settings)
     change_setting(local_settings, setstr, val)

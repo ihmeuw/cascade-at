@@ -2,6 +2,7 @@ from functools import total_ordering
 from itertools import chain
 
 from cascade.input_data.configuration.id_map import make_integrand_map, PRIMARY_INTEGRANDS_TO_RATES
+from cascade.input_data.configuration.builder import COVARIATE_TRANSFORMS
 
 
 @total_ordering
@@ -12,9 +13,6 @@ class EpiVizCovariate:
         self.covariate_id = covariate_id
         self.transformation_id = transformation_id
         """Which function to apply to this covariate column (log, exp, etc)"""
-        # Names will be read from databases later.
-        self.name = None
-        """The name for this covariate in the final data."""
         self.untransformed_covariate_name = None
         """The name for this covariate before transformation."""
 
@@ -24,8 +22,22 @@ class EpiVizCovariate:
         refer to the same covariate."""
         return (self.study_country, self.covariate_id, self.transformation_id)
 
+    @property
+    def name(self):
+        """The name for this covariate in the final data."""
+        if self.untransformed_covariate_name is None:
+            raise RuntimeError(f"The name for this covariate hasn't been set yet {self.covariate_id}")
+        transform_name = COVARIATE_TRANSFORMS[self.transformation_id].__name__
+        if transform_name != "identity":
+            return f"{self.untransformed_covariate_name}_{transform_name}"
+        else:
+            return f"{self.untransformed_covariate_name}"
+
     def __eq__(self, other):
         return self.spec == other.spec
+
+    def __hash__(self):
+        return hash(self.spec)
 
     def __lt__(self, other):
         """Comparison method to ensure sex is first, and one is second."""
