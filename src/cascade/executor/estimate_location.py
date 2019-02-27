@@ -16,6 +16,7 @@ from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_disk,
     bundle_to_observations
 )
+from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
@@ -71,15 +72,22 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
         data.sparse_covariate_data = get_study_covariates(
             execution_context, data_access.bundle_id, mvid, tier=data_access.tier)
 
-    ages_df = db_queries.get_age_metadata(
+    data.ages_df = db_queries.get_age_metadata(
         age_group_set_id=data_access.age_group_set_id,
         gbd_round_id=data_access.gbd_round_id
     )
+    data.years_df = db_queries.get_demographics(
+        gbd_team="epi", gbd_round_id=data_access.gbd_round_id)["year_id"]
 
+    include_birth_prevalence = local_settings.settings.model.birth_prev
+    data.average_integrand_cases = \
+        make_average_integrand_cases_from_gbd(
+            data.ages_df, data.years_df, local_settings.sex_id,
+            local_settings.parent_location_id, include_birth_prevalence)
     # This comes in yearly from 1950 to 2018
     data.age_specific_death_rate = asdr_as_fit_input(
         local_settings.parent_location_id, local_settings.sex_id,
-        data_access.gbd_round_id, ages_df, with_hiv=data_access.with_hiv)
+        data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
 
     # These are the draws as output of the parent location.
     data.draws = None
@@ -116,7 +124,6 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
         density,
     )
     input_data.observations = input_data.observations.drop(columns="sex_id")
-
     # ev_settings.data_eta_by_integrand is a dummy in form.py.
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
 

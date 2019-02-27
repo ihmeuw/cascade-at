@@ -11,7 +11,12 @@ class EpiVizCovariate:
         self.study_country = study_country
         self.covariate_id = covariate_id
         self.transformation_id = transformation_id
-        self.name = None  # This will be read from databases later.
+        """Which function to apply to this covariate column (log, exp, etc)"""
+        # Names will be read from databases later.
+        self.name = None
+        """The name for this covariate in the final data."""
+        self.untransformed_covariate_name = None
+        """The name for this covariate before transformation."""
 
     @property
     def spec(self):

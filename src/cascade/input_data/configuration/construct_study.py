@@ -34,7 +34,7 @@ def unique_study_covariate_transform(configuration):
         yield cov_id, list(sorted(cov_transformations))
 
 
-def _normalize_covariate_data(observations, study_covariates, id_to_name):
+def normalize_covariate_data(observations, study_covariates, id_to_name):
     """
     The input is study covariates in a sparse-columnar format, so it's a list
     of which covariates are nonzero for which seq numbers, where a seq
@@ -130,7 +130,7 @@ def get_bundle_study_covariates(model_context, bundle_id, execution_context, tie
     records = CovariateRecords("study")
     id_to_name = covariate_ids_to_names(execution_context, unique_ids)
     observations = model_context.input_data.observations
-    records.measurements = _normalize_covariate_data(observations, sparse_covariate_data, id_to_name)
+    records.measurements = normalize_covariate_data(observations, sparse_covariate_data, id_to_name)
     records.id_to_name = id_to_name
     records.id_to_reference = {rid: 0.0 for rid in records.id_to_name}
     columns_to_add = records.measurements.columns

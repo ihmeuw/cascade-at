@@ -97,7 +97,7 @@ class CascadePlan:
             children=list(sorted(self._locations.successors(parent_location_id))),
             parent_location_id=parent_location_id,
             grandparent_location_id=grandparent_location_id,
-            sex_id=self._settings.model.drill_sex,
+            sex_id=[self._settings.model.drill_sex],
             number_of_fixed_effect_samples=policies["number_of_fixed_effect_samples"],
         )
         local_settings.data_access = _ParameterHierarchy(**dict(

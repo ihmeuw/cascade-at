@@ -7,7 +7,7 @@ import pytest
 
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.construct_study import (
-    _normalize_covariate_data, get_study_covariates
+    normalize_covariate_data, get_study_covariates
 )
 from cascade.testing_utilities import make_execution_context
 
@@ -39,7 +39,7 @@ def test_create_columns(basic_bundle, binary_covariate):
         "love_polka": [0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
         "smoking": [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
     })
-    normalized = _normalize_covariate_data(basic_bundle, binary_covariate, id_to_name)
+    normalized = normalize_covariate_data(basic_bundle, binary_covariate, id_to_name)
     pd.testing.assert_frame_equal(normalized.sort_index("columns"), covs)
 
 
@@ -54,7 +54,7 @@ def test_empty_columns(basic_bundle, binary_covariate):
         "love_polka": [0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
         "smoking": [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
     })
-    normalized = _normalize_covariate_data(basic_bundle, binary_covariate, id_to_name)
+    normalized = normalize_covariate_data(basic_bundle, binary_covariate, id_to_name)
     pd.testing.assert_frame_equal(normalized.sort_index("columns"), covs)
 
 
@@ -70,7 +70,7 @@ def test_id_disagrees(basic_bundle):
          "bundle_id": [77, 77, 77, 77, 77],
          "seq": [4, 4, 6, 8, not_in_bundle_index]})
     with pytest.raises(InputDataError):
-        _normalize_covariate_data(basic_bundle, covs_in, id_to_name)
+        normalize_covariate_data(basic_bundle, covs_in, id_to_name)
 
 
 def test_no_covariates(basic_bundle):
@@ -83,7 +83,7 @@ def test_no_covariates(basic_bundle):
          "bundle_id": [],
          "seq": []})
     covs = pd.DataFrame({"covariate_sequence_number": basic_bundle.seq})
-    normalized = _normalize_covariate_data(basic_bundle, cov_in, {})
+    normalized = normalize_covariate_data(basic_bundle, cov_in, {})
     pd.testing.assert_frame_equal(normalized, covs)
 
 
