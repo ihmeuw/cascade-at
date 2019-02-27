@@ -1,6 +1,7 @@
 import pandas as pd
 
 from cascade.input_data.db.demographics import get_age_groups, get_years
+from cascade.input_data.db.locations import get_descendants
 from cascade.dismod.constants import IntegrandEnum
 
 from cascade.core.log import getLoggers
@@ -20,6 +21,7 @@ def make_average_integrand_cases_from_gbd(execution_context, sexes, include_birt
     gbd_age_groups = get_age_groups(execution_context)
     age_ranges = [(r.age_group_years_start, r.age_group_years_end) for _, r in gbd_age_groups.iterrows()]
     time_ranges = [(y, y) for y in get_years(execution_context)]
+    locations = get_descendants(execution_context, children_only=True)
 
     # Assuming using the first set of weights, which is constant.
     weight_id = 0
@@ -32,13 +34,14 @@ def make_average_integrand_cases_from_gbd(execution_context, sexes, include_birt
             "time_lower": time_lower,
             "time_upper": time_upper,
             "weight_id": weight_id,
-            "node_id": execution_context.parameters.parent_location_id,
+            "node_id": location_id,
             "sex_id": sex_id,
         }
         for integrand in IntegrandEnum
         for age_lower, age_upper in age_ranges
         for time_lower, time_upper in time_ranges
         for sex_id in sexes
+        for location_id in locations
     ]
 
     if include_birth_prevalence:
