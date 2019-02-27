@@ -41,18 +41,21 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec):
 
     study_ids = list(set(st_set.study_covariate_id for st_set in local_settings.settings.study_covariate))
 
-    cov_seq = list()
-    sid = list()
-    for idx, s in enumerate(seqs):
-        if idx % 4 != 0:
-            cov_seq.append(s)
-            sid.append(study_ids[idx % len(study_ids)])
-    data.sparse_covariate_data = pd.DataFrame(dict(
-        study_covariate_id=sid,
-        seq=cov_seq,
-        bundle_id=data_access.bundle_id,
-    ))
-    print(data.sparse_covariate_data)
+    if study_ids:
+        cov_seq = list()
+        sid = list()
+        for idx, s in enumerate(seqs):
+            if idx % 4 != 0:
+                cov_seq.append(s)
+                sid.append(study_ids[idx % len(study_ids)])
+        data.sparse_covariate_data = pd.DataFrame(dict(
+            study_covariate_id=sid,
+            seq=cov_seq,
+            bundle_id=data_access.bundle_id,
+        ))
+    else:
+        data.sparse_covariate_data = pd.DataFrame(
+            columns=["study_covariate_id", "seq", "bundle_id"])
 
     data.ages_df = db_queries.get_age_metadata(
         age_group_set_id=data_access.age_group_set_id,

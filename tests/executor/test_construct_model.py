@@ -137,12 +137,12 @@ def change_setting(settings, name, value):
     setattr(obj, members[-1], value)
 
 
-def test_construct_model_fair(dismod, tmp_path):
+@pytest.mark.parametrize("draw", list(range(10)))
+def test_construct_model_fair(dismod, tmp_path, draw):
     lose_file = True
     filename = tmp_path / "z.db" if lose_file else "model_fair.db"
-    rng = RandomState(424324)
-    for i in range(10):
-        construct_model_fair(filename, rng.get_state())
+    rng = RandomState(424324 + 979834 * draw)
+    construct_model_fair(filename, rng.get_state())
 
 
 def test_same_settings(dismod, tmp_path, base_settings, reference_db):

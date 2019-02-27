@@ -26,9 +26,9 @@ def transformed_name(covariate_name, study_country, transform_id):
 
 def find_covariate_names(execution_context, epiviz_covariates):
     study_covariate_ids = set([evc.covariate_id for evc in epiviz_covariates if evc.study_country == "study"])
-    study_covariate_ids &= {0, 1604}
+    study_covariate_ids |= {0, 1604}
     study_id_to_name = covariate_ids_to_names(execution_context, study_covariate_ids)
-    print(f"Study covariates for this model {study_id_to_name}")
+    CODELOG.debug(f"Study covariates for this model {study_id_to_name}")
     study_id_to_name = {si: f"s_{sn}" for (si, sn) in study_id_to_name.items()}
     country_id_to_name = country_covariate_names()
     country_id_to_name = {ci: f"c_{cn}" for (ci, cn) in country_id_to_name.items()}
@@ -52,7 +52,6 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
         None: Everything is added to observations and avgints.
     """
     # Assign all of the names. Study covariates aren't ever transformed.
-
     for name_covariate in epiviz_covariates:
         if name_covariate.study_country == "study":
             short = data.study_id_to_name[name_covariate.covariate_id]

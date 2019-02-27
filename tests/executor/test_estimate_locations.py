@@ -1,3 +1,4 @@
+import pytest
 from numpy.random import RandomState
 
 from cascade.executor.covariate_description import create_covariate_specifications
@@ -10,9 +11,10 @@ from cascade.testing_utilities import make_execution_context
 from cascade.testing_utilities.fake_data import retrieve_fake_data
 
 
-def test_retrieve_data(ihme):
+@pytest.mark.parametrize("draw", list(range(10)))
+def test_retrieve_data(ihme, draw):
     ec = make_execution_context()
-    rng = RandomState(2425397)
+    rng = RandomState(524287 + 131071 * draw)
     locs = location_hierarchy(5, 429)
     local_settings, locations = create_local_settings(rng, locations=locs)
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
@@ -20,6 +22,5 @@ def test_retrieve_data(ihme):
     )
     input_data = retrieve_fake_data(ec, local_settings, covariate_data_spec)
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
-    print(modified_data.observations.columns)
     model = construct_model(modified_data, local_settings, covariate_multipliers)
     set_priors_from_parent_draws(model, input_data.draws)
