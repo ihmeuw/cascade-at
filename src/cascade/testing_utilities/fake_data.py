@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+from numpy.random import RandomState
 
 from cascade.core import getLoggers
 from cascade.core.db import db_queries
@@ -13,9 +14,16 @@ from cascade.model.integrands import make_average_integrand_cases_from_gbd
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def retrieve_fake_data(execution_context, local_settings, covariate_data_spec):
+def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, rng=None):
     """Like :py:func:`cascade.executor.estimate_location` except makes
     all fake data. This is deterministic."""
+    if rng is None:
+        rng = RandomState(298472943)
+    elif isinstance(rng, int):
+        rng = RandomState(rng)
+    else:
+        assert isinstance(rng, RandomState)
+
     data = SimpleNamespace()
     data_access = local_settings.data_access
     parent_id = local_settings.parent_location_id
@@ -25,7 +33,8 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec):
     children = get_descendants(data.locations, parent_id, children_only=True)
     if not children:
         children = [parent_id]
-    seqs = list(range(10, 110))
+    data_cnt = 100
+    seqs = sorted(rng.choice(10 * data_cnt, size=data_cnt, replace=False))
     data.bundle = pd.DataFrame(dict(
         seq=seqs,
         measure=np.repeat(["prevalence", "Sincidence", "mtother", "mtexcess"], 25),
