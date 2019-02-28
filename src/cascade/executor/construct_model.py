@@ -75,7 +75,7 @@ def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
     ages, times = construct_grid_ages_times(default_age_time, single_age_time, smooth)
     rate_grid = SmoothGrid(ages=ages, times=times)
     for kind in ["value", "dage", "dtime"]:
-        if getattr(smooth.default, kind) is not None:
+        if not smooth.default.is_field_unset(kind):
             getattr(rate_grid, kind)[:, :] = getattr(smooth.default, kind).prior_object
         else:
             pass  # An unset prior should be unused (dage for one age, dtime for one time)
@@ -139,7 +139,7 @@ def construct_model_covariates(default_age_time, single_age_time, covariate_mult
 
 
 def covariates_list(covariate_multipliers):
-    covariates = set(mulcov.covariate for mulcov in covariate_multipliers)
+    covariates = {mulcov.covariate for mulcov in covariate_multipliers}
     ordered = list(covariates)
     covariate_list = list()
     for c in ordered:
