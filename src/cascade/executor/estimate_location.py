@@ -129,13 +129,13 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
         data_eta,
         density,
     )
-    input_data.observations = input_data.observations.drop(columns="sex_id")
     # ev_settings.data_eta_by_integrand is a dummy in form.py.
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
 
     input_data.locations_df = location_hierarchy_to_dataframe(input_data.locations)
 
     add_covariate_data_to_observations_and_avgints(input_data, local_settings, covariate_data_spec)
+    input_data.observations = input_data.observations.drop(columns=["sex_id", "seq"])
     return input_data
 
 

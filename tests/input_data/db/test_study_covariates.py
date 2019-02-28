@@ -17,6 +17,7 @@ def basic_bundle():
     return pd.DataFrame(
         {"seq": [2, 4, 6, 8, 10, None, None],
          "mean": [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0],
+         "sex_id": [2, 1, 1, 3, 2, 1, 2],
          }
     )
 

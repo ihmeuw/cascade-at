@@ -15,6 +15,8 @@ class EpiVizCovariate:
         """Which function to apply to this covariate column (log, exp, etc)"""
         self.untransformed_covariate_name = None
         """The name for this covariate before transformation."""
+        self.reference = 0
+        self.max_difference = 0
 
     @property
     def spec(self):
