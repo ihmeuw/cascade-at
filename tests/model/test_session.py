@@ -2,6 +2,8 @@ import logging
 from math import nan
 from pathlib import Path
 
+import pytest
+
 import numpy as np
 import pandas as pd
 
@@ -68,3 +70,8 @@ def test_run_with_async_logging__non_zero_exit():
     assert exit_code != 0
     assert stdout == ""
     assert stderr == ""
+
+
+def test_run_with_async_logging__bad_executable():
+    with pytest.raises(FileNotFoundError):
+        _run_with_async_logging(["blargh"])
