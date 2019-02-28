@@ -5,7 +5,7 @@ import pandas as pd
 from numpy.random import RandomState
 
 from cascade.core import getLoggers
-from cascade.core.db import db_queries
+from cascade.core.db import db_queries, age_spans
 from cascade.executor.covariate_data import find_covariate_names
 from cascade.input_data.db.locations import get_descendants
 from cascade.input_data.db.locations import location_hierarchy
@@ -68,10 +68,23 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
         data.sparse_covariate_data = pd.DataFrame(
             columns=["study_covariate_id", "seq", "bundle_id"])
 
+    country_ids = list(set(ct_set.country_covariate_id for ct_set in local_settings.settings.country_covariate))
+    fake_country_cov = pd.DataFrame(dict(
+        age_group_id=[2, 2],
+        year_id=[1990, 1990],
+        mean=[0.4, 0.5],
+        lower=[0.3, 0.4],
+        upper=[0.5, 0.6],
+        sex_id=[1, 2],
+    ))
+    data.country_covariates = {cid: fake_country_cov for cid in country_ids}
+    data.country_covariate_binary = {bid: rng.choice([0, 1]) for bid in country_ids}
+
     data.ages_df = db_queries.get_age_metadata(
         age_group_set_id=data_access.age_group_set_id,
         gbd_round_id=data_access.gbd_round_id
     )
+    data.all_age_spans = age_spans.get_age_spans()
     data.years_df = db_queries.get_demographics(
         gbd_team="epi", gbd_round_id=data_access.gbd_round_id)["year_id"]
 

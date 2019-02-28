@@ -16,7 +16,7 @@ class EpiVizCovariate:
         self.untransformed_covariate_name = None
         """The name for this covariate before transformation."""
         self.reference = 0
-        self.max_difference = 0
+        self.max_difference = None
 
     @property
     def spec(self):

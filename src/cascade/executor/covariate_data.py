@@ -8,6 +8,10 @@ from cascade.input_data.configuration.construct_study import (
 )
 from cascade.input_data.db.country_covariates import country_covariate_names
 from cascade.input_data.db.study_covariates import covariate_ids_to_names
+from cascade.input_data.configuration.construct_country import (
+    convert_gbd_ids_to_dismod_values, assign_interpolated_covariate_values,
+    reference_value_for_covariate_mean_all_values
+)
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -53,10 +57,23 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
     add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates)
 
 
-def add_country_covariate_to_observations_and_avgints(
-        data, local_settings, epiviz_covariates
-):
-    pass
+def add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates):
+    country_specs = {ccov for ccov in epiviz_covariates if ccov.study_country == "country"}
+    for covariate_id in {evc.covariate_id for evc in country_specs}:
+        ccov_ranges_df = convert_gbd_ids_to_dismod_values(data.country_covariates[covariate_id], data.all_age_spans)
+        # if data.observations is not None:
+        #     observations_column = assign_interpolated_covariate_values(
+        #     measurements, ccov_ranges_df, execution_context)
+        #     observations_column.name = covariate_name
+        # else:
+        #     observations_column = None
+        #
+        # if avgint is not None:
+        #     avgint_column = assign_interpolated_covariate_values(measurements, ccov_ranges_df, execution_context)
+        #     avgint_column.name = covariate_name
+        # else:
+        #     avgint_column = None
+        # reference = reference_value_for_covariate_mean_all_values(ccov_df)
 
 
 def add_study_covariate_to_observations_and_avgints(data):

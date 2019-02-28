@@ -143,5 +143,5 @@ def covariates_list(covariate_multipliers):
     ordered = list(covariates)
     covariate_list = list()
     for c in ordered:
-        covariate_list.append(Covariate(c.name, 0))
+        covariate_list.append(Covariate(c.name, c.reference, c.max_difference))
     return covariate_list

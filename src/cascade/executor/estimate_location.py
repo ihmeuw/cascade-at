@@ -5,11 +5,10 @@ from types import SimpleNamespace
 from numpy import nan
 
 from cascade.core import getLoggers
-from cascade.core.db import dataframe_from_disk
-from cascade.core.db import db_queries
+from cascade.core.db import dataframe_from_disk, db_queries, age_spans
 from cascade.executor.construct_model import construct_model
-from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
+from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.construct_bundle import (
@@ -17,11 +16,13 @@ from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_disk,
     bundle_to_observations
 )
-from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.asdr import asdr_as_fit_input
+from cascade.input_data.db.country_covariates import country_covariate_set
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
+from cascade.input_data.configuration.construct_country import check_binary_covariates
 from cascade.input_data.db.study_covariates import get_study_covariates
+from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -74,10 +75,23 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
         data.sparse_covariate_data = get_study_covariates(
             execution_context, data_access.bundle_id, mvid, tier=data_access.tier)
 
+    country_covariate_ids = {spec.covariate_id for spec in covariate_data_spec if spec.study_country == "country"}
+    # Raw country covariate data.
+    data.country_covariates = country_covariate_set(
+        country_covariate_ids,
+        demographics=dict(age_group_ids="all", year_ids="all", sex_ids="all",
+                          location_ids=local_settings.parent_location_id),
+        gbd_round_id=data_access.gbd_round_id,
+    )
+    data.country_covariate_binary = check_binary_covariates(execution_context, country_covariate_ids)
+
+    # Standard GBD age groups with IDs, start, finish.
     data.ages_df = db_queries.get_age_metadata(
         age_group_set_id=data_access.age_group_set_id,
         gbd_round_id=data_access.gbd_round_id
     )
+    # Every age group defined, so that we can search for what's given.
+    data.all_age_spans = age_spans.get_age_spans()
     data.years_df = db_queries.get_demographics(
         gbd_team="epi", gbd_round_id=data_access.gbd_round_id)["year_id"]
 
@@ -136,7 +150,29 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
 
     add_covariate_data_to_observations_and_avgints(input_data, local_settings, covariate_data_spec)
     input_data.observations = input_data.observations.drop(columns=["sex_id", "seq"])
+    set_sex_reference(covariate_data_spec, local_settings)
     return input_data
+
+
+def set_sex_reference(covariate_data_spec, local_settings):
+    """The sex covariate holds out data for the sex by setting the ``reference``
+    and ``max_difference``. If sex is 1, then set reference to 0.5 and max
+    difference to 0.75. If sex is 2, reference is -0.5. If it's 3 or 4,
+    then reference is 0."""
+    sex_covariate = [sc_sex for sc_sex in covariate_data_spec
+                     if sc_sex.covariate_id == 0 and sc_sex.transformation_id == 0]
+    if sex_covariate:
+        sex_assignments_to_exclude_by_value = {
+            (1,): [0.5, 0.25],
+            (2,): [-0.5, 0.25],
+            (3,): [0.0, 0.25],
+            (1, 3): [0.5, 0.75],
+            (2, 3): [-0.5, 0.75],
+            (1, 2, 3): [0.0, 0.75],
+        }
+        reference, max_difference = sex_assignments_to_exclude_by_value[tuple(sorted(local_settings.sex_id))]
+        sex_covariate[0].reference = reference
+        sex_covariate[0].max_difference = max_difference
 
 
 def compute_location(execution_context, local_settings, input_data, model):
