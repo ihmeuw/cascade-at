@@ -32,7 +32,7 @@ def const_value(value):
     return at_function
 
 
-def construct_model(data, local_settings):
+def construct_model(data, local_settings, covariate_multipliers):
     ev_settings = local_settings.settings
     parent_location_id = local_settings.parent_location_id
     default_age_time = dict()

@@ -177,8 +177,8 @@ def covariate(study_country, covariate_idx, nonzero_rates, rng, name):
     return grid_case
 
 
-def add_covariates(case, covariates, nonzero_rates, rng):
-    for ckind in ["study", "country"]:
+def add_covariates(case, study_id, country_id, nonzero_rates, rng):
+    for ckind, covariates in [("study", study_id), ("country", country_id)]:
         scovariates = list()
         for make_cov in covariates:
             include = rng.choice([False, True], p=[0.7, 0.3], name=f"{ckind}.{make_cov}")
@@ -212,8 +212,6 @@ def create_settings(choices, locations=None):
     for rate, likely in [("iota", 0.1), ("rho", 0.7), ("omega", 0), ("chi", 0.1), ("pini", 0.7)]:
         has[rate] = rng.choice([False, True], p=[likely, 1 - likely], name=rate)
     nonzero_rates = [x for (x, y) in has.items() if y]
-
-    covariates = [1604, 2453, 6497]
 
     case = deepcopy(BASE_CASE)
     if has["pini"]:
@@ -249,7 +247,9 @@ def create_settings(choices, locations=None):
 
     add_chosen_random_effects(case, location_root, locations, rate_specifies_re_by_location, rng)
 
-    add_covariates(case, covariates, nonzero_rates, rng)
+    study_covariates = [0, 11, 1604]
+    country_covariates = [156, 1998]
+    add_covariates(case, study_covariates, country_covariates, nonzero_rates, rng)
     try:
         config = json_settings_to_frozen_settings(case, 267890)
     except SettingsError:

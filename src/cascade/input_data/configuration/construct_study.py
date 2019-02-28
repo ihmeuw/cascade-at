@@ -34,25 +34,7 @@ def unique_study_covariate_transform(configuration):
         yield cov_id, list(sorted(cov_transformations))
 
 
-def _normalize_covariate_data(observations, study_covariates, id_to_name):
-    """
-    The input is study covariates in a sparse-columnar format, so it's a list
-    of which covariates are nonzero for which seq numbers, where a seq
-    number identifies a row in the bundle index. If there are no covariates,
-    the returned DataFrame is empty.
-
-    Args:
-        observations (pd.DataFrame): Observations including those in the bundle.
-        study_covariates (pd.DataFrame): Contains seq numbers and covariate ids.
-            Optionally contains the ``bundle_id``.
-        id_to_name: Dictionary from ids to names
-
-    Returns:
-        pd.DataFrame: Each column is a full row of zeros and ones, and the row
-            name is the name of the covariate, without the ``x_`` in front.
-            Even if there are no covariates, this will have the
-            ``covariate_sequence_number``.
-    """
+def add_study_covariate_to_observations(observations, study_covariates, id_to_name):
     with_ones = study_covariates.assign(value=pd.Series(np.ones(len(study_covariates), dtype=np.double)))
     try:
         cov_columns = with_ones.pivot(index="seq", columns="study_covariate_id", values="value") \
@@ -72,7 +54,29 @@ def _normalize_covariate_data(observations, study_covariates, id_to_name):
         raise InputDataError(f"These study covariate IDs have seq IDs that don't "
                              f"correspond to the bundle seq IDs") from ke
     # This sets NaNs in covariate columns to zeros.
-    full = obs_with_covs.fillna(value={fname: 0.0 for fname in id_to_name.values()})
+    return obs_with_covs.fillna(value={fname: 0.0 for fname in id_to_name.values()})
+
+
+def normalize_covariate_data(observations, study_covariates, id_to_name):
+    """
+    The input is study covariates in a sparse-columnar format, so it's a list
+    of which covariates are nonzero for which seq numbers, where a seq
+    number identifies a row in the bundle index. If there are no covariates,
+    the returned DataFrame is empty.
+
+    Args:
+        observations (pd.DataFrame): Observations including those in the bundle.
+        study_covariates (pd.DataFrame): Contains seq numbers and covariate ids.
+            Optionally contains the ``bundle_id``.
+        id_to_name: Dictionary from ids to names
+
+    Returns:
+        pd.DataFrame: Each column is a full row of zeros and ones, and the row
+            name is the name of the covariate, without the ``x_`` in front.
+            Even if there are no covariates, this will have the
+            ``covariate_sequence_number``.
+    """
+    full = add_study_covariate_to_observations(observations, study_covariates, id_to_name)
     # Now separate the covariates from the observations because they will
     # be transformed and added back.
     keep_cols = {"seq"} | set(id_to_name.values())
@@ -130,7 +134,7 @@ def get_bundle_study_covariates(model_context, bundle_id, execution_context, tie
     records = CovariateRecords("study")
     id_to_name = covariate_ids_to_names(execution_context, unique_ids)
     observations = model_context.input_data.observations
-    records.measurements = _normalize_covariate_data(observations, sparse_covariate_data, id_to_name)
+    records.measurements = normalize_covariate_data(observations, sparse_covariate_data, id_to_name)
     records.id_to_name = id_to_name
     records.id_to_reference = {rid: 0.0 for rid in records.id_to_name}
     columns_to_add = records.measurements.columns
