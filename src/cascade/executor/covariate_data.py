@@ -45,7 +45,6 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
     for name_covariate in epiviz_covariates:
         if name_covariate.study_country == "study":
             short = data.study_id_to_name[name_covariate.covariate_id]
-            name_covariate.name = short  # The column won't be transformed.
         else:
             short = data.country_id_to_name[name_covariate.covariate_id]
         name_covariate.untransformed_covariate_name = short

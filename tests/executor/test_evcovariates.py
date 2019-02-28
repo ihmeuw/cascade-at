@@ -65,14 +65,14 @@ def test_create_covariates(covariate_settings):
     assert len(covariates) == 4
     # Assign fake names so we can test this without IHME databases.
     for cov in covariates:
-        cov.name = f"{cov.covariate_id}_{cov.transformation_id}"
+        cov.untransformed_covariate_name = cov.covariate_id
 
     check_multipliers = {
-        ("alpha", ("1604_0", "iota")),
-        ("beta", ("0_0", "Sincidence")),
-        ("beta", ("156_1", "Sincidence")),
-        ("gamma", ("1998_3", "prevalence")),
-        ("gamma", ("156_1", "Sincidence"))
+        ("alpha", ("1604", "iota")),
+        ("beta", ("0", "Sincidence")),
+        ("beta", ("156_log", "Sincidence")),
+        ("gamma", ("1998_squared", "prevalence")),
+        ("gamma", ("156_log", "Sincidence"))
     }
     for mult in multipliers:
         assert (mult.group, mult.key) in check_multipliers
