@@ -37,10 +37,10 @@ def estimate_location(execution_context, local_settings):
         local_settings: A dictionary describing the work to do. This has
             a location ID corresponding to the location for this fit.
     """
-    input_data = retrieve_data(execution_context, local_settings)
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
+    input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
     model = construct_model(modified_data, local_settings, covariate_multipliers)
     set_priors_from_parent_draws(model, input_data.draws)
