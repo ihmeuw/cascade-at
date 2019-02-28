@@ -1,14 +1,10 @@
-import logging
 from math import nan
 from pathlib import Path
-
-import pytest
 
 import numpy as np
 import pandas as pd
 
 from cascade.model import Session, Var, DismodGroups
-from cascade.model.session import _run_with_async_logging
 
 
 def test_options(dismod):
@@ -46,32 +42,3 @@ def test_options(dismod):
     ))
     # Run a predict in order to verify the options are accepted.
     session.predict(model_var, avgints, parent_location)
-
-
-def test_run_with_async_logging__stdout(caplog):
-    with caplog.at_level(logging.INFO):
-        exit_code, stdout, stderr = _run_with_async_logging(["echo", "stdout test"])
-    assert exit_code == 0
-    assert stdout == "stdout test\n"
-    assert stderr == ""
-    assert "stdout test" in caplog.text
-
-
-def test_run_with_async_logging__stderr(caplog):
-    exit_code, stdout, stderr = _run_with_async_logging(["bash", "-c", "echo stderr test 1>&2"])
-    assert exit_code == 0
-    assert stdout == ""
-    assert stderr == "stderr test\n"
-    assert "stderr test" in caplog.text
-
-
-def test_run_with_async_logging__non_zero_exit():
-    exit_code, stdout, stderr = _run_with_async_logging(["false"])
-    assert exit_code != 0
-    assert stdout == ""
-    assert stderr == ""
-
-
-def test_run_with_async_logging__bad_executable():
-    with pytest.raises(FileNotFoundError):
-        _run_with_async_logging(["blargh"])
