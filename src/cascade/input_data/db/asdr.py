@@ -99,7 +99,7 @@ def asdr_by_sex(asdr, ages, sex_id):
         nu=nan,
     )
     trimmed = rest.drop(columns=["age_group_id", "upper", "lower"])
-    return trimmed[trimmed.sex_id.isin(sex_id)].drop(columns=["sex_id"])
+    return trimmed.query("sex_id in @sex_id").drop(columns=["sex_id"])
 
 
 def _upload_asdr_data_to_tier_3(gbd_round_id, cursor, model_version_id, asdr_data):
