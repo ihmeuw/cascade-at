@@ -89,6 +89,9 @@ class EpiVizCovariateMultiplier:
             measure = id_to_integrand[self.grid_spec.measure_id].name
         return (self.covariate.name, measure)
 
+    def __repr__(self):
+        return f"EpiVizCovariateMultiplier{self.covariate.spec}"
+
 
 def kind_and_id(covariate_setting):
     for kind in ["study", "country"]:

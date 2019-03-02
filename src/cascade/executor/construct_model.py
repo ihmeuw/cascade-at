@@ -32,7 +32,7 @@ def const_value(value):
     return at_function
 
 
-def construct_model(data, local_settings, covariate_multipliers):
+def construct_model(data, local_settings, covariate_multipliers, covariate_data_spec):
     ev_settings = local_settings.settings
     parent_location_id = local_settings.parent_location_id
     default_age_time = dict()
@@ -54,7 +54,7 @@ def construct_model(data, local_settings, covariate_multipliers):
         nonzero_rates=nonzero_rates,
         parent_location=parent_location_id,
         child_location=list(data.locations.successors(parent_location_id)),
-        covariates=covariates_list(covariate_multipliers),
+        covariates=covariates_list(covariate_data_spec),
         weights=None,
     )
 
@@ -138,10 +138,9 @@ def construct_model_covariates(default_age_time, single_age_time, covariate_mult
         model[mulcov.group][mulcov.key] = grid
 
 
-def covariates_list(covariate_multipliers):
-    covariates = {mulcov.covariate for mulcov in covariate_multipliers}
-    ordered = list(covariates)
+def covariates_list(covariate_data_spec):
     covariate_list = list()
-    for c in ordered:
+    for c in covariate_data_spec:
+        MATHLOG.info(f"Adding covariate reference {c.name}.reference={c.reference}")
         covariate_list.append(Covariate(c.name, c.reference, c.max_difference))
     return covariate_list

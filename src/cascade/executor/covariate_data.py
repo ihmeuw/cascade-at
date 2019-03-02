@@ -9,9 +9,10 @@ from cascade.input_data.configuration.construct_study import (
 from cascade.input_data.db.country_covariates import country_covariate_names
 from cascade.input_data.db.study_covariates import covariate_ids_to_names
 from cascade.input_data.configuration.construct_country import (
-    convert_gbd_ids_to_dismod_values, assign_interpolated_covariate_values,
+    assign_interpolated_covariate_values,
     reference_value_for_covariate_mean_all_values
 )
+from cascade.input_data.configuration.builder import COVARIATE_TRANSFORMS
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -60,20 +61,22 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
 def add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates):
     country_specs = {ccov for ccov in epiviz_covariates if ccov.study_country == "country"}
     for covariate_id in {evc.covariate_id for evc in country_specs}:
-        ccov_ranges_df = convert_gbd_ids_to_dismod_values(data.country_covariates[covariate_id], data.all_age_spans)
-        # if data.observations is not None:
-        #     observations_column = assign_interpolated_covariate_values(
-        #     measurements, ccov_ranges_df, execution_context)
-        #     observations_column.name = covariate_name
-        # else:
-        #     observations_column = None
-        #
-        # if avgint is not None:
-        #     avgint_column = assign_interpolated_covariate_values(measurements, ccov_ranges_df, execution_context)
-        #     avgint_column.name = covariate_name
-        # else:
-        #     avgint_column = None
-        # reference = reference_value_for_covariate_mean_all_values(ccov_df)
+        ccov_ranges_df = data.country_covariates[covariate_id]
+        print(f"Columns of ccof_df {ccov_ranges_df.columns}")
+        reference = reference_value_for_covariate_mean_all_values(ccov_ranges_df)
+        for df_name in ["observations", "average_integrand_cases"]:
+            measurement = getattr(data, df_name)
+            if measurement is not None:
+                observations_column = assign_interpolated_covariate_values(
+                    measurement, ccov_ranges_df, data.country_covariates_binary[covariate_id])
+                ccov_transforms = [ccov for ccov in country_specs if ccov.covariate_id == covariate_id]
+                for transformed in ccov_transforms:
+                    settings_transform = COVARIATE_TRANSFORMS[transformed.transformation_id]
+                    transformed.reference = settings_transform(reference)
+                    measurement = measurement.assign(
+                        **{transformed.name: settings_transform(observations_column)})
+                setattr(data, df_name, measurement)
+            # else nothing to add to the data.
 
 
 def add_study_covariate_to_observations_and_avgints(data):

@@ -22,15 +22,20 @@ from cascade.testing_utilities import make_execution_context
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def main(args):
-    start_time = default_timer()
-    execution_context = make_execution_context(gbd_round_id=6)
+def generate_plan(execution_context, args):
+    """Creates a plan for the whole hierarchy, of which this job will be one."""
     settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
     locations = location_hierarchy(
         location_set_version_id=settings.location_set_version_id,
         gbd_round_id=settings.gbd_round_id
     )
-    plan = CascadePlan.from_epiviz_configuration(locations, settings, args)
+    return CascadePlan.from_epiviz_configuration(locations, settings, args)
+
+
+def main(args):
+    start_time = default_timer()
+    execution_context = make_execution_context(gbd_round_id=6)
+    plan = generate_plan(execution_context, args)
 
     for cascade_task_identifier in plan.cascade_jobs:
         cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
@@ -40,6 +45,8 @@ def main(args):
             setup_tier_data(execution_context, this_location_work.data_access, this_location_work.parent_location_id)
         elif cascade_job == "estimate_location":
             estimate_location(execution_context, this_location_work)
+        else:
+            assert f"Unknown job type, {cascade_job}"
 
     elapsed_time = timedelta(seconds=default_timer() - start_time)
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")
@@ -100,8 +107,7 @@ def parse_arguments(args):
     parser.add_argument("--num-processes", type=int, default=4,
                         help="How many subprocesses to start.")
     parser.add_argument("--pdb", action="store_true")
-    args = parser.parse_args(args)
-    return args
+    return parser.parse_args(args)
 
 
 if __name__ == "__main__":

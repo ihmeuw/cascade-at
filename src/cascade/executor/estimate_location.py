@@ -1,7 +1,10 @@
 from collections import defaultdict
+from pathlib import Path
 from timeit import default_timer as timer
 from types import SimpleNamespace
 
+import numpy as np
+import pandas as pd
 from numpy import nan
 
 from cascade.core import getLoggers
@@ -16,11 +19,13 @@ from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_disk,
     bundle_to_observations
 )
+from cascade.input_data.configuration.raw_input import validate_input_data_types
+from cascade.input_data.configuration.construct_country import ( convert_gbd_ids_to_dismod_values, check_binary_covariates
+)
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.country_covariates import country_covariate_set
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
-from cascade.input_data.configuration.construct_country import check_binary_covariates
 from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
@@ -38,12 +43,15 @@ def estimate_location(execution_context, local_settings):
         local_settings: A dictionary describing the work to do. This has
             a location ID corresponding to the location for this fit.
     """
-    input_data = retrieve_data(execution_context, local_settings)
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
+    input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
+    columns_wrong = validate_input_data_types(input_data)
+    assert not columns_wrong, f"validation failed {columns_wrong}"
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
-    model = construct_model(modified_data, local_settings, covariate_multipliers)
+    model = construct_model(modified_data, local_settings, covariate_multipliers,
+                            covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
     save_outputs(computed_fit, draws, execution_context, local_settings)
@@ -77,12 +85,19 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
 
     country_covariate_ids = {spec.covariate_id for spec in covariate_data_spec if spec.study_country == "country"}
     # Raw country covariate data.
-    data.country_covariates = country_covariate_set(
+    covariates_by_age_id = country_covariate_set(
         country_covariate_ids,
         demographics=dict(age_group_ids="all", year_ids="all", sex_ids="all",
                           location_ids=local_settings.parent_location_id),
         gbd_round_id=data_access.gbd_round_id,
     )
+    # Every age group defined, so that we can search for what's given.
+    all_age_spans = age_spans.get_age_spans()
+    data.country_covariates = dict()
+    for covariate_id, covariate_df in covariates_by_age_id.items():
+        ccov_ranges_df = convert_gbd_ids_to_dismod_values(covariate_df, all_age_spans)
+        data.country_covariates[covariate_id] = ccov_ranges_df
+
     data.country_covariate_binary = check_binary_covariates(execution_context, country_covariate_ids)
 
     # Standard GBD age groups with IDs, start, finish.
@@ -90,8 +105,6 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
         age_group_set_id=data_access.age_group_set_id,
         gbd_round_id=data_access.gbd_round_id
     )
-    # Every age group defined, so that we can search for what's given.
-    data.all_age_spans = age_spans.get_age_spans()
     data.years_df = db_queries.get_demographics(
         gbd_team="epi", gbd_round_id=data_access.gbd_round_id)["year_id"]
 

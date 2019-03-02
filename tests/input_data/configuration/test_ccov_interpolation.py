@@ -296,7 +296,7 @@ def test_assign_interpolated_covariate_values_sex_both_1d(ihme, measurements_1, 
     covariates have multiple time values, only one age group, and only both_sexes (no female, no male)
     measurements have all three sexes (female, male, both), and multiple age groups and time values
     """
-    cov_col = assign_interpolated_covariate_values(measurements_1, covariates_1, execution_context)
+    cov_col = assign_interpolated_covariate_values(measurements_1, covariates_1, False)
 
     pd.testing.assert_series_equal(covariate_column_1, cov_col)
 
@@ -307,7 +307,7 @@ def test_assign_interpolated_covariate_values_sex_mf_1d(ihme, measurements_2, co
     covariates have multiple time values, only one age group, and two sexes (female, male)
     measurements have only both_sexes (no female, no male), and multiple age groups and time values
     """
-    cov_col = assign_interpolated_covariate_values(measurements_2, covariates_2, execution_context)
+    cov_col = assign_interpolated_covariate_values(measurements_2, covariates_2, False)
 
     pd.testing.assert_series_equal(covariate_column_2, cov_col)
 
@@ -319,6 +319,6 @@ def test_assign_interpolated_covariate_values_sex_both_2d(ihme, measurements_1, 
     measurements have all three sexes (female, male, both), and multiple age groups and time values
     measurements have one age group which is missing from the middle of the covariate overall age interval
     """
-    cov_col = assign_interpolated_covariate_values(measurements_1, covariates_3, execution_context)
+    cov_col = assign_interpolated_covariate_values(measurements_1, covariates_3, False)
 
     pd.testing.assert_series_equal(covariate_column_3, cov_col, check_exact=False)

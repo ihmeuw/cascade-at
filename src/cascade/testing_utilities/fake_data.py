@@ -69,22 +69,28 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
             columns=["study_covariate_id", "seq", "bundle_id"])
 
     country_ids = list(set(ct_set.country_covariate_id for ct_set in local_settings.settings.country_covariate))
-    fake_country_cov = pd.DataFrame(dict(
-        age_group_id=[2, 2],
-        year_id=[1990, 1990],
-        mean=[0.4, 0.5],
-        lower=[0.3, 0.4],
-        upper=[0.5, 0.6],
-        sex_id=[1, 2],
-    ))
+    age_group = [1] + list(range(6, 22))
+    fake_country_cov = pd.DataFrame([dict(
+        age_group_id=age_group[age_id],
+        age_lower=5 * age_id,
+        age_upper=5 * (age_id + 1),
+        year_id=year,
+        mean_value=rng.choice([0.01, 0.02, 0.03, 0.04, 0.05, 0.06]),
+        lower=year,
+        upper=year + 1,
+        sex_id=sex,
+    )
+    for age_id in range(len(age_group))
+    for year in range(1990, 2018)
+    for sex in [1, 2]
+    ])
     data.country_covariates = {cid: fake_country_cov for cid in country_ids}
-    data.country_covariate_binary = {bid: rng.choice([0, 1]) for bid in country_ids}
+    data.country_covariates_binary = {bid: False for bid in country_ids}
 
     data.ages_df = db_queries.get_age_metadata(
         age_group_set_id=data_access.age_group_set_id,
         gbd_round_id=data_access.gbd_round_id
     )
-    data.all_age_spans = age_spans.get_age_spans()
     data.years_df = db_queries.get_demographics(
         gbd_team="epi", gbd_round_id=data_access.gbd_round_id)["year_id"]
 
