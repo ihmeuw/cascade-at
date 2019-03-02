@@ -119,6 +119,8 @@ def create_covariate_specifications(study, country):
         # This tells us what the data is for the column.
         kind, covariate_id = kind_and_id(setting)
         covariate_specs.add((kind, covariate_id, setting.transformation))
+    covariate_specs.add(("study", 0, 0))  # Sex covariate
+    covariate_specs.add(("study", 1604, 0))  # One covariate
     covariate_dict = {cspec: EpiVizCovariate(*cspec) for cspec in covariate_specs}
 
     multipliers = list()

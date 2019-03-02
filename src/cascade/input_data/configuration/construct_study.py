@@ -71,8 +71,7 @@ def add_study_covariate_to_observations(observations, study_covariates, id_to_na
     # Special study covariates won't have appeared in the database, so they
     # will be zeros. Fill them in.
     sex_assignment = {1: 0.5, 2: -0.5, 3: 0.0, 4: 0.0}
-    with_special = filled.assign(s_sex=filled.sex_id.apply(sex_assignment.get), s_one=1)
-    return with_special
+    return filled.assign(s_sex=filled.sex_id.apply(sex_assignment.get), s_one=1)
 
 
 def normalize_covariate_data(observations, study_covariates, id_to_name):

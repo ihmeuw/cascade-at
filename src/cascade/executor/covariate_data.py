@@ -83,13 +83,15 @@ def add_study_covariate_to_observations_and_avgints(data):
     # Add untransformed study covariates to observations.
     data.observations = add_study_covariate_to_observations(
         data.observations, data.sparse_covariate_data, data.study_id_to_name)
+    assert "age_lower" in data.observations.columns
     # Create untransformed study covariates on avgints.
     study_columns = sorted(data.study_id_to_name.keys())
     average_integrand_cases_index = data.average_integrand_cases.index
-    data.average_integrand_cases = pd.DataFrame(
+    avgint_columns = pd.DataFrame(
         # They are all zero, which is the correct, final, value.
         data=np.zeros((len(average_integrand_cases_index), len(study_columns)), dtype=np.double),
         columns=study_columns,
         index=average_integrand_cases_index,
     )
+    data.average_integrand_cases = pd.concat([data.average_integrand_cases, avgint_columns], axis=1)
     MATHLOG.info(f"Study covariates added: {study_columns}")

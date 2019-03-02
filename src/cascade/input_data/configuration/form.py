@@ -262,8 +262,8 @@ class DataDensity(Form):
 
 
 class StudentsDOF(Form):
-    priors = FloatField(nullable=True)
-    data = FloatField(nullable=True)
+    priors = FloatField(nullable=True, default=5)
+    data = FloatField(nullable=True, default=5)
 
 
 class DerivativeTest(Form):

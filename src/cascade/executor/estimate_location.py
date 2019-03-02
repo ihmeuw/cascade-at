@@ -1,10 +1,7 @@
 from collections import defaultdict
-from pathlib import Path
 from timeit import default_timer as timer
 from types import SimpleNamespace
 
-import numpy as np
-import pandas as pd
 from numpy import nan
 
 from cascade.core import getLoggers
@@ -19,10 +16,11 @@ from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_disk,
     bundle_to_observations
 )
-from cascade.input_data.configuration.raw_input import validate_input_data_types
-from cascade.input_data.configuration.construct_country import ( convert_gbd_ids_to_dismod_values, check_binary_covariates
-)
+from cascade.input_data.configuration.construct_country import (convert_gbd_ids_to_dismod_values,
+                                                                check_binary_covariates
+                                                                )
 from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.country_covariates import country_covariate_set
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
@@ -54,7 +52,8 @@ def estimate_location(execution_context, local_settings):
                             covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
-    save_outputs(computed_fit, draws, execution_context, local_settings)
+    if not local_settings.run.no_upload:
+        save_outputs(computed_fit, draws, execution_context, local_settings)
 
 
 def retrieve_data(execution_context, local_settings, covariate_data_spec):
@@ -149,12 +148,17 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     for set_density in ev_settings.data_density_by_integrand:
         density[id_to_integrand[set_density.integrand_measure_id]] = set_density.value
 
+    nu = defaultdict(lambda: nan)
+    nu["students"] = local_settings.settings.students_dof.data
+    nu["log_students"] = local_settings.settings.log_students_dof.data
+
     # These observations still have a seq column.
     input_data.observations = bundle_to_observations(
         input_data.bundle,
         local_settings.parent_location_id,
         data_eta,
         density,
+        nu,
     )
     # ev_settings.data_eta_by_integrand is a dummy in form.py.
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
@@ -197,7 +201,7 @@ def compute_location(execution_context, local_settings, input_data, model):
         model (Model): A complete Model object.
 
     Returns:
-        The fit.
+        The fit and draws.
     """
 
     session = Session(
@@ -208,7 +212,11 @@ def compute_location(execution_context, local_settings, input_data, model):
     session.set_option(**make_options(local_settings.settings))
     begin = timer()
     # This should just call init.
-    fit_result = session.fit(model, input_data.observations)
+    if not local_settings.run.db_only:
+        fit_result = session.fit(model, input_data.observations)
+    else:
+        session.setup_model_for_fit(model, input_data.observations)
+        return None, None
     CODELOG.info(f"fit {timer() - begin} success {fit_result.success}")
     draws = make_draws(model, input_data, fit_result.fit, local_settings)
     return fit_result.fit, draws

@@ -1,9 +1,7 @@
+import pandas as pd
 import pytest
 
-import pandas as pd
-
 from cascade.input_data.db.country_covariates import country_covariates
-from cascade.testing_utilities import make_execution_context
 
 
 @pytest.fixture

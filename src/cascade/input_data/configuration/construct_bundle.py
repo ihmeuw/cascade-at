@@ -66,24 +66,26 @@ def _normalize_bundle_data(data):
                                       "year_start": "time_lower", "year_end": "time_upper"})
 
 
-def bundle_to_observations(bundle_df, parent_location_id, data_eta, density):
+def bundle_to_observations(bundle_df, parent_location_id, data_eta, density, nu):
     """
     Convert bundle into an internal format. It removes the sex column and changes
     location to node. It also adjusts for the demographic specification.
+
+    Args:
+        bundle_df (pd.DataFrame): Measurement data.
+        parent_location_id (int): Parent location
+
+        data_eta (Dict[str,float]): Default value for eta parameter on distributions as
+            a dictionary from measure name to float.
+        density (Dict[str,str]): Default values for density parameter on distributions as
+            a dictionary from measure name to string.
+        nu (Dict[str,float]): The parameter for students-t distributions.
 
     Returns:
         pd.DataFrame: Includes ``sex_id`` and which indicates
             that these particular observations are from the bundle as
             opposed to ones we add separately. It also keeps the `seq` column
             which aligns bundle data with covariates.
-
-        parent_location_id: Parent location
-
-        data_eta: Default value for eta parameter on distributions as
-            a dictionary from measure name to float.
-        density: Default values for density parameter on distributions as
-            a dictionary from measure name to string.
-
     """
     if "location_id" in bundle_df.columns:
         location_id = bundle_df["location_id"]
@@ -107,6 +109,7 @@ def bundle_to_observations(bundle_df, parent_location_id, data_eta, density):
             # when the item is missing.
             "density": bundle_df["measure"].apply(density.__getitem__),
             "eta": bundle_df["measure"].apply(data_eta.__getitem__),
+            "nu": bundle_df["measure"].apply(nu.__getitem__),
             "age_lower": bundle_df["age_lower"],
             "age_upper": bundle_df["age_upper"] + demographic_interval_specification,
             # The years should be floats in the bundle.

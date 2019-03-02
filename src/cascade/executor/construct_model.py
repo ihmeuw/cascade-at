@@ -141,6 +141,6 @@ def construct_model_covariates(default_age_time, single_age_time, covariate_mult
 def covariates_list(covariate_data_spec):
     covariate_list = list()
     for c in covariate_data_spec:
-        MATHLOG.info(f"Adding covariate reference {c.name}.reference={c.reference}")
+        CODELOG.debug(f"Adding covariate reference {c.name}.reference={c.reference}")
         covariate_list.append(Covariate(c.name, c.reference, c.max_difference))
     return covariate_list

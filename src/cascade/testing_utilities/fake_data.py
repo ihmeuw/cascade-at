@@ -5,7 +5,7 @@ import pandas as pd
 from numpy.random import RandomState
 
 from cascade.core import getLoggers
-from cascade.core.db import db_queries, age_spans
+from cascade.core.db import db_queries
 from cascade.executor.covariate_data import find_covariate_names
 from cascade.input_data.db.locations import get_descendants
 from cascade.input_data.db.locations import location_hierarchy
@@ -65,24 +65,25 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
             bundle_id=data_access.bundle_id,
         ))
     else:
-        data.sparse_covariate_data = pd.DataFrame(
-            columns=["study_covariate_id", "seq", "bundle_id"])
+        data.sparse_covariate_data = pd.DataFrame(dict(
+            study_covariate_id=pd.Series(dtype=np.int),
+            seq=pd.Series(dtype=np.int),
+            bundle_id=pd.Series(dtype=np.int),
+        ))
 
     country_ids = list(set(ct_set.country_covariate_id for ct_set in local_settings.settings.country_covariate))
     age_group = [1] + list(range(6, 22))
     fake_country_cov = pd.DataFrame([dict(
-        age_group_id=age_group[age_id],
-        age_lower=5 * age_id,
-        age_upper=5 * (age_id + 1),
-        year_id=year,
+        age_lower=float(5 * age_id),
+        age_upper=float(5 * (age_id + 1)),
+        time_lower=float(year),
+        time_upper=float(year + 1),
         mean_value=rng.choice([0.01, 0.02, 0.03, 0.04, 0.05, 0.06]),
-        lower=year,
-        upper=year + 1,
         sex_id=sex,
     )
-    for age_id in range(len(age_group))
-    for year in range(1990, 2018)
-    for sex in [1, 2]
+        for age_id in range(len(age_group))
+        for year in range(1990, 2018)
+        for sex in [1, 2]
     ])
     data.country_covariates = {cid: fake_country_cov for cid in country_ids}
     data.country_covariates_binary = {bid: False for bid in country_ids}

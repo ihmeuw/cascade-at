@@ -53,6 +53,14 @@ EXPECTED_TYPES = dict(
         ('seq', dtype('int64')),
         ('bundle_id', dtype('int64')),
     ],
+    country_covariates=[
+        ('age_lower', dtype('float64')),
+        ('age_upper', dtype('float64')),
+        ('time_lower', dtype('float64')),
+        ('time_upper', dtype('float64')),
+        ('sex_id', dtype('int64')),
+        ('mean_value', dtype('float64')),
+    ]
 )
 """These are the data frames and column data types that define
 the raw input data. If you want to mock input data or get it
@@ -64,26 +72,40 @@ def validate_input_data_types(input_data):
     data sets with certain columns and data types."""
     not_matching = list()
     for member_name in dir(input_data):
-        member = getattr(input_data, member_name)
-        if isinstance(member, pd.DataFrame):
-            dtypes = member.dtypes
-        elif isinstance(member, dict) and member:
-            dict_member = next(iter(member.values()))
-            if isinstance(dict_member, pd.DataFrame):
-                dtypes = dict_member.dtypes
-            else:
-                dtypes = None
+        dtypes = dtype_of_member(input_data, member_name)
+        if dtypes is not None:
+            not_matching.extend(check_one_member(dtypes, member_name))
+    return not_matching
+
+
+def dtype_of_member(input_data, member_name):
+    member = getattr(input_data, member_name)
+    if isinstance(member, pd.DataFrame):
+        dtypes = member.dtypes
+    elif isinstance(member, dict) and member:
+        # Look at the first dictionary in a dictionary of dataframes. Assume
+        # the rest are the same.
+        dict_member = next(iter(member.values()))
+        if isinstance(dict_member, pd.DataFrame):
+            dtypes = dict_member.dtypes
         else:
             dtypes = None
-        if dtypes is not None:
-            variable_dype = dict(zip(dtypes.index.tolist(), dtypes.tolist()))
-            if member_name not in EXPECTED_TYPES:
-                print(f"{member_name} {list(zip(dtypes.index.tolist(), dtypes.tolist()))}")
-                not_matching.append((member_name, "all", dtype("O"), dtype("O")))
-            expected = dict(EXPECTED_TYPES[member_name])
-            for column, col_type in variable_dype.items():
-                if column not in expected:
-                    not_matching.append((member_name, column, col_type, None))
-                if not np.issubdtype(col_type, expected[column]):
-                    not_matching.append((member_name, column, col_type, expected[column]))
+    else:
+        dtypes = None
+    return dtypes
+
+
+def check_one_member(dtypes, member_name):
+    not_matching = list()
+    variable_dype = dict(zip(dtypes.index.tolist(), dtypes.tolist()))
+    if member_name not in EXPECTED_TYPES:
+        print(f"{member_name} {list(zip(dtypes.index.tolist(), dtypes.tolist()))}")
+        not_matching.append((member_name, "all", dtype("O"), dtype("O")))
+    else:
+        expected = dict(EXPECTED_TYPES[member_name])
+        for column, col_type in variable_dype.items():
+            if column not in expected:
+                not_matching.append((member_name, column, col_type, None))
+            if not np.issubdtype(col_type, expected[column]):
+                not_matching.append((member_name, column, col_type, expected[column]))
     return not_matching

@@ -283,14 +283,11 @@ def assign_interpolated_covariate_values(measurements, covariates, is_binary):
 
     # is the covariate by_age, does it have multiple years?
     covar_at_dims = compute_covariate_age_time_dimensions(covariates)
-
     # identify the overall interval for the covariate ages, could have middle gaps
     covar_age_interval = compute_covariate_age_interval(covariates)
-
     # find a matching covariate value for each measurement
     covariate_column = compute_interpolated_covariate_values_by_sex(
         measurements, covariates, covar_at_dims)
-
     # if the covariate is binary, make sure the assigned values are only 0 or 1
     if is_binary:
         covariate_column[covariate_column <= .5] = 0
