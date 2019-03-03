@@ -19,6 +19,8 @@ Adding lots of omega-constraint data can slow the program.
 
 The current implementation is in
 :py:func:`cascade.executor.construct_model.construct_model`.
+In particular, :py:func:`cascade.executor.construct_model.constrain_omega`
+has the math.
 It creates an omega constraint using the default age and time
 grid, as set in the EpiViz-AT user interface. The data used to
 constrain omega is exactly
