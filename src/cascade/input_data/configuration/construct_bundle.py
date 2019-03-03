@@ -40,6 +40,41 @@ def _normalize_measures(data):
     return data
 
 
+def strip_bundle_exclusions(bundle, ev_settings):
+    """Remove measures from bundle as requested in EpiViz-AT settings.
+
+    Args:
+        bundle (pd.DataFrame): This bundle has the ``measure`` column with
+            each measure as a string name.
+        ev_settings: From the settings form, for
+            ``model.exclude_data_for_param``.
+
+    Returns:
+        A bundle with the same or fewer rows and the same number of columns.
+    """
+    if not ev_settings.model.is_field_unset("exclude_data_for_param"):
+        integrand_map = make_integrand_map()
+        measures_to_exclude = [integrand_map[m].name
+                               for m in ev_settings.model.exclude_data_for_param
+                               if m in integrand_map]
+    else:
+        measures_to_exclude = list()
+    if ev_settings.policies.exclude_relative_risk:
+        measures_to_exclude.append("relrisk")
+    # else don't add relrisk to excluded measures
+
+    if measures_to_exclude:
+        mask = bundle.measure.isin(measures_to_exclude)
+        if mask.sum() > 0:
+            bundle = bundle[~mask]
+            MATHLOG.info(
+                f"Filtering {mask.sum()} rows of of data where the measure has been excluded. "
+                f"Measures marked for exclusion: {measures_to_exclude}. "
+                f"{len(bundle)} rows remaining."
+            )
+    return bundle
+
+
 def _normalize_sex(data):
     """Transform sex_ids from 1, 2, 3 to male, female, both.
     """

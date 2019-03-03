@@ -301,6 +301,7 @@ class Policies(Form):
     number_of_fixed_effect_samples = IntField(default=30, nullable=True)
     with_hiv = BoolField(default=True, nullable=True, display="Whether to get ASDR with HIV deaths.")
     age_group_set_id = IntField(default=12, nullable=True, display="Age groups for analysis work.")
+    exclude_relative_risk = OptionField([1, 0], default=1, constructor=int, nullable=True)
     meas_std_effect = OptionField(
         ["add_std_scale_all", "add_std_scale_log", "add_var_scale_all", "add_var_scale_log"],
         default="add_var_scale_log",

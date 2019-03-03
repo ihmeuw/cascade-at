@@ -15,7 +15,8 @@ from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
     normalized_bundle_from_disk,
-    bundle_to_observations
+    bundle_to_observations,
+    strip_bundle_exclusions,
 )
 from cascade.input_data.configuration.construct_country import (
     convert_gbd_ids_to_dismod_values, check_binary_covariates
@@ -157,13 +158,14 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     CODELOG.debug(f"bundle cols {input_data.bundle.columns}\ncsmr cols {csmr.columns}")
     assert not set(csmr.columns.tolist()) - set(input_data.bundle.columns.tolist())
     bundle_with_added = pd.concat([input_data.bundle, csmr], sort=False)
+    bundle_without_excluded = strip_bundle_exclusions(bundle_with_added, ev_settings)
     nu = defaultdict(lambda: nan)
     nu["students"] = local_settings.settings.students_dof.data
     nu["log_students"] = local_settings.settings.log_students_dof.data
 
     # These observations still have a seq column.
     input_data.observations = bundle_to_observations(
-        bundle_with_added,
+        bundle_without_excluded,
         local_settings.parent_location_id,
         data_eta,
         density,

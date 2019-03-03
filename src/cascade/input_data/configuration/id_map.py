@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from cascade.dismod.constants import IntegrandEnum
 
 from cascade.core.log import getLoggers
@@ -61,6 +63,7 @@ happens when decoding the data, not here.
 """
 
 
+@lru_cache(maxsize=1)
 def make_integrand_map():
     """Makes dict where key=GBD measure_id, value=IntegrandEnum member"""
     split_column = 64
