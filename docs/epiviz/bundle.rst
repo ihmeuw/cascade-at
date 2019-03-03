@@ -61,7 +61,10 @@ Recognized Measures in the Bundle
 
 Dismod-AT only recognizes certain IHME measures. The mapping between
 IHME measures and Dismod-AT data is in
-id_map.py code <https://github.com/ihmeuw/cascade/blob/develop/src/cascade/input_data/configuration/id_map.py>`_.
+`id_map.py code <https://github.com/ihmeuw/cascade/blob/develop/src/cascade/input_data/configuration/id_map.py>`_.
+
+.. literalinclude:: ../../src/cascade/input_data/configuration/id_map.py
+    :lines: 8-62
 
 In particular, measure ID 17, for case fatality rate, is deleted from the
 bundle before it's given to Dismod-AT.
@@ -72,15 +75,19 @@ bundle before it's given to Dismod-AT.
 Conversion to Standard Deviation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Dismod-AT uses standard deviation to characterize its data points.
+Dismod-AT describes uncertainty in data using a density, a mean, a standard
+deviation, and possibly other parameters for the density. That standard
+deviation will come from the upper and lower confidence intervals, not from
+standard error in the mean.
+
 Each bundle measurement is converted to have a standard deviation
 using lower = :math:`x_l` and upper = :math:`x_u`,
 
 .. math::
 
-    \sigma = \frac{x_u - x_l}{2 1.96}
+    \sigma = \frac{x_u - x_l}{2 (1.96)}
 
-where 1.96 is the :math:`z*` for the 95% confidence interval.
+where 1.96 is :math:`z^*` for the 95% confidence interval.
 
 The equation is in :py:func:`bounds_to_stdev <cascade.stats.estimation.bounds_to_stdev>`
 and it is applied to the bundle in

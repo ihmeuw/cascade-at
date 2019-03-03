@@ -4,12 +4,6 @@ from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-# Generated with
-#    from db_queries import get_ids
-#    get_ids("measure")
-# We do it this way to make it as easy as possible to check.
-# This maps Incidence to Tincidence because the decision to forbid it
-# happens when decoding the data, not here.
 INTEGRAND_ENCODED = """
 idx measure_id                                     measure_name
 0            1                                           Deaths
@@ -57,6 +51,13 @@ idx measure_id                                     measure_name
 42          43  HAQ Index (Healthcare Access and Quality Index)
 43          44                                       Population
 44          45                                        Fertility
+"""
+"""Generated with
+   from db_queries import get_ids
+   get_ids("measure")
+We do it this way to make it as easy as possible to check.
+This maps Incidence to Tincidence because the decision to forbid it
+happens when decoding the data, not here.
 """
 
 
