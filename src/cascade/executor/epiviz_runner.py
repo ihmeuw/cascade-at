@@ -88,7 +88,8 @@ def add_mortality_data(model_context, execution_context, sex_id):
     MATHLOG.debug("Assigning standard error from measured upper and lower.")
 
     if execution_context.parameters.tier == 3:
-        raw_csmr = normalize_mortality_data(get_frozen_cause_specific_mortality_data(execution_context))
+        raw_csmr = normalize_mortality_data(get_frozen_cause_specific_mortality_data(
+            execution_context, execution_context.parameters.model_version_id))
     else:
         raw_csmr = normalize_mortality_data(get_csmr_data(execution_context))
 

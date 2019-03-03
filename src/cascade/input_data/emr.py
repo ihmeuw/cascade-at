@@ -186,7 +186,8 @@ def add_emr_from_prevalence(model_context, execution_context):
     """
     prevalence = _prepare_prevalence(model_context.input_data.observations)
     MATHLOG.debug("Calculating excess mortality using: EMR=CSMR/prevalence from {len(prevalence)} observations")
-    csmr = normalize_mortality_data(get_frozen_cause_specific_mortality_data(execution_context))
+    csmr = normalize_mortality_data(get_frozen_cause_specific_mortality_data(
+        execution_context, execution_context.parameters.model_version_id))
     csmr = _prepare_csmr(execution_context, csmr, model_context.policies["use_weighted_age_group_midpoints"])
 
     emr = _calculate_emr_from_csmr_and_prevalence(csmr, prevalence)

@@ -1,8 +1,8 @@
 from cascade.core import getLoggers
+from cascade.input_data.configuration.construct_mortality import location_and_children_from_settings
 from cascade.input_data.db.asdr import load_asdr_to_t3
 from cascade.input_data.db.bundle import freeze_bundle
 from cascade.input_data.db.csmr import load_csmr_to_t3
-from cascade.input_data.db.locations import location_hierarchy, get_descendants
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -21,19 +21,12 @@ def setup_tier_data(execution_context, data_access, parent_id):
     if data_access.tier != 3:
         return
 
-    cause_id = data_access.add_csmr_cause
-    model_version_id = data_access.model_version_id
+    freeze_bundle(execution_context, data_access.model_version_id, data_access.bundle_id)
 
-    not_just_children_but_all_descendants = True
-    locations = location_hierarchy(
-        data_access.gbd_round_id, location_set_version_id=data_access.location_set_version_id)
-    location_and_children = get_descendants(
-        locations, parent_id, children_only=not_just_children_but_all_descendants, include_parent=True)
-    freeze_bundle(execution_context, model_version_id, data_access.bundle_id)
-
-    if cause_id is not None:
+    location_and_children = location_and_children_from_settings(data_access, parent_id)
+    if data_access.add_csmr_cause is not None:
         MATHLOG.info(
-            f"Cause {cause_id} selected as CSMR source, "
+            f"Cause {data_access.add_csmr_cause} selected as CSMR source, "
             "freezing it's data if it has not already been frozen."
         )
         load_csmr_to_t3(execution_context, data_access, location_and_children)

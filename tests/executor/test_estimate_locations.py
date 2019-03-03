@@ -31,6 +31,9 @@ def test_with_known_id(ihme, meid, mvid):
     for task_id in plan.cascade_jobs:
         job, this_location_work = plan.cascade_job(task_id)
         if job == "estimate_location":
+            # Change the tier by hand b/c the bundle creation would normally
+            # have run, but not for this test.
+            this_location_work.data_access.tier = 2
             estimate_location(ec, this_location_work)
             break  # Do one, not the whole tree.
         # else is a bundle setup.

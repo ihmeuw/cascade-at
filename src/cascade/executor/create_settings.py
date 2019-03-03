@@ -345,12 +345,14 @@ def create_local_settings(rng=None, settings=None, locations=None):
         choices = SettingsChoices(rng, settings)
     else:
         choices = rng
-    args = parse_arguments(["z.db"])
+    # skip-cache says to use tier 2, not tier 3 so that we don't need CSMR there.
+    args = parse_arguments(["z.db", "--skip-cache"])
     depth = 4
     locations = locations if locations else make_locations(depth)
     settings = create_settings(choices, locations)
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    j = list(c.cascade_jobs)[1:]
+    # skip-cache also turns off the first, non-estimation, job.
+    j = list(c.cascade_jobs)[0:]
     job_choice = choices.choice(list(range(len(j))), name="job_idx")
     job_kind, job_args = c.cascade_job(j[job_choice])
     assert job_kind == "estimate_location"

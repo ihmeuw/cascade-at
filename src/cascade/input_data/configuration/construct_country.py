@@ -221,7 +221,7 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
     MATHLOG.info(f"Conversion of bundle assumes demographic notation for years, "
                  f"so it adds a year to time_upper.")
     reordered["time_upper"] = reordered["year_id"] + 1
-    dropped = reordered.drop(columns=["age_group_id", "year_id", "original_index"])
+    dropped = reordered.drop(columns=["age_group_id", "year_id", "original_index", "index"])
     return dropped.rename(columns={"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"})
 
 

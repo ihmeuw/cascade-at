@@ -1,6 +1,10 @@
 import numpy as np
-from numpy import dtype
 import pandas as pd
+from numpy import dtype
+
+from cascade.core import getLoggers
+
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 EXPECTED_TYPES = dict(
@@ -37,16 +41,27 @@ EXPECTED_TYPES = dict(
     bundle=[
         ('seq', dtype('int64')),
         ('measure', dtype('O')),
-        ('mean', dtype('float64')),
-        ('sex', dtype('O')),
         ('sex_id', dtype('int64')),
-        ('standard_error', dtype('float64')),
+        ('mean', dtype('float64')),
+        ('lower', dtype('float64')),
+        ('upper', dtype('float64')),
         ('hold_out', dtype('int64')),
         ('age_lower', dtype('float64')),
         ('age_upper', dtype('float64')),
         ('time_lower', dtype('int64')),
         ('time_upper', dtype('int64')),
         ('location_id', dtype('int64')),
+    ],
+    cause_specific_mortality_rate=[
+        ("location_id", dtype("int64")),
+        ("sex_id", dtype("int64")),
+        ("mean", dtype("float64")),
+        ("lower", dtype("float64")),
+        ("upper", dtype("float64")),
+        ("age_lower", dtype("float64")),
+        ('age_upper', dtype('float64')),
+        ('time_lower', dtype('float64')),
+        ('time_upper', dtype('float64')),
     ],
     sparse_covariate_data=[
         ('study_covariate_id', dtype('int64')),
@@ -80,13 +95,14 @@ def validate_input_data_types(input_data):
 
 def dtype_of_member(input_data, member_name):
     member = getattr(input_data, member_name)
-    if isinstance(member, pd.DataFrame):
+    # Ignore dataframes of length 0. They have no data types for columns usually.
+    if isinstance(member, pd.DataFrame) and len(member) > 0:
         dtypes = member.dtypes
     elif isinstance(member, dict) and member:
         # Look at the first dictionary in a dictionary of dataframes. Assume
         # the rest are the same.
         dict_member = next(iter(member.values()))
-        if isinstance(dict_member, pd.DataFrame):
+        if isinstance(dict_member, pd.DataFrame) and len(dict_member) > 0:
             dtypes = dict_member.dtypes
         else:
             dtypes = None
@@ -96,16 +112,30 @@ def dtype_of_member(input_data, member_name):
 
 
 def check_one_member(dtypes, member_name):
+    """
+
+    Args:
+        dtypes (List[(column name, dtype)]): List of data types
+        member_name (str): Name of a dataframe.
+
+    Returns:
+        List of errors. An empty list means nothing is wrong.
+    """
     not_matching = list()
     variable_dype = dict(zip(dtypes.index.tolist(), dtypes.tolist()))
     if member_name not in EXPECTED_TYPES:
-        print(f"{member_name} {list(zip(dtypes.index.tolist(), dtypes.tolist()))}")
+        CODELOG.info(f"{member_name} {list(zip(dtypes.index.tolist(), dtypes.tolist()))}")
         not_matching.append((member_name, "all", dtype("O"), dtype("O")))
     else:
         expected = dict(EXPECTED_TYPES[member_name])
         for column, col_type in variable_dype.items():
             if column not in expected:
                 not_matching.append((member_name, column, col_type, None))
-            if not np.issubdtype(col_type, expected[column]):
-                not_matching.append((member_name, column, col_type, expected[column]))
+            else:
+                want_float = expected[column] == dtype("float64")
+                isnt_int_or_float = col_type not in {dtype("float64"), dtype("int64")}
+                subtypes_expected = not np.issubdtype(col_type, expected[column])
+                if ((want_float and isnt_int_or_float) or (not want_float and subtypes_expected)):
+                    not_matching.append((member_name, column, col_type, expected[column]))
+            # else it's fine so append nothing.
     return not_matching
