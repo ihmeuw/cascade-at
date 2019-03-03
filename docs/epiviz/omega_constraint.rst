@@ -16,3 +16,14 @@ We have options for how to include the omega-constraint.
  *  Thin the data by year so it is every five years.
 
 Adding lots of omega-constraint data can slow the program.
+
+The current implementation is in
+:py:func:`cascade.executor.construct_model.construct_model`.
+It creates an omega constraint using the default age and time
+grid, as set in the EpiViz-AT user interface. The data used to
+constrain omega is exactly
+the age-specific death rate, retrieved from
+``db_queries.get_envelope`` in the function
+:py:func:`cascade.input_data.db.asdr.get_asdr_data`.
+Further work should use "cause-deleted life tables" to impute
+other-cause mortality.

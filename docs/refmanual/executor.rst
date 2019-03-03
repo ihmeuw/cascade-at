@@ -25,6 +25,10 @@ Executor Functionality
     :members:
     :undoc-members:
 
+.. automodule:: cascade.executor.construct_model
+    :members:
+    :undoc-members:
+
 .. automodule:: cascade.testing_utilities.fake_data
     :members:
     :undoc-members:

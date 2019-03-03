@@ -86,10 +86,13 @@ def validate_input_data_types(input_data):
     """This is a gating function that insists the input data have only certain
     data sets with certain columns and data types."""
     not_matching = list()
+    seen = set()
     for member_name in dir(input_data):
         dtypes = dtype_of_member(input_data, member_name)
         if dtypes is not None:
+            seen.add(member_name)
             not_matching.extend(check_one_member(dtypes, member_name))
+    assert not seen - set(EXPECTED_TYPES.keys())
     return not_matching
 
 

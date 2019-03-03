@@ -9,6 +9,8 @@ from cascade.core.db import age_spans
 from cascade.core.db import db_queries
 from cascade.executor.covariate_data import find_covariate_names
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr
+from cascade.input_data.configuration.raw_input import validate_input_data_types
+from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.locations import get_descendants
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
@@ -106,7 +108,9 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
     all_ages = age_spans.get_age_spans()
     data.cause_specific_mortality_rate = get_raw_csmr(
         execution_context, local_settings.data_access, local_settings.parent_location_id, all_ages)
-
+    data.age_specific_death_rate = asdr_as_fit_input(
+        local_settings.parent_location_id, local_settings.sex_id,
+        data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
 
@@ -116,4 +120,6 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
     # The parent can also supply integrands as a kind of prior.
     # These will be shaped like input measurement data.
     data.integrands = None
+    columns_wrong = validate_input_data_types(data)
+    assert not columns_wrong, f"validation failed {columns_wrong}"
     return data

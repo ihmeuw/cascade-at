@@ -2,7 +2,7 @@ import numpy as np
 
 from cascade.core.log import getLoggers
 from cascade.model import (
-    Model, Var, SmoothGrid, Covariate
+    Model, Var, SmoothGrid, Covariate, Constant
 )
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -33,13 +33,28 @@ def const_value(value):
 
 
 def construct_model(data, local_settings, covariate_multipliers, covariate_data_spec):
+    """Makes a Cascade model from EpiViz-AT settings and data.
+
+    Args:
+        data: An object with both ``age_specific_death_rate`` and ``locations``.
+        local_settings: A settings object from `CascadePlan`.
+        covariate_multipliers (List[EpiVizCovariateMultiplier]): descriptions of
+            covariate multipliers.
+        covariate_data_spec (List[EpiVizCovariate]): the covariates themselves.
+            Some covariates aren't used by covariate multipliers but are
+            included to calculate hold outs.
+
+    Returns:
+        cascade.model.Model: The model to fit.
+    """
     ev_settings = local_settings.settings
     parent_location_id = local_settings.parent_location_id
     default_age_time = dict()
     default_age_time["age"] = np.linspace(0, 100, 21)
     default_age_time["time"] = np.linspace(1990, 2015, 6)
     for kind in ["age", "time"]:
-        default_grid = getattr(ev_settings.model, f"default_{kind}_grid")
+        default_grid = getattr(ev_settings
+                               .model, f"default_{kind}_grid")
         if default_grid is not None:
             default_age_time[kind] = np.sort(np.array(default_grid, dtype=np.float))
 
@@ -59,6 +74,9 @@ def construct_model(data, local_settings, covariate_multipliers, covariate_data_
     )
 
     construct_model_rates(default_age_time, single_age_time, ev_settings, model)
+    if local_settings.settings.model.constrain_omega:
+        model.rate["omega"] = constraint_from_rectangular_data(
+            data.age_specific_death_rate, default_age_time)
     construct_model_random_effects(default_age_time, single_age_time, ev_settings, model)
     construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model)
 
@@ -69,6 +87,15 @@ def construct_model_rates(default_age_time, single_age_time, ev_settings, model)
     for smooth in ev_settings.rate:
         rate_grid = smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth)
         model.rate[smooth.rate] = rate_grid
+
+
+def constraint_from_rectangular_data(asdr, default_age_time):
+    """Takes data on a complete set of ages and times, makes a constraint grid."""
+    omega = rectangular_data_to_var(asdr)
+    omega_grid = SmoothGrid(ages=default_age_time["age"], times=default_age_time["time"])
+    for age, time in omega_grid.age_time():
+        omega_grid.value[age, time] = Constant(omega(age, time))
+    return omega_grid
 
 
 def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):

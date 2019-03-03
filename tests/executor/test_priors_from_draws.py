@@ -46,6 +46,7 @@ def test_priors_from_draws_fair(monkeypatch):
         args = parse_arguments(["z.db"])
         locations = make_locations(3)
         settings = create_settings(rng, locations)
+        settings.model.constrain_omega = 0
         c = CascadePlan.from_epiviz_configuration(locations, settings, args)
         j = list(c.cascade_jobs)
         draws = None
