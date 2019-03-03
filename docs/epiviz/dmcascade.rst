@@ -1,4 +1,4 @@
-.. _dmcascade:
+.. _dmcascade-command-line:
 
 
 Command-line EpiViz-AT

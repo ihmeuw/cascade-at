@@ -10,9 +10,9 @@ calls to run Dismod-AT.
    :maxdepth: 2
 
    overview
-   tools
+   cascade_plan
    inputs
    outputs
-   cascade_plan
    model_building
+   tools
    operations

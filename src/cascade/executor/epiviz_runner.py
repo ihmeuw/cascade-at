@@ -298,7 +298,7 @@ def model_context_from_settings(execution_context, settings):
 
      2. Retrieve the measurement bundle and its study covariates
         and convert it into data on the model, as described in
-        :ref:`convert-bundle-to-measurement-data`.
+        convert-bundle-to-measurement-data.
 
      3. Add mortality data. This is cause-specific mortality
         data, and it is added as "mtspecific" in the Dismod-AT measurements.
@@ -540,7 +540,7 @@ def main(args):
 
      4. Using the Settings and the Execution Context, fill out the data and
         any parameters for Dismod-AT, as described in
-        :ref:`build-model-from-epiviz-settings`.
+        build-model-from-epiviz-settings.
 
      5. Put that data into a file and run Dismod-AT on that file.
     """
