@@ -66,7 +66,7 @@ def strip_bundle_exclusions(bundle, ev_settings):
     if measures_to_exclude:
         mask = bundle.measure.isin(measures_to_exclude)
         if mask.sum() > 0:
-            bundle = bundle[~mask]
+            bundle.loc[mask, "hold_out"] = 1
             MATHLOG.info(
                 f"Filtering {mask.sum()} rows of of data where the measure has been excluded. "
                 f"Measures marked for exclusion: {measures_to_exclude}. "

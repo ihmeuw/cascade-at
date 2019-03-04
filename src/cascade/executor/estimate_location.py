@@ -156,7 +156,7 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
 
     csmr = normalize_csmr(input_data.cause_specific_mortality_rate, local_settings.sex_id)
     CODELOG.debug(f"bundle cols {input_data.bundle.columns}\ncsmr cols {csmr.columns}")
-    assert not set(csmr.columns.tolist()) - set(input_data.bundle.columns.tolist())
+    assert not set(csmr.columns) - set(input_data.bundle.columns)
     bundle_with_added = pd.concat([input_data.bundle, csmr], sort=False)
     bundle_without_excluded = strip_bundle_exclusions(bundle_with_added, ev_settings)
     nu = defaultdict(lambda: nan)
@@ -175,10 +175,6 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
 
     input_data.locations_df = location_hierarchy_to_dataframe(input_data.locations)
-    # Add mortality data.
-    # Add EMR from prevalence.
-    # Add omega constraint.
-
     add_covariate_data_to_observations_and_avgints(input_data, local_settings, covariate_data_spec)
     input_data.observations = input_data.observations.drop(columns=["sex_id", "seq"])
     set_sex_reference(covariate_data_spec, local_settings)

@@ -130,11 +130,15 @@ def constrain_omega(default_age_time, asdr, ev_settings, model, parent_location_
         model.rate[("omega", child)] = constraint_from_rectangular_data(child_effect, default_age_time)
 
 
-def constraint_from_rectangular_data(omega, default_age_time):
-    """Takes data on a complete set of ages and times, makes a constraint grid."""
+def constraint_from_rectangular_data(rate_var, default_age_time):
+    """Takes data on a complete set of ages and times, makes a constraint grid.
+
+    Args:
+        rate_var: A function of age and time to represent a rate.
+    """
     omega_grid = SmoothGrid(ages=default_age_time["age"], times=default_age_time["time"])
     for age, time in omega_grid.age_time():
-        omega_grid.value[age, time] = Constant(omega(age, time))
+        omega_grid.value[age, time] = Constant(rate_var(age, time))
     return omega_grid
 
 

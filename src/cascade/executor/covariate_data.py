@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from cascade.core.log import getLoggers
+from cascade.core import getLoggers
 from cascade.input_data.configuration.construct_study import (
     add_study_covariate_to_observations
 )
@@ -63,7 +63,6 @@ def add_country_covariate_to_observations_and_avgints(data, local_settings, epiv
     country_specs = {ccov for ccov in epiviz_covariates if ccov.study_country == "country"}
     for covariate_id in {evc.covariate_id for evc in country_specs}:
         ccov_ranges_df = data.country_covariates[covariate_id]
-        print(f"Columns of ccof_df {ccov_ranges_df.columns}")
         reference = reference_value_for_covariate_mean_all_values(ccov_ranges_df)
         for df_name in ["observations", "average_integrand_cases"]:
             measurement = getattr(data, df_name)
