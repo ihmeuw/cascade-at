@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import numpy as np
 
 from cascade.core.log import getLoggers
@@ -74,7 +76,9 @@ def construct_model(data, local_settings, covariate_multipliers, covariate_data_
     )
 
     construct_model_rates(default_age_time, single_age_time, ev_settings, model)
-    construct_model_random_effects(default_age_time, single_age_time, ev_settings, model)
+    # No random effects if there is only one child.
+    if children and len(children) > 1:
+        construct_model_random_effects(default_age_time, single_age_time, ev_settings, model)
     construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model)
     if ev_settings.model.constrain_omega:
         constrain_omega(
@@ -181,6 +185,7 @@ def construct_model_random_effects(default_age_time, single_age_time, ev_setting
     if not ev_settings.random_effect:
         return
 
+    random_effect_by_rate = defaultdict(list)
     for smooth in ev_settings.random_effect:
         re_grid = smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth)
 
@@ -190,6 +195,13 @@ def construct_model_random_effects(default_age_time, single_age_time, ev_setting
             # One smooth for all children when there isn't a child location.
             location = None
         model.random_effect[(smooth.rate, location)] = re_grid
+        random_effect_by_rate[smooth.rate].append(location)
+
+    for is_rate_consistent, locations in random_effect_by_rate.items():
+        if locations is not None and len(locations) != len(model.child_location):
+            MATHLOG.error(f"Random effect for {is_rate_consistent} doesn't have "
+                          f"entries for all child locations, only {locations} "
+                          f"instead of {model.child_location}.")
 
 
 def construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model):
