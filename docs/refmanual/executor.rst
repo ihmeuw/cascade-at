@@ -20,6 +20,9 @@ Executor Functionality
     :members:
     :undoc-members:
 
+.. automodule:: cascade.executor.covariate_data
+    :members:
+    :undoc-members:
 
 .. automodule:: cascade.executor.priors_from_draws
     :members:

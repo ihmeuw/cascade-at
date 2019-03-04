@@ -59,6 +59,7 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
 
 
 def add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates):
+    """Adds country covariates to observation and average integrand cases."""
     country_specs = {ccov for ccov in epiviz_covariates if ccov.study_country == "country"}
     for covariate_id in {evc.covariate_id for evc in country_specs}:
         ccov_ranges_df = data.country_covariates[covariate_id]
