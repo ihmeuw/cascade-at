@@ -2,7 +2,7 @@ import numpy as np
 
 from cascade.core.log import getLoggers
 from cascade.model import (
-    Model, Var, SmoothGrid, Covariate
+    Model, Var, SmoothGrid, Covariate, Constant
 )
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -32,7 +32,21 @@ def const_value(value):
     return at_function
 
 
-def construct_model(data, local_settings, covariate_multipliers):
+def construct_model(data, local_settings, covariate_multipliers, covariate_data_spec):
+    """Makes a Cascade model from EpiViz-AT settings and data.
+
+    Args:
+        data: An object with both ``age_specific_death_rate`` and ``locations``.
+        local_settings: A settings object from `CascadePlan`.
+        covariate_multipliers (List[EpiVizCovariateMultiplier]): descriptions of
+            covariate multipliers.
+        covariate_data_spec (List[EpiVizCovariate]): the covariates themselves.
+            Some covariates aren't used by covariate multipliers but are
+            included to calculate hold outs.
+
+    Returns:
+        cascade.model.Model: The model to fit.
+    """
     ev_settings = local_settings.settings
     parent_location_id = local_settings.parent_location_id
     default_age_time = dict()
@@ -50,17 +64,23 @@ def construct_model(data, local_settings, covariate_multipliers):
 
     nonzero_rates = [smooth.rate for smooth in ev_settings.rate]
 
+    children = list(data.locations.successors(parent_location_id))
     model = Model(
         nonzero_rates=nonzero_rates,
         parent_location=parent_location_id,
-        child_location=list(data.locations.successors(parent_location_id)),
-        covariates=covariates_list(covariate_multipliers),
+        child_location=children,
+        covariates=covariates_list(covariate_data_spec),
         weights=None,
     )
 
     construct_model_rates(default_age_time, single_age_time, ev_settings, model)
     construct_model_random_effects(default_age_time, single_age_time, ev_settings, model)
     construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model)
+    if ev_settings.model.constrain_omega:
+        constrain_omega(
+            default_age_time, data.age_specific_death_rate,
+            ev_settings, model, parent_location_id, children
+        )
 
     return model
 
@@ -69,6 +89,57 @@ def construct_model_rates(default_age_time, single_age_time, ev_settings, model)
     for smooth in ev_settings.rate:
         rate_grid = smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth)
         model.rate[smooth.rate] = rate_grid
+
+
+def constrain_omega(default_age_time, asdr, ev_settings, model, parent_location_id, children):
+    r"""Set parent rate to fixed value and define children as fixed random effects.
+    Constrains parent omega to age-specific death rate and constrains child
+    rates, if they exist, to
+
+    .. math::
+
+        u_j = \log(r_c / r_p)
+
+    where :math:`r_p` is the parent rate and :math:`r_c` is the child rate.
+
+    Args:
+        default_age_time (Dict[str,ndarray]): Age and time grids chosen by user.
+        asdr: Age-specific death rate
+        ev_settings: The Form.py settings object.
+        model (Model): Writes to rate and random_effect parts of the model.
+        parent_location_id (int): parent location
+        children (List[int]): Child location ids.
+    """
+    omega = rectangular_data_to_var(asdr[asdr.location == parent_location_id])
+    model.rate["omega"] = constraint_from_rectangular_data(omega, default_age_time)
+    asdr_locations = set(asdr.location.unique().tolist())
+    children_without_asdr = set(children) - set(asdr_locations)
+    if children_without_asdr:
+        MATHLOG.warning(f"Children of {parent_location_id} missing ASDR {children_without_asdr} "
+                        f"so not including child omega constraints")
+        return
+
+    for child in children:
+        child_asdr = asdr[asdr.location == child]
+        assert len(child_asdr) > 0
+        child_rate = rectangular_data_to_var(child_asdr)
+
+        def child_effect(age, time):
+            return np.log(child_rate(age, time) / omega(age, time))
+
+        model.rate[("omega", child)] = constraint_from_rectangular_data(child_effect, default_age_time)
+
+
+def constraint_from_rectangular_data(rate_var, default_age_time):
+    """Takes data on a complete set of ages and times, makes a constraint grid.
+
+    Args:
+        rate_var: A function of age and time to represent a rate.
+    """
+    omega_grid = SmoothGrid(ages=default_age_time["age"], times=default_age_time["time"])
+    for age, time in omega_grid.age_time():
+        omega_grid.value[age, time] = Constant(rate_var(age, time))
+    return omega_grid
 
 
 def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
@@ -138,10 +209,9 @@ def construct_model_covariates(default_age_time, single_age_time, covariate_mult
         model[mulcov.group][mulcov.key] = grid
 
 
-def covariates_list(covariate_multipliers):
-    covariates = {mulcov.covariate for mulcov in covariate_multipliers}
-    ordered = list(covariates)
+def covariates_list(covariate_data_spec):
     covariate_list = list()
-    for c in ordered:
-        covariate_list.append(Covariate(c.name, 0))
+    for c in covariate_data_spec:
+        CODELOG.debug(f"Adding covariate reference {c.name}.reference={c.reference}")
+        covariate_list.append(Covariate(c.name, c.reference, c.max_difference))
     return covariate_list

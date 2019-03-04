@@ -89,6 +89,12 @@ class CascadePlan:
             grandparent_location_id = None
 
         parent_location_id = self._location_of_cascade_job(cascade_job_id)
+        if self._settings.model.is_field_unset("drill_sex"):
+            # An unset drill sex gets all data.
+            sex_id = [1, 2, 3]
+        else:
+            # Setting to male or female pulls in "both."
+            sex_id = [self._settings.model.drill_sex, 3]
 
         policies = policies_from_settings(self._settings)
         local_settings = EstimationParameters(
@@ -97,7 +103,8 @@ class CascadePlan:
             children=list(sorted(self._locations.successors(parent_location_id))),
             parent_location_id=parent_location_id,
             grandparent_location_id=grandparent_location_id,
-            sex_id=[self._settings.model.drill_sex],
+            # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].
+            sex_id=sex_id,
             number_of_fixed_effect_samples=policies["number_of_fixed_effect_samples"],
         )
         local_settings.data_access = _ParameterHierarchy(**dict(

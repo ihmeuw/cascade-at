@@ -3,6 +3,11 @@
 Study and Country Covariates
 ----------------------------
 
+.. _study-country-definitions:
+
+Definition of Study and Country
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 There are three reasons to use a covariate.
 
 *Country Covariate*
@@ -54,6 +59,25 @@ The sex covariate is defined by its use of regular outliering.
 Male and female data is assigned a value of -0.5 and 0.5, and
 the mean and maximum difference are adjusted to include one,
 the other, or both sexes.
+
+
+.. _study-country-policies:
+
+Policies for Study and Country Covariates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ *  Sex is added as a covariate called ``s_sex``, which Dismod-AT
+    translates to ``x_0`` for its db file format. It is -0.5 for women,
+    0.5 for men, and 0 for both or neither. This covariate is used to
+    exclude data by setting a reference value equal to -0.5 or 0.5 and
+    a max allowed difference to 0.75, so that the "both" category is
+    included and the other sex is excluded.
+
+ *  The ``s_one`` covariate is a study covariate of ones. This can be
+    selected in the user interface and is usually used as a gamma covariate,
+    meaning it is a covariate multiplier on the standard deviation of
+    measurement data. Its covariate id is 1604, and it appears in the db
+    file as ``x_1`` with a reference value of 0 and no max difference.
 
 
 .. _predict the underlying rate:

@@ -2,26 +2,33 @@ from collections import defaultdict
 from timeit import default_timer as timer
 from types import SimpleNamespace
 
+import pandas as pd
 from numpy import nan
 
 from cascade.core import getLoggers
-from cascade.core.db import dataframe_from_disk
-from cascade.core.db import db_queries
+from cascade.core.db import dataframe_from_disk, db_queries, age_spans
 from cascade.executor.construct_model import construct_model
-from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
+from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
     normalized_bundle_from_disk,
-    bundle_to_observations
+    bundle_to_observations,
+    strip_bundle_exclusions,
 )
-from cascade.model.integrands import make_average_integrand_cases_from_gbd
+from cascade.input_data.configuration.construct_country import (
+    convert_gbd_ids_to_dismod_values, check_binary_covariates
+)
+from cascade.input_data.configuration.construct_mortality import get_raw_csmr, normalize_csmr
 from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.input_data.db.asdr import asdr_as_fit_input
+from cascade.input_data.db.country_covariates import country_covariate_set
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.input_data.db.study_covariates import get_study_covariates
+from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -37,15 +44,19 @@ def estimate_location(execution_context, local_settings):
         local_settings: A dictionary describing the work to do. This has
             a location ID corresponding to the location for this fit.
     """
-    input_data = retrieve_data(execution_context, local_settings)
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
+    input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
+    columns_wrong = validate_input_data_types(input_data)
+    assert not columns_wrong, f"validation failed {columns_wrong}"
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
-    model = construct_model(modified_data, local_settings, covariate_multipliers)
+    model = construct_model(modified_data, local_settings, covariate_multipliers,
+                            covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
-    save_outputs(computed_fit, draws, execution_context, local_settings)
+    if not local_settings.run.no_upload:
+        save_outputs(computed_fit, draws, execution_context, local_settings)
 
 
 def retrieve_data(execution_context, local_settings, covariate_data_spec):
@@ -74,6 +85,24 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
         data.sparse_covariate_data = get_study_covariates(
             execution_context, data_access.bundle_id, mvid, tier=data_access.tier)
 
+    country_covariate_ids = {spec.covariate_id for spec in covariate_data_spec if spec.study_country == "country"}
+    # Raw country covariate data.
+    covariates_by_age_id = country_covariate_set(
+        country_covariate_ids,
+        demographics=dict(age_group_ids="all", year_ids="all", sex_ids="all",
+                          location_ids=local_settings.parent_location_id),
+        gbd_round_id=data_access.gbd_round_id,
+    )
+    # Every age group defined, so that we can search for what's given.
+    all_age_spans = age_spans.get_age_spans()
+    data.country_covariates = dict()
+    for covariate_id, covariate_df in covariates_by_age_id.items():
+        ccov_ranges_df = convert_gbd_ids_to_dismod_values(covariate_df, all_age_spans)
+        data.country_covariates[covariate_id] = ccov_ranges_df
+
+    data.country_covariate_binary = check_binary_covariates(execution_context, country_covariate_ids)
+
+    # Standard GBD age groups with IDs, start, finish.
     data.ages_df = db_queries.get_age_metadata(
         age_group_set_id=data_access.age_group_set_id,
         gbd_round_id=data_access.gbd_round_id
@@ -90,6 +119,9 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
     data.age_specific_death_rate = asdr_as_fit_input(
         local_settings.parent_location_id, local_settings.sex_id,
         data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
+
+    data.cause_specific_mortality_rate = get_raw_csmr(
+        execution_context, local_settings.data_access, local_settings.parent_location_id, all_age_spans)
 
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
@@ -122,21 +154,52 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     for set_density in ev_settings.data_density_by_integrand:
         density[id_to_integrand[set_density.integrand_measure_id]] = set_density.value
 
+    csmr = normalize_csmr(input_data.cause_specific_mortality_rate, local_settings.sex_id)
+    CODELOG.debug(f"bundle cols {input_data.bundle.columns}\ncsmr cols {csmr.columns}")
+    assert not set(csmr.columns) - set(input_data.bundle.columns)
+    bundle_with_added = pd.concat([input_data.bundle, csmr], sort=False)
+    bundle_without_excluded = strip_bundle_exclusions(bundle_with_added, ev_settings)
+    nu = defaultdict(lambda: nan)
+    nu["students"] = local_settings.settings.students_dof.data
+    nu["log_students"] = local_settings.settings.log_students_dof.data
+
     # These observations still have a seq column.
     input_data.observations = bundle_to_observations(
-        input_data.bundle,
+        bundle_without_excluded,
         local_settings.parent_location_id,
         data_eta,
         density,
+        nu,
     )
-    input_data.observations = input_data.observations.drop(columns="sex_id")
     # ev_settings.data_eta_by_integrand is a dummy in form.py.
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
 
     input_data.locations_df = location_hierarchy_to_dataframe(input_data.locations)
-
     add_covariate_data_to_observations_and_avgints(input_data, local_settings, covariate_data_spec)
+    input_data.observations = input_data.observations.drop(columns=["sex_id", "seq"])
+    set_sex_reference(covariate_data_spec, local_settings)
     return input_data
+
+
+def set_sex_reference(covariate_data_spec, local_settings):
+    """The sex covariate holds out data for the sex by setting the ``reference``
+    and ``max_difference``. If sex is 1, then set reference to 0.5 and max
+    difference to 0.75. If sex is 2, reference is -0.5. If it's 3 or 4,
+    then reference is 0."""
+    sex_covariate = [sc_sex for sc_sex in covariate_data_spec
+                     if sc_sex.covariate_id == 0 and sc_sex.transformation_id == 0]
+    if sex_covariate:
+        sex_assignments_to_exclude_by_value = {
+            (1,): [0.5, 0.25],
+            (2,): [-0.5, 0.25],
+            (3,): [0.0, 0.25],
+            (1, 3): [0.5, 0.75],
+            (2, 3): [-0.5, 0.75],
+            (1, 2, 3): [0.0, 0.75],
+        }
+        reference, max_difference = sex_assignments_to_exclude_by_value[tuple(sorted(local_settings.sex_id))]
+        sex_covariate[0].reference = reference
+        sex_covariate[0].max_difference = max_difference
 
 
 def compute_location(execution_context, local_settings, input_data, model):
@@ -148,7 +211,7 @@ def compute_location(execution_context, local_settings, input_data, model):
         model (Model): A complete Model object.
 
     Returns:
-        The fit.
+        The fit and draws.
     """
 
     session = Session(
@@ -159,7 +222,11 @@ def compute_location(execution_context, local_settings, input_data, model):
     session.set_option(**make_options(local_settings.settings))
     begin = timer()
     # This should just call init.
-    fit_result = session.fit(model, input_data.observations)
+    if not local_settings.run.db_only:
+        fit_result = session.fit(model, input_data.observations)
+    else:
+        session.setup_model_for_fit(model, input_data.observations)
+        return None, None
     CODELOG.info(f"fit {timer() - begin} success {fit_result.success}")
     draws = make_draws(model, input_data, fit_result.fit, local_settings)
     return fit_result.fit, draws

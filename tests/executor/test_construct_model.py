@@ -102,7 +102,7 @@ def make_a_db(local_settings, locations, filename):
     ec = make_execution_context()
     input_data = retrieve_fake_data(ec, local_settings, covariate_data_spec)
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
-    model = construct_model(modified_data, local_settings, covariate_multipliers)
+    model = construct_model(modified_data, local_settings, covariate_multipliers, covariate_data_spec)
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
     session.set_option(**make_options(local_settings.settings))
@@ -120,7 +120,7 @@ def construct_model_fair(ec, filename, rng_state):
     )
     input_data = retrieve_fake_data(ec, local_settings, covariate_data_spec)
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
-    model = construct_model(modified_data, local_settings, covariate_multipliers)
+    model = construct_model(modified_data, local_settings, covariate_multipliers, covariate_data_spec)
     assert len(model.rate.keys()) > 0
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)

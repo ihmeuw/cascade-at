@@ -218,10 +218,8 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
             f"Of the original {len(with_ids_df)} records, {len(merged)} had known ids.")
     reordered = merged.sort_values(by="original_index").reset_index()
     reordered["time_lower"] = reordered["year_id"]
-    MATHLOG.info(f"Conversion of bundle assumes demographic notation for years, "
-                 f"so it adds a year to time_upper.")
     reordered["time_upper"] = reordered["year_id"] + 1
-    dropped = reordered.drop(columns=["age_group_id", "year_id", "original_index"])
+    dropped = reordered.drop(columns=["age_group_id", "year_id", "original_index", "index"])
     return dropped.rename(columns={"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"})
 
 
@@ -263,7 +261,7 @@ def compute_covariate_age_interval(covariates):
     return age_interval
 
 
-def assign_interpolated_covariate_values(measurements, covariates, execution_context):
+def assign_interpolated_covariate_values(measurements, covariates, is_binary):
     """
     Compute a column of covariate values to assign to the measurements.
 
@@ -274,26 +272,24 @@ def assign_interpolated_covariate_values(measurements, covariates, execution_con
         covariates (pd.DataFrame):
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``, ``sex``, and ``value``.
-        execution_context: Context for execution of this program.
+        is_binary (bool): Whether this is a binary covariate.
 
     Returns:
         pd.Series: One row for every row in the measurements.
     """
+    assert isinstance(is_binary, bool), f"Expected bool got {is_binary} {type(is_binary)}"
 
     # is the covariate by_age, does it have multiple years?
     covar_at_dims = compute_covariate_age_time_dimensions(covariates)
-
     # identify the overall interval for the covariate ages, could have middle gaps
     covar_age_interval = compute_covariate_age_interval(covariates)
-
     # find a matching covariate value for each measurement
     covariate_column = compute_interpolated_covariate_values_by_sex(
         measurements, covariates, covar_at_dims)
-
     # if the covariate is binary, make sure the assigned values are only 0 or 1
-    covariate_id = covariates.loc[0, "covariate_id"]
-    covariate_column = check_and_handle_binary_covariate(covariate_id, covariate_column,
-                                                         execution_context)
+    if is_binary:
+        covariate_column[covariate_column <= .5] = 0
+        covariate_column[covariate_column > .5] = 1
 
     # set missings using covar_age_interval
     meas_mean_age_in_age_interval = [i in covar_age_interval for i in measurements["avg_age"]]
@@ -372,6 +368,8 @@ def compute_interpolated_covariate_values_by_sex(
             covariate_sex = griddata((covariates_sex["avg_age"],),
                                      covariates_sex["mean_value"],
                                      (meas_sex_new_index["avg_age"],))
+        else:
+            raise RuntimeError(f"Covariate sex neither by age nor time {covar_at_dims}.")
 
         cov_col = cov_col + list(covariate_sex)
 
@@ -380,12 +378,24 @@ def compute_interpolated_covariate_values_by_sex(
     return covariate_column
 
 
+def check_binary_covariates(execution_context, covariate_ids):
+    """Check the dichotomous value from shared.covariate to check if the covariate is binary.
+    If it is, make sure the assigned value is only 0 or 1.
+    """
+    is_binary = dict()
+    for covariate_id in covariate_ids:
+        result_df = ezfuncs.query("select dichotomous from shared.covariate where covariate_id=?",
+                                  (covariate_id,), conn_def=execution_context.parameters.database)
+        is_binary[covariate_id] = (result_df.dichotomous[0] == 1)
+    return is_binary
+
+
 def check_and_handle_binary_covariate(covariate_id, covariate_column, execution_context):
     """Check the dichotomous value from shared.covariate to check if the covariate is binary.
     If it is, make sure the assigned value is only 0 or 1.
     """
-    result_df = ezfuncs.query(f"select dichotomous from shared.covariate where covariate_id={covariate_id}",
-                              conn_def=execution_context.parameters.database)
+    result_df = ezfuncs.query("select dichotomous from shared.covariate where covariate_id=?",
+                              (covariate_id,), conn_def=execution_context.parameters.database)
 
     if result_df.dichotomous[0] == 1:
         covariate_column[covariate_column <= .5] = 0

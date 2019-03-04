@@ -35,6 +35,19 @@ def unique_study_covariate_transform(configuration):
 
 
 def add_study_covariate_to_observations(observations, study_covariates, id_to_name):
+    """
+    Given observations without study covariate columns, this puts those columns
+    into the DataFrame and fills them, including the sex and one covariates.
+
+    Args:
+        observations (pd.DataFrame): Observations. Must include ``seq`` and ``sex_id``.
+        study_covariates (pd.DataFrame): Of compressed study covariates, so
+            these are the ``seq`` values at which covariates are nonzero.
+        id_to_name (Dict[int,str]): There is one entry for each study covariate.
+
+    Returns:
+        pd.DataFrame: With the columns attached.
+    """
     with_ones = study_covariates.assign(value=pd.Series(np.ones(len(study_covariates), dtype=np.double)))
     try:
         cov_columns = with_ones.pivot(index="seq", columns="study_covariate_id", values="value") \
@@ -54,7 +67,11 @@ def add_study_covariate_to_observations(observations, study_covariates, id_to_na
         raise InputDataError(f"These study covariate IDs have seq IDs that don't "
                              f"correspond to the bundle seq IDs") from ke
     # This sets NaNs in covariate columns to zeros.
-    return obs_with_covs.fillna(value={fname: 0.0 for fname in id_to_name.values()})
+    filled = obs_with_covs.fillna(value={fname: 0.0 for fname in id_to_name.values()})
+    # Special study covariates won't have appeared in the database, so they
+    # will be zeros. Fill them in.
+    sex_assignment = {1: 0.5, 2: -0.5, 3: 0.0, 4: 0.0}
+    return filled.assign(s_sex=filled.sex_id.apply(sex_assignment.get), s_one=1)
 
 
 def normalize_covariate_data(observations, study_covariates, id_to_name):

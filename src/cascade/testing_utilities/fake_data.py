@@ -5,8 +5,12 @@ import pandas as pd
 from numpy.random import RandomState
 
 from cascade.core import getLoggers
+from cascade.core.db import age_spans
 from cascade.core.db import db_queries
 from cascade.executor.covariate_data import find_covariate_names
+from cascade.input_data.configuration.construct_mortality import get_raw_csmr
+from cascade.input_data.configuration.raw_input import validate_input_data_types
+from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.locations import get_descendants
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
@@ -39,9 +43,9 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
         seq=seqs,
         measure=np.repeat(["prevalence", "Sincidence", "mtother", "mtexcess"], 25),
         mean=np.repeat([0.01, 0.02, 0.03, 0.04], 25),
-        sex=np.repeat(["male", "female", "both", "female"], 25),
         sex_id=np.repeat([1, 2, 3, 2], 25),
-        standard_error=np.repeat([0.005, 0.003, 0.004, 0.002], 25),
+        lower=np.repeat([0.005, 0.003, 0.004, 0.002], 25),
+        upper=np.repeat([0.015, 0.023, 0.034, 0.0042], 25),
         hold_out=np.repeat([0, 0, 0, 1], 25),
         age_lower=np.repeat([0.0, 5.0, 2.0, 10], 25),
         age_upper=np.repeat([0.019, 10.0, 100.0, 80], 25),
@@ -65,8 +69,28 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
             bundle_id=data_access.bundle_id,
         ))
     else:
-        data.sparse_covariate_data = pd.DataFrame(
-            columns=["study_covariate_id", "seq", "bundle_id"])
+        data.sparse_covariate_data = pd.DataFrame(dict(
+            study_covariate_id=pd.Series(dtype=np.dtype("int64")),
+            seq=pd.Series(dtype=np.dtype("O")),
+            bundle_id=pd.Series(dtype=np.dtype("int64")),
+        ))
+
+    country_ids = list(set(ct_set.country_covariate_id for ct_set in local_settings.settings.country_covariate))
+    age_group = [1] + list(range(6, 22))
+    fake_country_cov = pd.DataFrame([dict(
+        age_lower=float(5 * age_id),
+        age_upper=float(5 * (age_id + 1)),
+        time_lower=float(year),
+        time_upper=float(year + 1),
+        mean_value=rng.choice([0.01, 0.02, 0.03, 0.04, 0.05, 0.06]),
+        sex_id=sex,
+    )
+        for age_id in range(len(age_group))
+        for year in range(1990, 2018)
+        for sex in [1, 2]
+    ])
+    data.country_covariates = {cid: fake_country_cov for cid in country_ids}
+    data.country_covariates_binary = {bid: False for bid in country_ids}
 
     data.ages_df = db_queries.get_age_metadata(
         age_group_set_id=data_access.age_group_set_id,
@@ -81,6 +105,12 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
             data.ages_df, data.years_df, local_settings.sex_id,
             local_settings.parent_location_id, include_birth_prevalence)
 
+    all_ages = age_spans.get_age_spans()
+    data.cause_specific_mortality_rate = get_raw_csmr(
+        execution_context, local_settings.data_access, local_settings.parent_location_id, all_ages)
+    data.age_specific_death_rate = asdr_as_fit_input(
+        local_settings.parent_location_id, local_settings.sex_id,
+        data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
 
@@ -90,4 +120,6 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
     # The parent can also supply integrands as a kind of prior.
     # These will be shaped like input measurement data.
     data.integrands = None
+    columns_wrong = validate_input_data_types(data)
+    assert not columns_wrong, f"validation failed {columns_wrong}"
     return data

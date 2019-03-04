@@ -1,19 +1,18 @@
 from types import SimpleNamespace
 
 import numpy as np
-from numpy import isclose, nan, isnan
 import pandas as pd
+from numpy import isclose, nan, isnan
 
 from cascade.model.age_time_grid import AgeTimeGrid
+from cascade.model.dismod_groups import DismodGroups
 from cascade.model.grid_read_write import (
     _read_vars_one_field, _read_residuals_one_field, _samples_one_field, _construct_var_id_from_var_table,
     read_simulation_model
 )
 from cascade.model.model import Model
-from cascade.model.smooth_grid import SmoothGrid
-from cascade.model.dismod_groups import DismodGroups
 from cascade.model.priors import Gaussian, Uniform
-from cascade.model.var import Var
+from cascade.model.smooth_grid import SmoothGrid
 
 
 def test_read_vars_one_field():

@@ -16,6 +16,11 @@ def country_covariate_names():
     return covariate_df.to_dict()["covariate_name_short"]
 
 
+def country_covariate_set(covariate_ids, demographics, gbd_round_id):
+    return {covariate_id: country_covariates(covariate_id, demographics, gbd_round_id)
+            for covariate_id in covariate_ids}
+
+
 def country_covariates(covariate_id, demographics, gbd_round_id):
     """Retrieve country covariates from the database. Covariates can have a
     lower value and an upper value, in addition to their mean. This returns

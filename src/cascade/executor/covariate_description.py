@@ -15,6 +15,8 @@ class EpiVizCovariate:
         """Which function to apply to this covariate column (log, exp, etc)"""
         self.untransformed_covariate_name = None
         """The name for this covariate before transformation."""
+        self.reference = 0
+        self.max_difference = None
 
     @property
     def spec(self):
@@ -87,6 +89,9 @@ class EpiVizCovariateMultiplier:
             measure = id_to_integrand[self.grid_spec.measure_id].name
         return (self.covariate.name, measure)
 
+    def __repr__(self):
+        return f"EpiVizCovariateMultiplier{self.covariate.spec}"
+
 
 def kind_and_id(covariate_setting):
     for kind in ["study", "country"]:
@@ -114,6 +119,8 @@ def create_covariate_specifications(study, country):
         # This tells us what the data is for the column.
         kind, covariate_id = kind_and_id(setting)
         covariate_specs.add((kind, covariate_id, setting.transformation))
+    covariate_specs.add(("study", 0, 0))  # Sex covariate
+    covariate_specs.add(("study", 1604, 0))  # One covariate
     covariate_dict = {cspec: EpiVizCovariate(*cspec) for cspec in covariate_specs}
 
     multipliers = list()
