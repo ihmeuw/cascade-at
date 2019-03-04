@@ -53,8 +53,7 @@ def construct_model(data, local_settings, covariate_multipliers, covariate_data_
     default_age_time["age"] = np.linspace(0, 100, 21)
     default_age_time["time"] = np.linspace(1990, 2015, 6)
     for kind in ["age", "time"]:
-        default_grid = getattr(ev_settings
-                               .model, f"default_{kind}_grid")
+        default_grid = getattr(ev_settings.model, f"default_{kind}_grid")
         if default_grid is not None:
             default_age_time[kind] = np.sort(np.array(default_grid, dtype=np.float))
 
