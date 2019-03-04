@@ -19,7 +19,7 @@
 #
 import os
 import sys
-from pkg_resources import get_distribution
+from pkg_resources import get_distribution, DistributionNotFound
 from sphinx.domains.python import PythonDomain
 
 sys.path.insert(0, os.path.abspath(os.path.expanduser("../src")))
@@ -63,7 +63,11 @@ author = "Cascade Team"
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = get_distribution('cascade').version
+try:
+    release = get_distribution('cascade').version
+except DistributionNotFound:
+    release = "19.3.0"
+
 # The short X.Y version.
 version = '.'.join(release.split('.')[:2])
 
