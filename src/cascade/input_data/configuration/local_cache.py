@@ -6,7 +6,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 class LocalCache:
     """A small in-memory cache object. This has the same interface
     as memcached, so that we can switch it out for that, if appropriate."""
-    def __init__(self, maxsize=1):
+    def __init__(self, maxsize=8):
         if maxsize < 1:
             raise ValueError("maxsize should be greater than 0")
         self._store = dict()
