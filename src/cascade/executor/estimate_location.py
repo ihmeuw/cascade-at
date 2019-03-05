@@ -23,6 +23,7 @@ from cascade.input_data.configuration.construct_country import (
 )
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr, normalize_csmr
 from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.country_covariates import country_covariate_set
@@ -34,7 +35,7 @@ from cascade.model.session import Session
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def estimate_location(execution_context, local_settings):
+def estimate_location(execution_context, local_settings, local_cache=None):
     """
     Estimates rates for a single location in the location hierarchy.
     This does multiple fits and predictions in order to estimate uncertainty.
@@ -47,7 +48,7 @@ def estimate_location(execution_context, local_settings):
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
-    input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
+    input_data = retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache)
     columns_wrong = validate_input_data_types(input_data)
     assert not columns_wrong, f"validation failed {columns_wrong}"
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
@@ -55,12 +56,15 @@ def estimate_location(execution_context, local_settings):
                             covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
+    if local_cache:
+        local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
     if not local_settings.run.no_upload:
         save_outputs(computed_fit, draws, execution_context, local_settings)
 
 
-def retrieve_data(execution_context, local_settings, covariate_data_spec):
+def retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache=None):
     """Gets data from the outside world."""
+    local_cache = local_cache if local_cache else LocalCache()
     data = SimpleNamespace()
     data_access = local_settings.data_access
     model_version_id = data_access.model_version_id
@@ -126,11 +130,11 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
     # These are the draws as output of the parent location.
-    data.draws = None
+    data.draws = local_cache.get(f"fit-draws:{local_settings.grandparent_location_id}")
 
     # The parent can also supply integrands as a kind of prior.
     # These will be shaped like input measurement data.
-    data.integrands = None
+    data.integrands = local_cache.get(f"fit-integrands:{local_settings.grandparent_location_id}")
 
     return data
 
