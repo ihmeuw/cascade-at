@@ -143,17 +143,22 @@ class CascadePlan:
         plan = cls(settings)
         plan._locations = locations
         plan._args = args
-        if hasattr(settings.model, "drill_location_start") and \
-                settings.model.drill_location_start and settings.model.drill_location_end:
+        if not settings.model.is_field_unset("drill") and settings.model.drill == "drill":
+            if not settings.model.is_field_unset("drill_location_start"):
+                drill_start = settings.model.drill_location_start
+            else:
+                drill_start = None
+            if not settings.model.is_field_unset("drill_location_end"):
+                drill_end = settings.model.drill_location_end
+            else:
+                raise InputDataError(f"Set to drill but drill location end not set")
             try:
-                drill = location_id_from_start_and_finish(
-                    plan._locations, settings.model.drill_location_start, settings.model.drill_location_end)
+                drill = location_id_from_start_and_finish(plan._locations, drill_start, drill_end)
             except ValueError as ve:
                 raise InputDataError(f"Location parameter is wrong in settings.") from ve
         else:
-            MATHLOG.error(f"Looking for drill start and finish and cannot find "
-                          f"drill location start and end.")
-            raise InputDataError(f"Missing drill location start and end.")
+            MATHLOG.error(f"Must be set to 'drill'")
+            raise InputDataError(f"Must be set to 'drill'")
         MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
         drill = list(drill)
         if args.skip_cache:

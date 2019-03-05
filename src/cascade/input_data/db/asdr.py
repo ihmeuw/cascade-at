@@ -164,7 +164,7 @@ def load_asdr_to_t3(execution_context, data_access, location_and_children):
             f"""Uploading asdr data for model_version_id
             {model_version_id} on '{database}'"""
         )
-        asdr_data = get_asdr_data(gbd_round_id, list(missing_from_t3))
+        asdr_data = get_asdr_data(gbd_round_id, list(missing_from_t3), data_access.with_hiv)
 
         with cursor(execution_context) as c:
             _upload_asdr_data_to_tier_3(gbd_round_id, c, model_version_id, asdr_data)
