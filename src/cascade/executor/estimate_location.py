@@ -217,10 +217,12 @@ def compute_location(execution_context, local_settings, input_data, model):
     Returns:
         The fit and draws.
     """
+    base_path = execution_context.db_path(local_settings.parent_location_id)
+    base_path.mkdir(parents=True, exist_ok=True)
     session = Session(
         locations=input_data.locations_df,
         parent_location=model.location_id,
-        filename=execution_context.fit_db_path()
+        filename=base_path / "fit.db"
     )
     session.set_option(**make_options(local_settings.settings))
     begin = timer()
@@ -231,7 +233,7 @@ def compute_location(execution_context, local_settings, input_data, model):
         session.setup_model_for_fit(model, input_data.observations)
         return None, None
     CODELOG.info(f"fit {timer() - begin} success {fit_result.success}")
-    draws = make_draws(model, input_data, fit_result.fit, local_settings)
+    draws = make_draws(execution_context, model, input_data, fit_result.fit, local_settings)
     return fit_result.fit, draws
 
 
@@ -239,12 +241,14 @@ def save_outputs(computed_fit, draws, execution_context, local_settings):
     return None
 
 
-def make_draws(model, input_data, max_fit, local_settings):
+def make_draws(execution_context, model, input_data, max_fit, local_settings):
+    base_path = execution_context.db_path(local_settings.parent_location_id)
+    base_path.mkdir(parents=True, exist_ok=True)
     draw_cnt = local_settings.number_of_fixed_effect_samples
     session = Session(
         locations=input_data.locations_df,
         parent_location=model.location_id,
-        filename="simulate.db"
+        filename=base_path / "simulate.db"
     )
     session.set_option(**make_options(local_settings.settings))
     simulate_result = session.simulate(model, input_data.observations, max_fit, draw_cnt)
@@ -254,11 +258,11 @@ def make_draws(model, input_data, max_fit, local_settings):
         sim_model, sim_data = simulate_result.simulation(draw_idx)
         # let's start a new session because the simulation results are associated
         # with a session and running a new fit will delete them.
-        fit_file = f"simulate{draw_idx}.db"
+        fit_file = f"simulate_{draw_idx}.db"
         sim_session = Session(
             locations=input_data.locations_df,
             parent_location=model.location_id,
-            filename=fit_file
+            filename=base_path / fit_file
         )
         sim_session.set_option(**make_options(local_settings.settings))
         begin = timer()

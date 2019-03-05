@@ -16,13 +16,13 @@ from cascade.testing_utilities.fake_data import retrieve_fake_data
 @pytest.mark.parametrize("meid,mvid", [
     (None, 267800),
 ])
-def test_with_known_id(ihme, meid, mvid):
+def test_with_known_id(ihme, meid, mvid, tmp_path):
     """This runs the equivalent of dismodel_main.main"""
     ec = make_execution_context()
     # no-upload keeps this from going to the databases when it's done.
     args = ["z.db", "--no-upload", "--db-only"]
     if mvid:
-        args += ["--mvid", str(mvid)]
+        args += ["--mvid", str(mvid), "--base-directory", str(tmp_path)]
     elif meid:
         args += ["--meid", str(meid)]
     else:
