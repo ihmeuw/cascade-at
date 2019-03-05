@@ -6,6 +6,7 @@ import pandas as pd
 from cascade.core import getLoggers
 from cascade.core.subprocess_utils import run_with_async_logging
 from cascade.dismod.constants import COMMAND_IO
+from cascade.executor.dismod_runner import DismodATException
 from cascade.model import Model
 from cascade.model.object_wrapper import ObjectWrapper
 
@@ -235,11 +236,19 @@ class Session:
         CODELOG.debug(f"Running Dismod-AT {command}")
         with self._objects.close_db_while_running():
             str_command = [str(c) for c in command]
-            return_code, stdout, stderr = run_with_async_logging(["dmdismod", str(self._filename)] + str_command)
-            assert return_code == 0, f"return code is {return_code}"
+            return_code, stdout, stderr = run_with_async_logging(
+                ["dmdismod", str(self._filename)] + str_command)
+
+        self._check_dismod_command(str_command[0])
+        assert return_code == 0, f"return code is {return_code}"
         if command[0] in COMMAND_IO:
             self._objects.refresh(COMMAND_IO[command[0]].output)
         return stdout, stderr
+
+    def _check_dismod_command(self, command):
+        log = self._objects.log
+        if len(log) == 0 or f"end {command}" not in log.message.iloc[-1]:
+            raise DismodATException(f"DismodAt failed to complete '{command}' command")
 
     @staticmethod
     def _check_vars(var):
