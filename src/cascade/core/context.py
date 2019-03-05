@@ -1,10 +1,13 @@
-from rocketsonde.core import Probe, basic_metric
-from cascade.core.parameters import ParameterProperty
-from cascade.core.input_data import InputData
-from cascade.model.rates import Rate
-from cascade.dismod.constants import IntegrandEnum
+from pathlib import Path
 
+from rocketsonde.core import Probe, basic_metric
+
+from cascade.core.input_data import InputData
 from cascade.core.log import getLoggers
+from cascade.core.parameters import ParameterProperty
+from cascade.dismod.constants import IntegrandEnum
+from cascade.model.rates import Rate
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -21,6 +24,43 @@ class ExecutionContext:
     def __init__(self):
         self.dismodfile = None
         self.resource_monitor = Probe(basic_metric)
+
+    def db_path(self, location_id):
+        """
+
+        Args:
+            location_id (int):
+
+        Returns:
+            Path: directory in which to write. May not exist.
+        """
+        if hasattr(self.parameters, "organizational_mode") and self.parameters.organizational_mode == "infrastructure":
+            return self.model_base_directory(location_id)
+        else:
+            if hasattr(self.parameters, "base_directory") and self.parameters.base_directory:
+                return (Path(self.parameters.base_directory) / str(location_id)).expanduser()
+            else:
+                return (Path(".") / str(location_id)).expanduser()
+
+    def model_base_directory(self, location_id):
+        if hasattr(self.parameters, "base_directory") and self.parameters.base_directory:
+            base_directory = Path(self.parameters.base_directory)
+        else:
+            base_directory = Path(".")
+
+        if hasattr(self.parameters, "modelable_entity_id") and self.parameters.modelable_entity_id:
+            subdir = base_directory / str(self.parameters.modelable_entity_id)
+        else:
+            subdir = base_directory / "mvid"
+
+        if hasattr(self.parameters, "model_version_id") and self.parameters.model_version_id:
+            with_mvid = subdir / str(self.parameters.model_version_id)
+        else:
+            with_mvid = subdir
+
+        group_locations = location_id // 100
+        with_loc = with_mvid / str(group_locations) / str(location_id)
+        return with_loc.expanduser()
 
 
 class _ModelParameters:
