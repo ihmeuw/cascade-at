@@ -72,9 +72,7 @@ class DismodGroups(UserDict):
         one_not_other = list()
         for group_name, group in self.items():
             if group_name != "random_effect":
-                a_keys = list(group.keys())
-                b_keys = list(other[group_name].keys())
-                message = self._compare_keys(a_keys, b_keys, group_name)
+                message = self._compare_keys(group.keys(), other[group_name].keys(), group_name)
                 one_not_other.extend(message)
             else:
                 re_rates = {rk[0] for rk in chain(group.keys(), other[group_name].keys())}

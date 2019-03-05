@@ -197,11 +197,15 @@ def construct_model_random_effects(default_age_time, single_age_time, ev_setting
         model.random_effect[(smooth.rate, location)] = re_grid
         random_effect_by_rate[smooth.rate].append(location)
 
-    for is_rate_consistent, locations in random_effect_by_rate.items():
-        if locations is not None and len(locations) != len(model.child_location):
-            MATHLOG.error(f"Random effect for {is_rate_consistent} doesn't have "
-                          f"entries for all child locations, only {locations} "
-                          f"instead of {model.child_location}.")
+    for rate_to_check, locations in random_effect_by_rate.items():
+        if locations != [None] \
+                and len(locations) != len(model.child_location) \
+                and set(locations) != set(model.child_location):
+            message = (f"Random effect for {rate_to_check} doesn't have "
+                       f"entries for all child locations, only {locations} "
+                       f"instead of {model.child_location}.")
+            MATHLOG.error(message)
+            raise RuntimeError(message)
 
 
 def construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model):
