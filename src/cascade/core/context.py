@@ -1,10 +1,13 @@
-from rocketsonde.core import Probe, basic_metric
-from cascade.core.parameters import ParameterProperty
-from cascade.core.input_data import InputData
-from cascade.model.rates import Rate
-from cascade.dismod.constants import IntegrandEnum
+from pathlib import Path
 
+from rocketsonde.core import Probe, basic_metric
+
+from cascade.core.input_data import InputData
 from cascade.core.log import getLoggers
+from cascade.core.parameters import ParameterProperty
+from cascade.dismod.constants import IntegrandEnum
+from cascade.model.rates import Rate
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -21,6 +24,9 @@ class ExecutionContext:
     def __init__(self):
         self.dismodfile = None
         self.resource_monitor = Probe(basic_metric)
+
+    def fit_db_path(self):
+        return Path("subsession.db")
 
 
 class _ModelParameters:

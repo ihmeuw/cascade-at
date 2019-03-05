@@ -213,11 +213,10 @@ def compute_location(execution_context, local_settings, input_data, model):
     Returns:
         The fit and draws.
     """
-
     session = Session(
         locations=input_data.locations_df,
         parent_location=model.location_id,
-        filename="subsession.db"
+        filename=execution_context.fit_db_path()
     )
     session.set_option(**make_options(local_settings.settings))
     begin = timer()
