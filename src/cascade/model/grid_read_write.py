@@ -166,20 +166,22 @@ def read_simulation_model(dismod_file, original_model, var_ids, index):
     sim_priors = dismod_file.prior_sim[dismod_file.prior_sim.simulate_index == index]
     sim_model = original_model.model_like()
     for group_name, group in var_ids.items():
-        for key, var_grid in group.items():
+        for var_key, var_grid in group.items():
+            use_key = var_key
             try:
-                model_grid = original_model[group_name][key]
+                model_grid = original_model[group_name][var_key]
             except KeyError:
                 # This handles the case that a random effect has one smooth grid
                 # versus a random effect having a smooth grid per child.
-                if (key[0], None) in original_model[group_name]:
-                    model_grid = original_model[group_name][(key[0], None)]
+                if (var_key[0], None) in original_model[group_name]:
+                    use_key = (var_key[0], None)
+                    model_grid = original_model[group_name][use_key]
                 else:
                     raise
             constructed_prior_grid = SmoothGrid(var_grid.ages, var_grid.times)
             _read_one_prior_sim_grid(model_grid, constructed_prior_grid, sim_priors, var_grid)
             _read_one_prior_sim_mulstd(model_grid, constructed_prior_grid, sim_priors, var_grid)
-            sim_model[group_name][key] = constructed_prior_grid
+            sim_model[group_name][use_key] = constructed_prior_grid
     return sim_model
 
 
