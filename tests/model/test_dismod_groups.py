@@ -64,3 +64,66 @@ def test_aligned_none():
 
     left = dg0.check_alignment(dg1)
     assert not left
+
+
+def test_aligned_more_than_one():
+    dg0 = DismodGroups()
+    dg0.rate["iota"] = 7
+    dg0.random_effect[("iota", 2)] = 9
+    dg0.random_effect[("iota", 3)] = 9
+    dg0.random_effect[("rho", 2)] = 7
+    dg0.random_effect[("rho", 3)] = 7
+    dg0.random_effect[("omega", None)] = 14
+
+    dg1 = DismodGroups()
+    dg1.rate["iota"] = 7
+    dg1.random_effect[("iota", None)] = 9
+    dg1.random_effect[("rho", 2)] = 7
+    dg1.random_effect[("rho", 3)] = 7
+    dg1.random_effect[("omega", None)] = 9
+
+    left = dg0.check_alignment(dg1)
+    assert not left
+
+
+def test_unaligned_more_than_one():
+    dg0 = DismodGroups()
+    dg0.rate["iota"] = 7
+    dg0.random_effect[("iota", 2)] = 9
+    dg0.random_effect[("iota", 3)] = 9
+    dg0.random_effect[("rho", 2)] = 7
+    dg0.random_effect[("rho", 3)] = 7
+    dg0.random_effect[("omega", None)] = 14
+    dg0.random_effect[("chi", None)] = 20
+
+    dg1 = DismodGroups()
+    dg1.rate["iota"] = 7
+    dg1.random_effect[("iota", None)] = 9
+    dg1.random_effect[("rho", 2)] = 7
+    dg1.random_effect[("rho", 3)] = 7
+    dg1.random_effect[("omega", None)] = 9
+
+    left = dg0.check_alignment(dg1)
+    assert left is not None
+
+
+def test_unaligned_too_many():
+    dg0 = DismodGroups()
+    dg0.rate["iota"] = 7
+    dg0.random_effect[("iota", 2)] = 9
+    dg0.random_effect[("iota", 3)] = 9
+    dg0.random_effect[("iota", 5)] = 9
+    dg0.random_effect[("rho", 2)] = 7
+    dg0.random_effect[("rho", 3)] = 7
+    dg0.random_effect[("omega", None)] = 14
+    dg0.random_effect[("chi", None)] = 20
+
+    dg1 = DismodGroups()
+    dg1.rate["iota"] = 7
+    dg1.random_effect[("iota", None)] = 9
+    dg1.random_effect[("rho", 2)] = 7
+    dg1.random_effect[("rho", 3)] = 7
+    dg1.random_effect[("omega", None)] = 9
+
+    left = dg0.check_alignment(dg1)
+    assert left is not None

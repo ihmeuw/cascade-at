@@ -1,4 +1,5 @@
 from collections import UserDict
+from itertools import chain
 from os import linesep
 
 
@@ -70,19 +71,32 @@ class DismodGroups(UserDict):
         """Check whether and where two DismodGroups are misaligned."""
         one_not_other = list()
         for group_name, group in self.items():
-            a_keys = list(group.keys())
-            b_keys = list(other[group_name].keys())
-            single_effect = len(a_keys) == 1 or len(b_keys) == 1
-            if group_name == "random_effect" and single_effect:
-                all_effects = a_keys[0][1] is None or b_keys[0][1] is None
-                if single_effect and all_effects:
-                    a_keys = [k[0] for k in a_keys]
-                    b_keys = [k[0] for k in b_keys]
-            a_keys = set(a_keys)
-            b_keys = set(b_keys)
-            if a_keys - b_keys:
-                one_not_other.append(f"left {group_name} has {a_keys - b_keys}")
-            elif b_keys - a_keys:
-                one_not_other.append(f"right {group_name} has {b_keys - a_keys}")
-            # else they agree
+            if group_name != "random_effect":
+                a_keys = list(group.keys())
+                b_keys = list(other[group_name].keys())
+                message = self._compare_keys(a_keys, b_keys, group_name)
+                one_not_other.extend(message)
+            else:
+                re_rates = {rk[0] for rk in chain(group.keys(), other[group_name].keys())}
+                for re_rate in re_rates:
+                    a_re_key = [ak for ak in group.keys() if ak[0] == re_rate]
+                    b_re_key = [bk for bk in other[group_name].keys() if bk[0] == re_rate]
+                    single_effect = len(a_re_key) == 1 or len(b_re_key) == 1
+                    all_effects = a_re_key[0][1] is None or b_re_key[0][1] is None
+                    if single_effect and all_effects:
+                        a_re_key = [k[0] for k in a_re_key]
+                        b_re_key = [k[0] for k in b_re_key]
+                    message = self._compare_keys(a_re_key, b_re_key, group_name)
+                    one_not_other.extend(message)
+
         return one_not_other
+
+    def _compare_keys(self, a_keys, b_keys, group_name):
+        a_keys = set(a_keys)
+        b_keys = set(b_keys)
+        message = []
+        if a_keys - b_keys:
+            message = [f"left {group_name} has {a_keys - b_keys}"]
+        if b_keys - a_keys:
+            message = [f"right {group_name} has {b_keys - a_keys}"]
+        return message
