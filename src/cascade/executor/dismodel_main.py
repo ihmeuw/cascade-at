@@ -15,6 +15,7 @@ from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.estimate_location import estimate_location
 from cascade.executor.setup_tier import setup_tier_data
 from cascade.input_data.configuration import SettingsError
+from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
@@ -37,6 +38,7 @@ def main(args):
     execution_context = make_execution_context(gbd_round_id=6)
     plan = generate_plan(execution_context, args)
 
+    local_cache = LocalCache(maxsize=2)
     for cascade_task_identifier in plan.cascade_jobs:
         cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
 
@@ -44,7 +46,7 @@ def main(args):
             # Move bundle to next tier
             setup_tier_data(execution_context, this_location_work.data_access, this_location_work.parent_location_id)
         elif cascade_job == "estimate_location":
-            estimate_location(execution_context, this_location_work)
+            estimate_location(execution_context, this_location_work, local_cache)
         else:
             assert f"Unknown job type, {cascade_job}"
 

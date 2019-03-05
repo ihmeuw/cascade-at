@@ -1,7 +1,10 @@
 import networkx as nx
 import pytest
 
-from cascade.input_data.db.locations import get_descendants, location_id_from_location_and_level, location_hierarchy
+from cascade.input_data.db.locations import (
+    get_descendants, location_id_from_location_and_level, location_hierarchy,
+    location_id_from_start_and_finish
+)
 
 
 class MockLocation:
@@ -108,6 +111,18 @@ def test_drill_from_location_and_level__happy_path(sample_locations):
     assert location_id_from_location_and_level(sample_locations, 7, 2) == [2, 6, 7]
     assert location_id_from_location_and_level(sample_locations, 4, 2) == [1, 4]
     assert location_id_from_location_and_level(sample_locations, 7, "most_detailed") == [7]
+
+
+@pytest.mark.parametrize("start,finish,ans", [
+    (0, 1, [0, 1]),
+    (None, 1, [0, 1]),
+    (None, 4, [0, 1, 4]),
+    (None, "4", [0, 1, 4]),
+    (2, 7, [2, 6, 7]),
+    (None, 7, [0, 2, 6, 7]),
+])
+def test_drill_from_location_and_level__no_start(sample_locations, start, finish, ans):
+    assert location_id_from_start_and_finish(sample_locations, start, finish) == ans
 
 
 def test_location_id_from_location_and_level__too_low(sample_locations):
