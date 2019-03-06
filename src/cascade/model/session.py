@@ -6,7 +6,7 @@ import pandas as pd
 from cascade.core import getLoggers
 from cascade.core.subprocess_utils import run_with_async_logging
 from cascade.dismod.constants import COMMAND_IO
-from cascade.executor.dismod_runner import DismodATException
+from cascade.dismod import DismodATException
 from cascade.model import Model
 from cascade.model.object_wrapper import ObjectWrapper
 

@@ -6,7 +6,6 @@ import numpy as np
 
 from db_queries import get_envelope, get_outputs
 
-from cascade.executor.epiviz_runner import add_settings_to_execution_context
 from cascade.input_data.db.configuration import load_settings
 from cascade.dismod.constants import IntegrandEnum
 from cascade.input_data.db.demographics import age_groups_to_ranges
@@ -44,15 +43,15 @@ def test_asdr_data():
     mvid = 266156
     execution_context = make_execution_context()
     settings = load_settings(execution_context, mvid=mvid)
-    add_settings_to_execution_context(execution_context, settings)
+    location_id = settings.model.drill_location_start
 
     data = _prepare_output_data_for_test(execution_context)
     data = data.loc[data.integrand_id == IntegrandEnum.mtall.value]
 
     expected = get_envelope(
-        location_id=execution_context.parameters.parent_location_id,
+        location_id=location_id,
         year_id="all",
-        gbd_round_id=execution_context.parameters.gbd_round_id,
+        gbd_round_id=settings.gbd_round_id,
         age_group_id="all",
         sex_id="all",
         with_hiv=True,
@@ -78,21 +77,21 @@ def test_csmr_data():
     mvid = 266156
     execution_context = make_execution_context()
     settings = load_settings(execution_context, mvid=mvid)
-    add_settings_to_execution_context(execution_context, settings)
+    location_id = settings.model.drill_location_start
 
     data = _prepare_output_data_for_test(execution_context)
     data = data.loc[data.integrand_id == IntegrandEnum.mtspecific.value]
 
     expected = get_outputs(
         topic="cause",
-        cause_id=execution_context.parameters.add_csmr_cause,
-        location_id=execution_context.parameters.parent_location_id,
+        cause_id=settings.add_csmr_cause,
+        location_id=location_id,
         metric_id=3,
         year_id="all",
         age_group_id="most_detailed",
         measure_id=1,
         sex_id="all",
-        gbd_round_id=execution_context.parameters.gbd_round_id,
+        gbd_round_id=settings.gbd_round_id,
         version="latest",
     )
     expected = expected[expected["val"].notnull()]
