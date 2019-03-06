@@ -119,7 +119,7 @@ def test_const_fit():
     """A constant distribution is unchanged."""
     dist = Constant(0.023)
     assert isclose(dist.rvs(), 0.023)
-    assert isclose(dist.mle([6, 24, 327]).value, 0.023)
+    assert isclose(dist.mle([6, 24, 327]).mean, 0.023)
 
 
 def test_uniform_fit(rng):

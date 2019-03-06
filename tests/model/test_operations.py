@@ -277,7 +277,7 @@ def test_assign_smooth_priors_from_estimates():
     _assign_smooth_priors_from_estimates(smooth, draws)
     vp = smooth.value_priors
     # Constants aren't changed
-    assert np.isclose(vp[0, 1990].prior.value, 3.7)
+    assert np.isclose(vp[0, 1990].prior.mean, 3.7)
     # Gaussians are set
     assert np.isclose(vp[110, 2017].prior.mean, -5)
     assert np.isclose(vp[110, 2017].prior.standard_deviation, 0.5)

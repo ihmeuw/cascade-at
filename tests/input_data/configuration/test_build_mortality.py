@@ -82,4 +82,4 @@ def test_omega_constraint_as_effect(ihme, monkeypatch):
     add_omega_constraint(mc, ec, 1)
     child_omegas = mc.rates.omega.child_smoothings
     for p in child_omegas[0][1].value_priors.priors:
-        assert isinstance(p, Constant) and np.isclose(p.value, 0.0)
+        assert isinstance(p, Constant) and np.isclose(p.mean, 0.0)

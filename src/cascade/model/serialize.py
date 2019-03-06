@@ -403,7 +403,7 @@ def make_smooth_grid_table(smooth, prior_id_func):
                 if smooth.value_priors:
                     prior = smooth.value_priors[age, year].prior
                     if isinstance(prior, Constant):
-                        row["const_value"] = prior.value
+                        row["const_value"] = prior.mean
                         row["value_prior_id"] = np.nan
                     else:
                         row["value_prior_id"] = prior_id_func(prior)
