@@ -37,10 +37,50 @@ the Americas, high-income countries, and the globe, or it
 could go only to high-income, or only solve for the
 United States.
 
+.. _definition-of-a-plan:
+
+Definition of a Plan
+--------------------
+
+For each location in a given location hierarchy,
+
+ *  Will the estimation
+
+    a) fit fixed
+
+    b) fit both
+
+    c) fit fixed and then fit both?
+
+ *  Does the data include
+
+    a) Male and both
+
+    b) Female and both
+
+    c) Male, female, and both?
+
+    The neither option for sex maps to both in Dismod-AT.
+
+Answers to these questions changes how many times we run Dismod-AT.
+It changes the graph of which jobs need to run on the cluster.
+For each time data is passed from parent to child, does the Cascade
+
+ *  Fix covariates?
+
+ *  Set priors distributions from parent estimation fits?
+
+ *  Add data from parent estimation predictions?
+
+ *  Set weights from parent susceptible and prevalence measures?
+
+Answers to these questions change how models are built
+for each fit.
+
 
 .. _what-affects-plan:
 
-What Affects the Plan
+How We Specify a Plan
 ---------------------
 
  *  The set of all locations requires a location
@@ -50,7 +90,7 @@ What Affects the Plan
  *  Drill start and drill end determine the top level and lowest
     level of a drill.
  *  Drill sex can be male, female, or unset. If it is unset,
-    the drill will include both male and femal.
+    the drill will include both male and female.
  *  The "exclude data" option for priors determines which
     posterior draws of integrands to add to the child estimations.
  *  The split sex option determines at what level of the location hierarchy
