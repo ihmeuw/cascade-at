@@ -3,6 +3,9 @@
 Overview of Cascade
 ===================
 
+EpiViz-AT
+^^^^^^^^^
+
 EpiViz-AT is a web page on http://internal.ihme.washington.edu/epi-at/.
 After you fill out
 that web page and hit submit, the web server runs a program on the cluster.
@@ -10,6 +13,8 @@ We call that program ``dmcascade``. It is installed on the IHME cluster,
 and the code itself is stored at https://github.com/ihmeuw/cascade.
 This documentation, that you're reading, is at https://cascade.readthedocs.io.
 
+System Diagram
+^^^^^^^^^^^^^^
 The Cascade is composed of several systems, some of which are shown in
 this partial diagram:
 
@@ -22,6 +27,9 @@ spot to learn about the underlying statistical model.
 All detailed questions about Dismod-AT are in the
 `online Dismod-AT documentation <https://bradbell.github.io/dismod_at/doc/dismod_at.htm>`_.
 
+Documentation Layout
+^^^^^^^^^^^^^^^^^^^^
+
 This Cascade documentation looks at the problem in parts.
 
  *  Cascade Plan - decides what to do at each level of the location hierarchy.
@@ -30,3 +38,53 @@ This Cascade documentation looks at the problem in parts.
  *  Model Building - How the Cascade uses EpiViz-AT settings and the Cascade API.
  *  Command-line tools - Executable applications on the cluster, including :ref:`dmcascade-command-line`
  *  Operations and Maintenance - Processes to manage the Cascade.
+
+
+What Isn't Working Yet
+^^^^^^^^^^^^^^^^^^^^^^
+
+The following parts of the EpiViz-AT interface aren't enabled.
+
+ *  Cascade tab
+
+    +  Single measure model
+
+    +  Global drill
+
+    +  Add EMR as prevalence
+
+    +  Fix study covariates
+
+    +  Min CV by level
+
+    +  Min CV by rate
+
+    +  Bound random effect by location
+
+ * Rates tab
+
+    +  Detail tabs not working
+
+    +  MulStd not working
+
+ * Random Effects tab
+
+    +  Detail tabs not working
+
+    +  MulStd not working
+
+ * Study Covariates tab
+
+    +  Detail tabs not working
+
+    +  MulStd not working
+
+ * Country Covariates tab
+
+    +  Detail tabs not working
+
+    +  MulStd not working
+
+ * Advanced tab tab
+
+    +  Data CV floor
