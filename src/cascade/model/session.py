@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.core.subprocess_utils import run_with_async_logging
+from cascade.core.subprocess_utils import run_with_logging
 from cascade.dismod.constants import COMMAND_IO
 from cascade.model import Model
 from cascade.model.object_wrapper import ObjectWrapper
@@ -235,7 +235,8 @@ class Session:
         CODELOG.debug(f"Running Dismod-AT {command}")
         with self._objects.close_db_while_running():
             str_command = [str(c) for c in command]
-            return_code, stdout, stderr = run_with_async_logging(["dmdismod", str(self._filename)] + str_command)
+            full_command = ["dmdismod", str(self._filename)] + str_command
+            return_code, stdout, stderr = run_with_logging(full_command)
             assert return_code == 0, f"return code is {return_code}"
         if command[0] in COMMAND_IO:
             self._objects.refresh(COMMAND_IO[command[0]].output)

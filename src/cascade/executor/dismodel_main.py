@@ -34,7 +34,7 @@ def generate_plan(execution_context, args):
 
 def main(args):
     start_time = default_timer()
-    execution_context = make_execution_context(gbd_round_id=6)
+    execution_context = make_execution_context(gbd_round_id=6, num_processes=args.num_processes)
     plan = generate_plan(execution_context, args)
 
     for cascade_task_identifier in plan.cascade_jobs:

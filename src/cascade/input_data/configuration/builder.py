@@ -1,7 +1,5 @@
 """ Functions for creating internal model representations of settings from EpiViz
 """
-from types import MappingProxyType
-
 import numpy as np
 from scipy.special import logit
 
@@ -317,4 +315,4 @@ def random_effects_from_epiviz(model_context, configuration):
 
 
 def policies_from_settings(settings):
-    return MappingProxyType(dict(settings.policies.items()))
+    return dict(settings.policies.items())
