@@ -14,6 +14,7 @@ from cascade.executor.covariate_data import find_covariate_names, add_covariate_
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.executor.session_options import make_options
+from cascade.executor.dismod_runner import DismodATException
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
     normalized_bundle_from_disk,
@@ -59,11 +60,14 @@ def estimate_location(execution_context, local_settings, local_cache=None):
                             covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
-    draws, predictions = zip(*draws)
-    if local_cache:
-        local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
-    if not local_settings.run.no_upload:
-        save_outputs(computed_fit, predictions, execution_context, local_settings)
+    if draws:
+        draws, predictions = zip(*draws)
+        if local_cache:
+            local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
+        if not local_settings.run.no_upload:
+            save_outputs(computed_fit, predictions, execution_context, local_settings)
+    else:
+        raise DismodATException("Fit failed for all samples")
 
 
 def retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache=None):
@@ -236,7 +240,10 @@ def compute_location(execution_context, local_settings, input_data, model):
     else:
         session.setup_model_for_fit(model, input_data.observations)
         return None, None
-    CODELOG.info(f"fit {timer() - begin} success {fit_result.success}")
+    CODELOG.info(f"fit {timer() - begin}")
+    if not fit_result.success:
+        raise DismodATException("Fit failed")
+
     draws = make_draws(
         execution_context,
         model,
