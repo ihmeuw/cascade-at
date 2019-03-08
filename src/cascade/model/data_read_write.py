@@ -120,6 +120,7 @@ def avgint_to_dataframe(dismod_file, avgint, covariate_rename):
     _check_column_assigned(with_id, "integrand")
     with_weight = with_id.assign(weight_id=with_id.integrand.apply(lambda x: INTEGRAND_TO_WEIGHT[x].value))
     with_weight = with_weight.drop(columns=["integrand"]).reset_index(drop=True)
+    with_weight = with_weight.assign(location=with_weight.location.astype(np.int))
     with_location = with_weight.merge(
         dismod_file.node[["c_location_id", "node_id"]], left_on="location", right_on="c_location_id", how="left") \
         .drop(columns=["c_location_id", "location"])

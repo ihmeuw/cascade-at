@@ -25,6 +25,7 @@ from cascade.input_data.configuration.construct_country import (
 )
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr, normalize_csmr
 from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.country_covariates import country_covariate_set
@@ -36,7 +37,7 @@ from cascade.model.session import Session
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def estimate_location(execution_context, local_settings):
+def estimate_location(execution_context, local_settings, local_cache=None):
     """
     Estimates rates for a single location in the location hierarchy.
     This does multiple fits and predictions in order to estimate uncertainty.
@@ -49,7 +50,7 @@ def estimate_location(execution_context, local_settings):
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
-    input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
+    input_data = retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache)
     columns_wrong = validate_input_data_types(input_data)
     assert not columns_wrong, f"validation failed {columns_wrong}"
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
@@ -57,12 +58,15 @@ def estimate_location(execution_context, local_settings):
                             covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
+    if local_cache:
+        local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
     if not local_settings.run.no_upload:
         save_outputs(computed_fit, draws, execution_context, local_settings)
 
 
-def retrieve_data(execution_context, local_settings, covariate_data_spec):
+def retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache=None):
     """Gets data from the outside world."""
+    local_cache = local_cache if local_cache else LocalCache()
     data = SimpleNamespace()
     data_access = local_settings.data_access
     model_version_id = data_access.model_version_id
@@ -128,11 +132,11 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
     # These are the draws as output of the parent location.
-    data.draws = None
+    data.draws = local_cache.get(f"fit-draws:{local_settings.grandparent_location_id}")
 
     # The parent can also supply integrands as a kind of prior.
     # These will be shaped like input measurement data.
-    data.integrands = None
+    data.integrands = local_cache.get(f"fit-integrands:{local_settings.grandparent_location_id}")
 
     return data
 
@@ -215,11 +219,12 @@ def compute_location(execution_context, local_settings, input_data, model):
     Returns:
         The fit and draws.
     """
-
+    base_path = execution_context.db_path(local_settings.parent_location_id)
+    base_path.mkdir(parents=True, exist_ok=True)
     session = Session(
         locations=input_data.locations_df,
         parent_location=model.location_id,
-        filename="subsession.db"
+        filename=base_path / "fit.db"
     )
     session.set_option(**make_options(local_settings.settings))
     begin = timer()
@@ -230,7 +235,14 @@ def compute_location(execution_context, local_settings, input_data, model):
         session.setup_model_for_fit(model, input_data.observations)
         return None, None
     CODELOG.info(f"fit {timer() - begin} success {fit_result.success}")
-    draws = make_draws(model, input_data, fit_result.fit, local_settings, execution_context.parameters.num_processes)
+    draws = make_draws(
+        execution_context,
+        model,
+        input_data,
+        fit_result.fit,
+        local_settings,
+        execution_context.parameters.num_processes
+    )
     return fit_result.fit, draws
 
 
@@ -259,7 +271,7 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
     # XXX make the Session close or be a contextmanager.
 
 
-async def _async_make_draws(input_data, model, local_settings, simulate_result, num_processes):
+async def _async_make_draws(base_path, input_data, model, local_settings, simulate_result, num_processes):
     jobs = list()
 
     loop = asyncio.get_event_loop()
@@ -272,7 +284,7 @@ async def _async_make_draws(input_data, model, local_settings, simulate_result, 
                 _fit_and_predict_fixed_effect_sample,
                 sim_model,
                 sim_data,
-                fit_file,
+                base_path / fit_file,
                 input_data.locations_df,
                 model.location_id,
                 local_settings,
@@ -280,15 +292,17 @@ async def _async_make_draws(input_data, model, local_settings, simulate_result, 
             ))
 
         results = await asyncio.gather(*jobs)
-    return results
+    return [r for r in results if r is not None]
 
 
-def make_draws(model, input_data, max_fit, local_settings, num_processes):
+def make_draws(execution_context, model, input_data, max_fit, local_settings, num_processes):
+    base_path = execution_context.db_path(local_settings.parent_location_id)
+    base_path.mkdir(parents=True, exist_ok=True)
     draw_cnt = local_settings.number_of_fixed_effect_samples
     session = Session(
         locations=input_data.locations_df,
         parent_location=model.location_id,
-        filename="simulate.db"
+        filename=base_path / "simulate.db"
     )
     session.set_option(**make_options(local_settings.settings))
     simulate_result = session.simulate(model, input_data.observations, max_fit, draw_cnt)
@@ -296,6 +310,7 @@ def make_draws(model, input_data, max_fit, local_settings, num_processes):
     loop = asyncio.get_event_loop()
     draws = loop.run_until_complete(
         _async_make_draws(
+            base_path,
             input_data,
             model,
             local_settings,

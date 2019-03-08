@@ -58,7 +58,7 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
 
 def test_main(monkeypatch, ihme):
 
-    def mock_estimate(ec, local_settings):
+    def mock_estimate(ec, local_settings, local_cache):
         pass
 
     monkeypatch.setattr(cascade.executor.dismodel_main, "estimate_location", mock_estimate)

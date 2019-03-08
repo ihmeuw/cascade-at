@@ -15,6 +15,7 @@ from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.estimate_location import estimate_location
 from cascade.executor.setup_tier import setup_tier_data
 from cascade.input_data.configuration import SettingsError
+from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
@@ -32,19 +33,33 @@ def generate_plan(execution_context, args):
     return CascadePlan.from_epiviz_configuration(locations, settings, args)
 
 
+def configure_execution_context(execution_context, args, local_settings):
+    if args.infrastructure:
+        execution_context.parameters.organizational_mode = "infrastructure"
+    else:
+        execution_context.parameters.organizational_mode = "local"
+
+    execution_context.parameters.base_directory = args.base_directory
+
+    for param in ["modelable_entity_id", "model_version_id"]:
+        setattr(execution_context.parameters, param, getattr(local_settings.data_access, param))
+
+
 def main(args):
     start_time = default_timer()
     execution_context = make_execution_context(gbd_round_id=6, num_processes=args.num_processes)
     plan = generate_plan(execution_context, args)
 
+    local_cache = LocalCache(maxsize=2)
     for cascade_task_identifier in plan.cascade_jobs:
         cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
+        configure_execution_context(execution_context, args, this_location_work)
 
         if cascade_job == "bundle_setup":
             # Move bundle to next tier
             setup_tier_data(execution_context, this_location_work.data_access, this_location_work.parent_location_id)
         elif cascade_job == "estimate_location":
-            estimate_location(execution_context, this_location_work)
+            estimate_location(execution_context, this_location_work, local_cache)
         else:
             assert f"Unknown job type, {cascade_job}"
 
@@ -97,8 +112,12 @@ def entry(args=None):
 
 def parse_arguments(args):
     parser = DMArgumentParser("Run DismodAT from Epiviz")
-    parser.add_argument("db_file_path", type=Path)
+    parser.add_argument("db_file_path", type=Path, default="z.db")
     parser.add_argument("--settings-file", type=Path)
+    parser.add_argument("--infrastructure", action="store_true",
+                        help="Whether we are running as infrastructure component")
+    parser.add_argument("--base-directory", type=Path, default=".",
+                        help="Directory in which to find and store files.")
     parser.add_argument("--no-upload", action="store_true")
     parser.add_argument("--db-only", action="store_true")
     parser.add_argument("-b", "--bundle-file", type=Path)

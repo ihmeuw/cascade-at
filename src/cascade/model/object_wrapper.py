@@ -175,6 +175,11 @@ class ObjectWrapper:
             self.dismod_file.engine = None
 
     @property
+    def log(self):
+        self.dismod_file.refresh(["log"])
+        return self.dismod_file.log
+
+    @property
     def predict(self):
         avgint = read_avgint(self.dismod_file)
         raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
