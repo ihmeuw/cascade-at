@@ -33,6 +33,7 @@ from cascade.input_data.db.locations import location_hierarchy, location_hierarc
 from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
+from cascade.saver.save_prediction import save_predicted_value
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -58,10 +59,11 @@ def estimate_location(execution_context, local_settings, local_cache=None):
                             covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
+    draws, predictions = zip(*draws)
     if local_cache:
         local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
     if not local_settings.run.no_upload:
-        save_outputs(computed_fit, draws, execution_context, local_settings)
+        save_outputs(computed_fit, predictions, execution_context, local_settings)
 
 
 def retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache=None):
@@ -246,12 +248,19 @@ def compute_location(execution_context, local_settings, input_data, model):
     return fit_result.fit, draws
 
 
-def save_outputs(computed_fit, draws, execution_context, local_settings):
+def save_outputs(computed_fit, predictions, execution_context, local_settings):
+    breakpoint()
+    predictions = pd.concat(predictions).drop("sample_index", "columns")
+    predictions = predictions.groupby(["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper"])
+    predictions = pd.concat([predictions.mean(), predictions.std()], axis="columns").reset_index()
+
+    save_predicted_value(execution_context, predictions, 0, "fit")
     return None
 
 
 def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, locations,
-                                         parent_location, local_settings, draw_idx):
+                                         parent_location, covariates, average_integrand_cases,
+                                         local_settings, draw_idx):
     sim_session = Session(
         locations=locations,
         parent_location=parent_location,
@@ -264,7 +273,13 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
     CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
     if sim_fit_result.success:
         CODELOG.debug(f"sim fit {draw_idx} success")
-        return sim_fit_result.fit
+        predicted, _ = sim_session.predict(
+            sim_fit_result.fit,
+            average_integrand_cases,
+            parent_location,
+            covariates=covariates
+        )
+        return (sim_fit_result.fit, predicted)
     else:
         CODELOG.debug(f"sim fit {draw_idx} not successful in {fit_file}.")
         return None
@@ -287,6 +302,8 @@ async def _async_make_draws(base_path, input_data, model, local_settings, simula
                 base_path / fit_file,
                 input_data.locations_df,
                 model.location_id,
+                model.covariates,
+                input_data.average_integrand_cases,
                 local_settings,
                 draw_idx
             ))
