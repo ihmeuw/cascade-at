@@ -103,7 +103,7 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
     data.average_integrand_cases = \
         make_average_integrand_cases_from_gbd(
             data.ages_df, data.years_df, local_settings.sex_id,
-            local_settings.parent_location_id, include_birth_prevalence)
+            local_settings.children, include_birth_prevalence)
 
     all_ages = age_spans.get_age_spans()
     data.cause_specific_mortality_rate = get_raw_csmr(
