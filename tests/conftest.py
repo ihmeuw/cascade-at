@@ -1,5 +1,7 @@
 from uuid import UUID
 
+import networkx as nx
+
 import pytest
 
 import cascade.core.db
@@ -15,6 +17,16 @@ def mock_execution_context(mocker):
     mock_context.parameters.add_csmr_cause = 173
     mock_context.parameters.run_id = UUID(bytes=b'1' * 16)
     return mock_context
+
+
+@pytest.fixture
+def mock_locations(mocker):
+    locations = mocker.patch("cascade.input_data.db.locations.location_hierarchy")
+    G = nx.DiGraph()
+    G.add_nodes_from(list(range(8)))
+    G.add_edges_from([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6), (6, 7)])
+    assert len(G.nodes) == 8
+    locations.return_value = G
 
 
 @pytest.fixture

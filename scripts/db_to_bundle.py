@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
 
 from cascade.dismod.constants import DensityEnum, IntegrandEnum
 from cascade.dismod.db.wrapper import get_engine
@@ -126,8 +125,6 @@ DUMMY_VALUES = {
     "recall_type": "Period: years",
     "recall_type_value": 1,
     "is_outlier": 0,
-    "uncertainty_type": "Standard error",
-    "uncertainty_type_value": 95,
     "response_rate": "",
 }
 
@@ -148,7 +145,10 @@ def main():
     node_table = pd.read_sql_query("select * from node", engine)
     covariate_table = pd.read_sql_query("select * from covariate", engine)
 
-    assert np.all(data.density_id == DensityEnum.gaussian.value)
+    # For distributions other than gaussian remove the standard deviation
+    # which will cause Elmo to use Wilson Score Interval to estimate
+    # uncertainty from sample size and Theo says that's what we want
+    data.loc[data.density_id != DensityEnum.gaussian.value, "meas_std"] = np.nan
 
     covariate_columns = [c for c in data.columns if c.startswith("x_")]
     data = data[
@@ -159,6 +159,7 @@ def main():
             "node_id",
             "time_lower",
             "time_upper",
+            "sample_size",
             "integrand_id",
             "meas_value",
             "meas_std",
@@ -175,10 +176,6 @@ def main():
             "meas_std": "standard_error",
         }
     )
-
-    # uncertainty bounds
-    data["lower"] = data.apply(lambda r: max(0, norm.ppf(0.025, loc=r["mean"], scale=r["standard_error"])), axis=1)
-    data["upper"] = data.apply(lambda r: norm.ppf(0.975, loc=r["mean"], scale=r["standard_error"]), axis=1)
 
     # Convert sex covariate to sex name
     data["sex"] = data.x_0.apply(lambda c: {-0.5: "Female", 0.5: "Male", 0.0: "Both"}[c])

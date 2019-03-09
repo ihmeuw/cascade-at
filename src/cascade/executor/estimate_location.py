@@ -126,7 +126,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
     data.average_integrand_cases = \
         make_average_integrand_cases_from_gbd(
             data.ages_df, data.years_df, local_settings.sex_id,
-            local_settings.parent_location_id, include_birth_prevalence)
+            local_settings.children, include_birth_prevalence)
     # This comes in yearly from 1950 to 2018
     data.age_specific_death_rate = asdr_as_fit_input(
         local_settings.parent_location_id, local_settings.sex_id,

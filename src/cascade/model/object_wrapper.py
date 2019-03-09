@@ -293,7 +293,7 @@ class ObjectWrapper:
         option = pd.DataFrame([
             dict(option_name="parent_node_id", option_value=str(self.location_func(self.parent_location))),
             dict(option_name="parent_node_name", option_value=nan),
-            dict(option_name="meas_std_effect", option_value="add_std_scale_all"),
+            dict(option_name="meas_std_effect", option_value="add_var_scale_log"),
             dict(option_name="zero_sum_random", option_value=nan),
             dict(option_name="data_extra_columns", option_value=nan),
             dict(option_name="avgint_extra_columns", option_value=nan),

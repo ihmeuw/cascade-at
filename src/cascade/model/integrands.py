@@ -7,7 +7,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def make_average_integrand_cases_from_gbd(
-        ages_df, years_df, sexes, parent_location_id, include_birth_prevalence=False):
+        ages_df, years_df, sexes, child_locations, include_birth_prevalence=False):
     """Determine what time and age ranges each integrand should be calculated
     for based on GBD's expected inputs for the rest of the pipeline.
 
@@ -27,13 +27,14 @@ def make_average_integrand_cases_from_gbd(
             "age_upper": age_upper,
             "time_lower": time_lower,
             "time_upper": time_upper,
-            "location": parent_location_id,
+            "location": location_id,
             "sex_id": sex_id,
         }
         for integrand in IntegrandEnum
         for age_lower, age_upper in age_ranges
         for time_lower, time_upper in time_ranges
         for sex_id in sexes
+        for location_id in child_locations
     ]
 
     if include_birth_prevalence:
@@ -44,11 +45,12 @@ def make_average_integrand_cases_from_gbd(
                 "age_upper": 0,
                 "time_lower": time_lower,
                 "time_upper": time_upper,
-                "location": parent_location_id,
+                "location": location_id,
                 "sex_id": sex_id,
             }
             for time_lower, time_upper in time_ranges
             for sex_id in sexes
+            for location_id in child_locations
         ]
         rows.extend(birth_prev_rows)
 
