@@ -54,7 +54,7 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
             short = data.country_id_to_name[name_covariate.covariate_id]
         name_covariate.untransformed_covariate_name = short
 
-    add_study_covariate_to_observations_and_avgints(data)
+    add_study_covariate_to_observations_and_avgints(data, local_settings)
     add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates)
 
 
@@ -79,7 +79,7 @@ def add_country_covariate_to_observations_and_avgints(data, local_settings, epiv
             # else nothing to add to the data.
 
 
-def add_study_covariate_to_observations_and_avgints(data):
+def add_study_covariate_to_observations_and_avgints(data, local_settings):
     # Add untransformed study covariates to observations.
     data.observations = add_study_covariate_to_observations(
         data.observations, data.sparse_covariate_data, data.study_id_to_name)
@@ -88,10 +88,17 @@ def add_study_covariate_to_observations_and_avgints(data):
     study_columns = sorted(data.study_id_to_name.values())
     average_integrand_cases_index = data.average_integrand_cases.index
     avgint_columns = pd.DataFrame(
-        # They are all zero, which is the correct, final, value.
+        # They are all zero except sex, which is the correct, final, value.
         data=np.zeros((len(average_integrand_cases_index), len(study_columns)), dtype=np.double),
         columns=study_columns,
         index=average_integrand_cases_index,
     )
     data.average_integrand_cases = pd.concat([data.average_integrand_cases, avgint_columns], axis=1)
+    avgints = data.average_integrand_cases
+    if "s_sex" in avgints.columns and "sex_id" in avgints:
+        avgints.loc[avgints.sex_id == 1, "s_sex"] = 0.5
+        avgints.loc[avgints.sex_id == 2, "s_sex"] = -0.5
+        data.average_integrand_cases = avgints
+    else:
+        MATHLOG.warning(f"Sex covariate missing when assigning integrands.")
     MATHLOG.info(f"Study covariates added: {study_columns}")
