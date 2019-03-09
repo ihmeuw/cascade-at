@@ -239,16 +239,20 @@ class Session:
             return_code, stdout, stderr = run_with_logging(
                 ["dmdismod", str(self._filename)] + str_command)
 
-        self._check_dismod_command(str_command[0])
+        self._check_dismod_command(str_command[0], stdout, stderr)
         assert return_code == 0, f"return code is {return_code}"
         if command[0] in COMMAND_IO:
             self._objects.refresh(COMMAND_IO[command[0]].output)
         return stdout, stderr
 
-    def _check_dismod_command(self, command):
+    def _check_dismod_command(self, command, stdout, stderr):
         log = self._objects.log
         if len(log) == 0 or f"end {command}" not in log.message.iloc[-1]:
-            raise DismodATException(f"DismodAt failed to complete '{command}' command")
+            if "std:bad_alloc" in stdout or "std::bad_alloc" in stderr:
+                message = "Dismod-AT ran out of memory"
+            else:
+                message = f"Dismod-AT failed to complete '{command}' command"
+            raise DismodATException(message)
 
     @staticmethod
     def _check_vars(var):

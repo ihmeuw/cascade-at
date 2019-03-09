@@ -131,15 +131,15 @@ class Uniform(_Prior):
 class Constant(_Prior):
     density = "uniform"
 
-    def __init__(self, value, name=None):
+    def __init__(self, mean, name=None):
         """
 
         Args:
-            value (float): The const value.
+            mean (float): The const value.
             name (str): A name for this prior, e.g. Susan.
         """
         super().__init__(name=name)
-        self.value = value
+        self.mean = mean
 
     def mle(self, _=None):
         """Don't change the const value. It is unaffected by this call."""
@@ -155,10 +155,10 @@ class Constant(_Prior):
         Returns:
             np.ndarray: Of size=size with floats.
         """
-        return np.full((size,), self.value, dtype=np.float)
+        return np.full((size,), self.mean, dtype=np.float)
 
     def _parameters(self):
-        return {"lower": self.value, "upper": self.value, "mean": self.value}
+        return {"lower": self.mean, "upper": self.mean, "mean": self.mean}
 
 
 class Gaussian(_Prior):
