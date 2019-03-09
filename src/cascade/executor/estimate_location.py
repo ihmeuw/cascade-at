@@ -1,5 +1,5 @@
 import asyncio
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from collections import defaultdict
 from timeit import default_timer as timer
 from types import SimpleNamespace
@@ -256,13 +256,23 @@ def compute_location(execution_context, local_settings, input_data, model):
 
 
 def save_outputs(computed_fit, predictions, execution_context, local_settings):
-    breakpoint()
-    predictions = pd.concat(predictions).drop("sample_index", "columns")
-    predictions = predictions.groupby(["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper"])
-    predictions = pd.concat([predictions.mean(), predictions.std()], axis="columns").reset_index()
+    predictions = pd.concat(predictions)
+    columns_to_remove = ["sample_index"] + [c for c in predictions.columns if c.startswith("s_") and c != "s_sex"]
+    predictions = predictions.drop(columns_to_remove, "columns")
+    predictions = predictions.groupby(
+        ["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper", "s_sex"]
+    )
 
-    save_predicted_value(execution_context, predictions, 0, "fit")
-    return None
+    lower = predictions.quantile(0.05)
+    lower.columns = ["lower"]
+    upper = predictions.quantile(0.95)
+    upper.columns = ["upper"]
+    mean = predictions.mean()
+    mean.columns = ["mean"]
+
+    predictions = pd.concat([lower, upper, mean], axis="columns").reset_index()
+
+    save_predicted_value(execution_context, predictions, "fit")
 
 
 def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, locations,
@@ -282,7 +292,7 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
         CODELOG.debug(f"sim fit {draw_idx} success")
         predicted, _ = sim_session.predict(
             sim_fit_result.fit,
-            average_integrand_cases,
+            average_integrand_cases.drop("sex_id", "columns"),
             parent_location,
             covariates=covariates
         )
@@ -296,8 +306,13 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
 async def _async_make_draws(base_path, input_data, model, local_settings, simulate_result, num_processes):
     jobs = list()
 
+    if num_processes == 1:
+        executor = ThreadPoolExecutor
+    else:
+        executor = ProcessPoolExecutor
+
     loop = asyncio.get_event_loop()
-    with ProcessPoolExecutor(num_processes) as pool:
+    with executor(num_processes) as pool:
         for draw_idx in range(simulate_result.count):
             fit_file = f"simulate{draw_idx}.db"
             sim_model, sim_data = simulate_result.simulation(draw_idx)

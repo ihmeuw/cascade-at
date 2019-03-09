@@ -70,7 +70,7 @@ def age_ranges_to_groups(execution_context, data, keep_age_range=False):
         raise ValueError(
             "There are age_lowers or age_uppers that do not match GBD age group boundaries"
         )
-    if not with_age_groups.query("age_group_id == 164 and measure_id != 5").empty:  # measure_id 5 is prevalence
+    if not with_age_groups.query("age_group_id == 164 and integrand != 'prevalence'").empty:
         raise ValueError(
             "There are non-prevalence values for the Birth age group"
         )
