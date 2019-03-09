@@ -20,18 +20,14 @@ def make_average_integrand_cases_from_gbd(
     age_ranges = [(r.age_group_years_start, r.age_group_years_end) for _, r in ages_df.iterrows()]
     time_ranges = [(y, y) for y in years_df]
 
-    # Assuming using the first set of weights, which is constant.
-    weight_id = 0
-
     rows = [
         {
-            "integrand_name": integrand.name,
+            "integrand": integrand.name,
             "age_lower": age_lower,
             "age_upper": age_upper,
             "time_lower": time_lower,
             "time_upper": time_upper,
-            "weight_id": weight_id,
-            "node_id": parent_location_id,
+            "location": parent_location_id,
             "sex_id": sex_id,
         }
         for integrand in IntegrandEnum
@@ -43,13 +39,12 @@ def make_average_integrand_cases_from_gbd(
     if include_birth_prevalence:
         birth_prev_rows = [
             {
-                "integrand_name": "prevalence",
+                "integrand": "prevalence",
                 "age_lower": 0,
                 "age_upper": 0,
                 "time_lower": time_lower,
                 "time_upper": time_upper,
-                "weight_id": weight_id,
-                "node_id": parent_location_id,
+                "location": parent_location_id,
                 "sex_id": sex_id,
             }
             for time_lower, time_upper in time_ranges
@@ -60,13 +55,12 @@ def make_average_integrand_cases_from_gbd(
     return pd.DataFrame(
         rows,
         columns=[
-            "integrand_name",
+            "integrand",
             "age_lower",
             "age_upper",
             "time_lower",
             "time_upper",
-            "weight_id",
-            "node_id",
+            "location",
             "sex_id",
         ],
     )

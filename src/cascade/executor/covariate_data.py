@@ -85,7 +85,7 @@ def add_study_covariate_to_observations_and_avgints(data):
         data.observations, data.sparse_covariate_data, data.study_id_to_name)
     assert "age_lower" in data.observations.columns
     # Create untransformed study covariates on avgints.
-    study_columns = sorted(data.study_id_to_name.keys())
+    study_columns = sorted(data.study_id_to_name.values())
     average_integrand_cases_index = data.average_integrand_cases.index
     avgint_columns = pd.DataFrame(
         # They are all zero, which is the correct, final, value.
