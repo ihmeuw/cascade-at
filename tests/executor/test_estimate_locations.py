@@ -1,6 +1,7 @@
 import pytest
 from numpy.random import RandomState
 
+from cascade.dismod import DismodATException
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import create_local_settings
 from cascade.executor.dismodel_main import generate_plan, parse_arguments
@@ -11,8 +12,6 @@ from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
 from cascade.testing_utilities.fake_data import retrieve_fake_data
-from cascade.testing_utilities.fake_estimation import fake_compute_location
-import cascade.executor.estimate_location
 
 
 @pytest.mark.parametrize("meid,mvid", [
@@ -36,7 +35,8 @@ def test_with_known_id(ihme, meid, mvid, tmp_path):
             # Change the tier by hand b/c the bundle creation would normally
             # have run, but not for this test.
             this_location_work.data_access.tier = 2
-            estimate_location(ec, this_location_work)
+            with pytest.raises(DismodATException):
+                estimate_location(ec, this_location_work)
             break  # Do one, not the whole tree.
         # else is a bundle setup.
 
@@ -57,33 +57,3 @@ def test_retrieve_data(ihme, draw):
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
     model = construct_model(modified_data, local_settings, covariate_multipliers, covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
-
-
-@pytest.mark.parametrize("meid,mvid", [
-    (None, 267800),
-])
-def test_with_known_id_and_fake_compute(ihme, meid, mvid, tmp_path, monkeypatch):
-    """This runs the equivalent of dismodel_main.main"""
-
-    monkeypatch.setattr(cascade.executor.estimate_location, "compute_location",
-                        fake_compute_location)
-
-    ec = make_execution_context()
-    # no-upload keeps this from going to the databases when it's done.
-    args = ["z.db", "--no-upload", "--db-only"]
-    if mvid:
-        args += ["--mvid", str(mvid), "--base-directory", str(tmp_path)]
-    elif meid:
-        args += ["--meid", str(meid)]
-    else:
-        assert meid or mvid
-    plan = generate_plan(ec, parse_arguments(args))
-    for task_id in plan.cascade_jobs:
-        job, this_location_work = plan.cascade_job(task_id)
-        if job == "estimate_location":
-            # Change the tier by hand b/c the bundle creation would normally
-            # have run, but not for this test.
-            this_location_work.data_access.tier = 2
-            estimate_location(ec, this_location_work)
-            break  # Do one, not the whole tree.
-        # else is a bundle setup.

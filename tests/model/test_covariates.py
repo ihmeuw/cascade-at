@@ -1,40 +1,10 @@
 """
 testing of covariate multipliers.
 """
-from numpy import nan
 import pytest
+from numpy import nan
 
 from cascade.model import covariates
-from cascade.model.grids import PriorGrid, AgeTimeGrid
-from cascade.model.priors import Gaussian
-from cascade.model.rates import Smooth
-from cascade.core.context import ModelContext
-
-
-def test_assign_covariates_to_iota():
-    """Demonstration of how covariate assignment works"""
-    income = covariates.Covariate("income")
-    income.reference = 1000
-    income.max_difference = None
-
-    model = ModelContext()
-
-    at_grid = AgeTimeGrid.uniform(
-        age_lower=0, age_upper=120, age_step=5,
-        time_lower=1990, time_upper=2018, time_step=1)
-    value_priors = PriorGrid(at_grid)
-    value_priors[:, :].prior = Gaussian(0, 1.0)
-    at_priors = PriorGrid(at_grid)
-    at_priors[:, :].prior = Gaussian(0, 0.1)
-
-    income_time_tight = covariates.CovariateMultiplier(
-        income, Smooth(value_priors, at_priors, at_priors)
-    )
-    # There isn't much to test about the lists of covariate multipliers.
-    # They are lists and would permit, for instance, adding the same one twice.
-    model.rates.iota.covariate_multipliers.append(income_time_tight)
-    model.integrand_covariate_multipliers["remission"].value_covariate_multipliers.append(income_time_tight)
-    model.integrand_covariate_multipliers["prevalence"].std_covariate_multipliers.append(income_time_tight)
 
 
 @pytest.mark.parametrize("cov,ref,diff", [

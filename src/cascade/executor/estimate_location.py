@@ -1,12 +1,15 @@
+import asyncio
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from numpy import nan
 from timeit import default_timer as timer
 from types import SimpleNamespace
 
 import pandas as pd
-from numpy import nan
 
 from cascade.core import getLoggers
 from cascade.core.db import dataframe_from_disk, db_queries, age_spans
+from cascade.dismod import DismodATException
 from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
 from cascade.executor.covariate_description import create_covariate_specifications
@@ -31,6 +34,7 @@ from cascade.input_data.db.locations import location_hierarchy, location_hierarc
 from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
+from cascade.saver.save_prediction import save_predicted_value
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -56,10 +60,14 @@ def estimate_location(execution_context, local_settings, local_cache=None):
                             covariate_data_spec)
     set_priors_from_parent_draws(model, input_data.draws)
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
-    if local_cache:
-        local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
-    if not local_settings.run.no_upload:
-        save_outputs(computed_fit, draws, execution_context, local_settings)
+    if draws:
+        draws, predictions = zip(*draws)
+        if local_cache:
+            local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
+        if not local_settings.run.no_upload:
+            save_outputs(computed_fit, predictions, execution_context, local_settings)
+    else:
+        raise DismodATException("Fit failed for all samples")
 
 
 def retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache=None):
@@ -232,16 +240,101 @@ def compute_location(execution_context, local_settings, input_data, model):
     else:
         session.setup_model_for_fit(model, input_data.observations)
         return None, None
-    CODELOG.info(f"fit {timer() - begin} success {fit_result.success}")
-    draws = make_draws(execution_context, model, input_data, fit_result.fit, local_settings)
+    CODELOG.info(f"fit {timer() - begin}")
+    if not fit_result.success:
+        raise DismodATException("Fit failed")
+
+    draws = make_draws(
+        execution_context,
+        model,
+        input_data,
+        fit_result.fit,
+        local_settings,
+        execution_context.parameters.num_processes
+    )
     return fit_result.fit, draws
 
 
-def save_outputs(computed_fit, draws, execution_context, local_settings):
-    return None
+def save_outputs(computed_fit, predictions, execution_context, local_settings):
+    predictions = pd.concat(predictions)
+    columns_to_remove = ["sample_index"] + [c for c in predictions.columns if c.startswith("s_") and c != "s_sex"]
+    predictions = predictions.drop(columns_to_remove, "columns")
+    predictions = predictions.groupby(
+        ["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper", "s_sex"]
+    )
+
+    lower = predictions.quantile(0.025)
+    lower.columns = ["lower"]
+    upper = predictions.quantile(0.975)
+    upper.columns = ["upper"]
+    mean = predictions.mean()
+    mean.columns = ["mean"]
+
+    predictions = pd.concat([lower, upper, mean], axis="columns").reset_index()
+
+    save_predicted_value(execution_context, predictions, "fit")
 
 
-def make_draws(execution_context, model, input_data, max_fit, local_settings):
+def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, locations,
+                                         parent_location, covariates, average_integrand_cases,
+                                         local_settings, draw_idx):
+    sim_session = Session(
+        locations=locations,
+        parent_location=parent_location,
+        filename=fit_file
+    )
+    local_settings.settings.policies.meas_std_effect
+    sim_session.set_option(**make_options(local_settings.settings))
+    begin = timer()
+    sim_fit_result = sim_session.fit(sim_model, sim_data)
+    CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
+    if sim_fit_result.success:
+        CODELOG.debug(f"sim fit {draw_idx} success")
+        predicted, _ = sim_session.predict(
+            sim_fit_result.fit,
+            average_integrand_cases.drop("sex_id", "columns"),
+            parent_location,
+            covariates=covariates
+        )
+        return (sim_fit_result.fit, predicted)
+    else:
+        CODELOG.debug(f"sim fit {draw_idx} not successful in {fit_file}.")
+        return None
+    # XXX make the Session close or be a contextmanager.
+
+
+async def _async_make_draws(base_path, input_data, model, local_settings, simulate_result, num_processes):
+    jobs = list()
+
+    if num_processes == 1:
+        executor = ThreadPoolExecutor
+    else:
+        executor = ProcessPoolExecutor
+
+    loop = asyncio.get_event_loop()
+    with executor(num_processes) as pool:
+        for draw_idx in range(simulate_result.count):
+            fit_file = f"simulate{draw_idx}.db"
+            sim_model, sim_data = simulate_result.simulation(draw_idx)
+            jobs.append(loop.run_in_executor(
+                pool,
+                _fit_and_predict_fixed_effect_sample,
+                sim_model,
+                sim_data,
+                base_path / fit_file,
+                input_data.locations_df,
+                model.location_id,
+                model.covariates,
+                input_data.average_integrand_cases,
+                local_settings,
+                draw_idx
+            ))
+
+        results = await asyncio.gather(*jobs)
+    return [r for r in results if r is not None]
+
+
+def make_draws(execution_context, model, input_data, max_fit, local_settings, num_processes):
     base_path = execution_context.db_path(local_settings.parent_location_id)
     base_path.mkdir(parents=True, exist_ok=True)
     draw_cnt = local_settings.number_of_fixed_effect_samples
@@ -253,26 +346,16 @@ def make_draws(execution_context, model, input_data, max_fit, local_settings):
     session.set_option(**make_options(local_settings.settings))
     simulate_result = session.simulate(model, input_data.observations, max_fit, draw_cnt)
 
-    draws = list()
-    for draw_idx in range(simulate_result.count):
-        sim_model, sim_data = simulate_result.simulation(draw_idx)
-        # let's start a new session because the simulation results are associated
-        # with a session and running a new fit will delete them.
-        fit_file = f"simulate_{draw_idx}.db"
-        sim_session = Session(
-            locations=input_data.locations_df,
-            parent_location=model.location_id,
-            filename=base_path / fit_file
+    loop = asyncio.get_event_loop()
+    draws = loop.run_until_complete(
+        _async_make_draws(
+            base_path,
+            input_data,
+            model,
+            local_settings,
+            simulate_result,
+            num_processes,
         )
-        sim_session.set_option(**make_options(local_settings.settings))
-        begin = timer()
-        sim_fit_result = sim_session.fit(sim_model, sim_data)
-        CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
-        if sim_fit_result.success:
-            draws.append(sim_fit_result.fit)
-            CODELOG.debug(f"sim fit {draw_idx} success")
-        else:
-            CODELOG.debug(f"sim fit {draw_idx} not successful in {fit_file}.")
-        # XXX make the Session close or be a contextmanager.
-        del sim_session
+    )
+
     return draws

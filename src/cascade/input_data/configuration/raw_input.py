@@ -29,13 +29,12 @@ EXPECTED_TYPES = dict(
         ('age_group_weight_value', dtype('float64')),
     ],
     average_integrand_cases=[
-        ('integrand_name', dtype('O')),
+        ('integrand', dtype('O')),
         ('age_lower', dtype('float64')),
         ('age_upper', dtype('float64')),
         ('time_lower', dtype('int64')),
         ('time_upper', dtype('int64')),
-        ('weight_id', dtype('int64')),
-        ('node_id', dtype('int64')),
+        ('location', dtype('int64')),
         ('sex_id', dtype('int64')),
     ],
     bundle=[

@@ -47,7 +47,7 @@ def configure_execution_context(execution_context, args, local_settings):
 
 def main(args):
     start_time = default_timer()
-    execution_context = make_execution_context(gbd_round_id=6)
+    execution_context = make_execution_context(gbd_round_id=6, num_processes=args.num_processes)
     plan = generate_plan(execution_context, args)
 
     local_cache = LocalCache(maxsize=2)

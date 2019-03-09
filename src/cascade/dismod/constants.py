@@ -103,6 +103,7 @@ INTEGRAND_TO_WEIGHT = dict(
     mtother=WeightEnum.total,
     susceptible=WeightEnum.constant,
     withC=WeightEnum.constant,
+    mtwith=WeightEnum.with_condition,
     prevalence=WeightEnum.total,
     Tincidence=WeightEnum.total,
     mtspecific=WeightEnum.total,
