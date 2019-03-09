@@ -6,10 +6,7 @@ import pandas as pd
 import pytest
 
 from cascade.input_data import InputDataError
-from cascade.input_data.configuration.construct_study import (
-    normalize_covariate_data, get_study_covariates
-)
-from cascade.testing_utilities import make_execution_context
+from cascade.input_data.configuration.construct_study import normalize_covariate_data
 
 
 @pytest.fixture
@@ -86,10 +83,3 @@ def test_no_covariates(basic_bundle):
     covs = pd.DataFrame({"covariate_sequence_number": basic_bundle.seq})
     normalized = normalize_covariate_data(basic_bundle, cov_in, {})
     pd.testing.assert_frame_equal(normalized, covs)
-
-
-def test_get_study_covariates(ihme):
-    ec = make_execution_context()
-    covariates = get_study_covariates(
-        ec, bundle_id=4325, model_version_id=268082, tier=2)
-    assert set(covariates.columns.tolist()) == {"bundle_id", "seq", "study_covariate_id"}

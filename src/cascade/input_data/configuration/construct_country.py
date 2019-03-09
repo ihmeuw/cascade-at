@@ -2,21 +2,17 @@
 Takes settings and creates a CovariateRecords object
 """
 
-from collections.__init__ import defaultdict, namedtuple
+from collections.__init__ import namedtuple
 
+import intervals as it
 import numpy as np
 import pandas as pd
 from scipy import spatial
 from scipy.interpolate import griddata
 
-import intervals as it
-
 from cascade.core import getLoggers
 from cascade.core.db import ezfuncs
 from cascade.input_data import InputDataError
-from cascade.input_data.db.country_covariates import country_covariates
-from cascade.input_data.db.demographics import get_all_age_spans
-from cascade.input_data.configuration.construct_study import CovariateRecords
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -24,111 +20,6 @@ FEMALE = 2
 MALE = 1
 BOTH = 3
 UNDEFINED = 4
-
-
-def unique_country_covariate_transform(configuration):
-    """
-    Iterates through all covariate IDs, including the list of ways to
-    transform them, because each transformation is its own column for Dismod.
-    This is used by ``assign_covariates``.
-    """
-    seen_covariate = defaultdict(set)
-    if configuration.country_covariate:
-        for covariate_configuration in configuration.country_covariate:
-            seen_covariate[covariate_configuration.country_covariate_id].add(
-                covariate_configuration.transformation)
-
-    for cov_id, cov_transformations in seen_covariate.items():
-        yield cov_id, list(sorted(cov_transformations))
-
-
-def unique_country_covariate(configuration):
-    """
-    Iterates through all covariate IDs. This is used to create the
-    initial CovariateRecords object. This is before the special covariates
-    are set.
-    """
-    seen_covariate = set()
-    if configuration.country_covariate:
-        for covariate_configuration in configuration.country_covariate:
-            seen_covariate.add(covariate_configuration.country_covariate_id)
-    yield from sorted(seen_covariate)  # Sorted for stability.
-
-
-def covariate_records_from_settings(model_context, execution_context,
-                                    configuration, study_covariate_records):
-    """
-    The important choices are assignment of covariates to observations and
-    integrands by
-    :py:func:`covariate_to_measurements_nearest_favoring_same_year`
-    and how reference values are chosen by
-    :py:func:`reference_value_for_covariate_mean_all_values`.
-
-    Args:
-        model_context: The model context must have ``average_integrand_cases``
-            a bundle as "observations", and a location id.
-        execution_context: Context for execution of this program.
-        configuration: Settings from EpiViz.
-        study_covariate_records (CovariateRecords): Study covariates which
-            have the sex column for measurements and average integrand cases.
-
-    Returns:
-        CovariateRecords object, completely filled out.
-    """
-    records = CovariateRecords("country")
-    measurements = model_context.input_data.observations
-    avgint = model_context.average_integrand_cases
-
-    measurement_columns = list()
-    avgint_columns = list()
-
-    age_groups = get_all_age_spans()
-    for covariate_id in unique_country_covariate(configuration):
-        demographics = dict(
-            age_group_ids="all", year_ids="all", sex_ids="all",
-            location_ids=[model_context.parameters.parent_location_id]
-        )
-        ccov_df = country_covariates(covariate_id, demographics,
-                                     execution_context.parameters.gbd_round_id)
-        covariate_name = ccov_df.loc[0]["covariate_name_short"]
-        records.id_to_name[covariate_id] = covariate_name
-        # There is an order dependency from whether we interpolate before we
-        # transform or transform before we interpolate.
-        # Decide how to take the given data and extend / subset / interpolate.
-        ccov_ranges_df = convert_gbd_ids_to_dismod_values(ccov_df, age_groups)
-
-        MATHLOG.info(f"Adding {covariate_name} using "
-                     f"covariate_to_measurements_nearest_favoring_same_year()")
-        if measurements is not None:
-            observations_column = assign_interpolated_covariate_values(measurements, ccov_ranges_df, execution_context)
-            observations_column.name = covariate_name
-        else:
-            observations_column = None
-
-        if avgint is not None:
-            avgint_column = assign_interpolated_covariate_values(measurements, ccov_ranges_df, execution_context)
-            avgint_column.name = covariate_name
-        else:
-            avgint_column = None
-        reference = reference_value_for_covariate_mean_all_values(ccov_df)
-        records.id_to_reference[covariate_id] = reference
-        measurement_columns.append(observations_column)
-        avgint_columns.append(avgint_column)
-
-    if all(isinstance(mmc, pd.Series) for mmc in measurement_columns) and measurement_columns:
-        records.measurements = pd.concat(measurement_columns, axis=1)
-    elif measurements is not None:
-        records.measurements = pd.DataFrame(index=measurements.index)
-    else:
-        records.measurements = pd.DataFrame()
-
-    if all(isinstance(aac, pd.Series) for aac in avgint_columns) and avgint_columns:
-        records.average_integrand_cases = pd.concat(avgint_columns, axis=1)
-    elif records.average_integrand_cases is not None:
-        records.average_integrand_cases = pd.DataFrame(index=avgint.index)
-    else:
-        records.average_integrand_cases = pd.DataFrame()
-    return records
 
 
 def reference_value_for_covariate_mean_all_values(cov_df):
