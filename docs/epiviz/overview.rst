@@ -21,6 +21,21 @@ this partial diagram:
 .. image:: cascade_system_diagram.png
     :scale: 25
 
+EpiViz-AT
+    is the webpage where you define a model version, submit the job to the cluster and view results.
+
+Cascade-AT
+    estimates incidence, prevalence and mortality rates for a single
+    disease for every country or district in the world from the sum
+    of all available disease and death observations in all countries.
+    
+DisMod-AT
+    enables a public health scientist to model the rate at which we
+    get a condition, recover from a condition, die from a condition
+    and die from other causes. It is called Dismod-AT because the
+    condition is often a disease and it is used to model the rates
+    as stochastic functions of age and time.
+
 The `User Manual <user-manual>`_ covers the Cascade API and its
 :ref:`dismod-description` is the best
 spot to learn about the underlying statistical model.
@@ -38,53 +53,3 @@ This Cascade documentation looks at the problem in parts.
  *  Model Building - How the Cascade uses EpiViz-AT settings and the Cascade API.
  *  Command-line tools - Executable applications on the cluster, including :ref:`dmcascade-command-line`
  *  Operations and Maintenance - Processes to manage the Cascade.
-
-
-What Isn't Working Yet
-^^^^^^^^^^^^^^^^^^^^^^
-
-The following parts of the EpiViz-AT interface aren't enabled.
-
- *  Cascade tab
-
-    +  Single measure model
-
-    +  Global drill
-
-    +  Add EMR as prevalence
-
-    +  Fix study covariates
-
-    +  Min CV by level
-
-    +  Min CV by rate
-
-    +  Bound random effect by location
-
- * Rates tab
-
-    +  Detail tabs not working
-
-    +  MulStd not working
-
- * Random Effects tab
-
-    +  Detail tabs not working
-
-    +  MulStd not working
-
- * Study Covariates tab
-
-    +  Detail tabs not working
-
-    +  MulStd not working
-
- * Country Covariates tab
-
-    +  Detail tabs not working
-
-    +  MulStd not working
-
- * Advanced tab tab
-
-    +  Data CV floor
