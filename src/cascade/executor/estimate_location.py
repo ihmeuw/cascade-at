@@ -263,9 +263,9 @@ def save_outputs(computed_fit, predictions, execution_context, local_settings):
         ["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper", "s_sex"]
     )
 
-    lower = predictions.quantile(0.05)
+    lower = predictions.quantile(0.025)
     lower.columns = ["lower"]
-    upper = predictions.quantile(0.95)
+    upper = predictions.quantile(0.975)
     upper.columns = ["upper"]
     mean = predictions.mean()
     mean.columns = ["mean"]
