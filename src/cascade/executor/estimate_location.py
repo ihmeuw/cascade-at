@@ -1,20 +1,20 @@
 import asyncio
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from numpy import nan
 from timeit import default_timer as timer
 from types import SimpleNamespace
 
 import pandas as pd
-from numpy import nan
 
 from cascade.core import getLoggers
 from cascade.core.db import dataframe_from_disk, db_queries, age_spans
+from cascade.dismod import DismodATException
 from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.executor.session_options import make_options
-from cascade.executor.dismod_runner import DismodATException
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
     normalized_bundle_from_disk,
