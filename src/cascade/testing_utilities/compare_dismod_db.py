@@ -45,3 +45,43 @@ class CompareDatabases:
                 diffs.append(str(records[1][j0:j1]))
         print(f"diffs {diffs}")
         return all(match in diff for diff in diffs)
+
+
+def pull_covariate(file_path, dm_covariate_id):
+    """
+    Raises a ValueError if you ask for a covariate beyond the total.
+
+    Args:
+        file_path:
+        dm_covariate_id (int): Index of the covariate in the dismod file.
+
+    Returns:
+        name, reference value, max_difference, data_column: The data column
+            is the associated data from the data table.
+    """
+    conn = connect(str(file_path))
+    covs = list(conn.execute(
+        f"""select covariate_name, reference, max_difference from covariate
+           where covariate_id={dm_covariate_id}"""
+    ))
+    if len(covs) == 0:
+        raise ValueError(f"Covariate {dm_covariate_id} doesn't exist in db")
+    name, reference, max_difference = covs[0]
+    data_column = [x[0] for x in conn.execute(
+        f"""select x_{dm_covariate_id} from data"""
+    )]
+    conn.close()
+    return name, reference, max_difference, data_column
+
+
+def pull_covariate_multiplier(file_path, multiplier_id):
+    conn = connect(str(file_path))
+    covs = list(conn.execute(
+        f"""select covariate_id, integrand_id, mulcov_type, rate_id, smooth_id
+            from mulcov where mulcov_id={multiplier_id}"""
+    ))
+    conn.close()
+    if len(covs) == 0:
+        raise ValueError(f"Covariate {multiplier_id} doesn't exist in db")
+    covariate_id, integrand_id, mulcov_type, rate_id, smooth_id = covs[0]
+    return mulcov_type
