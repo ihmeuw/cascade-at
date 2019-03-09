@@ -54,7 +54,7 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
             short = data.country_id_to_name[name_covariate.covariate_id]
         name_covariate.untransformed_covariate_name = short
 
-    add_study_covariate_to_observations_and_avgints(data, local_settings)
+    add_study_covariate_to_observations_and_avgints(data)
     add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates)
 
 
@@ -79,7 +79,7 @@ def add_country_covariate_to_observations_and_avgints(data, local_settings, epiv
             # else nothing to add to the data.
 
 
-def add_study_covariate_to_observations_and_avgints(data, local_settings):
+def add_study_covariate_to_observations_and_avgints(data):
     # Add untransformed study covariates to observations.
     data.observations = add_study_covariate_to_observations(
         data.observations, data.sparse_covariate_data, data.study_id_to_name)
