@@ -2,21 +2,17 @@
 Takes settings and creates a CovariateRecords object
 """
 
-from collections.__init__ import defaultdict, namedtuple
+from collections.__init__ import namedtuple
 
+import intervals as it
 import numpy as np
 import pandas as pd
 from scipy import spatial
 from scipy.interpolate import griddata
 
-import intervals as it
-
 from cascade.core import getLoggers
 from cascade.core.db import ezfuncs
 from cascade.input_data import InputDataError
-from cascade.input_data.db.country_covariates import country_covariates
-from cascade.input_data.db.demographics import get_all_age_spans
-from cascade.input_data.configuration.construct_study import CovariateRecords
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -24,111 +20,6 @@ FEMALE = 2
 MALE = 1
 BOTH = 3
 UNDEFINED = 4
-
-
-def unique_country_covariate_transform(configuration):
-    """
-    Iterates through all covariate IDs, including the list of ways to
-    transform them, because each transformation is its own column for Dismod.
-    This is used by ``assign_covariates``.
-    """
-    seen_covariate = defaultdict(set)
-    if configuration.country_covariate:
-        for covariate_configuration in configuration.country_covariate:
-            seen_covariate[covariate_configuration.country_covariate_id].add(
-                covariate_configuration.transformation)
-
-    for cov_id, cov_transformations in seen_covariate.items():
-        yield cov_id, list(sorted(cov_transformations))
-
-
-def unique_country_covariate(configuration):
-    """
-    Iterates through all covariate IDs. This is used to create the
-    initial CovariateRecords object. This is before the special covariates
-    are set.
-    """
-    seen_covariate = set()
-    if configuration.country_covariate:
-        for covariate_configuration in configuration.country_covariate:
-            seen_covariate.add(covariate_configuration.country_covariate_id)
-    yield from sorted(seen_covariate)  # Sorted for stability.
-
-
-def covariate_records_from_settings(model_context, execution_context,
-                                    configuration, study_covariate_records):
-    """
-    The important choices are assignment of covariates to observations and
-    integrands by
-    :py:func:`covariate_to_measurements_nearest_favoring_same_year`
-    and how reference values are chosen by
-    :py:func:`reference_value_for_covariate_mean_all_values`.
-
-    Args:
-        model_context: The model context must have ``average_integrand_cases``
-            a bundle as "observations", and a location id.
-        execution_context: Context for execution of this program.
-        configuration: Settings from EpiViz.
-        study_covariate_records (CovariateRecords): Study covariates which
-            have the sex column for measurements and average integrand cases.
-
-    Returns:
-        CovariateRecords object, completely filled out.
-    """
-    records = CovariateRecords("country")
-    measurements = model_context.input_data.observations
-    avgint = model_context.average_integrand_cases
-
-    measurement_columns = list()
-    avgint_columns = list()
-
-    age_groups = get_all_age_spans()
-    for covariate_id in unique_country_covariate(configuration):
-        demographics = dict(
-            age_group_ids="all", year_ids="all", sex_ids="all",
-            location_ids=[model_context.parameters.parent_location_id]
-        )
-        ccov_df = country_covariates(covariate_id, demographics,
-                                     execution_context.parameters.gbd_round_id)
-        covariate_name = ccov_df.loc[0]["covariate_name_short"]
-        records.id_to_name[covariate_id] = covariate_name
-        # There is an order dependency from whether we interpolate before we
-        # transform or transform before we interpolate.
-        # Decide how to take the given data and extend / subset / interpolate.
-        ccov_ranges_df = convert_gbd_ids_to_dismod_values(ccov_df, age_groups)
-
-        MATHLOG.info(f"Adding {covariate_name} using "
-                     f"covariate_to_measurements_nearest_favoring_same_year()")
-        if measurements is not None:
-            observations_column = assign_interpolated_covariate_values(measurements, ccov_ranges_df, execution_context)
-            observations_column.name = covariate_name
-        else:
-            observations_column = None
-
-        if avgint is not None:
-            avgint_column = assign_interpolated_covariate_values(measurements, ccov_ranges_df, execution_context)
-            avgint_column.name = covariate_name
-        else:
-            avgint_column = None
-        reference = reference_value_for_covariate_mean_all_values(ccov_df)
-        records.id_to_reference[covariate_id] = reference
-        measurement_columns.append(observations_column)
-        avgint_columns.append(avgint_column)
-
-    if all(isinstance(mmc, pd.Series) for mmc in measurement_columns) and measurement_columns:
-        records.measurements = pd.concat(measurement_columns, axis=1)
-    elif measurements is not None:
-        records.measurements = pd.DataFrame(index=measurements.index)
-    else:
-        records.measurements = pd.DataFrame()
-
-    if all(isinstance(aac, pd.Series) for aac in avgint_columns) and avgint_columns:
-        records.average_integrand_cases = pd.concat(avgint_columns, axis=1)
-    elif records.average_integrand_cases is not None:
-        records.average_integrand_cases = pd.DataFrame(index=avgint.index)
-    else:
-        records.average_integrand_cases = pd.DataFrame()
-    return records
 
 
 def reference_value_for_covariate_mean_all_values(cov_df):
@@ -218,10 +109,8 @@ def convert_gbd_ids_to_dismod_values(with_ids_df, age_groups_df):
             f"Of the original {len(with_ids_df)} records, {len(merged)} had known ids.")
     reordered = merged.sort_values(by="original_index").reset_index()
     reordered["time_lower"] = reordered["year_id"]
-    MATHLOG.info(f"Conversion of bundle assumes demographic notation for years, "
-                 f"so it adds a year to time_upper.")
     reordered["time_upper"] = reordered["year_id"] + 1
-    dropped = reordered.drop(columns=["age_group_id", "year_id", "original_index"])
+    dropped = reordered.drop(columns=["age_group_id", "year_id", "original_index", "index"])
     return dropped.rename(columns={"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"})
 
 
@@ -263,7 +152,7 @@ def compute_covariate_age_interval(covariates):
     return age_interval
 
 
-def assign_interpolated_covariate_values(measurements, covariates, execution_context):
+def assign_interpolated_covariate_values(measurements, covariates, is_binary):
     """
     Compute a column of covariate values to assign to the measurements.
 
@@ -274,26 +163,24 @@ def assign_interpolated_covariate_values(measurements, covariates, execution_con
         covariates (pd.DataFrame):
             Columns include ``age_lower``, ``age_upper``, ``time_lower``,
             ``time_upper``, ``sex``, and ``value``.
-        execution_context: Context for execution of this program.
+        is_binary (bool): Whether this is a binary covariate.
 
     Returns:
         pd.Series: One row for every row in the measurements.
     """
+    assert isinstance(is_binary, bool), f"Expected bool got {is_binary} {type(is_binary)}"
 
     # is the covariate by_age, does it have multiple years?
     covar_at_dims = compute_covariate_age_time_dimensions(covariates)
-
     # identify the overall interval for the covariate ages, could have middle gaps
     covar_age_interval = compute_covariate_age_interval(covariates)
-
     # find a matching covariate value for each measurement
     covariate_column = compute_interpolated_covariate_values_by_sex(
         measurements, covariates, covar_at_dims)
-
     # if the covariate is binary, make sure the assigned values are only 0 or 1
-    covariate_id = covariates.loc[0, "covariate_id"]
-    covariate_column = check_and_handle_binary_covariate(covariate_id, covariate_column,
-                                                         execution_context)
+    if is_binary:
+        covariate_column[covariate_column <= .5] = 0
+        covariate_column[covariate_column > .5] = 1
 
     # set missings using covar_age_interval
     meas_mean_age_in_age_interval = [i in covar_age_interval for i in measurements["avg_age"]]
@@ -372,6 +259,8 @@ def compute_interpolated_covariate_values_by_sex(
             covariate_sex = griddata((covariates_sex["avg_age"],),
                                      covariates_sex["mean_value"],
                                      (meas_sex_new_index["avg_age"],))
+        else:
+            raise RuntimeError(f"Covariate sex neither by age nor time {covar_at_dims}.")
 
         cov_col = cov_col + list(covariate_sex)
 
@@ -380,12 +269,24 @@ def compute_interpolated_covariate_values_by_sex(
     return covariate_column
 
 
+def check_binary_covariates(execution_context, covariate_ids):
+    """Check the dichotomous value from shared.covariate to check if the covariate is binary.
+    If it is, make sure the assigned value is only 0 or 1.
+    """
+    is_binary = dict()
+    for covariate_id in covariate_ids:
+        result_df = ezfuncs.query("select dichotomous from shared.covariate where covariate_id=?",
+                                  (covariate_id,), conn_def=execution_context.parameters.database)
+        is_binary[covariate_id] = (result_df.dichotomous[0] == 1)
+    return is_binary
+
+
 def check_and_handle_binary_covariate(covariate_id, covariate_column, execution_context):
     """Check the dichotomous value from shared.covariate to check if the covariate is binary.
     If it is, make sure the assigned value is only 0 or 1.
     """
-    result_df = ezfuncs.query(f"select dichotomous from shared.covariate where covariate_id={covariate_id}",
-                              conn_def=execution_context.parameters.database)
+    result_df = ezfuncs.query("select dichotomous from shared.covariate where covariate_id=?",
+                              (covariate_id,), conn_def=execution_context.parameters.database)
 
     if result_df.dichotomous[0] == 1:
         covariate_column[covariate_column <= .5] = 0

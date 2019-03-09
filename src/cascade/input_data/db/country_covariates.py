@@ -1,10 +1,24 @@
 """This module retrieves country covariates from the database.
 """
 
-from cascade.core.db import db_queries
+from functools import lru_cache
 
 from cascade.core import getLoggers
+from cascade.core.db import db_queries
+
 CODELOG, MATHLOG = getLoggers(__name__)
+
+
+@lru_cache(maxsize=1)
+def country_covariate_names():
+    """Returns a dictionary from ``covariate_id`` to covariate short name."""
+    covariate_df = db_queries.get_ids("covariate")[["covariate_id", "covariate_name_short"]].set_index("covariate_id")
+    return covariate_df.to_dict()["covariate_name_short"]
+
+
+def country_covariate_set(covariate_ids, demographics, gbd_round_id):
+    return {covariate_id: country_covariates(covariate_id, demographics, gbd_round_id)
+            for covariate_id in covariate_ids}
 
 
 def country_covariates(covariate_id, demographics, gbd_round_id):

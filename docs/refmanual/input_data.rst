@@ -19,17 +19,13 @@ Input Data Functionality
     :members:
 
 .. automodule:: cascade.input_data.configuration.form
-
-    .. autoclass:: Configuration
-        :members:
+    :members:
+    :undoc-members:
 
 .. automodule:: cascade.input_data.configuration.construct_study
     :members:
 
 .. automodule:: cascade.input_data.configuration.construct_country
-    :members:
-
-.. automodule:: cascade.input_data.configuration.covariate_records
     :members:
 
 .. automodule:: cascade.input_data.configuration.construct_bundle

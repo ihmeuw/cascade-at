@@ -24,8 +24,7 @@ def get_excess_mortality_data(execution_context):
                 sex_id,
                 mean,
                 lower,
-                upper,
-                standard_error
+                upper
             FROM
                 epi.t3_model_version_emr t3_emr
             WHERE model_version_id = %(model_version_id)s
@@ -38,13 +37,12 @@ def get_excess_mortality_data(execution_context):
     return data
 
 
-def get_frozen_cause_specific_mortality_data(execution_context):
+def get_frozen_cause_specific_mortality_data(execution_context, model_version_id):
     """
     The year range is from start of year to end of year, so these
     measurements have a year duration. To make point data, take
     the midpoint of the year.
     """
-    model_version_id = execution_context.parameters.model_version_id
 
     query = """
             SELECT
@@ -62,7 +60,7 @@ def get_frozen_cause_specific_mortality_data(execution_context):
 
     with connection(execution_context) as c:
         data = pd.read_sql(query, c, params={"model_version_id": model_version_id})
-
+    CODELOG.debug(f"csmr {data.head(5)}")
     return data
 
 

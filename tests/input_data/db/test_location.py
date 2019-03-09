@@ -1,8 +1,10 @@
 import networkx as nx
 import pytest
 
-from cascade.testing_utilities import make_execution_context
-from cascade.input_data.db.locations import get_descendants, location_id_from_location_and_level, location_hierarchy
+from cascade.input_data.db.locations import (
+    get_descendants, location_id_from_location_and_level, location_hierarchy,
+    location_id_from_start_and_finish
+)
 
 
 class MockLocation:
@@ -51,70 +53,88 @@ class MockLocation:
         return recursive_children(self)
 
 
-def test_get_descendants__all_descendants(mock_locations):
-    ec = make_execution_context(parent_location_id=0)
+@pytest.fixture
+def sample_locations():
+    G = nx.DiGraph()
+    G.add_nodes_from(list(range(8)))
+    G.add_edges_from([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6), (6, 7)])
+    assert len(G.nodes) == 8
+    return G
+
+
+def test_get_descendants__all_descendants(sample_locations):
+    parent_location_id = 0
     # descendants of global
-    assert set(get_descendants(ec)) == set(range(1, 8))
+    assert set(get_descendants(sample_locations, parent_location_id)) == set(range(1, 8))
 
-    ec = make_execution_context(parent_location_id=7)
+    parent_location_id = 7
     # descendants of a leaf (ie. nothing)
-    assert set(get_descendants(ec)) == set()
+    assert set(get_descendants(sample_locations, parent_location_id)) == set()
 
 
-def test_get_descendants__only_children(mock_locations):
-    ec = make_execution_context(parent_location_id=0)
+def test_get_descendants__only_children(sample_locations):
+    parent_location_id = 0
     # children of global
-    assert set(get_descendants(ec, children_only=True)) == {1, 2}
+    assert set(get_descendants(sample_locations, parent_location_id, children_only=True)) == {1, 2}
 
-    ec = make_execution_context(parent_location_id=5)
+    parent_location_id = 5
     # children of a leaf
-    assert set(get_descendants(ec, children_only=True)) == set()
+    assert set(get_descendants(sample_locations, parent_location_id, children_only=True)) == set()
 
 
-def test_get_descendants__include_parent(mock_locations):
-    ec = make_execution_context(parent_location_id=0)
+def test_get_descendants__include_parent(sample_locations):
+    parent_location_id = 0
     # descendants of global and iteslf
-    assert set(get_descendants(ec, include_parent=True)) == set(range(0, 8))
+    assert set(get_descendants(sample_locations, parent_location_id, include_parent=True)) == set(range(0, 8))
     # children of global and iteslf
-    assert set(get_descendants(ec, children_only=True, include_parent=True)) == {0, 1, 2}
+    assert set(get_descendants(
+        sample_locations, parent_location_id, children_only=True, include_parent=True)) == {0, 1, 2}
 
-    ec = make_execution_context(parent_location_id=5)
+    parent_location_id = 5
     # descendants of a leaf and itself
-    assert set(get_descendants(ec, include_parent=True, children_only=True)) == {5}
+    assert set(get_descendants(sample_locations, parent_location_id, include_parent=True, children_only=True)) == {5}
     # children of a leaf and itself
-    assert set(get_descendants(ec, include_parent=True, children_only=True)) == {5}
+    assert set(get_descendants(sample_locations, parent_location_id, include_parent=True, children_only=True)) == {5}
 
 
-def test_location_id_from_location_and_level__happy_path(mock_locations):
-    ec = make_execution_context()
-    assert location_id_from_location_and_level(ec, 0, 1)[0] == 0
-    assert location_id_from_location_and_level(ec, 7, 1)[0] == 0
-    assert location_id_from_location_and_level(ec, 7, 2)[0] == 2
-    assert location_id_from_location_and_level(ec, 4, 2)[0] == 1
-    assert location_id_from_location_and_level(ec, 7, "most_detailed")[0] == 7
+def test_location_id_from_location_and_level__happy_path(sample_locations):
+    assert location_id_from_location_and_level(sample_locations, 0, 1)[0] == 0
+    assert location_id_from_location_and_level(sample_locations, 7, 1)[0] == 0
+    assert location_id_from_location_and_level(sample_locations, 7, 2)[0] == 2
+    assert location_id_from_location_and_level(sample_locations, 4, 2)[0] == 1
+    assert location_id_from_location_and_level(sample_locations, 7, "most_detailed")[0] == 7
 
 
-def test_drill_from_location_and_level__happy_path(mock_locations):
-    ec = make_execution_context()
-    assert location_id_from_location_and_level(ec, 0, 1) == [0]
-    assert location_id_from_location_and_level(ec, 7, 1) == [0, 2, 6, 7]
-    assert location_id_from_location_and_level(ec, 7, 2) == [2, 6, 7]
-    assert location_id_from_location_and_level(ec, 4, 2) == [1, 4]
-    assert location_id_from_location_and_level(ec, 7, "most_detailed") == [7]
+def test_drill_from_location_and_level__happy_path(sample_locations):
+    assert location_id_from_location_and_level(sample_locations, 0, 1) == [0]
+    assert location_id_from_location_and_level(sample_locations, 7, 1) == [0, 2, 6, 7]
+    assert location_id_from_location_and_level(sample_locations, 7, 2) == [2, 6, 7]
+    assert location_id_from_location_and_level(sample_locations, 4, 2) == [1, 4]
+    assert location_id_from_location_and_level(sample_locations, 7, "most_detailed") == [7]
 
 
-def test_location_id_from_location_and_level__too_low(mock_locations):
-    ec = make_execution_context()
+@pytest.mark.parametrize("start,finish,ans", [
+    (0, 1, [0, 1]),
+    (None, 1, [0, 1]),
+    (None, 4, [0, 1, 4]),
+    (None, "4", [0, 1, 4]),
+    (2, 7, [2, 6, 7]),
+    (None, 7, [0, 2, 6, 7]),
+])
+def test_drill_from_location_and_level__no_start(sample_locations, start, finish, ans):
+    assert location_id_from_start_and_finish(sample_locations, start, finish) == ans
+
+
+def test_location_id_from_location_and_level__too_low(sample_locations):
     with pytest.raises(Exception):
-        location_id_from_location_and_level(ec, 0, "most_detailed")
+        location_id_from_location_and_level(sample_locations, 0, "most_detailed")
 
     with pytest.raises(Exception):
-        location_id_from_location_and_level(ec, 2, 3)
+        location_id_from_location_and_level(sample_locations, 2, 3)
 
 
 def test_location_hierarchy_networkx(ihme):
-    ec = make_execution_context(gbd_round_id=5)
-    locs = location_hierarchy(ec)
+    locs = location_hierarchy(6, location_set_id=35)
     assert nx.is_directed_acyclic_graph(locs)
     assert nx.dag_longest_path_length(locs) == 6
     assert nx.dag_longest_path(locs)[0] == 1
@@ -123,7 +143,6 @@ def test_location_hierarchy_networkx(ihme):
 
 
 def test_ancestors_level(ihme):
-    ec = make_execution_context(gbd_round_id=5)
-    locs = location_hierarchy(ec)
+    locs = location_hierarchy(6, location_set_id=35)
     drill = list(nx.topological_sort(nx.subgraph(locs, nbunch=nx.ancestors(locs, 491))))
     assert drill == [1, 4, 5, 6]

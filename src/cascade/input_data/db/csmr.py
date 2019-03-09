@@ -2,12 +2,9 @@
 
 import pandas as pd
 
+from cascade.core import getLoggers
 from cascade.core.db import cursor, db_queries
 from cascade.input_data.db import METRIC_IDS, MEASURE_IDS, GBDDataError
-from cascade.input_data.db.locations import get_descendants
-
-
-from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -58,13 +55,11 @@ def _gbd_process_version_id_from_cod_version(cod_version):
     return result[0]
 
 
-def get_csmr_data(execution_context, location_and_children):
-
-    cause_id = execution_context.parameters.add_csmr_cause
-
+def get_csmr_data(
+        execution_context, location_and_children, cause_id, cod_version, gbd_round_id):
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
-    process_version_id = _gbd_process_version_id_from_cod_version(execution_context.parameters.cod_version)
+    process_version_id = _gbd_process_version_id_from_cod_version(cod_version)
 
     csmr = db_queries.get_outputs(
         topic="cause",
@@ -75,7 +70,7 @@ def get_csmr_data(execution_context, location_and_children):
         age_group_id="most_detailed",
         measure_id=MEASURE_IDS["deaths"],
         sex_id="all",
-        gbd_round_id=execution_context.parameters.gbd_round_id,
+        gbd_round_id=gbd_round_id,
         process_version_id=process_version_id,
     )[keep_cols]
 
@@ -121,19 +116,23 @@ def _upload_csmr_data_to_tier_3(cursor, model_version_id, csmr_data):
     CODELOG.debug(f"uploaded {len(csmr_data)} lines of csmr data")
 
 
-def load_csmr_to_t3(execution_context) -> bool:
+def load_csmr_to_t3(execution_context, data_access, location_and_children):
     """
     Upload to t3_model_version_csmr if it's not already there.
     """
-    model_version_id = execution_context.parameters.model_version_id
-    location_and_children = get_descendants(execution_context, children_only=True, include_parent=True)
+
+    cause_id = data_access.add_csmr_cause
+    gbd_round_id = data_access.gbd_round_id
+    model_version_id = data_access.model_version_id
+    cod_version = data_access.cod_version
+
     database = execution_context.parameters.database
-    locations_with_data_in_t3 = _csmr_in_t3(execution_context, execution_context.parameters.model_version_id)
+    locations_with_data_in_t3 = _csmr_in_t3(execution_context, model_version_id)
     csmr_not_in_t3 = set(location_and_children) - set(locations_with_data_in_t3)
     if csmr_not_in_t3:
         CODELOG.info(f"Uploading csmr data for model_version_id {model_version_id} on '{database}'")
 
-        csmr_data = get_csmr_data(execution_context, list(csmr_not_in_t3))
+        csmr_data = get_csmr_data(execution_context, list(csmr_not_in_t3), cause_id, cod_version, gbd_round_id)
 
         with cursor(execution_context) as c:
             _upload_csmr_data_to_tier_3(c, model_version_id, csmr_data)

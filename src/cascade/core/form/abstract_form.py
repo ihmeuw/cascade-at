@@ -41,6 +41,9 @@ class NoValue:
     def __repr__(self):
         return "NO_VALUE"
 
+    def __eq__(self, other):
+        return isinstance(other, NoValue)
+
 
 NO_VALUE = NoValue()
 
@@ -70,6 +73,7 @@ class FormComponent:
         self._default = default
         self._name = None
         self._display_name = display
+        self._component_id = id(self)
         if self._children:
             self._validation_priority = min([c._validation_priority for c in self._children] + [validation_priority])
             self._child_instances = {c: NO_VALUE for c in self._children}
@@ -80,7 +84,7 @@ class FormComponent:
     def __get__(self, instance, owner):
         if isinstance(instance, FormComponent):
             value = instance._child_instances[self]
-            if value is NO_VALUE and self._nullable:
+            if value == NO_VALUE and self._nullable:
                 return self._default
             return value
         else:
@@ -92,7 +96,7 @@ class FormComponent:
 
     def is_unset(self, instance):
         value = instance._child_instances[self]
-        if value is NO_VALUE:
+        if value == NO_VALUE:
             return True
         return False
 
@@ -108,10 +112,21 @@ class FormComponent:
                 owner._children.add(self)
         self._name = name
 
+    def __hash__(self):
+        # The use of self._component_id here allows dictionaries where this
+        # type is the key to be serialized and deserialized correctly.
+        return self._component_id
+
+    def __eq__(self, other):
+        if isinstance(other, FormComponent):
+            return self._component_id == other._component_id
+        else:
+            return NotImplemented
+
     @property
     def unset(self):
         value = self.__class__.__get__(self, self.__class__)
-        if value is NO_VALUE:
+        if value == NO_VALUE:
             return True
         return False
 
@@ -272,7 +287,7 @@ class Form(FormComponent):
     def process_source(self, source):
         for c in self._children:
             v = source.get(str(c._name), NO_VALUE)
-            if v is not NO_VALUE:
+            if v != NO_VALUE:
                 setattr(self, c._name, v)
             elif isinstance(c, Form) and not c._nullable:
                 # Make sure sub-forms which contain default values get a chance to setup

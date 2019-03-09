@@ -109,6 +109,7 @@ def json_settings_to_frozen_settings(raw_settings, mvid=None):
     settings = Configuration(raw_settings)
     errors = settings.validate_and_normalize()
     if errors:
+        print(f"Configuration does not validate {errors}")
         raise SettingsError("Configuration does not validate", errors,
                             raw_settings)
     return settings

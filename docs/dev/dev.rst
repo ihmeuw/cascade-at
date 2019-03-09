@@ -2,14 +2,21 @@
 Developer Manual
 ################
 
+The developer manual has guides for developers
+and design documents gathered during development.
+
 .. toctree::
    :maxdepth: 2
 
-   dbsync
-   meid_quota
    testing
    logging
+   documentation
    dismod_at_shape
    versioning
-   bundle_upload
    design_sketches
+   inputs_outputs
+   hdf_design
+   design_ev_main
+   covariate_design
+   parameters
+   timing_metrics

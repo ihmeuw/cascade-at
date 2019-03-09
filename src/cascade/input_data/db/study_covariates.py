@@ -16,7 +16,7 @@ from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def get_study_covariates(execution_context, bundle_id, tier=3):
+def get_study_covariates(execution_context, bundle_id, model_version_id, tier=3):
     """Downloads the tier 2 or 3 study covariate mappings for the bundle
     associated with the current model_version_id. This is used both to move
     covariates from tier 2 to tier 3 and to get them for construction of the
@@ -44,7 +44,7 @@ def get_study_covariates(execution_context, bundle_id, tier=3):
          """
     with connection(execution_context) as c:
         covariates = pd.read_sql(query, c,
-                                 params={"bundle_id": bundle_id, "mvid": execution_context.parameters.model_version_id})
+                                 params={"bundle_id": bundle_id, "mvid": model_version_id})
         CODELOG.debug(
             f"Downloaded {len(covariates)} lines of study covariates for bundle_id {bundle_id}"
         )

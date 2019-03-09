@@ -8,6 +8,11 @@ from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
+class BoolField(SimpleTypeField):
+    def __init__(self, *args, **kwargs):
+        super().__init__(bool, *args, **kwargs)
+
+
 class IntField(SimpleTypeField):
     def __init__(self, *args, **kwargs):
         super().__init__(int, *args, **kwargs)
@@ -57,7 +62,7 @@ class FormList(Form):
 
     def __get__(self, instance, owner):
         value = super().__get__(instance, owner)
-        if value is NO_VALUE:
+        if value == NO_VALUE:
             return []
         return value
 

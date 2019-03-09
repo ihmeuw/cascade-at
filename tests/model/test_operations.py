@@ -9,18 +9,9 @@ import pandas as pd
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.stats import norm
 
-from cascade.core.context import ModelContext
-from cascade.dismod.constants import RateEnum
-import cascade.model.operations
 from cascade.model.operations import (
-    _assign_rate_priors, _assign_mulcov_priors, _assign_smooth_priors_after_summary,
-    _assign_smooth_priors_from_estimates, _covariate_name_to_smooth,
     _estimates_from_one_grid, _dataframe_to_bivariate_spline
 )
-from cascade.model.grids import AgeTimeGrid, PriorGrid
-from cascade.model.covariates import Covariate, CovariateMultiplier
-from cascade.model.rates import Smooth
-from cascade.model.priors import Gaussian, Constant, Uniform
 
 
 def make_grid_priors(ages, times, grid_priors, hyper_priors, smooth_id=7):
@@ -127,99 +118,6 @@ def draws_at_value(mean, std, cnt):
     return norm.isf(np.linspace(0.01, 0.99, cnt), loc=mean, scale=std)
 
 
-def test_assign_rate_priors__finds_grids(monkeypatch):
-    inputs = dict()
-
-    def count_inputs(mc, rate_name, underlying, random_effect):
-        assert rate_name not in inputs
-        inputs[rate_name] = [underlying, random_effect]
-
-    monkeypatch.setattr(cascade.model.operations, "_assign_smooth_priors_from_random_effect", count_inputs)
-
-    # parent rate 0, parent rate 1,
-    # child 1 rate 0, child 2 rate 0, with shared smooth grid
-    # child 1 rate 1, different smooth grid.
-    # Note there can be two rates with the _same smooth id_ but different nodes.
-    var_df = pd.DataFrame(dict(
-        var_id=[0, 1, 2, 3, 4, 5, 6, 7],
-        smooth_id=[0, 1, 2, 2, 3, 4, 5, 6],
-        var_type=["rate", "rate", "rate", "rate", "rate", "mulcov_meas_value",
-                  "mulcov_rate_value", "mulcov_meas_std"],
-        location_id=[0, 0, 1, 2, 1, nan, nan, nan],
-        rate_id=[0, 1, 0, 0, 1, nan, 2, nan],
-        integrand_id=[nan, nan, nan, nan, nan, 7, nan, 6],
-        covariate_id=[nan, nan, nan, nan, nan, 8, 9, 10],
-    ))
-    mc = ModelContext()
-    mc.parameters.grandparent_location_id = 0
-    mc.parameters.parent_location_id = 1
-    _assign_rate_priors(mc, var_df)
-
-    rate0 = RateEnum(0).name
-    rate1 = RateEnum(1).name
-    assert rate0 in inputs
-    assert inputs[rate0][1] is not None
-    assert rate1 in inputs
-    assert inputs[rate1][1] is not None
-
-    mc.parameters.parent_location_id = 2
-    inputs.clear()
-    _assign_rate_priors(mc, var_df)
-
-    assert rate0 in inputs
-    assert inputs[rate0][1] is not None
-    assert rate1 in inputs
-    assert inputs[rate1][1] is None
-
-
-def test_assign_mulcov_priors__finds_grids(monkeypatch):
-    inputs = dict()
-
-    def count_inputs(covariate_name, local_covariates, mulcovs):
-        assert covariate_name not in inputs
-        inputs[covariate_name] = True
-        return None
-
-    monkeypatch.setattr(cascade.model.operations, "_covariate_name_to_smooth", count_inputs)
-
-    # parent rate 0, parent rate 1,
-    # child 1 rate 0, child 2 rate 0, with shared smooth grid
-    # child 1 rate 1, different smooth grid.
-    # Note there can be two rates with the _same smooth id_ but different nodes.
-    var_df = pd.DataFrame(dict(
-        var_id=[0, 1, 2, 3, 4, 5, 6, 7],
-        smooth_id=[0, 1, 2, 2, 3, 4, 5, 6],
-        var_type=["rate", "rate", "rate", "rate", "rate", "mulcov_meas_value",
-                  "mulcov_rate_value", "mulcov_meas_std"],
-        location_id=[0, 0, 1, 2, 1, nan, nan, nan],
-        rate_id=[0, 1, 0, 0, 1, nan, 2, nan],
-        integrand_id=[nan, nan, nan, nan, nan, 7, nan, 6],
-        covariate_id=[nan, nan, nan, nan, nan, 8, 9, 10],
-        covariate_name=[nan, nan, nan, nan, nan, "traffic", "foo", "bar"],
-    ))
-    mc = ModelContext()
-    mc.input_data.covariates = None
-    mc.parameters.parent_location_id = 1
-    _assign_mulcov_priors(mc, var_df)
-    assert "traffic" in inputs
-    assert "foo" in inputs
-    assert "bar" in inputs
-
-
-def test_covariate_name_to_smooth():
-    covariates = [Covariate("traffic", 0.0), Covariate("foo", 7.3), Covariate("bar", 2.4)]
-    smooths = [Smooth(), Smooth(), Smooth()]
-    mulcovs = [CovariateMultiplier(covariates[0], smooths[0]), CovariateMultiplier(covariates[1], smooths[1])]
-
-    s = _covariate_name_to_smooth("nonexistent", covariates, mulcovs)
-    assert not s
-    s = _covariate_name_to_smooth("foo", covariates, mulcovs)
-    assert s == smooths[1]
-    # No mulcov even though covariate exists.
-    s = _covariate_name_to_smooth("bar", covariates, mulcovs)
-    assert not s
-
-
 def test_point_grid():
     """SUT is estimate_single_grid. Doing one point value, no hyper-priors."""
     mean = 0.01
@@ -256,59 +154,3 @@ def test_bivariate_spline():
     assert np.isclose(f(1.0, 2010), 5)
     assert np.isclose(f(0.0, 2000), -2)
     assert np.isclose(f(0.0, 2010), 17)
-
-
-def test_assign_smooth_priors_from_estimates():
-    grid = AgeTimeGrid.uniform(age_lower=0, age_upper=120, age_step=5,
-                               time_lower=1990, time_upper=2018, time_step=1)
-    value_priors = PriorGrid(grid)
-    value_priors[:, :].prior = Uniform(-5, 5, 0.0)
-    assert isinstance(value_priors[5, 1995].prior, Uniform)
-    value_priors[0:5, 1990:1991].prior = Constant(3.7)
-    value_priors[105:115, 2016:2017].prior = Gaussian(42, 7)
-    smooth = Smooth(value_priors=value_priors)
-
-    draws = pd.DataFrame(dict(
-        age=[0, 110, 10],
-        time=[1990, 2017, 2000],
-        mean=[-3, -5, -7],
-        std=[0.3, 0.5, 0.7],
-    ))
-    _assign_smooth_priors_from_estimates(smooth, draws)
-    vp = smooth.value_priors
-    # Constants aren't changed
-    assert np.isclose(vp[0, 1990].prior.value, 3.7)
-    # Gaussians are set
-    assert np.isclose(vp[110, 2017].prior.mean, -5)
-    assert np.isclose(vp[110, 2017].prior.standard_deviation, 0.5)
-    # Uniforms get the mean set, even though they don't have stdev
-    assert np.isclose(vp[10, 2000].prior.mean, -7)
-    # Others are untouched.
-    assert np.isclose(vp[50, 1995].prior.mean, 0.0)
-
-
-def test_assign_smooth_rate_priors(monkeypatch):
-    """For rates with random effects"""
-    estimates = list()
-
-    def do_nothing(smooth, estimate):
-        estimates.append(estimate)
-
-    # Not testing actual assignment here.
-    monkeypatch.setattr(cascade.model.operations, "_assign_smooth_priors_from_estimates", do_nothing)
-
-    underlying_at = pd.DataFrame(dict(
-        age=[0.0, 0.0, 100.0, 100.0],
-        time=[1990, 2000, 1990, 2000],
-        mean=[0.3, 0.5, 0.7, 0.11],
-        std=[0.03, 0.05, 0.07, 0.022],
-    ))
-    re_at = pd.DataFrame(dict(
-        age=[0.0, 0.0, 100.0, 100.0],
-        time=[1990, 2000, 1990, 2000],
-        mean=[0, 0, 0, 0.0],
-        std=[0.03, 0.05, 0.07, 0.022],
-    ))
-    mc = ModelContext()
-    _assign_smooth_priors_after_summary(mc, "iota", underlying_at, re_at)
-    assert len(estimates) == 1

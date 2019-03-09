@@ -1,8 +1,10 @@
 """
 Represents covariates in the model.
 """
+from numbers import Number
+from numpy import isnan
+
 from cascade.core import getLoggers
-from cascade.model.rates import Smooth
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -59,7 +61,7 @@ class Covariate:
 
     @max_difference.setter
     def max_difference(self, difference):
-        if difference is None:
+        if difference is None or isinstance(difference, Number) and isnan(difference):
             self._max_difference = None
         else:
             diff = float(difference)
@@ -78,27 +80,3 @@ class Covariate:
             raise NotImplementedError(f"Cannot compare a covariate and a {type(other)}: {other}.")
         return (self._name == other.name and self._reference == other._reference
                 and self._max_difference == other._max_difference)
-
-
-class CovariateMultiplier:
-    """
-    A covariate multiplier makes a given covariate column the predictor
-    of a model variable, where the model variable can be one of a
-    rate's value, an integrand's value, or an integrand's standard deviation.
-
-    This class is only two-thirds of the definition.
-    The covariate column has to be attached to a particular rate
-    or measured value or measured standard deviation.
-
-    Args:
-        covariate_column (Covariate): Which predictor to use.
-        smooth (Smooth): Each covariate gets a smoothing grid.
-    """
-    def __init__(self, covariate_column, smooth):
-        if not isinstance(covariate_column, Covariate):
-            raise ValueError("First argument must be a Covariate.")
-        if not isinstance(smooth, Smooth) and smooth is not None:
-            raise ValueError("Second argument must be a Smooth.")
-
-        self.column = covariate_column
-        self.smooth = smooth

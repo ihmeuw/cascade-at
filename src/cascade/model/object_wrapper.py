@@ -9,7 +9,7 @@ import pandas as pd
 from cascade.core import getLoggers
 from cascade.dismod.constants import DensityEnum, RateEnum
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.dismod.serialize import default_integrand_names, make_log_table
+from cascade.model.serialize import default_integrand_names, make_log_table
 from cascade.model.data_read_write import (
     write_data, avgint_to_dataframe, read_avgint, read_data_residuals, read_simulation_data
 )
@@ -173,6 +173,11 @@ class ObjectWrapper:
         if self.dismod_file.engine is not None:
             self.dismod_file.engine.dispose()
             self.dismod_file.engine = None
+
+    @property
+    def log(self):
+        self.dismod_file.refresh(["log"])
+        return self.dismod_file.log
 
     @property
     def predict(self):

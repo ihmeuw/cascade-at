@@ -3,8 +3,11 @@
 Versioning
 ==========
 
-We are using the date to version. This means tagging versions with git, and then
-the rest should work. The command is::
+We are using the date to version and ``setuptools_scm`` to create the version.
+This means tagging versions with git, and then
+the rest should work. A new version is created with each install and tagged
+by date, as enforced by the install script. Were you to do it by hand,
+the command is::
 
     git tag -a v18.12.23 -m "Release with uncertainty in results"
 
