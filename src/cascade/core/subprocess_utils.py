@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 import re
 
 from cascade.core import getLoggers
@@ -46,23 +47,27 @@ def _dismod_report_stderr(accumulator):
     return inner
 
 
-def run_with_async_logging(command):
+async def async_run_with_logging(command, loop):
+    sub_process = await asyncio.subprocess.create_subprocess_exec(
+        *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+
+    stdout_accumulator = []
+    stderr_accumulator = []
+    std_out_task = loop.create_task(_read_pipe(sub_process.stdout, _dismod_report_info(stdout_accumulator)))
+    std_err_task = loop.create_task(_read_pipe(sub_process.stderr, _dismod_report_stderr(stderr_accumulator)))
+
+    await sub_process.wait()
+    await std_out_task
+    await std_err_task
+
+    return sub_process.returncode, "".join(stdout_accumulator), "".join(stderr_accumulator)
+
+
+def run_with_logging(command):
     loop = asyncio.get_event_loop()
-
-    async def coroutine():
-        sub_process = await asyncio.subprocess.create_subprocess_exec(
-            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-
-        stdout_accumulator = []
-        stderr_accumulator = []
-        std_out_task = loop.create_task(_read_pipe(sub_process.stdout, _dismod_report_info(stdout_accumulator)))
-        std_err_task = loop.create_task(_read_pipe(sub_process.stderr, _dismod_report_stderr(stderr_accumulator)))
-
-        await sub_process.wait()
-        await std_out_task
-        await std_err_task
-
-        return sub_process.returncode, "".join(stdout_accumulator), "".join(stderr_accumulator)
-
-    return loop.run_until_complete(coroutine())
+    if loop.is_running():
+        process = subprocess.run(command, capture_output=True)
+        return process.returncode, process.stdout.decode(), process.stderr.decode()
+    else:
+        return loop.run_until_complete(async_run_with_logging(command, loop))

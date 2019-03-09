@@ -103,7 +103,7 @@ echo $ENV
 
 # Create the virtual environment for the project code and required packages
 
-"${PYTHON_MINICONDA}/bin/python" -m venv "${ENV}"
+"${PYTHON_MINICONDA}/bin/python" -m venv --system-site-packages "${ENV}"
 
 source "${ENV}/bin/activate"
 pip install --upgrade pip

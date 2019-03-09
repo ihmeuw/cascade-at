@@ -1,6 +1,7 @@
 import pytest
 from numpy.random import RandomState
 
+from cascade.dismod import DismodATException
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import create_local_settings
 from cascade.executor.dismodel_main import generate_plan, parse_arguments
@@ -34,7 +35,8 @@ def test_with_known_id(ihme, meid, mvid, tmp_path):
             # Change the tier by hand b/c the bundle creation would normally
             # have run, but not for this test.
             this_location_work.data_access.tier = 2
-            estimate_location(ec, this_location_work)
+            with pytest.raises(DismodATException):
+                estimate_location(ec, this_location_work)
             break  # Do one, not the whole tree.
         # else is a bundle setup.
 

@@ -2,6 +2,7 @@ import pickle
 from pathlib import Path
 
 import pytest
+from numpy import isclose
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import CascadePlan
@@ -17,7 +18,9 @@ from cascade.executor.session_options import make_options
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.model.session import Session
 from cascade.testing_utilities import make_execution_context
-from cascade.testing_utilities.compare_dismod_db import CompareDatabases
+from cascade.testing_utilities.compare_dismod_db import (
+    CompareDatabases, pull_covariate, pull_covariate_multiplier
+)
 from cascade.testing_utilities.fake_data import retrieve_fake_data
 
 
@@ -130,6 +133,21 @@ def construct_model_fair(ec, filename, rng_state):
         pickle.dump(rng_state, Path("fail_state.pkl").open("wb"))
         raise
 
+    for dismod_cov_idx in range(len(covariate_data_spec)):
+        name, ref, max_diff, values = pull_covariate(filename, dismod_cov_idx)
+        if name == "s_one":
+            assert all(isclose(v, 1) for v in values)
+        elif name == "s_sex":
+            assert all(any(isclose(v, x) for x in (-0.5, 0, 0.5)) for v in values)
+    with pytest.raises(ValueError):
+        # There must not be too many covariates
+        pull_covariate(filename, len(covariate_data_spec))
+
+    for mulcov_idx in range(len(covariate_multipliers)):
+        pull_covariate_multiplier(filename, mulcov_idx)
+    with pytest.raises(ValueError):
+        pull_covariate_multiplier(filename, len(covariate_multipliers))
+
 
 def change_setting(settings, name, value):
     members = name.split(".")
@@ -184,6 +202,7 @@ def test_same_settings(ihme, tmp_path, base_settings, reference_db):
 ])
 def test_option_settings(ihme, tmp_path, base_settings, reference_db, setstr, val, opt):
     filename = tmp_path / "single_settings.db"
+    filename = "single_settings.db"
     local_settings, locations = make_local_settings(base_settings)
     change_setting(local_settings, setstr, val)
     make_a_db(local_settings, locations, filename)

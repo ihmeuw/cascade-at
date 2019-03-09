@@ -8,11 +8,6 @@ Covariate Multipliers, each of which implies use of a covariate.
 The two functions that read the EpiViz-AT settings and construct
 data for Dismod-AT are ``assign_covariates`` and ``create_covariate_multipliers``.
 
-.. autofunction:: cascade.input_data.configuration.builder.assign_covariates
-    :noindex:
-
-.. autofunction:: cascade.input_data.configuration.builder.create_covariate_multipliers
-    :noindex:
 
 .. autofunction:: cascade.input_data.configuration.construct_country.covariate_to_measurements_nearest_favoring_same_year
     :noindex:
