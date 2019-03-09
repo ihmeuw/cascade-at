@@ -88,10 +88,17 @@ def add_study_covariate_to_observations_and_avgints(data):
     study_columns = sorted(data.study_id_to_name.values())
     average_integrand_cases_index = data.average_integrand_cases.index
     avgint_columns = pd.DataFrame(
-        # They are all zero, which is the correct, final, value.
+        # They are all zero except sex, which is the correct, final, value.
         data=np.zeros((len(average_integrand_cases_index), len(study_columns)), dtype=np.double),
         columns=study_columns,
         index=average_integrand_cases_index,
     )
     data.average_integrand_cases = pd.concat([data.average_integrand_cases, avgint_columns], axis=1)
+    avgints = data.average_integrand_cases
+    if "s_sex" in avgints.columns and "sex_id" in avgints:
+        avgints.loc[avgints.sex_id == 1, "s_sex"] = 0.5
+        avgints.loc[avgints.sex_id == 2, "s_sex"] = -0.5
+        data.average_integrand_cases = avgints
+    else:
+        MATHLOG.warning(f"Sex covariate missing when assigning integrands.")
     MATHLOG.info(f"Study covariates added: {study_columns}")
