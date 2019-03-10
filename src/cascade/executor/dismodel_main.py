@@ -125,6 +125,7 @@ def parse_arguments(args):
     parser.add_argument("--skip-cache", action="store_true")
     parser.add_argument("--num-processes", type=int, default=4,
                         help="How many subprocesses to start.")
+    parser.add_argument("--num-samples", type=int, help="Override number of samples.")
     parser.add_argument("--pdb", action="store_true")
     return parser.parse_args(args)
 
