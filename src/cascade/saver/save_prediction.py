@@ -1,8 +1,27 @@
+import pandas as pd
 import numpy as np
 
 from cascade.input_data.db.demographics import age_ranges_to_groups
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.core.db import ezfuncs
+
+
+def uncertainty_from_prediction_draws(predictions):
+    predictions = pd.concat(predictions)
+    columns_to_remove = ["sample_index"] + [c for c in predictions.columns if c.startswith("s_") and c != "s_sex"]
+    predictions = predictions.drop(columns_to_remove, "columns")
+    predictions = predictions.groupby(
+        ["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper", "s_sex"]
+    )
+
+    lower = predictions.quantile(0.025)
+    lower.columns = ["lower"]
+    upper = predictions.quantile(0.975)
+    upper.columns = ["upper"]
+    mean = predictions.mean()
+    mean.columns = ["mean"]
+
+    return pd.concat([lower, upper, mean], axis="columns").reset_index()
 
 
 def save_predicted_value(execution_context, predicted, fit_or_final):
