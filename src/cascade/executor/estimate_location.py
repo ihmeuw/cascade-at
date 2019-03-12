@@ -125,11 +125,11 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
     include_birth_prevalence = local_settings.settings.model.birth_prev
     data.average_integrand_cases = \
         make_average_integrand_cases_from_gbd(
-            data.ages_df, data.years_df, local_settings.sex_id,
+            data.ages_df, data.years_df, local_settings.sexes,
             local_settings.children, include_birth_prevalence)
     # This comes in yearly from 1950 to 2018
     data.age_specific_death_rate = asdr_as_fit_input(
-        local_settings.parent_location_id, local_settings.sex_id,
+        local_settings.parent_location_id, local_settings.sexes,
         data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
 
     data.cause_specific_mortality_rate = get_raw_csmr(
@@ -166,7 +166,7 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     for set_density in ev_settings.data_density_by_integrand:
         density[id_to_integrand[set_density.integrand_measure_id]] = set_density.value
 
-    csmr = normalize_csmr(input_data.cause_specific_mortality_rate, local_settings.sex_id)
+    csmr = normalize_csmr(input_data.cause_specific_mortality_rate, local_settings.sexes)
     CODELOG.debug(f"bundle cols {input_data.bundle.columns}\ncsmr cols {csmr.columns}")
     assert not set(csmr.columns) - set(input_data.bundle.columns)
     bundle_with_added = pd.concat([input_data.bundle, csmr], sort=False)
@@ -209,7 +209,7 @@ def set_sex_reference(covariate_data_spec, local_settings):
             (2, 3): [-0.5, 0.75],
             (1, 2, 3): [0.0, 0.75],
         }
-        reference, max_difference = sex_assignments_to_exclude_by_value[tuple(sorted(local_settings.sex_id))]
+        reference, max_difference = sex_assignments_to_exclude_by_value[tuple(sorted(local_settings.sexes))]
         sex_covariate[0].reference = reference
         sex_covariate[0].max_difference = max_difference
 

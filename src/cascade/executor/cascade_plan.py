@@ -17,10 +17,10 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 class EstimationParameters:
     def __init__(self, settings, policies, children,
-                 parent_location_id, grandparent_location_id, sex_id, number_of_fixed_effect_samples):
+                 parent_location_id, grandparent_location_id, sexes, number_of_fixed_effect_samples):
 
         self.parent_location_id = parent_location_id
-        self.sex_id = sex_id
+        self.sexes = sexes
         self.data_access = ParameterProperty()
         """These decide which data to get."""
 
@@ -91,10 +91,10 @@ class CascadePlan:
         parent_location_id = self._location_of_cascade_job(cascade_job_id)
         if self._settings.model.is_field_unset("drill_sex"):
             # An unset drill sex gets all data.
-            sex_id = [1, 2, 3]
+            sexes = [1, 2, 3]
         else:
             # Setting to male or female pulls in "both."
-            sex_id = [self._settings.model.drill_sex, 3]
+            sexes = [self._settings.model.drill_sex, 3]
 
         policies = policies_from_settings(self._settings)
         if self._args.num_samples:
@@ -109,7 +109,7 @@ class CascadePlan:
             parent_location_id=parent_location_id,
             grandparent_location_id=grandparent_location_id,
             # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].
-            sex_id=sex_id,
+            sexes=sexes,
             number_of_fixed_effect_samples=sample_cnt,
         )
         local_settings.data_access = _ParameterHierarchy(**dict(
