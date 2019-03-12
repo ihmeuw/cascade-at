@@ -110,7 +110,7 @@ def test_predicted_to_uploadable_format(s_sex, sex_id, mocker):
     new_predicted = _predicted_to_uploadable_format(None, predicted)
 
     assert fake_age_to_group.called
-    assert new_predicted.location_id.to_list() == predicted.location.to_list()
-    assert new_predicted.sex_id.to_list() == sex_id
-    assert new_predicted.year_id.to_list() == predicted.time_lower.to_list()
-    assert new_predicted.measure_id.to_list() == [5, 41, 7]
+    assert new_predicted.location_id.tolist() == predicted.location.tolist()
+    assert new_predicted.sex_id.tolist() == sex_id
+    assert new_predicted.year_id.tolist() == predicted.time_lower.tolist()
+    assert new_predicted.measure_id.tolist() == [5, 41, 7]

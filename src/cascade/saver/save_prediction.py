@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
 
+from cascade.core import getLoggers
 from cascade.dismod.constants import IntegrandEnum
 from cascade.input_data.db.demographics import age_ranges_to_groups
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.core.db import ezfuncs
+
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def uncertainty_from_prediction_draws(predictions):
@@ -66,4 +69,9 @@ def save_predicted_value(execution_context, predicted, fit_or_final):
     predicted = predicted.assign(model_version_id=execution_context.parameters.model_version_id)
 
     engine = ezfuncs.get_engine(execution_context.parameters.database)
-    predicted.to_sql(table, engine, if_exists="append", index=False)
+    CODELOG.debug(f"Saving {len(table)} records to {table} on db "
+                  f"{execution_context.parameters.database}.")
+    try:
+        predicted.to_sql(table, engine, if_exists="append", index=False)
+    except Exception as exc:
+        raise RuntimeError(f"Could not save predictions") from exc

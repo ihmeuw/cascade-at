@@ -15,7 +15,7 @@ def test_age_ranges_to_groups(mocker):
 
     new_df = age_ranges_to_groups(None, df)
 
-    assert new_df.age_group_id.to_list() == [1, 2, 4]
+    assert new_df.age_group_id.tolist() == [1, 2, 4]
     assert set(new_df.columns) == {"age_group_id", "integrand"}
 
     new_df = age_ranges_to_groups(None, df, True)
@@ -29,7 +29,7 @@ def test_age_ranges_to_groups__birth(mocker):
     df = pd.DataFrame({"age_lower": [0], "age_upper": [0], "integrand": ["prevalence"]})
 
     new_df = age_ranges_to_groups(None, df)
-    assert new_df.age_group_id.to_list() == [164]
+    assert new_df.age_group_id.tolist() == [164]
 
     df["integrand"] = "remission"
     with pytest.raises(ValueError):
