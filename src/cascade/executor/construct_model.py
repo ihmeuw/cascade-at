@@ -149,6 +149,8 @@ def constraint_from_rectangular_data(rate_var, default_age_time):
 
 def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
     """
+    Create a new SmoothGrid from the settings in EpiViz-AT at the Smoothing
+    level.
 
     Args:
         default_age_time (List[ages, times]): Two members, the ages and the time.
@@ -160,10 +162,10 @@ def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
     ages, times = construct_grid_ages_times(default_age_time, single_age_time, smooth)
     rate_grid = SmoothGrid(ages=ages, times=times)
     for kind in ["value", "dage", "dtime"]:
-        if not smooth.default.is_field_unset(kind):
+        if not smooth.is_field_unset("default") and not smooth.default.is_field_unset(kind):
             getattr(rate_grid, kind)[:, :] = getattr(smooth.default, kind).prior_object
-        else:
-            pass  # An unset prior should be unused (dage for one age, dtime for one time)
+        if not smooth.is_field_unset("mulstd") and not smooth.mulstd.is_field_unset(kind):
+            getattr(rate_grid, kind).mulstd_prior = getattr(smooth.mulstd, kind).prior_object
     if not smooth.is_field_unset("detail"):
         for smoothing_prior in smooth.detail:
             for a, t in matching_knots(rate_grid, smoothing_prior):
@@ -173,7 +175,10 @@ def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
 
 def matching_knots(rate_grid, smoothing_prior):
     """
-    Get lower and upper out of the smoothing prior
+    Get lower and upper out of the smoothing prior. This uses the age, time,
+    and "born" lower and upper bounds to return
+    ages and times in the grid that are within those bounds.
+    The goal is to apply a prior selectively to those knots.
 
     Args:
         smoothing_prior (cascade.input_data.configuration.form.SmoothingPrior):

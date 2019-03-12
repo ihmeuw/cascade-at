@@ -113,7 +113,7 @@ class SmoothingPrior(Form):
 class SmoothingPriorGroup(Form):
     dage = SmoothingPrior(name_field="prior_type", nullable=True, display="Age diff")
     dtime = SmoothingPrior(name_field="prior_type", nullable=True, display="Time diff")
-    value = SmoothingPrior(name_field="prior_type", display="Values")
+    value = SmoothingPrior(name_field="prior_type", nullable=True, display="Values")
 
 
 class Smoothing(Form):
