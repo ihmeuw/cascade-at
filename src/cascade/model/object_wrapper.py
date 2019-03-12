@@ -254,7 +254,7 @@ class ObjectWrapper:
 
     def make_new_dismod_file(self, locations):
         if self._filename.exists():
-            MATHLOG.info(f"{self._filename} exists so overwriting it.")
+            CODELOG.info(f"{self._filename} exists so overwriting it.")
             self._filename.unlink()
 
         self.dismod_file = DismodFile()

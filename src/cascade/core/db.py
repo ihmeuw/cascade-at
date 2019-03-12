@@ -5,6 +5,7 @@ have consistency and a single chokepoint for that access.
 """
 import importlib
 from contextlib import contextmanager
+from pathlib import Path
 
 import pandas as pd
 
@@ -17,6 +18,7 @@ Used to control access to the testing environment. You can't load this
 with from <module> import BLOCK_SHARED_FUNCTION_ACCESS. You have to
 modify the value as ``module_proxy.BLOCK_SHARED_FUNCTION_ACCESS``.
 """
+LOCAL_ODBC = Path("/ihme/code/dismod_at/share/local_odbc.ini")
 
 
 class DatabaseSandboxViolation(Exception):
@@ -61,6 +63,18 @@ age_spans = ModuleProxy("db_queries.get_age_metadata")
 db_tools = ModuleProxy("db_tools")
 ezfuncs = ModuleProxy("db_tools.ezfuncs")
 save_results = ModuleProxy("save_results")
+
+
+def use_local_odbc_ini():
+    """The password vault is an odbc.ini file that's on a drive that
+    isn't accessible from all nodes, so copy it to a place it
+    can be found and point the connection generation to it."""
+    have_default = Path("/home/j").exists() or Path("~/.odbc.ini").expanduser().exists()
+    if LOCAL_ODBC.exists() and not have_default:
+        CODELOG.info(f"Using odbc.ini at {LOCAL_ODBC}")
+        db_tools.config.DBConfig(odbc_filepath=str(LOCAL_ODBC))
+    else:
+        CODELOG.debug(f"Using default odbc.ini")
 
 
 @contextmanager

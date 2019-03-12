@@ -97,6 +97,11 @@ class CascadePlan:
             sexes = [self._settings.model.drill_sex, 3]
 
         policies = policies_from_settings(self._settings)
+        if self._args.num_samples:
+            sample_cnt = self._args.num_samples
+        else:
+            sample_cnt = policies["number_of_fixed_effect_samples"]
+
         local_settings = EstimationParameters(
             settings=self._settings,
             policies=policies,
@@ -105,7 +110,7 @@ class CascadePlan:
             grandparent_location_id=grandparent_location_id,
             # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].
             sexes=sexes,
-            number_of_fixed_effect_samples=policies["number_of_fixed_effect_samples"],
+            number_of_fixed_effect_samples=sample_cnt,
         )
         local_settings.data_access = _ParameterHierarchy(**dict(
             gbd_round_id=self._settings.gbd_round_id,
