@@ -9,6 +9,7 @@ from pprint import pformat
 from timeit import default_timer
 
 from cascade.core import getLoggers, __version__
+from cascade.core.db import use_local_odbc_ini
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_logging import logging_config
 from cascade.executor.cascade_plan import CascadePlan
@@ -83,6 +84,7 @@ def entry(args=None):
         if args.skip_cache:
             args.no_upload = True
 
+        use_local_odbc_ini()
         main(args)
     except SettingsError as e:
         MATHLOG.error(str(e))
