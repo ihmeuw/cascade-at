@@ -190,14 +190,16 @@ def matching_knots(rate_grid, smoothing_prior):
     extents = dict()
     for extent in ["age", "time", "born"]:
         extents[extent] = np.zeros(2, dtype=np.float)
-        for sidx, side, default_extent in [(0, "lower", -inf), (1, "upper", inf)]:
+        for side_idx, side, default_extent in [(0, "lower", -inf), (1, "upper", inf)]:
             name = f"{extent}_{side}"
             if smoothing_prior.is_field_unset(name):
-                extents[extent][sidx] = default_extent
+                extents[extent][side_idx] = default_extent
             else:
-                extents[extent][sidx] = getattr(smoothing_prior, name)
+                extents[extent][side_idx] = getattr(smoothing_prior, name)
+    # meshgrid generates every combination of age and time as two numpy arrays.
     ages, times = np.meshgrid(rate_grid.ages, rate_grid.times)
-    # result is shape (len(times), len(ages)), backwards
+    assert ages.shape == (len(rate_grid.times), len(rate_grid.ages))
+    assert times.shape == (len(rate_grid.times), len(rate_grid.ages))
     in_age = (ages >= extents["age"][0]) & (ages <= extents["age"][1])
     in_time = (times >= extents["time"][0]) & (times <= extents["time"][1])
     in_born = (ages <= times - extents["born"][0]) & (ages >= times - extents["born"][1])
