@@ -1,3 +1,5 @@
+import pytest
+
 import numpy as np
 import pandas as pd
 
@@ -79,7 +81,16 @@ def test_uncertainty_from_prediction_draws():
     assert np.allclose(with_uncertainty["mean"], source["true_mean"], atol=0.003)
 
 
-def test_predicted_to_uploadable_format(mocker):
+@pytest.mark.parametrize(
+    "s_sex,sex_id",
+    [
+        ([-0.5, -0.5, -0.5], [2, 2, 2]),
+        ([0, 0, 0], [3, 3, 3]),
+        ([0.5, 0.5, 0.5], [1, 1, 1]),
+        ([-0.5, 0, 0.5], [2, 3, 1]),
+    ],
+)
+def test_predicted_to_uploadable_format(s_sex, sex_id, mocker):
     fake_age_to_group = mocker.patch("cascade.saver.save_prediction.age_ranges_to_groups")
     fake_age_to_group.side_effect = lambda _, df: df
 
@@ -92,7 +103,7 @@ def test_predicted_to_uploadable_format(mocker):
             "age_upper": [1, 2, 3],
             "time_lower": [1990, 2000, 2002],
             "time_upper": [1990, 2000, 2002],
-            "s_sex": [-0.5, 0, 0.5],
+            "s_sex": s_sex,
         }
     )
 
@@ -100,6 +111,6 @@ def test_predicted_to_uploadable_format(mocker):
 
     assert fake_age_to_group.called
     assert new_predicted.location_id.to_list() == predicted.location.to_list()
-    assert new_predicted.sex_id.to_list() == [2, 3, 1]
+    assert new_predicted.sex_id.to_list() == sex_id
     assert new_predicted.year_id.to_list() == predicted.time_lower.to_list()
     assert new_predicted.measure_id.to_list() == [5, 41, 7]
