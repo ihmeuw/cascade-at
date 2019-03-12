@@ -108,7 +108,7 @@ def make_a_db(local_settings, locations, filename):
     model = construct_model(modified_data, local_settings, covariate_multipliers, covariate_data_spec)
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
-    session.set_option(**make_options(local_settings.settings))
+    session.set_option(**make_options(local_settings.settings, local_settings.model_options))
     session.setup_model_for_fit(model)
 
 

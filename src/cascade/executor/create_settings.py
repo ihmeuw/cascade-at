@@ -93,7 +93,13 @@ BASE_CASE = {
     ],
     "tolerance": {
         "fixed": 1e-10
-    }
+    },
+    "re_bound_location": [
+        {
+            "location": 1,
+            "value": 0.1
+        }
+    ]
 }
 
 

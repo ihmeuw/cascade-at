@@ -1,5 +1,5 @@
 
-def make_options(ev_settings):
+def make_options(ev_settings, model_options):
     """This sets Dismod-AT options from the EpiViz-AT settings and model.
     https://bradbell.github.io/dismod_at/doc/option_table.htm
 
@@ -41,8 +41,7 @@ def make_options(ev_settings):
     # limited_memory_max_history_fixed is not in the Form.
     if not ev_settings.policies.is_field_unset("limited_memory_max_history_fixed"):
         options["limited_memory_max_history_fixed"] = ev_settings.policies.limited_memory_max_history_fixed
-    # bound_frac_fixed is not in the Form.
-    if not ev_settings.model.is_field_unset("bound_random"):
-        options["bound_random"] = ev_settings.model.bound_random
+    # bound_frac_fixed is not in the form.
+    options["bound_random"] = model_options.bound_random
 
     return options

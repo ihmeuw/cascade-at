@@ -1,9 +1,13 @@
+from types import SimpleNamespace
+
 import networkx as nx
 from numpy.random import RandomState
+import pytest
 
-from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.cascade_plan import CascadePlan, make_model_options
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.db.configuration import load_settings
+from cascade.input_data.configuration.form import Configuration, RandomEffectBound
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
 from cascade.executor.create_settings import create_settings
@@ -77,3 +81,31 @@ def test_random_settings():
             else:
                 assert job_kind == "bundle_setup"
             assert job_args is not None
+
+
+def field_set(name):
+    return False
+
+
+@pytest.mark.parametrize("loc,expected", [
+    (1, 0.7), (2, None), (3, 0.7), (4, 0.3), (5, 0.2),
+])
+def test_model_options(loc, expected):
+    rng = RandomState(342523)
+    locations = nx.DiGraph()
+    locations.add_edges_from([(1, 2), (1, 3), (2, 4), (4, 5)])
+    children = [2, 3]
+    locations.add_edges_from([(1, c) for c in children])
+    settings = create_settings(rng, locations)
+    settings.model.bound_random = 0.7
+    settings.re_bound_location.process_source([
+        dict(location=2),
+        dict(location=4, value=0.3),
+        dict(location=5, value=0.2),
+    ])
+    settings.validate_and_normalize()
+    for inner in settings.re_bound_location:
+        print(f"re bound loc {inner.location} {inner.value}")
+    print(f"unset {settings.is_field_unset('re_bound_location')}")
+    opts = make_model_options(locations, loc, settings)
+    assert opts.bound_random == expected

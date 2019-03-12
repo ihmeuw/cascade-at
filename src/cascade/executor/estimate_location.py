@@ -232,7 +232,7 @@ def compute_location(execution_context, local_settings, input_data, model):
         parent_location=model.location_id,
         filename=base_path / "fit.db"
     )
-    session.set_option(**make_options(local_settings.settings))
+    session.set_option(**make_options(local_settings.settings, local_settings.model_options))
     begin = timer()
     # This should just call init.
     if not local_settings.run.db_only:
@@ -284,7 +284,7 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
         filename=fit_file
     )
     local_settings.settings.policies.meas_std_effect
-    sim_session.set_option(**make_options(local_settings.settings))
+    sim_session.set_option(**make_options(local_settings.settings, local_settings.model_options))
     begin = timer()
     sim_fit_result = sim_session.fit(sim_model, sim_data)
     CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
@@ -343,7 +343,7 @@ def make_draws(execution_context, model, input_data, max_fit, local_settings, nu
         parent_location=model.location_id,
         filename=base_path / "simulate.db"
     )
-    session.set_option(**make_options(local_settings.settings))
+    session.set_option(**make_options(local_settings.settings, local_settings.model_options))
     simulate_result = session.simulate(model, input_data.observations, max_fit, draw_cnt)
 
     loop = asyncio.get_event_loop()
