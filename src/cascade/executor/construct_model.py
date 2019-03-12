@@ -164,13 +164,10 @@ def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
             getattr(rate_grid, kind)[:, :] = getattr(smooth.default, kind).prior_object
         else:
             pass  # An unset prior should be unused (dage for one age, dtime for one time)
-    if smooth.is_field_unset("detail"):
-        return
-
-    for smoothing_prior in smooth.detail:
-        for a, t in matching_knots(rate_grid, smoothing_prior):
-            getattr(rate_grid, smoothing_prior.prior_type)[
-                a, t] = smoothing_prior.prior_object
+    if not smooth.is_field_unset("detail"):
+        for smoothing_prior in smooth.detail:
+            for a, t in matching_knots(rate_grid, smoothing_prior):
+                getattr(rate_grid, smoothing_prior.prior_type)[a, t] = smoothing_prior.prior_object
     return rate_grid
 
 
@@ -203,17 +200,6 @@ def matching_knots(rate_grid, smoothing_prior):
     if not np.any(cover):
         MATHLOG.info(f"No ages and times match prior with extents {extents}.")
     yield from zip(ages[cover], times[cover])
-
-
-def add_detailed_priors_to_grid(rate_grid, smooth):
-    """
-    Translated the "detailed" section of the EpiViz-AT Form.
-
-    Args:
-        rate_grid (SmoothGrid): The Smooth Grid to modify in place.
-        smooth (cascade.input_data.configuration.form.Smoothing): The form element.
-    """
-
 
 
 def construct_grid_ages_times(default_age_time, single_age_time, smooth):

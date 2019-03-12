@@ -249,4 +249,3 @@ def test_matching_knots(kind, al, au, tl, tu, bl, bu, cnt):
     assert len(age_time) == cnt
     # uniqueness
     assert len({(a, t) for (a, t) in age_time}) == len(age_time)
-    
