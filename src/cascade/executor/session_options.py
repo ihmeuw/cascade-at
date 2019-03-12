@@ -1,3 +1,5 @@
+from cascade.dismod.constants import IntegrandEnum
+
 
 def make_options(ev_settings):
     """This sets Dismod-AT options from the EpiViz-AT settings and model.
@@ -46,3 +48,10 @@ def make_options(ev_settings):
         options["bound_random"] = ev_settings.model.bound_random
 
     return options
+
+
+def make_minimum_meas_cv(ev_settings):
+    if not ev_settings.model.is_field_unset("minimum_meas_cv"):
+        return {integrand.name: ev_settings.model.minimum_meas_cv for integrand in IntegrandEnum}
+    else:
+        return {}

@@ -6,7 +6,9 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import pytest
+from numpy import isclose
 
+from cascade.dismod.constants import IntegrandEnum
 from cascade.model import (
     Session, Model, SmoothGrid, Covariate,
     Uniform, Gaussian
@@ -216,3 +218,54 @@ def test_write_avgint(basic_model, tmp_path):
         assert np.isclose(tl, times[idx] - 0.4)
         assert np.isclose(tu, times[idx] + 0.4)
         assert np.isclose(x0, traffic[idx])
+
+
+def test_obj_wrapper_min_meas_cv(basic_model, tmp_path):
+    locations = pd.DataFrame(dict(
+        name=["global", "americas", "asia", "africa"],
+        parent_id=[nan, 1, 1, 1],
+        location_id=[1, 2, 3, 4],
+    ))
+    parent_location = 1
+    db_file = tmp_path / "min_meas_cv.db"
+    wrapper = ObjectWrapper(locations, parent_location, db_file)
+
+    wrapper.model = basic_model
+    for integrand_name in IntegrandEnum:
+        wrapper.set_minimum_meas_cv(integrand_name.name, 0.1)
+
+    wrapper.set_minimum_meas_cv("Sincidence", 0.01)
+    wrapper.set_minimum_meas_cv("withC", 0.2)
+    wrapper.close()
+
+    conn = Connection(str(db_file))
+    result = conn.execute("""
+        SELECT integrand_name, minimum_meas_cv
+        from integrand
+    """).fetchall()
+    vals = dict(result)
+    for name, value in vals.items():
+        if name == "Sincidence":
+            assert isclose(value, 0.01)
+        elif name == "withC":
+            assert isclose(value, 0.2)
+        else:
+            assert isclose(value, 0.1)
+
+
+def test_obj_wrapper_min_meas_cv_exception(basic_model, tmp_path):
+    locations = pd.DataFrame(dict(
+        name=["global", "americas", "asia", "africa"],
+        parent_id=[nan, 1, 1, 1],
+        location_id=[1, 2, 3, 4],
+    ))
+    parent_location = 1
+    db_file = tmp_path / "min_meas_cv.db"
+    wrapper = ObjectWrapper(locations, parent_location, db_file)
+
+    wrapper.model = basic_model
+    with pytest.raises(KeyError):
+        wrapper.set_minimum_meas_cv("Susan", 0.1)
+
+    with pytest.raises(ValueError):
+        wrapper.set_minimum_meas_cv("Sincidence", "tiny")

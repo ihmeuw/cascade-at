@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod.constants import DensityEnum, RateEnum
+from cascade.dismod.constants import DensityEnum, RateEnum, IntegrandEnum
 from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.model.serialize import default_integrand_names, make_log_table
 from cascade.model.data_read_write import (
@@ -141,6 +141,16 @@ class ObjectWrapper:
         var_id = read_var_table_as_id(self.dismod_file)
         write_vars(self.dismod_file, new_vars, var_id, name)
         self.flush()
+
+    def set_minimum_meas_cv(self, integrand, value):
+        if value is not None:
+            fvalue = float(value)
+            assert fvalue >= 0.0
+        else:
+            fvalue = 0
+        integrand = IntegrandEnum[integrand]
+        dmf = self.dismod_file
+        dmf.integrand.loc[dmf.integrand.integrand_name == integrand.name, "minimum_meas_cv"] = fvalue
 
     @property
     def prior_residuals(self):

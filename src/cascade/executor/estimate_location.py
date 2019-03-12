@@ -14,7 +14,7 @@ from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
-from cascade.executor.session_options import make_options
+from cascade.executor.session_options import make_options, make_minimum_meas_cv
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
     normalized_bundle_from_disk,
@@ -271,6 +271,7 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
     )
     local_settings.settings.policies.meas_std_effect
     sim_session.set_option(**make_options(local_settings.settings))
+    sim_session.set_minimum_meas_cv(**make_minimum_meas_cv(local_settings.settings))
     begin = timer()
     sim_fit_result = sim_session.fit(sim_model, sim_data)
     CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
@@ -330,6 +331,7 @@ def make_draws(execution_context, model, input_data, max_fit, local_settings, nu
         filename=base_path / "simulate.db"
     )
     session.set_option(**make_options(local_settings.settings))
+    session.set_minimum_meas_cv(**make_minimum_meas_cv(local_settings.settings))
     simulate_result = session.simulate(model, input_data.observations, max_fit, draw_cnt)
 
     loop = asyncio.get_event_loop()
