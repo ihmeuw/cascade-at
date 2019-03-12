@@ -34,7 +34,7 @@ from cascade.input_data.db.locations import location_hierarchy, location_hierarc
 from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
-from cascade.saver.save_prediction import save_predicted_value
+from cascade.saver.save_prediction import save_predicted_value, uncertainty_from_prediction_draws
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -256,21 +256,7 @@ def compute_location(execution_context, local_settings, input_data, model):
 
 
 def save_outputs(computed_fit, predictions, execution_context, local_settings):
-    predictions = pd.concat(predictions)
-    columns_to_remove = ["sample_index"] + [c for c in predictions.columns if c.startswith("s_") and c != "s_sex"]
-    predictions = predictions.drop(columns_to_remove, "columns")
-    predictions = predictions.groupby(
-        ["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper", "s_sex"]
-    )
-
-    lower = predictions.quantile(0.025)
-    lower.columns = ["lower"]
-    upper = predictions.quantile(0.975)
-    upper.columns = ["upper"]
-    mean = predictions.mean()
-    mean.columns = ["mean"]
-
-    predictions = pd.concat([lower, upper, mean], axis="columns").reset_index()
+    predictions = uncertainty_from_prediction_draws(predictions)
 
     save_predicted_value(execution_context, predictions, "fit")
 
