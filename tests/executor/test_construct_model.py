@@ -1,11 +1,14 @@
 import pickle
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from numpy import isclose
+import numpy as np
+from numpy import isclose, inf
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.construct_model import matching_knots
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import (
     create_local_settings, create_settings, SettingsChoices
@@ -15,6 +18,7 @@ from cascade.executor.estimate_location import (
     modify_input_data, construct_model
 )
 from cascade.executor.session_options import make_options
+from cascade.input_data.configuration.form import SmoothingPrior
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.model.session import Session
 from cascade.testing_utilities import make_execution_context
@@ -212,3 +216,36 @@ def test_option_settings(ihme, tmp_path, base_settings, reference_db, setstr, va
     assert compare.different_tables() & {"option"}
     print(compare.record_differences("option"))
     assert compare.diff_contains("option", opt)
+
+
+@pytest.mark.parametrize("kind,al,au,tl,tu,bl,bu,cnt",[
+    ("data", 0, 10, 2000, 2040, 1000, inf, 11 * 4),
+    ("data", 0, 30, 2000, 2040, 1000, inf, 20 * 4),
+    ("data", 0, 10, 1980, 2040, 1000, inf, 11 * 5),
+    ("data", 0, 10, 2000, 2040, -inf, inf, 11 * 4),
+    ("data", 0, 10, 2000, 2040, 1991, inf, 11 * 4 - 1),
+    ("data", 0, 10, 2000, 2040, 1000, 2014, 11 * 4 - 1),
+    ("data", 0, 10, 2000, 2040, 1991, 2014, 11 * 4 - 2),
+])
+def test_matching_knots(kind, al, au, tl, tu, bl, bu, cnt):
+    """See if subselection of ages and times by detailed priors works."""
+    prior = SmoothingPrior()
+    prior_set = dict(
+        prior_type=kind,
+        age_lower=al,
+        age_upper=au,
+        time_lower=tl,
+        time_upper=tu,
+        born_lower=bl,
+        born_upper=bu
+    )
+    for elem, value in prior_set.items():
+        setattr(prior, elem, value)
+    prior.validate_and_normalize()
+    grid = SimpleNamespace()
+    grid.ages = np.arange(20)
+    grid.times = np.array([1990, 2000, 2005, 2010, 2015])
+    age_time = list(matching_knots(grid, prior))
+    assert len(age_time) == cnt
+    # uniqueness
+    assert len({(a, t) for (a, t) in age_time}) == len(age_time)

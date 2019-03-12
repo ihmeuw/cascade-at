@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 import numpy as np
+from numpy import inf
 
 from cascade.core.log import getLoggers
 from cascade.model import (
@@ -147,14 +148,65 @@ def constraint_from_rectangular_data(rate_var, default_age_time):
 
 
 def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
+    """
+    Create a new SmoothGrid from the settings in EpiViz-AT at the Smoothing
+    level.
+
+    Args:
+        default_age_time (List[ages, times]): Two members, the ages and the time.
+        single_age_time (List[float]): Two members, an age and a time.
+        smooth (cascade.input_data.configuration.form.Smoothing): The form element.
+    Returns:
+        SmoothGrid: A new smooth grid.
+    """
     ages, times = construct_grid_ages_times(default_age_time, single_age_time, smooth)
     rate_grid = SmoothGrid(ages=ages, times=times)
     for kind in ["value", "dage", "dtime"]:
-        if not smooth.default.is_field_unset(kind):
+        if not smooth.is_field_unset("default") and not smooth.default.is_field_unset(kind):
             getattr(rate_grid, kind)[:, :] = getattr(smooth.default, kind).prior_object
-        else:
-            pass  # An unset prior should be unused (dage for one age, dtime for one time)
+        if not smooth.is_field_unset("mulstd") and not smooth.mulstd.is_field_unset(kind):
+            getattr(rate_grid, kind).mulstd_prior = getattr(smooth.mulstd, kind).prior_object
+    if not smooth.is_field_unset("detail"):
+        for smoothing_prior in smooth.detail:
+            for a, t in matching_knots(rate_grid, smoothing_prior):
+                getattr(rate_grid, smoothing_prior.prior_type)[a, t] = smoothing_prior.prior_object
     return rate_grid
+
+
+def matching_knots(rate_grid, smoothing_prior):
+    """
+    Get lower and upper out of the smoothing prior. This uses the age, time,
+    and "born" lower and upper bounds to return
+    ages and times in the grid that are within those bounds.
+    The goal is to apply a prior selectively to those knots.
+
+    Args:
+        smoothing_prior (cascade.input_data.configuration.form.SmoothingPrior):
+            A single smoothing prior.
+
+    Returns:
+        Iterator over (a, t) that match. Can be nothing.
+    """
+    extents = dict()
+    for extent in ["age", "time", "born"]:
+        extents[extent] = np.zeros(2, dtype=np.float)
+        for side_idx, side, default_extent in [(0, "lower", -inf), (1, "upper", inf)]:
+            name = f"{extent}_{side}"
+            if smoothing_prior.is_field_unset(name):
+                extents[extent][side_idx] = default_extent
+            else:
+                extents[extent][side_idx] = getattr(smoothing_prior, name)
+    # meshgrid generates every combination of age and time as two numpy arrays.
+    ages, times = np.meshgrid(rate_grid.ages, rate_grid.times)
+    assert ages.shape == (len(rate_grid.times), len(rate_grid.ages))
+    assert times.shape == (len(rate_grid.times), len(rate_grid.ages))
+    in_age = (ages >= extents["age"][0]) & (ages <= extents["age"][1])
+    in_time = (times >= extents["time"][0]) & (times <= extents["time"][1])
+    in_born = (ages <= times - extents["born"][0]) & (ages >= times - extents["born"][1])
+    cover = in_age & in_time & in_born
+    if not np.any(cover):
+        MATHLOG.info(f"No ages and times match prior with extents {extents}.")
+    yield from zip(ages[cover], times[cover])
 
 
 def construct_grid_ages_times(default_age_time, single_age_time, smooth):
