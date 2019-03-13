@@ -192,7 +192,7 @@ def test_same_settings(ihme, tmp_path, base_settings, reference_db):
     ("settings.model.quasi_fixed", 1, "quasi_fixed"),
     ("settings.model.bound_frac_fixed", 1e-4, "bound_frac_fixed"),
     ("settings.policies.limited_memory_max_history_fixed", 50, "limited_memory_max_history_fixed"),
-    ("settings.model.bound_random", 0.2, "bound_random"),
+    ("settings.model.bound_random", 0.23, "bound_random"),
     ("settings.derivative_test.fixed", "first-order", "derivative_test_fixed"),
     ("settings.derivative_test.random", "first-order", "derivative_test_random"),
     ("settings.max_num_iter.fixed", 10, "max_num_iter_fixed"),
@@ -206,7 +206,6 @@ def test_same_settings(ihme, tmp_path, base_settings, reference_db):
 ])
 def test_option_settings(ihme, tmp_path, base_settings, reference_db, setstr, val, opt):
     filename = tmp_path / "single_settings.db"
-    filename = "single_settings.db"
     local_settings, locations = make_local_settings(base_settings)
     change_setting(local_settings, setstr, val)
     make_a_db(local_settings, locations, filename)

@@ -39,7 +39,7 @@ class EstimationParameters:
 
 
 def make_model_options(locations, parent_location_id, ev_settings):
-    bound_random = set_bound_random_this_location(locations, parent_location_id, ev_settings)
+    bound_random = get_bound_random_this_location(locations, parent_location_id, ev_settings)
 
     model_options = _ParameterHierarchy(**dict(
             bound_random=bound_random,
@@ -47,7 +47,7 @@ def make_model_options(locations, parent_location_id, ev_settings):
     return model_options
 
 
-def set_bound_random_this_location(locations, parent_location_id, ev_settings):
+def get_bound_random_this_location(locations, parent_location_id, ev_settings):
     # Set the bounds throughout the location hierarchy.
     # hasattr is right here because any unset ancestor makes the parent unset.
     # and one  of the child forms can have an unset location or value.
@@ -61,6 +61,7 @@ def set_bound_random_this_location(locations, parent_location_id, ev_settings):
         bound_random = ev_settings.model.bound_random
     else:
         bound_random = None
+    CODELOG.debug(f"Setting bound_random's default to {bound_random}")
 
     # Search up the location hierarchy to see if an ancestor has a value.
     this_and_ancestors = nx.ancestors(locations, parent_location_id) | {
