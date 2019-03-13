@@ -37,13 +37,10 @@ def make_options(ev_settings, model_options):
 
     if not ev_settings.model.is_field_unset("quasi_fixed"):
         options["quasi_fixed"] = ev_settings.model.quasi_fixed == 1
-    # bound_frac_fixed is not in the Form.
-    if not ev_settings.model.is_field_unset("bound_frac_fixed"):
         options["bound_frac_fixed"] = ev_settings.model.bound_frac_fixed
     # limited_memory_max_history_fixed is not in the Form.
     if not ev_settings.policies.is_field_unset("limited_memory_max_history_fixed"):
         options["limited_memory_max_history_fixed"] = ev_settings.policies.limited_memory_max_history_fixed
-    # bound_frac_fixed is not in the form.
     options["bound_random"] = model_options.bound_random
 
     return options
