@@ -112,7 +112,7 @@ def make_a_db(local_settings, locations, filename):
     model = construct_model(modified_data, local_settings, covariate_multipliers, covariate_data_spec)
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
-    session.set_option(**make_options(local_settings.settings))
+    session.set_option(**make_options(local_settings.settings, local_settings.model_options))
     session.setup_model_for_fit(model)
 
 
@@ -153,7 +153,12 @@ def construct_model_fair(ec, filename, rng_state):
         pull_covariate_multiplier(filename, len(covariate_multipliers))
 
 
-def change_setting(settings, name, value):
+def change_setting_in_local_settings(settings, name, value):
+    """
+    Assumes the settings object has nested attributes. So if name
+    is ``model_options.bound_random`` and value=0.7, then this sets
+    ``settings.model_options.bound_random=0.7``.
+    """
     members = name.split(".")
     obj = None
     for m in members[:-1]:
@@ -192,7 +197,7 @@ def test_same_settings(ihme, tmp_path, base_settings, reference_db):
     ("settings.model.quasi_fixed", 1, "quasi_fixed"),
     ("settings.model.bound_frac_fixed", 1e-4, "bound_frac_fixed"),
     ("settings.policies.limited_memory_max_history_fixed", 50, "limited_memory_max_history_fixed"),
-    ("settings.model.bound_random", 0.2, "bound_random"),
+    ("model_options.bound_random", 0.23, "bound_random"),
     ("settings.derivative_test.fixed", "first-order", "derivative_test_fixed"),
     ("settings.derivative_test.random", "first-order", "derivative_test_random"),
     ("settings.max_num_iter.fixed", 10, "max_num_iter_fixed"),
@@ -206,15 +211,14 @@ def test_same_settings(ihme, tmp_path, base_settings, reference_db):
 ])
 def test_option_settings(ihme, tmp_path, base_settings, reference_db, setstr, val, opt):
     filename = tmp_path / "single_settings.db"
-    filename = "single_settings.db"
     local_settings, locations = make_local_settings(base_settings)
-    change_setting(local_settings, setstr, val)
+    change_setting_in_local_settings(local_settings, setstr, val)
     make_a_db(local_settings, locations, filename)
 
     compare = CompareDatabases("reference_comparison.db", filename)
     assert not compare.table_diffs()
-    assert compare.different_tables() & {"option"}
     print(compare.record_differences("option"))
+    assert compare.different_tables() & {"option"}
     assert compare.diff_contains("option", opt)
 
 

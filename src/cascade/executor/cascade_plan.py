@@ -1,7 +1,6 @@
 """
 Specification for a whole cascade.
 """
-
 import networkx as nx
 
 from cascade.core import getLoggers
@@ -17,7 +16,8 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 class EstimationParameters:
     def __init__(self, settings, policies, children,
-                 parent_location_id, grandparent_location_id, sexes, number_of_fixed_effect_samples):
+                 parent_location_id, grandparent_location_id, sexes, number_of_fixed_effect_samples,
+                 model_options):
 
         self.parent_location_id = parent_location_id
         self.sexes = sexes
@@ -30,10 +30,65 @@ class EstimationParameters:
         self.grandparent_location_id = grandparent_location_id
         """Can be null at top of drill, even when not global location."""
 
+        self.model_options = model_options
+
         self.children = children
         self.settings = settings
         self.policies = policies
         self.number_of_fixed_effect_samples = number_of_fixed_effect_samples
+
+
+def make_model_options(locations, parent_location_id, ev_settings):
+    bound_random = get_bound_random_this_location(locations, parent_location_id, ev_settings)
+
+    model_options = _ParameterHierarchy(**dict(
+        bound_random=bound_random,
+    ))
+    return model_options
+
+
+def get_bound_random_this_location(locations, parent_location_id, ev_settings):
+    # Set the bounds throughout the location hierarchy.
+    # hasattr is right here because any unset ancestor makes the parent unset.
+    # and one  of the child forms can have an unset location or value.
+    location_tree = locations.copy()
+    if hasattr(ev_settings, "re_bound_location"):
+        add_bound_random_to_location_properties(ev_settings.re_bound_location, location_tree)
+    else:
+        CODELOG.debug("No re_bound_location in settings.")
+
+    # Get the global value, if it exists.
+    if not ev_settings.model.is_field_unset("bound_random"):
+        bound_random = ev_settings.model.bound_random
+    else:
+        bound_random = None
+    CODELOG.debug(f"Setting bound_random's default to {bound_random}")
+
+    # Search up the location hierarchy to see if an ancestor has a value.
+    this_and_ancestors = nx.ancestors(location_tree, parent_location_id) | {parent_location_id}
+    to_top = list(nx.topological_sort(nx.subgraph(location_tree, this_and_ancestors)))
+    to_top.reverse()
+    for check_bounds in to_top:
+        if "bound_random" in location_tree.node[check_bounds]:
+            CODELOG.debug(f"Found bound random in location {check_bounds}")
+            bound_random = location_tree.node[check_bounds]["bound_random"]
+            break
+    return bound_random
+
+
+def add_bound_random_to_location_properties(re_bound_location, locations):
+    for bounds_form in re_bound_location:
+        if not bounds_form.is_field_unset("value"):
+            value = bounds_form.value
+        else:
+            value = None  # This turns off bound random option.
+
+        if not bounds_form.is_field_unset("location"):
+            CODELOG.debug(f"setting {bounds_form.location} to {value}")
+            locations.node[bounds_form.location]["bound_random"] = value
+        else:
+            CODELOG.debug(f"setting root to {value}")
+            locations.node[locations.graph["root"]]["bound_random"] = value
 
 
 class CascadePlan:
@@ -97,6 +152,7 @@ class CascadePlan:
             sexes = [self._settings.model.drill_sex, 3]
 
         policies = policies_from_settings(self._settings)
+        model_options = make_model_options(self._locations, parent_location_id, self._settings)
         if self._args.num_samples:
             sample_cnt = self._args.num_samples
         else:
@@ -111,6 +167,7 @@ class CascadePlan:
             # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].
             sexes=sexes,
             number_of_fixed_effect_samples=sample_cnt,
+            model_options=model_options,
         )
         local_settings.data_access = _ParameterHierarchy(**dict(
             gbd_round_id=self._settings.gbd_round_id,

@@ -54,7 +54,8 @@ BASE_CASE = {
         "quasi_fixed": 0,
         "addl_ode_stpes": "0.015625 0.03125 0.0625 0.125 0.25 0.5",
         "title": "LBW / running on NAME",
-        "drill_location": 40
+        "drill_location": 40,
+        "bound_random": 0.1459
     },
     "max_num_iter": {
         "fixed": 100,
