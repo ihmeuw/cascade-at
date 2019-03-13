@@ -16,11 +16,11 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 class EstimationParameters:
     def __init__(self, settings, policies, children,
-                 parent_location_id, grandparent_location_id, sex_id, number_of_fixed_effect_samples,
+                 parent_location_id, grandparent_location_id, sexes, number_of_fixed_effect_samples,
                  model_options):
 
         self.parent_location_id = parent_location_id
-        self.sex_id = sex_id
+        self.sexes = sexes
         self.data_access = ParameterProperty()
         """These decide which data to get."""
 
@@ -49,19 +49,10 @@ def make_model_options(locations, parent_location_id, ev_settings):
 
 def set_bound_random_this_location(locations, parent_location_id, ev_settings):
     # Set the bounds throughout the location hierarchy.
-    if not ev_settings.is_field_unset("re_bound_location"):
-        for bounds_form in ev_settings.re_bound_location:
-            if not bounds_form.is_field_unset("value"):
-                value = bounds_form.value
-            else:
-                value = None  # This turns off bound random option.
-
-            if not bounds_form.is_field_unset("location"):
-                CODELOG.debug(f"setting {bounds_form.location} to {value}")
-                locations.node[bounds_form.location]["bound_random"] = value
-            else:
-                CODELOG.debug(f"setting root to {value}")
-                locations.node[locations.graph["root"]]["bound_random"] = value
+    # hasattr is right here because any unset ancestor makes the parent unset.
+    # and one  of the child forms can have an unset location or value.
+    if hasattr(ev_settings, "re_bound_location"):
+        add_bound_random_to_location_properties(ev_settings.re_bound_location, locations)
     else:
         CODELOG.debug("No re_bound_location in settings.")
 
@@ -82,6 +73,21 @@ def set_bound_random_this_location(locations, parent_location_id, ev_settings):
             bound_random = locations.node[check_bounds]["bound_random"]
             break
     return bound_random
+
+
+def add_bound_random_to_location_properties(re_bound_location, locations):
+    for bounds_form in re_bound_location:
+        if not bounds_form.is_field_unset("value"):
+            value = bounds_form.value
+        else:
+            value = None  # This turns off bound random option.
+
+        if not bounds_form.is_field_unset("location"):
+            CODELOG.debug(f"setting {bounds_form.location} to {value}")
+            locations.node[bounds_form.location]["bound_random"] = value
+        else:
+            CODELOG.debug(f"setting root to {value}")
+            locations.node[locations.graph["root"]]["bound_random"] = value
 
 
 class CascadePlan:
@@ -139,13 +145,18 @@ class CascadePlan:
         parent_location_id = self._location_of_cascade_job(cascade_job_id)
         if self._settings.model.is_field_unset("drill_sex"):
             # An unset drill sex gets all data.
-            sex_id = [1, 2, 3]
+            sexes = [1, 2, 3]
         else:
             # Setting to male or female pulls in "both."
-            sex_id = [self._settings.model.drill_sex, 3]
+            sexes = [self._settings.model.drill_sex, 3]
 
         policies = policies_from_settings(self._settings)
         model_options = make_model_options(self._locations, parent_location_id, self._settings)
+        if self._args.num_samples:
+            sample_cnt = self._args.num_samples
+        else:
+            sample_cnt = policies["number_of_fixed_effect_samples"]
+
         local_settings = EstimationParameters(
             settings=self._settings,
             policies=policies,
@@ -153,8 +164,8 @@ class CascadePlan:
             parent_location_id=parent_location_id,
             grandparent_location_id=grandparent_location_id,
             # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].
-            sex_id=sex_id,
-            number_of_fixed_effect_samples=policies["number_of_fixed_effect_samples"],
+            sexes=sexes,
+            number_of_fixed_effect_samples=sample_cnt,
             model_options=model_options,
         )
         local_settings.data_access = _ParameterHierarchy(**dict(

@@ -337,7 +337,7 @@ class SettingsChoices:
 def make_locations(depth):
     """Creates locations of given depth as a balanced tree. Root is 1."""
     arity = 3
-    zero_based = nx.balanced_tree(arity, depth, nx.DiGraph)
+    zero_based = nx.balanced_tree(arity, depth, nx.DiGraph())
     locations = nx.relabel_nodes(zero_based, {i: i + 1 for i in range(len(zero_based))})
     for lidx, n in enumerate(locations.nodes):
         locations.nodes[n]["location_name"] = str(lidx)

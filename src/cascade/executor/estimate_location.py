@@ -14,7 +14,7 @@ from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
-from cascade.executor.session_options import make_options
+from cascade.executor.session_options import make_options, make_minimum_meas_cv
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
     normalized_bundle_from_disk,
@@ -34,7 +34,7 @@ from cascade.input_data.db.locations import location_hierarchy, location_hierarc
 from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
-from cascade.saver.save_prediction import save_predicted_value
+from cascade.saver.save_prediction import save_predicted_value, uncertainty_from_prediction_draws
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -125,11 +125,11 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
     include_birth_prevalence = local_settings.settings.model.birth_prev
     data.average_integrand_cases = \
         make_average_integrand_cases_from_gbd(
-            data.ages_df, data.years_df, local_settings.sex_id,
+            data.ages_df, data.years_df, local_settings.sexes,
             local_settings.children, include_birth_prevalence)
     # This comes in yearly from 1950 to 2018
     data.age_specific_death_rate = asdr_as_fit_input(
-        local_settings.parent_location_id, local_settings.sex_id,
+        local_settings.parent_location_id, local_settings.sexes,
         data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
 
     data.cause_specific_mortality_rate = get_raw_csmr(
@@ -166,7 +166,7 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     for set_density in ev_settings.data_density_by_integrand:
         density[id_to_integrand[set_density.integrand_measure_id]] = set_density.value
 
-    csmr = normalize_csmr(input_data.cause_specific_mortality_rate, local_settings.sex_id)
+    csmr = normalize_csmr(input_data.cause_specific_mortality_rate, local_settings.sexes)
     CODELOG.debug(f"bundle cols {input_data.bundle.columns}\ncsmr cols {csmr.columns}")
     assert not set(csmr.columns) - set(input_data.bundle.columns)
     bundle_with_added = pd.concat([input_data.bundle, csmr], sort=False)
@@ -209,7 +209,7 @@ def set_sex_reference(covariate_data_spec, local_settings):
             (2, 3): [-0.5, 0.75],
             (1, 2, 3): [0.0, 0.75],
         }
-        reference, max_difference = sex_assignments_to_exclude_by_value[tuple(sorted(local_settings.sex_id))]
+        reference, max_difference = sex_assignments_to_exclude_by_value[tuple(sorted(local_settings.sexes))]
         sex_covariate[0].reference = reference
         sex_covariate[0].max_difference = max_difference
 
@@ -256,21 +256,7 @@ def compute_location(execution_context, local_settings, input_data, model):
 
 
 def save_outputs(computed_fit, predictions, execution_context, local_settings):
-    predictions = pd.concat(predictions)
-    columns_to_remove = ["sample_index"] + [c for c in predictions.columns if c.startswith("s_") and c != "s_sex"]
-    predictions = predictions.drop(columns_to_remove, "columns")
-    predictions = predictions.groupby(
-        ["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper", "s_sex"]
-    )
-
-    lower = predictions.quantile(0.025)
-    lower.columns = ["lower"]
-    upper = predictions.quantile(0.975)
-    upper.columns = ["upper"]
-    mean = predictions.mean()
-    mean.columns = ["mean"]
-
-    predictions = pd.concat([lower, upper, mean], axis="columns").reset_index()
+    predictions = uncertainty_from_prediction_draws(predictions)
 
     save_predicted_value(execution_context, predictions, "fit")
 
@@ -285,6 +271,7 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
     )
     local_settings.settings.policies.meas_std_effect
     sim_session.set_option(**make_options(local_settings.settings, local_settings.model_options))
+    sim_session.set_minimum_meas_cv(**make_minimum_meas_cv(local_settings.settings))
     begin = timer()
     sim_fit_result = sim_session.fit(sim_model, sim_data)
     CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
@@ -344,6 +331,7 @@ def make_draws(execution_context, model, input_data, max_fit, local_settings, nu
         filename=base_path / "simulate.db"
     )
     session.set_option(**make_options(local_settings.settings, local_settings.model_options))
+    session.set_minimum_meas_cv(**make_minimum_meas_cv(local_settings.settings))
     simulate_result = session.simulate(model, input_data.observations, max_fit, draw_cnt)
 
     loop = asyncio.get_event_loop()

@@ -53,14 +53,14 @@ def get_asdr_data(gbd_round_id, location_and_children, with_hiv):
     return asdr[cols]
 
 
-def asdr_as_fit_input(location_ids, sex_id, gbd_round_id, ages_df, with_hiv):
+def asdr_as_fit_input(location_ids, sexes, gbd_round_id, ages_df, with_hiv):
     r"""Gets age-specific death rate (ASDR) from database and formats as
     input data. This is :math:`{}_nm_x`, the mortality rate by age group.
     Returns rates, not counts.
 
     Args:
         location_ids (List[int]|int): Location for which to get data.
-        sex_id (int): 1, 2, 3, or 4. Sex_id.
+        sexes (int): 1, 2, 3, or 4. Sex_id.
         gbd_round_id (int): GBD round identifies consistent data sets.
         ages_df (pd.DataFrame): Age_id to age mapping.
         with_hiv (bool): whether to include HIV deaths in mortality.
@@ -77,10 +77,10 @@ def asdr_as_fit_input(location_ids, sex_id, gbd_round_id, ages_df, with_hiv):
 
     asdr = get_asdr_data(gbd_round_id, location_ids, with_hiv)
     assert not (set(asdr.age_group_id.unique()) - set(ages_df.age_group_id.values))
-    return asdr_by_sex(asdr, ages_df, sex_id)
+    return asdr_by_sex(asdr, ages_df, sexes)
 
 
-def asdr_by_sex(asdr, ages, sex_id):
+def asdr_by_sex(asdr, ages, sexes):
     """Incoming age-specific death rate has ``age_id`` and upper and lower
     bounds. This translates those into age-ranges, time-ranges, and standard
     deviations."""
@@ -99,7 +99,7 @@ def asdr_by_sex(asdr, ages, sex_id):
         nu=nan,
     )
     trimmed = rest.drop(columns=["age_group_id", "upper", "lower"])
-    return trimmed.query("sex_id in @sex_id").drop(columns=["sex_id"])
+    return trimmed.query("sex_id in @sexes").drop(columns=["sex_id"])
 
 
 def _upload_asdr_data_to_tier_3(gbd_round_id, cursor, model_version_id, asdr_data):

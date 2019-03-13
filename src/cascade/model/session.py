@@ -229,6 +229,19 @@ class Session:
         if self._objects.dismod_file:
             self._objects.set_option(**self._options)
 
+    def set_minimum_meas_cv(self, **kwargs):
+        """Sets the minimum coefficient of variation for this integrand.
+        The name is one of :py:class:`cascade.dismod.constants.IntegrandEnum`.
+        integrand_name (str) The canonical Dismod-AT name for the integrand.
+        value (float) A value greater-than or equal to zero. If it is
+        zero, then there is no coefficient of variation for this integrand.
+
+        Args:
+            name-value pairs: This is a set of integrand=value pars.
+        """
+        for integrand_name, value in kwargs.items():
+            self._objects.set_minimum_meas_cv(integrand_name, value)
+
     def _run_dismod(self, command):
         """Pushes tables to the db file, runs Dismod-AT, and refreshes
         tables written."""

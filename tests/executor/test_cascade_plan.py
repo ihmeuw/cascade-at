@@ -4,6 +4,7 @@ import networkx as nx
 from numpy.random import RandomState
 import pytest
 
+from cascade.core.form import Form, FormList, FloatField
 from cascade.executor.cascade_plan import CascadePlan, make_model_options
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.db.configuration import load_settings
@@ -87,25 +88,40 @@ def field_set(name):
     return False
 
 
+class MiniInnerForm(Form):
+    """For test_model_options as a fake settings"""
+    bound_random = FloatField()
+
+
+class MiniForm(Form):
+    """For test_model_options as a fake settings"""
+    re_bound_location = FormList(RandomEffectBound)
+    model = MiniInnerForm()
+
+
 @pytest.mark.parametrize("loc,expected", [
-    (1, 0.7), (2, None), (3, 0.7), (4, 0.3), (5, 0.2),
+    (1, 0.7), (2, None), (3, 0.7), (4, 0.3), (5, 0.2), (6, 0.2),
 ])
 def test_model_options(loc, expected):
-    rng = RandomState(342523)
     locations = nx.DiGraph()
-    locations.add_edges_from([(1, 2), (1, 3), (2, 4), (4, 5)])
+    locations.add_edges_from([(1, 2), (1, 3), (2, 4), (4, 5), (5, 6)])
     children = [2, 3]
     locations.add_edges_from([(1, c) for c in children])
-    settings = create_settings(rng, locations)
-    settings.model.bound_random = 0.7
-    settings.re_bound_location.process_source([
-        dict(location=2),
-        dict(location=4, value=0.3),
-        dict(location=5, value=0.2),
-    ])
-    settings.validate_and_normalize()
-    for inner in settings.re_bound_location:
-        print(f"re bound loc {inner.location} {inner.value}")
-    print(f"unset {settings.is_field_unset('re_bound_location')}")
-    opts = make_model_options(locations, loc, settings)
+    reb = RandomEffectBound(dict(location=2, value=0.4))
+    assert not reb.is_field_unset("location")
+    assert not reb.is_field_unset("value")
+    reb = RandomEffectBound(dict(location=2))
+    assert not reb.is_field_unset("location")
+    assert reb.is_field_unset("value")
+    bound_form = MiniForm(dict(
+        model=dict(bound_random=0.7),  # This will be the default value.
+    ))
+    bound_form.re_bound_location=[
+            dict(location=2),
+            dict(location=4, value=0.3),
+            dict(location=5, value=0.2),
+        ]
+    errors = bound_form.validate_and_normalize()
+    assert not errors
+    opts = make_model_options(locations, loc, bound_form)
     assert opts.bound_random == expected

@@ -40,6 +40,8 @@ class SmoothingPrior(Form):
     age_upper = FloatField(nullable=True, display="Age upper")
     time_lower = FloatField(nullable=True, display="Time lower")
     time_upper = FloatField(nullable=True, display="Time upper")
+    born_lower = FloatField(nullable=True, display="Born lower")
+    born_upper = FloatField(nullable=True, display="Born upper")
     density = OptionField(
         ["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density"
     )
@@ -111,7 +113,7 @@ class SmoothingPrior(Form):
 class SmoothingPriorGroup(Form):
     dage = SmoothingPrior(name_field="prior_type", nullable=True, display="Age diff")
     dtime = SmoothingPrior(name_field="prior_type", nullable=True, display="Time diff")
-    value = SmoothingPrior(name_field="prior_type", display="Values")
+    value = SmoothingPrior(name_field="prior_type", nullable=True, display="Values")
 
 
 class Smoothing(Form):
