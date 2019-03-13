@@ -42,8 +42,8 @@ def make_model_options(locations, parent_location_id, ev_settings):
     bound_random = get_bound_random_this_location(locations, parent_location_id, ev_settings)
 
     model_options = _ParameterHierarchy(**dict(
-            bound_random=bound_random,
-        ))
+        bound_random=bound_random,
+    ))
     return model_options
 
 
@@ -64,8 +64,7 @@ def get_bound_random_this_location(locations, parent_location_id, ev_settings):
     CODELOG.debug(f"Setting bound_random's default to {bound_random}")
 
     # Search up the location hierarchy to see if an ancestor has a value.
-    this_and_ancestors = nx.ancestors(locations, parent_location_id) | {
-    parent_location_id}
+    this_and_ancestors = nx.ancestors(locations, parent_location_id) | {parent_location_id}
     to_top = list(nx.topological_sort(nx.subgraph(locations, this_and_ancestors)))
     to_top.reverse()
     for check_bounds in to_top:
