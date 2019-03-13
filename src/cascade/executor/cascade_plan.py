@@ -51,8 +51,9 @@ def get_bound_random_this_location(locations, parent_location_id, ev_settings):
     # Set the bounds throughout the location hierarchy.
     # hasattr is right here because any unset ancestor makes the parent unset.
     # and one  of the child forms can have an unset location or value.
+    location_tree = locations.copy()
     if hasattr(ev_settings, "re_bound_location"):
-        add_bound_random_to_location_properties(ev_settings.re_bound_location, locations)
+        add_bound_random_to_location_properties(ev_settings.re_bound_location, location_tree)
     else:
         CODELOG.debug("No re_bound_location in settings.")
 
@@ -64,13 +65,13 @@ def get_bound_random_this_location(locations, parent_location_id, ev_settings):
     CODELOG.debug(f"Setting bound_random's default to {bound_random}")
 
     # Search up the location hierarchy to see if an ancestor has a value.
-    this_and_ancestors = nx.ancestors(locations, parent_location_id) | {parent_location_id}
-    to_top = list(nx.topological_sort(nx.subgraph(locations, this_and_ancestors)))
+    this_and_ancestors = nx.ancestors(location_tree, parent_location_id) | {parent_location_id}
+    to_top = list(nx.topological_sort(nx.subgraph(location_tree, this_and_ancestors)))
     to_top.reverse()
     for check_bounds in to_top:
-        if "bound_random" in locations.node[check_bounds]:
+        if "bound_random" in location_tree.node[check_bounds]:
             CODELOG.debug(f"Found bound random in location {check_bounds}")
-            bound_random = locations.node[check_bounds]["bound_random"]
+            bound_random = location_tree.node[check_bounds]["bound_random"]
             break
     return bound_random
 
