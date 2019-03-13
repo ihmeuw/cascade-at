@@ -295,6 +295,11 @@ class FixedRandomFloat(Form):
     random = FloatField(nullable=True)
 
 
+class RandomEffectBound(Form):
+    location = IntField(nullable=True)
+    value = FloatField(nullable=True)
+
+
 class Policies(Form):
     estimate_emr_from_prevalence = OptionField(
         [0, 1], constructor=int, default=0, display="Estimate EMR from prevalance", nullable=True
@@ -347,7 +352,7 @@ class Configuration(Form):
     location_set_version_id = IntField(default=429, nullable=True)
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
-    re_bound_location = FormList(Dummy)
+    re_bound_location = FormList(RandomEffectBound)
     derivative_test = DerivativeTest(display="Derivative test")
     max_num_iter = FixedRandomInt(display="Max ipopt iterations")
     print_level = FixedRandomInt(display="Print level")

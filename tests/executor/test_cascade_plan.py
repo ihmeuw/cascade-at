@@ -1,9 +1,14 @@
+from types import SimpleNamespace
+
 import networkx as nx
 from numpy.random import RandomState
+import pytest
 
-from cascade.executor.cascade_plan import CascadePlan
+from cascade.core.form import Form, FormList, FloatField
+from cascade.executor.cascade_plan import CascadePlan, make_model_options
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.db.configuration import load_settings
+from cascade.input_data.configuration.form import Configuration, RandomEffectBound
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
 from cascade.executor.create_settings import create_settings
@@ -77,3 +82,46 @@ def test_random_settings():
             else:
                 assert job_kind == "bundle_setup"
             assert job_args is not None
+
+
+def field_set(name):
+    return False
+
+
+class MiniInnerForm(Form):
+    """For test_model_options as a fake settings"""
+    bound_random = FloatField()
+
+
+class MiniForm(Form):
+    """For test_model_options as a fake settings"""
+    re_bound_location = FormList(RandomEffectBound)
+    model = MiniInnerForm()
+
+
+@pytest.mark.parametrize("loc,expected", [
+    (1, 0.7), (2, None), (3, 0.7), (4, 0.3), (5, 0.2), (6, 0.2),
+])
+def test_model_options(loc, expected):
+    locations = nx.DiGraph()
+    locations.add_edges_from([(1, 2), (1, 3), (2, 4), (4, 5), (5, 6)])
+    children = [2, 3]
+    locations.add_edges_from([(1, c) for c in children])
+    reb = RandomEffectBound(dict(location=2, value=0.4))
+    assert not reb.is_field_unset("location")
+    assert not reb.is_field_unset("value")
+    reb = RandomEffectBound(dict(location=2))
+    assert not reb.is_field_unset("location")
+    assert reb.is_field_unset("value")
+    bound_form = MiniForm(dict(
+        model=dict(bound_random=0.7),  # This will be the default value.
+    ))
+    bound_form.re_bound_location=[
+            dict(location=2),
+            dict(location=4, value=0.3),
+            dict(location=5, value=0.2),
+        ]
+    errors = bound_form.validate_and_normalize()
+    assert not errors
+    opts = make_model_options(locations, loc, bound_form)
+    assert opts.bound_random == expected
