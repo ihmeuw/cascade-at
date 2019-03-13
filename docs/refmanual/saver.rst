@@ -3,5 +3,5 @@
 Saver Functionality
 ====================
 
-.. automodule:: cascade.saver.generate_draws
+.. automodule:: cascade.saver.save_prediction
     :members:
