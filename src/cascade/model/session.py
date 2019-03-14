@@ -260,12 +260,15 @@ class Session:
 
     def _check_dismod_command(self, command, stdout, stderr):
         log = self._objects.log
+        oom_sentinel = "std:bad_alloc"
+        max_iter_sentinel = "Maximum Number of Iterations Exceeded"
         if len(log) == 0 or f"end {command}" not in log.message.iloc[-1]:
-            if "std:bad_alloc" in stdout or "std::bad_alloc" in stderr:
-                message = "Dismod-AT ran out of memory"
+            if oom_sentinel in stdout or oom_sentinel in stderr:
+                raise DismodATException("Dismod-AT ran out of memory")
+            elif max_iter_sentinel in stdout or max_iter_sentinel in stderr:
+                MATHLOG.warning("Dismod-AT exceeded iterations")
             else:
-                message = f"Dismod-AT failed to complete '{command}' command"
-            raise DismodATException(message)
+                raise DismodATException(f"Dismod-AT failed to complete '{command}' command")
 
     @staticmethod
     def _check_vars(var):

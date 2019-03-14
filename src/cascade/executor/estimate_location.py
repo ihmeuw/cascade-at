@@ -269,7 +269,6 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
         parent_location=parent_location,
         filename=fit_file
     )
-    local_settings.settings.policies.meas_std_effect
     sim_session.set_option(**make_options(local_settings.settings, local_settings.model_options))
     sim_session.set_minimum_meas_cv(**make_minimum_meas_cv(local_settings.settings))
     begin = timer()
@@ -323,6 +322,7 @@ async def _async_make_draws(base_path, input_data, model, local_settings, simula
 
 def make_draws(execution_context, model, input_data, max_fit, local_settings, num_processes):
     base_path = execution_context.db_path(local_settings.parent_location_id)
+    MATHLOG.info(f"DB files for {local_settings.parent_location_id} in {base_path}.")
     base_path.mkdir(parents=True, exist_ok=True)
     draw_cnt = local_settings.number_of_fixed_effect_samples
     session = Session(

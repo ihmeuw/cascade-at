@@ -150,7 +150,10 @@ class ObjectWrapper:
             fvalue = 0
         integrand = IntegrandEnum[integrand]
         dmf = self.dismod_file
-        dmf.integrand.loc[dmf.integrand.integrand_name == integrand.name, "minimum_meas_cv"] = fvalue
+        if dmf:
+            dmf.integrand.loc[dmf.integrand.integrand_name == integrand.name, "minimum_meas_cv"] = fvalue
+        else:
+            CODELOG.info(f"minimum_meas_cv not set because dismod_file is None.")
 
     @property
     def prior_residuals(self):
