@@ -275,8 +275,10 @@ def check_binary_covariates(execution_context, covariate_ids):
     """
     is_binary = dict()
     for covariate_id in covariate_ids:
-        result_df = ezfuncs.query("select dichotomous from shared.covariate where covariate_id=?",
-                                  (covariate_id,), conn_def=execution_context.parameters.database)
+        result_df = ezfuncs.query(
+            "select dichotomous from shared.covariate where covariate_id=?",
+            paramters=(covariate_id,),
+            conn_def=execution_context.parameters.database)
         is_binary[covariate_id] = (result_df.dichotomous[0] == 1)
     return is_binary
 
@@ -285,8 +287,10 @@ def check_and_handle_binary_covariate(covariate_id, covariate_column, execution_
     """Check the dichotomous value from shared.covariate to check if the covariate is binary.
     If it is, make sure the assigned value is only 0 or 1.
     """
-    result_df = ezfuncs.query("select dichotomous from shared.covariate where covariate_id=?",
-                              (covariate_id,), conn_def=execution_context.parameters.database)
+    result_df = ezfuncs.query(
+        "select dichotomous from shared.covariate where covariate_id=?",
+        parameters=(covariate_id,),
+        conn_def=execution_context.parameters.database)
 
     if result_df.dichotomous[0] == 1:
         covariate_column[covariate_column <= .5] = 0
