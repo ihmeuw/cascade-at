@@ -277,7 +277,7 @@ def check_binary_covariates(execution_context, covariate_ids):
     for covariate_id in covariate_ids:
         result_df = ezfuncs.query(
             "select dichotomous from shared.covariate where covariate_id=?",
-            paramters=(covariate_id,),
+            parameters=(covariate_id,),
             conn_def=execution_context.parameters.database)
         is_binary[covariate_id] = (result_df.dichotomous[0] == 1)
     return is_binary
