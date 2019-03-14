@@ -177,12 +177,7 @@ def main():
         }
     )
 
-    # Convert sex covariate to sex name
-    data["sex"] = data.x_0.apply(lambda c: {-0.5: "Female", 0.5: "Male", 0.0: "Both"}[c])
-    data = data.drop("x_0", axis=1)
-    covariate_columns.remove("x_0")
-
-    # Other covariates
+    # Covariates
     cov_pattern = re.compile("[sc]_(.*)_[^_]+")
     dm_cov_to_gbd_study_cov = {
         f"x_{r['covariate_id']}": f"cv_{cov_pattern.match(r['covariate_name']).group(1)}"
@@ -194,6 +189,10 @@ def main():
             data = data.rename(columns={c: dm_cov_to_gbd_study_cov[c]})
         else:
             data = data.drop(c, axis=1)
+
+    # Convert sex covariate to sex name
+    data["sex"] = data.cv_sex.apply(lambda c: {-0.5: "Female", 0.5: "Male", 0.0: "Both"}[c])
+    data = data.drop("cv_sex", axis=1)
 
     # Convert nodes to locations
     node_to_location = {r.node_id: r.c_location_id for _, r in node_table.iterrows()}
