@@ -47,7 +47,7 @@ def country_covariates(covariate_id, demographics, gbd_round_id):
         sex_id=demographics["sex_ids"],
         gbd_round_id=gbd_round_id
     )[[
-        "covariate_id", "covariate_name_short", "location_id", "age_group_id",
+        "location_id", "age_group_id",
         "year_id", "sex_id", "mean_value"
     ]]
 
