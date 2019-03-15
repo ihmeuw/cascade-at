@@ -241,8 +241,6 @@ def compute_location(execution_context, local_settings, input_data, model):
         session.setup_model_for_fit(model, input_data.observations)
         return None, None
     CODELOG.info(f"fit {timer() - begin}")
-    if not fit_result.success:
-        raise DismodATException("Fit failed")
 
     draws = make_draws(
         execution_context,
@@ -274,18 +272,15 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
     begin = timer()
     sim_fit_result = sim_session.fit(sim_model, sim_data)
     CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
-    if sim_fit_result.success:
-        CODELOG.debug(f"sim fit {draw_idx} success")
-        predicted, _ = sim_session.predict(
-            sim_fit_result.fit,
-            average_integrand_cases.drop("sex_id", "columns"),
-            parent_location,
-            covariates=covariates
-        )
-        return (sim_fit_result.fit, predicted)
-    else:
-        CODELOG.debug(f"sim fit {draw_idx} not successful in {fit_file}.")
-        return None
+
+    CODELOG.debug(f"sim fit {draw_idx} success")
+    predicted, _ = sim_session.predict(
+        sim_fit_result.fit,
+        average_integrand_cases.drop("sex_id", "columns"),
+        parent_location,
+        covariates=covariates
+    )
+    return (sim_fit_result.fit, predicted)
     # XXX make the Session close or be a contextmanager.
 
 
