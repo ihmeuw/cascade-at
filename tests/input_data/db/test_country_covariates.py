@@ -12,18 +12,18 @@ def mock_db_queries(mocker):
 @pytest.fixture
 def mock_ccov_estimates():
     mock_ccov_estimates = pd.DataFrame(columns=[
-        "covariate_id", "covariate_name_short", "location_id", "age_group_id", "year_id",
+        "location_id", "age_group_id", "year_id",
         "sex_id", "mean_value"])
-    mock_ccov_estimates.loc[0] = [33, "phlegm", 101, 22, 1990, 1, 1000]
+    mock_ccov_estimates.loc[0] = [101, 22, 1990, 1, 1000]
     return mock_ccov_estimates
 
 
 @pytest.fixture
 def expected_ccov():
     expected_ccov = pd.DataFrame(columns=[
-        "covariate_id", "covariate_name_short", "location_id", "age_group_id", "year_id",
+        "location_id", "age_group_id", "year_id",
         "sex_id", "mean_value"])
-    expected_ccov.loc[0] = [33, "phlegm", 101, 22, 1990, 1, 1000]
+    expected_ccov.loc[0] = [101, 22, 1990, 1, 1000]
 
     return expected_ccov
 
@@ -59,10 +59,9 @@ def test_country_covariates_real(ihme, demographics_default):
     ccov = country_covariates(country_covariate_id, demographics_default, gbd_round_id)
 
     assert set(ccov.columns) == {
-        "covariate_id", "covariate_name_short", "location_id", "age_group_id", "year_id", "sex_id", "mean_value"}
+        "location_id", "age_group_id", "year_id", "sex_id", "mean_value"}
 
     assert len(ccov) == 1 * 1 * 2 * 23 * 38
-    assert set(ccov["covariate_id"].unique()) == {26}
     assert set(ccov["location_id"].unique()) == {102}
     assert set(ccov["sex_id"].unique()) == {1, 2}
     # These age groups are fewer than requested. 27 is missing.

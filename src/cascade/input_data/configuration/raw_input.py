@@ -74,6 +74,7 @@ EXPECTED_TYPES = dict(
         ('time_upper', dtype('float64')),
         ('sex_id', dtype('int64')),
         ('mean_value', dtype('float64')),
+        ('location_id', dtype('int64')),
     ]
 )
 """These are the data frames and column data types that define

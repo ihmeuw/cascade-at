@@ -261,7 +261,7 @@ def construct_model_random_effects(default_age_time, single_age_time, ev_setting
 
 
 def construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model):
-    """The covariat multipliers are of all types: alpha, beta, and gamma. This adds
+    """The covariate multipliers are of all types: alpha, beta, and gamma. This adds
     their priors to the Model.
 
     Args:
