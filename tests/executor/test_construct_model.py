@@ -98,7 +98,7 @@ def make_local_settings(given_settings):
     j = list(c.cascade_jobs)[1:]
     job_choice = choices.choice(list(range(len(j))), name="job_idx")
     job_kind, job_args = c.cascade_job(j[job_choice])
-    assert job_kind == "estimate_location"
+    assert job_kind.startswith("estimate_location:")
     return job_args, locations
 
 
@@ -222,7 +222,7 @@ def test_option_settings(ihme, tmp_path, base_settings, reference_db, setstr, va
     assert compare.diff_contains("option", opt)
 
 
-@pytest.mark.parametrize("kind,al,au,tl,tu,bl,bu,cnt",[
+@pytest.mark.parametrize("kind,al,au,tl,tu,bl,bu,cnt", [
     ("data", 0, 10, 2000, 2040, 1000, inf, 11 * 4),
     ("data", 0, 30, 2000, 2040, 1000, inf, 20 * 4),
     ("data", 0, 10, 1980, 2040, 1000, inf, 11 * 5),

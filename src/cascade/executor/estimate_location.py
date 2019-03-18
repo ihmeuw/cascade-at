@@ -39,7 +39,7 @@ from cascade.saver.save_prediction import save_predicted_value, uncertainty_from
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def estimate_location(execution_context, local_settings, local_cache=None):
+def prepare_data_for_estimate(execution_context, local_settings, local_cache):
     """
     Estimates rates for a single location in the location hierarchy.
     This does multiple fits and predictions in order to estimate uncertainty.
@@ -52,13 +52,28 @@ def estimate_location(execution_context, local_settings, local_cache=None):
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
+    local_cache.set("covariate_multipliers", covariate_multipliers)
+    local_cache.set("covariate_data_spec", covariate_data_spec)
     input_data = retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache)
     columns_wrong = validate_input_data_types(input_data)
     assert not columns_wrong, f"validation failed {columns_wrong}"
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
+    local_cache.set("prepared_input_data", modified_data)
+
+
+def construct_model_for_estimate_location(local_settings, local_cache):
+    covariate_multipliers = local_cache.get("covariate_multipliers")
+    covariate_data_spec = local_cache.get("covariate_data_spec")
+    modified_data = local_cache.get("prepared_input_data")
     model = construct_model(modified_data, local_settings, covariate_multipliers,
                             covariate_data_spec)
-    set_priors_from_parent_draws(model, input_data.draws)
+    set_priors_from_parent_draws(model, modified_data.draws)
+    local_cache.set("prepared_model", model)
+
+
+def compute_and_save_draws_for_estimate_location(execution_context, local_settings, local_cache):
+    modified_data = local_cache.get("prepared_input_data")
+    model = local_cache.get("prepared_model")
     computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
     if draws:
         draws, predictions = zip(*draws)
