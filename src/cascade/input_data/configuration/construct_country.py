@@ -168,7 +168,7 @@ def assign_interpolated_covariate_values(measurements, covariates, is_binary):
     Returns:
         pd.Series: One row for every row in the measurements.
     """
-    assert isinstance(is_binary, bool), f"Expected bool got {is_binary} {type(is_binary)}"
+    is_binary = bool(is_binary)  # In case it's a Numpy bool
 
     # is the covariate by_age, does it have multiple years?
     covar_at_dims = compute_covariate_age_time_dimensions(covariates)
