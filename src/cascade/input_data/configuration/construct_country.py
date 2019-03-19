@@ -168,14 +168,14 @@ def assign_interpolated_covariate_values(measurements, covariates, is_binary):
     Returns:
         pd.Series: One row for every row in the measurements.
     """
-    assert isinstance(is_binary, bool), f"Expected bool got {is_binary} {type(is_binary)}"
+    is_binary = bool(is_binary)  # In case it's a Numpy bool
 
     # is the covariate by_age, does it have multiple years?
     covar_at_dims = compute_covariate_age_time_dimensions(covariates)
     # identify the overall interval for the covariate ages, could have middle gaps
     covar_age_interval = compute_covariate_age_interval(covariates)
     # find a matching covariate value for each measurement
-    covariate_column = compute_interpolated_covariate_values_by_sex(
+    measurements_with_age, covariate_column = compute_interpolated_covariate_values_by_sex(
         measurements, covariates, covar_at_dims)
     # if the covariate is binary, make sure the assigned values are only 0 or 1
     if is_binary:
@@ -183,7 +183,7 @@ def assign_interpolated_covariate_values(measurements, covariates, is_binary):
         covariate_column[covariate_column > .5] = 1
 
     # set missings using covar_age_interval
-    meas_mean_age_in_age_interval = [i in covar_age_interval for i in measurements["avg_age"]]
+    meas_mean_age_in_age_interval = [i in covar_age_interval for i in measurements_with_age["avg_age"]]
     covariate_column = pd.Series(np.where(meas_mean_age_in_age_interval, covariate_column, np.nan))
 
     return covariate_column
@@ -219,13 +219,17 @@ def compute_interpolated_covariate_values_by_sex(
         pd.Series: One row for every row in the measurements.
     """
 
-    covariates["avg_age"] = covariates[["age_lower", "age_upper"]].mean(axis=1)
-    covariates["avg_time"] = covariates[["time_lower", "time_upper"]].mean(axis=1)
+    covariates = covariates.assign(
+        avg_age=covariates[["age_lower", "age_upper"]].mean(axis=1),
+        avg_time=covariates[["time_lower", "time_upper"]].mean(axis=1)
+    )
 
     covariates_by_sex = get_covariate_data_by_sex(covariates)
 
-    measurements["avg_age"] = measurements[["age_lower", "age_upper"]].mean(axis=1)
-    measurements["avg_time"] = measurements[["time_lower", "time_upper"]].mean(axis=1)
+    measurements = measurements.assign(
+        avg_age=measurements[["age_lower", "age_upper"]].mean(axis=1),
+        avg_time=measurements[["time_lower", "time_upper"]].mean(axis=1)
+    )
 
     measurements_by_sex = get_measurement_data_by_sex(measurements)
 
@@ -266,7 +270,7 @@ def compute_interpolated_covariate_values_by_sex(
 
     covariate_column = pd.Series(cov_col, index=cov_index).sort_index()
 
-    return covariate_column
+    return measurements, covariate_column
 
 
 def check_binary_covariates(execution_context, covariate_ids):
@@ -276,8 +280,8 @@ def check_binary_covariates(execution_context, covariate_ids):
     is_binary = dict()
     for covariate_id in covariate_ids:
         result_df = ezfuncs.query(
-            "select dichotomous from shared.covariate where covariate_id=?",
-            parameters=(covariate_id,),
+            "select dichotomous from shared.covariate where covariate_id=:covid",
+            parameters=dict(covid=covariate_id),
             conn_def=execution_context.parameters.database)
         is_binary[covariate_id] = (result_df.dichotomous[0] == 1)
     return is_binary
@@ -288,8 +292,8 @@ def check_and_handle_binary_covariate(covariate_id, covariate_column, execution_
     If it is, make sure the assigned value is only 0 or 1.
     """
     result_df = ezfuncs.query(
-        "select dichotomous from shared.covariate where covariate_id=?",
-        parameters=(covariate_id,),
+        "select dichotomous from shared.covariate where covariate_id=:covid",
+        parameters=dict(covid=covariate_id),
         conn_def=execution_context.parameters.database)
 
     if result_df.dichotomous[0] == 1:

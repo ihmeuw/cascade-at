@@ -134,10 +134,11 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
 
     country_covariate_ids = {spec.covariate_id for spec in covariate_data_spec if spec.study_country == "country"}
     # Raw country covariate data.
+    parent_and_children = local_settings.children + [local_settings.parent_location_id]
     covariates_by_age_id = country_covariate_set(
         country_covariate_ids,
         demographics=dict(age_group_ids="all", year_ids="all", sex_ids="all",
-                          location_ids=local_settings.parent_location_id),
+                          location_ids=parent_and_children),
         gbd_round_id=data_access.gbd_round_id,
     )
     # Every age group defined, so that we can search for what's given.
@@ -147,7 +148,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
         ccov_ranges_df = convert_gbd_ids_to_dismod_values(covariate_df, all_age_spans)
         data.country_covariates[covariate_id] = ccov_ranges_df
 
-    data.country_covariate_binary = check_binary_covariates(execution_context, country_covariate_ids)
+    data.country_covariates_binary = check_binary_covariates(execution_context, country_covariate_ids)
 
     # Standard GBD age groups with IDs, start, finish.
     data.ages_df = db_queries.get_age_metadata(
@@ -300,18 +301,15 @@ def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, location
     begin = timer()
     sim_fit_result = sim_session.fit(sim_model, sim_data)
     CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
-    if sim_fit_result.success:
-        CODELOG.debug(f"sim fit {draw_idx} success")
-        predicted, _ = sim_session.predict(
-            sim_fit_result.fit,
-            average_integrand_cases.drop("sex_id", "columns"),
-            parent_location,
-            covariates=covariates
-        )
-        return (sim_fit_result.fit, predicted)
-    else:
-        CODELOG.debug(f"sim fit {draw_idx} not successful in {fit_file}.")
-        return None
+
+    CODELOG.debug(f"sim fit {draw_idx} success")
+    predicted, _ = sim_session.predict(
+        sim_fit_result.fit,
+        average_integrand_cases.drop("sex_id", "columns"),
+        parent_location,
+        covariates=covariates
+    )
+    return (sim_fit_result.fit, predicted)
     # XXX make the Session close or be a contextmanager.
 
 
