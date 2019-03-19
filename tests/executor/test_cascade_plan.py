@@ -11,6 +11,8 @@ from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
 from cascade.executor.create_settings import create_settings
 
+SUBJOBS_PER_LOCATION = 5
+
 
 def test_create_start_finish(ihme):
     args = parse_arguments(["z.db"])
@@ -21,7 +23,7 @@ def test_create_start_finish(ihme):
     settings.model.drill_location_start = 4
     settings.model.drill_location_end = 6
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    assert len(c._task_graph.nodes) == 1 + 3 + 3 + 3
+    assert len(c._task_graph.nodes) == 1 + SUBJOBS_PER_LOCATION * 3
     print(nx.to_edgelist(c._task_graph))
 
 
@@ -34,7 +36,7 @@ def test_single_start_finish(ihme):
     settings.model.drill_location_start = 6
     settings.model.drill_location_end = 6
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    assert len(c._task_graph.nodes) == 1 + 3
+    assert len(c._task_graph.nodes) == 1 + SUBJOBS_PER_LOCATION
     print(nx.to_edgelist(c._task_graph))
 
 
@@ -62,7 +64,7 @@ def test_iterate_tasks(ihme):
             assert len(local_settings.children) > 0
 
         cnt += 1
-    assert cnt == 1 + 3 + 3  # one global setup plus three subjobs each for two locations
+    assert cnt == 1 + SUBJOBS_PER_LOCATION * 2
 
 
 def test_random_settings():

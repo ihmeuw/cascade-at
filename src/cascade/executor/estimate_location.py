@@ -21,9 +21,7 @@ from cascade.input_data.configuration.construct_bundle import (
     bundle_to_observations,
     strip_bundle_exclusions,
 )
-from cascade.input_data.configuration.construct_country import (
-    convert_gbd_ids_to_dismod_values, check_binary_covariates
-)
+from cascade.input_data.configuration.construct_country import check_binary_covariates
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr, normalize_csmr
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.configuration.local_cache import LocalCache
@@ -35,6 +33,7 @@ from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
 from cascade.saver.save_prediction import save_predicted_value, uncertainty_from_prediction_draws
+from cascade.input_data.configuration.construct_country import convert_gbd_ids_to_dismod_values
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -71,10 +70,19 @@ def construct_model_for_estimate_location(local_settings, local_cache):
     local_cache.set("prepared_model:{local_settings.parent_location_id}", model)
 
 
+def initial_guess_from_fit_fixed(execution_context, local_settings, local_cache):
+    model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
+    input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
+    initial_guess = local_cache.get("parent_initial_guess:{local_settings.parent_location_id}")
+    fit_result = compute_parent_fit_fixed(execution_context, local_settings, input_data, model, initial_guess)
+    local_cache.set("parent_initial_guess:{local_settings.parent_location_id}", fit_result.fit)
+
+
 def compute_initial_fit(execution_context, local_settings, local_cache):
     model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
     input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-    fit_result = compute_parent_fit(execution_context, local_settings, input_data, model)
+    initial_guess = local_cache.get("parent_initial_guess:{local_settings.parent_location_id}")
+    fit_result = compute_parent_fit(execution_context, local_settings, input_data, model, initial_guess)
     local_cache.set("parent_fit:{local_settings.parent_location_id}", fit_result)
 
 
@@ -250,7 +258,7 @@ def set_sex_reference(covariate_data_spec, local_settings):
         sex_covariate[0].max_difference = max_difference
 
 
-def compute_parent_fit(execution_context, local_settings, input_data, model):
+def compute_parent_fit_fixed(execution_context, local_settings, input_data, model, initial_guess=None):
     """
 
     Args:
@@ -266,13 +274,40 @@ def compute_parent_fit(execution_context, local_settings, input_data, model):
     session = Session(
         locations=input_data.locations_df,
         parent_location=model.location_id,
-        filename=base_path / "fit.db"
+        filename=base_path / "fit.db",
+    )
+    session.set_option(**make_options(local_settings.settings, local_settings.model_options))
+    begin = timer()
+    fit_result = session.fit(model, input_data.observations, initial_guess=initial_guess)
+    CODELOG.info(f"fit fixed {timer() - begin}")
+    if not fit_result.success:
+        raise DismodATException("Fit fixed failed")
+    return fit_result
+
+
+def compute_parent_fit(execution_context, local_settings, input_data, model, initial_guess=None):
+    """
+
+    Args:
+        execution_context:
+        input_data: These include observations and initial guess.
+        model (Model): A complete Model object.
+
+    Returns:
+        The fit.
+    """
+    base_path = execution_context.db_path(local_settings.parent_location_id)
+    base_path.mkdir(parents=True, exist_ok=True)
+    session = Session(
+        locations=input_data.locations_df,
+        parent_location=model.location_id,
+        filename=base_path / "fit.db",
     )
     session.set_option(**make_options(local_settings.settings, local_settings.model_options))
     begin = timer()
     # This should just call init.
     if not local_settings.run.db_only:
-        fit_result = session.fit(model, input_data.observations)
+        fit_result = session.fit(model, input_data.observations, initial_guess=initial_guess)
         CODELOG.info(f"fit {timer() - begin}")
         if not fit_result.success:
             raise DismodATException("Fit failed")

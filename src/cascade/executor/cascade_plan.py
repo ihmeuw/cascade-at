@@ -227,16 +227,23 @@ class CascadePlan:
             setup_task = []
         else:
             setup_task = [(drill[0], "bundle_setup")]
+
+        substeps = [
+            "prepare_data",
+            "construct_model",
+        ]
+        if settings.policies.fit_strategy == "fit_fixed_then_fit":
+            substeps.append("initial_guess_from_fit_fixed")
+        substeps.extend([
+            "compute_initial_fit",
+            "compute_draws_from_parent_fit",
+            "save_predictions"
+        ])
+
         tasks = setup_task + [
             (drill_location, ("estimate_location", substep))
             for drill_location in drill
-            for substep in [
-                "prepare_data",
-                "construct_model",
-                "compute_initial_fit",
-                "compute_draws_from_parent_fit",
-                "save_predictions"
-            ]
+            for substep in substeps
         ]
         task_pairs = list(zip(tasks[:-1], tasks[1:]))
         plan._task_graph = nx.DiGraph()
