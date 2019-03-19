@@ -13,7 +13,9 @@ CODELOG, MATHLOG = getLoggers(__name__)
 def uncertainty_from_prediction_draws(predictions):
     predictions = pd.concat(predictions)
     CODELOG.debug(f"predictions columns {predictions.columns}")
-    columns_to_remove = ["sample_index"] + [c for c in predictions.columns if c.startswith("s_") and c != "s_sex"]
+    columns_to_remove = (
+        ["sample_index"] + [c for c in predictions.columns if c.startswith("s_") and c != "s_sex"]
+        + [c for c in predictions.columns if c.startswith("c_")])
     predictions = predictions.drop(columns_to_remove, "columns")
     predictions = predictions.groupby(
         ["location", "integrand", "age_lower", "age_upper", "time_lower", "time_upper", "s_sex"]
