@@ -113,7 +113,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
         ccov_ranges_df = convert_gbd_ids_to_dismod_values(covariate_df, all_age_spans)
         data.country_covariates[covariate_id] = ccov_ranges_df
 
-    data.country_covariate_binary = check_binary_covariates(execution_context, country_covariate_ids)
+    data.country_covariates_binary = check_binary_covariates(execution_context, country_covariate_ids)
 
     # Standard GBD age groups with IDs, start, finish.
     data.ages_df = db_queries.get_age_metadata(
