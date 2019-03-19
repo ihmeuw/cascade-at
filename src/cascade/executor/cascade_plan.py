@@ -230,7 +230,13 @@ class CascadePlan:
         tasks = setup_task + [
             (drill_location, ("estimate_location", substep))
             for drill_location in drill
-            for substep in ["prepare_data", "construct_model", "compute_and_save_draws"]
+            for substep in [
+                "prepare_data",
+                "construct_model",
+                "compute_initial_fit",
+                "compute_draws_from_parent_fit",
+                "save_predictions"
+            ]
         ]
         task_pairs = list(zip(tasks[:-1], tasks[1:]))
         plan._task_graph = nx.DiGraph()

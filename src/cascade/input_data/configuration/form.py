@@ -319,7 +319,7 @@ class Policies(Form):
         default=30, nullable=True,
         display="number of most recent iterations taken into account for quasi-Newton"
     )
-    run_fit_fixed_before_fit_random = OptionField([1, 0], default=0, constructor=int, nullable=True)
+    fit_strategy = OptionField(["fit", "fit_fixed_then_fit"], default=0, constructor=int, nullable=True)
 
 
 class Configuration(Form):

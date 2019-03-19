@@ -52,37 +52,57 @@ def prepare_data_for_estimate(execution_context, local_settings, local_cache):
     covariate_multipliers, covariate_data_spec = create_covariate_specifications(
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
-    local_cache.set("covariate_multipliers", covariate_multipliers)
-    local_cache.set("covariate_data_spec", covariate_data_spec)
+    local_cache.set("covariate_multipliers:{local_settings.parent_location_id}", covariate_multipliers)
+    local_cache.set("covariate_data_spec:{local_settings.parent_location_id}", covariate_data_spec)
     input_data = retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache)
     columns_wrong = validate_input_data_types(input_data)
     assert not columns_wrong, f"validation failed {columns_wrong}"
     modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
-    local_cache.set("prepared_input_data", modified_data)
+    local_cache.set("prepared_input_data:{local_settings.parent_location_id}", modified_data)
 
 
 def construct_model_for_estimate_location(local_settings, local_cache):
-    covariate_multipliers = local_cache.get("covariate_multipliers")
-    covariate_data_spec = local_cache.get("covariate_data_spec")
-    modified_data = local_cache.get("prepared_input_data")
+    covariate_multipliers = local_cache.get("covariate_multipliers:{local_settings.parent_location_id}")
+    covariate_data_spec = local_cache.get("covariate_data_spec:{local_settings.parent_location_id}")
+    modified_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
     model = construct_model(modified_data, local_settings, covariate_multipliers,
                             covariate_data_spec)
     set_priors_from_parent_draws(model, modified_data.draws)
-    local_cache.set("prepared_model", model)
+    local_cache.set("prepared_model:{local_settings.parent_location_id}", model)
 
 
-def compute_and_save_draws_for_estimate_location(execution_context, local_settings, local_cache):
-    modified_data = local_cache.get("prepared_input_data")
-    model = local_cache.get("prepared_model")
-    computed_fit, draws = compute_location(execution_context, local_settings, modified_data, model)
+def compute_initial_fit(execution_context, local_settings, local_cache):
+    model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
+    input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
+    fit_result = compute_parent_fit(execution_context, local_settings, input_data, model)
+    local_cache.set("parent_fit:{local_settings.parent_location_id}", fit_result)
+
+
+def compute_draws_from_parent_fit(execution_context, local_settings, local_cache):
+    model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
+    fit_result = local_cache.get("parent_fit:{local_settings.parent_location_id}")
+    input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
+    draws = make_draws(
+        execution_context,
+        model,
+        input_data,
+        fit_result.fit,
+        local_settings,
+        execution_context.parameters.num_processes
+    )
     if draws:
         draws, predictions = zip(*draws)
-        if local_cache:
-            local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
-        if not local_settings.run.no_upload:
-            save_outputs(computed_fit, predictions, execution_context, local_settings)
+        local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
+        local_cache.set(f"fit-predictions:{local_settings.parent_location_id}", predictions)
     else:
         raise DismodATException("Fit failed for all samples")
+
+
+def save_predictions(execution_context, local_settings, local_cache):
+    if not local_settings.run.no_upload:
+        predictions = local_cache.get(f"fit-predictions:{local_settings.parent_location_id}")
+        fit_result = local_cache.get("parent_fit:{local_settings.parent_location_id}")
+        save_outputs(fit_result, predictions, execution_context, local_settings)
 
 
 def retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache=None):
@@ -229,7 +249,7 @@ def set_sex_reference(covariate_data_spec, local_settings):
         sex_covariate[0].max_difference = max_difference
 
 
-def compute_location(execution_context, local_settings, input_data, model):
+def compute_parent_fit(execution_context, local_settings, input_data, model):
     """
 
     Args:
@@ -238,7 +258,7 @@ def compute_location(execution_context, local_settings, input_data, model):
         model (Model): A complete Model object.
 
     Returns:
-        The fit and draws.
+        The fit.
     """
     base_path = execution_context.db_path(local_settings.parent_location_id)
     base_path.mkdir(parents=True, exist_ok=True)
@@ -252,22 +272,13 @@ def compute_location(execution_context, local_settings, input_data, model):
     # This should just call init.
     if not local_settings.run.db_only:
         fit_result = session.fit(model, input_data.observations)
+        CODELOG.info(f"fit {timer() - begin}")
+        if not fit_result.success:
+            raise DismodATException("Fit failed")
+        return fit_result
     else:
         session.setup_model_for_fit(model, input_data.observations)
-        return None, None
-    CODELOG.info(f"fit {timer() - begin}")
-    if not fit_result.success:
-        raise DismodATException("Fit failed")
-
-    draws = make_draws(
-        execution_context,
-        model,
-        input_data,
-        fit_result.fit,
-        local_settings,
-        execution_context.parameters.num_processes
-    )
-    return fit_result.fit, draws
+        return None
 
 
 def save_outputs(computed_fit, predictions, execution_context, local_settings):

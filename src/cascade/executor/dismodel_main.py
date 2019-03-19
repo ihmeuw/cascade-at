@@ -15,7 +15,8 @@ from cascade.executor.cascade_logging import logging_config
 from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.estimate_location import (
     prepare_data_for_estimate, construct_model_for_estimate_location,
-    compute_and_save_draws_for_estimate_location)
+    compute_initial_fit, compute_draws_from_parent_fit, save_predictions
+)
 from cascade.executor.setup_tier import setup_tier_data
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.local_cache import LocalCache
@@ -65,8 +66,12 @@ def main(args):
             prepare_data_for_estimate(execution_context, this_location_work, local_cache)
         elif cascade_job == "estimate_location:construct_model":
             construct_model_for_estimate_location(this_location_work, local_cache)
-        elif cascade_job == "estimate_location:compute_and_save_draws":
-            compute_and_save_draws_for_estimate_location(execution_context, this_location_work, local_cache)
+        elif cascade_job == "estimate_location:compute_initial_fit":
+            compute_initial_fit(execution_context, this_location_work, local_cache)
+        elif cascade_job == "estimate_location:compute_draws_from_parent_fit":
+            compute_draws_from_parent_fit(execution_context, this_location_work, local_cache)
+        elif cascade_job == "estimate_location:save_predictions":
+            save_predictions(execution_context, this_location_work, local_cache)
         else:
             assert f"Unknown job type, {cascade_job}"
 
