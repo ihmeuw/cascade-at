@@ -81,7 +81,7 @@ class FormComponent:
             self._validation_priority = validation_priority
             self._child_instances = {}
 
-    def __get__(self, instance, owner):
+    def __get__(self, instance, owner=None):
         if isinstance(instance, FormComponent):
             value = instance._child_instances[self]
             if value == NO_VALUE and self._nullable:
@@ -89,6 +89,9 @@ class FormComponent:
             return value
         else:
             return None
+
+    def _to_dict_value(self, instance=None):
+        raise NotImplementedError
 
     @property
     def display_name(self):
@@ -182,6 +185,9 @@ class Field(FormComponent):
                           fields the path will always be empty.
         """
         return value, None
+
+    def _to_dict_value(self, instance=None):
+        return self.__get__(instance, self.__class__)
 
 
 class SimpleTypeField(Field):
@@ -338,3 +344,13 @@ class Form(FormComponent):
         no additional checks.
         """
         return []
+
+    def _to_dict_value(self, instance=None):
+        return self.to_dict(instance)
+
+    def to_dict(self, instance=None):
+        values = {}
+        for c in self.children:
+            if not self.is_field_unset(c._name):
+                values[c._name] = c._to_dict_value(self)
+        return values

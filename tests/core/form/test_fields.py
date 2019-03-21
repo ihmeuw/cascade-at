@@ -138,6 +138,12 @@ def test_form_with_FormList__non_empty(form_with_form_list):
     assert f.inner_forms[1].int_field == 20
 
 
+def test_form_with_FormList__to_dict(form_with_form_list):
+    f = form_with_form_list({"inner_forms": [{"int_field": "10"}, {"int_field": "20"}]})
+    f.validate_and_normalize()
+    assert f.to_dict() == {"inner_forms": [{"int_field": 10}, {"int_field": 20}]}
+
+
 def test_form_with_FormList__validation(form_with_form_list):
     f = form_with_form_list({"inner_forms": [{"int_field": "oeueoueo"}, {"int_field": "20"}]})
     assert f.validate_and_normalize() == [
@@ -193,3 +199,9 @@ def test_StringListField__failed_validation(form_with_string_list):
     assert f.validate_and_normalize() == [
         ('ints_field', 'ints_field', "Errors in items: [Invalid int value '['1 2 3 4 5']']"),
     ]
+
+
+def test_StringListField__to_dict(form_with_string_list):
+    f = form_with_string_list({"ints_field": "1 2 3 4 5"})
+    f.validate_and_normalize()
+    assert f.to_dict() == {"ints_field": "1 2 3 4 5"}

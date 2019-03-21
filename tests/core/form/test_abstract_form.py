@@ -209,7 +209,7 @@ def test_subform_with_defaults():
     assert f.inner.a == 42
 
 
-def test_alidation_priority():
+def test_validation_priority():
     class InnerOne(Form):
         a = SimpleTypeField(int)
 
@@ -230,3 +230,20 @@ def test_alidation_priority():
 
     f = MyForm({"one": {"a": "10"}, "two": {"b": "15"}})
     f.validate_and_normalize()
+
+
+def test_to_dict():
+    class MyInnerForm(Form):
+        b = SimpleTypeField(str)
+        c = SimpleTypeField(int, default=42, nullable=True)
+
+    class MyForm(Form):
+        a = SimpleTypeField(float)
+        inner = MyInnerForm()
+
+    f = MyForm({"a": 1.5, "inner": {"b": "test"}})
+    f.validate_and_normalize()
+
+    result = f.to_dict()
+
+    assert result == {"a": 1.5, "inner": {"b": "test"}}
