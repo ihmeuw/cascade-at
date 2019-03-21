@@ -258,8 +258,6 @@ class Session:
         return stdout, stderr
 
     def _check_dismod_command(self, command, return_code, stdout, stderr):
-        if return_code == 0:
-            return
         log = self._objects.log
         oom_sentinel = "std:bad_alloc"
         max_iter_sentinel = "Maximum Number of Iterations Exceeded"
