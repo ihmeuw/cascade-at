@@ -252,13 +252,12 @@ class Session:
             return_code, stdout, stderr = run_with_logging(
                 ["dmdismod", str(self._filename)] + str_command)
 
-        self._check_dismod_command(str_command[0], stdout, stderr)
-        assert return_code == 0, f"return code is {return_code}"
+        self._check_dismod_command(str_command[0], return_code, stdout, stderr)
         if command[0] in COMMAND_IO:
             self._objects.refresh(COMMAND_IO[command[0]].output)
         return stdout, stderr
 
-    def _check_dismod_command(self, command, stdout, stderr):
+    def _check_dismod_command(self, command, return_code, stdout, stderr):
         log = self._objects.log
         oom_sentinel = "std:bad_alloc"
         max_iter_sentinel = "Maximum Number of Iterations Exceeded"
