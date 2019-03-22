@@ -57,11 +57,36 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
 
 
 def test_main(monkeypatch, ihme):
-
-    def mock_estimate(ec, local_settings, local_cache):
-        pass
-
-    monkeypatch.setattr(cascade.executor.dismodel_main, "estimate_location", mock_estimate)
+    monkeypatch.setattr(
+        cascade.executor.dismodel_main,
+        "prepare_data_for_estimate",
+        lambda *arg, **kwargs: None
+    )
+    monkeypatch.setattr(
+        cascade.executor.dismodel_main,
+        "construct_model_for_estimate_location",
+        lambda *arg, **kwargs: None
+    )
+    monkeypatch.setattr(
+        cascade.executor.dismodel_main,
+        "initial_guess_from_fit_fixed",
+        lambda *arg, **kwargs: None
+    )
+    monkeypatch.setattr(
+        cascade.executor.dismodel_main,
+        "compute_initial_fit",
+        lambda *arg, **kwargs: None
+    )
+    monkeypatch.setattr(
+        cascade.executor.dismodel_main,
+        "compute_draws_from_parent_fit",
+        lambda *arg, **kwargs: None
+    )
+    monkeypatch.setattr(
+        cascade.executor.dismodel_main,
+        "save_predictions",
+        lambda *arg, **kwargs: None
+    )
 
     args = parse_arguments("z.db --mvid 267737".split())
     main(args)

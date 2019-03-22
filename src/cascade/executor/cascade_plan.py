@@ -136,10 +136,10 @@ class CascadePlan:
         so a drill starting halfway will not have a grandparent location.
         There are child locations for the last task though.
         """
-        parent_task = list(self._task_graph.in_edges(cascade_job_id))
-        if parent_task and self._job_kind(parent_task[0][0]) == "estimate_location":
-            # [only edge][(edge start, edge finish)][(location, index)]
-            grandparent_location_id = self._location_of_cascade_job(parent_task[0][0])
+        parent_location_id = self._location_of_cascade_job(cascade_job_id)
+        predecessors = list(self._locations.predecessors(parent_location_id))
+        if predecessors:
+            grandparent_location_id = predecessors[0]
         else:
             grandparent_location_id = None
 
@@ -227,7 +227,24 @@ class CascadePlan:
             setup_task = []
         else:
             setup_task = [(drill[0], "bundle_setup")]
-        tasks = setup_task + [(drill_location, 0) for drill_location in drill]
+
+        substeps = [
+            "prepare_data",
+            "construct_model",
+        ]
+        if settings.policies.fit_strategy == "fit_fixed_then_fit":
+            substeps.append("initial_guess_from_fit_fixed")
+        substeps.extend([
+            "compute_initial_fit",
+            "compute_draws_from_parent_fit",
+            "save_predictions"
+        ])
+
+        tasks = setup_task + [
+            (drill_location, ("estimate_location", substep))
+            for drill_location in drill
+            for substep in substeps
+        ]
         task_pairs = list(zip(tasks[:-1], tasks[1:]))
         plan._task_graph = nx.DiGraph()
         plan._task_graph.add_nodes_from(tasks)
@@ -239,8 +256,10 @@ class CascadePlan:
     def _job_kind(self, cascade_job_id):
         if cascade_job_id[1] == "bundle_setup":
             return "bundle_setup"
+        elif cascade_job_id[1][0] == "estimate_location":
+            return f"estimate_location:{cascade_job_id[1][1]}"
         else:
-            return "estimate_location"
+            raise ValueError(f"Unknown job kind: {cascade_job_id[1]}")
 
     def _location_of_cascade_job(self, cascade_job_id):
         return cascade_job_id[0]

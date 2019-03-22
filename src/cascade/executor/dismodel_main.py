@@ -13,7 +13,11 @@ from cascade.core.db import use_local_odbc_ini
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_logging import logging_config
 from cascade.executor.cascade_plan import CascadePlan
-from cascade.executor.estimate_location import estimate_location
+from cascade.executor.estimate_location import (
+    prepare_data_for_estimate, construct_model_for_estimate_location,
+    initial_guess_from_fit_fixed, compute_initial_fit, compute_draws_from_parent_fit,
+    save_predictions,
+)
 from cascade.executor.setup_tier import setup_tier_data
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.local_cache import LocalCache
@@ -51,7 +55,7 @@ def main(args):
     execution_context = make_execution_context(gbd_round_id=6, num_processes=args.num_processes)
     plan = generate_plan(execution_context, args)
 
-    local_cache = LocalCache(maxsize=2)
+    local_cache = LocalCache(maxsize=200)
     for cascade_task_identifier in plan.cascade_jobs:
         cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
         configure_execution_context(execution_context, args, this_location_work)
@@ -59,8 +63,18 @@ def main(args):
         if cascade_job == "bundle_setup":
             # Move bundle to next tier
             setup_tier_data(execution_context, this_location_work.data_access, this_location_work.parent_location_id)
-        elif cascade_job == "estimate_location":
-            estimate_location(execution_context, this_location_work, local_cache)
+        elif cascade_job == "estimate_location:prepare_data":
+            prepare_data_for_estimate(execution_context, this_location_work, local_cache)
+        elif cascade_job == "estimate_location:construct_model":
+            construct_model_for_estimate_location(this_location_work, local_cache)
+        elif cascade_job == "estimate_location:initial_guess_from_fit_fixed":
+            initial_guess_from_fit_fixed(execution_context, this_location_work, local_cache)
+        elif cascade_job == "estimate_location:compute_initial_fit":
+            compute_initial_fit(execution_context, this_location_work, local_cache)
+        elif cascade_job == "estimate_location:compute_draws_from_parent_fit":
+            compute_draws_from_parent_fit(execution_context, this_location_work, local_cache)
+        elif cascade_job == "estimate_location:save_predictions":
+            save_predictions(execution_context, this_location_work, local_cache)
         else:
             assert f"Unknown job type, {cascade_job}"
 

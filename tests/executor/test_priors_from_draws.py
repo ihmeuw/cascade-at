@@ -10,9 +10,6 @@ from cascade.executor.cascade_plan import CascadePlan
 from cascade.executor.construct_model import construct_model
 from cascade.executor.create_settings import create_settings, make_locations
 from cascade.executor.dismodel_main import parse_arguments
-from cascade.executor.priors_from_draws import (
-    set_priors_from_parent_draws, estimate_grid_parameters, set_priors_from_draws
-)
 from cascade.model.priors import Uniform, Gaussian
 from cascade.model.smooth_grid import SmoothGrid
 
@@ -63,7 +60,7 @@ def test_priors_from_draws_fair(monkeypatch):
 
             # We aren't asking whether the values are correct but whether
             # the logic paths work.
-            set_priors_from_parent_draws(model, draws)
+            cascade.executor.priors_from_draws.set_priors_from_parent_draws(model, draws)
 
             if draws is not None:
                 base_rate_set = False
@@ -81,7 +78,7 @@ def test_priors_from_draws_fair(monkeypatch):
                 draws.append(var)
             parent_model_has_random_effects = len(model.random_effect) > 0
 
-            set_priors_from_draws(model, draws)
+            cascade.executor.priors_from_draws.set_priors_from_draws(model, draws)
 
             seen.clear()
 
@@ -102,9 +99,9 @@ def test_estimate_grid_parameters_fair():
             loc=ages[age_idx] * 0.01 + (times[time_idx] - 2000) * 0.025,
             scale=0.01
         )
-    estimate_grid_parameters(priors.value, draws, ages, times)
-    estimate_grid_parameters(priors.dage, draws, ages[:-1], times)
-    estimate_grid_parameters(priors.dtime, draws, ages, times[:-1])
+    cascade.executor.priors_from_draws.estimate_grid_parameters(priors.value, draws, ages, times)
+    cascade.executor.priors_from_draws.estimate_grid_parameters(priors.dage, draws, ages[:-1], times)
+    cascade.executor.priors_from_draws.estimate_grid_parameters(priors.dtime, draws, ages, times[:-1])
 
     for grid in [priors.value, priors.dage, priors.dtime]:
         for age_idx, time_idx in product(range(len(ages) - 1), range(len(times) - 1)):

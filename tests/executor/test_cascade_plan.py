@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import networkx as nx
 from numpy.random import RandomState
 import pytest
@@ -8,10 +6,12 @@ from cascade.core.form import Form, FormList, FloatField
 from cascade.executor.cascade_plan import CascadePlan, make_model_options
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.db.configuration import load_settings
-from cascade.input_data.configuration.form import Configuration, RandomEffectBound
+from cascade.input_data.configuration.form import RandomEffectBound
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.testing_utilities import make_execution_context
 from cascade.executor.create_settings import create_settings
+
+SUBJOBS_PER_LOCATION = 5
 
 
 def test_create_start_finish(ihme):
@@ -23,7 +23,7 @@ def test_create_start_finish(ihme):
     settings.model.drill_location_start = 4
     settings.model.drill_location_end = 6
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    assert len(c._task_graph.nodes) == 4
+    assert len(c._task_graph.nodes) == 1 + SUBJOBS_PER_LOCATION * 3
     print(nx.to_edgelist(c._task_graph))
 
 
@@ -36,7 +36,7 @@ def test_single_start_finish(ihme):
     settings.model.drill_location_start = 6
     settings.model.drill_location_end = 6
     c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    assert len(c._task_graph.nodes) == 2
+    assert len(c._task_graph.nodes) == 1 + SUBJOBS_PER_LOCATION
     print(nx.to_edgelist(c._task_graph))
 
 
@@ -52,18 +52,19 @@ def test_iterate_tasks(ihme):
     for idx, t in enumerate(c.cascade_jobs):
         if idx > 1:
             assert t[0] > last  # only true in drill
-        last = t[0]
+        if t[1][1] == "compute_and_save_draws":
+            last = t[0]
 
         which, local_settings = c.cascade_job(t)
-        assert which in {"estimate_location", "bundle_setup"}
+        assert which == "bundle_setup" or which.startswith("estimate_location:")
         assert hasattr(local_settings, "parent_location_id")
-        if idx > 0:
+        if idx > 0 and t[1][1] == "compute_and_save_draws":
             assert local_settings.grandparent_location_id == parent
             parent = local_settings.parent_location_id
             assert len(local_settings.children) > 0
 
         cnt += 1
-    assert cnt == 3
+    assert cnt == 1 + SUBJOBS_PER_LOCATION * 2
 
 
 def test_random_settings():
@@ -78,7 +79,7 @@ def test_random_settings():
         for idx, j in enumerate(c.cascade_jobs):
             job_kind, job_args = c.cascade_job(j)
             if idx > 0:
-                assert job_kind == "estimate_location"
+                assert job_kind.startswith("estimate_location:")
             else:
                 assert job_kind == "bundle_setup"
             assert job_args is not None
@@ -116,11 +117,11 @@ def test_model_options(loc, expected):
     bound_form = MiniForm(dict(
         model=dict(bound_random=0.7),  # This will be the default value.
     ))
-    bound_form.re_bound_location=[
-            dict(location=2),
-            dict(location=4, value=0.3),
-            dict(location=5, value=0.2),
-        ]
+    bound_form.re_bound_location = [
+        dict(location=2),
+        dict(location=4, value=0.3),
+        dict(location=5, value=0.2),
+    ]
     errors = bound_form.validate_and_normalize()
     assert not errors
     opts = make_model_options(locations, loc, bound_form)
