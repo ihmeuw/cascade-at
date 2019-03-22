@@ -75,6 +75,12 @@ class FormList(Form):
     def __getitem__(self, key):
         return self._forms[key]
 
+    def is_unset(self, instance=None):
+        return all([c.is_unset(self) for c in self._forms])
+
+    def _to_dict_value(self, instance=None):
+        return [c.to_dict() for c in self._forms]
+
 
 class Dummy(Field):
     """ A black hole which consumes all values without error. Use to mark
@@ -93,6 +99,9 @@ class Dummy(Field):
 
     def __set__(self, instance, value):
         pass
+
+    def is_unset(self, instance=None):
+        return True
 
 
 class OptionField(SimpleTypeField):
@@ -160,3 +169,6 @@ class StringListField(ListField):
             values = [value]
 
         return super()._validate_and_normalize(instance, values)
+
+    def _to_dict_value(self, instance=None):
+        return " ".join([str(v) for v in self.__get__(instance)])
