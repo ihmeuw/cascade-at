@@ -69,7 +69,10 @@ def dependencies_are_directed(package_root, package_name):
     component_graph = nx.DiGraph()
     for component_name, deps in dependencies.items():
         component_graph.add_edges_from([(component_name, dep) for dep in deps])
-    return nx.is_directed_acyclic_graph(component_graph)
+    no_cycles = nx.is_directed_acyclic_graph(component_graph)
+    if not no_cycles:
+        print(f"nodes {nx.nodes(component_graph)} end")
+    return no_cycles
 
 
 if __name__ == "__main__":
