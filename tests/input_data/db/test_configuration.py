@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from cascade.testing_utilities import make_execution_context
+from cascade.executor.execution_context import make_execution_context
 from cascade.input_data.db.configuration import (
     trim_config, DO_REMOVE, load_raw_settings_meid, load_raw_settings_mvid,
     load_raw_settings_file

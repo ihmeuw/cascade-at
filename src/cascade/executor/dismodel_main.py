@@ -23,7 +23,7 @@ from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
-from cascade.testing_utilities import make_execution_context
+from cascade.executor.execution_context import make_execution_context
 
 CODELOG, MATHLOG = getLoggers(__name__)
 

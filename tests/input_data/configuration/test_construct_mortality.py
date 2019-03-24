@@ -3,7 +3,7 @@ from cascade.input_data.configuration.construct_mortality import (
     get_raw_csmr, normalize_csmr
 )
 import pytest
-from cascade.testing_utilities import make_execution_context
+from cascade.executor.execution_context import make_execution_context
 from cascade.core.db import age_spans
 
 

@@ -3,7 +3,7 @@ import json
 from textwrap import dedent
 
 from cascade.input_data.db.configuration import load_raw_settings_mvid, load_raw_settings_meid
-from cascade.testing_utilities import make_execution_context
+from cascade.executor.execution_context import make_execution_context
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)

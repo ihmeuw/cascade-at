@@ -11,7 +11,7 @@ from cascade.executor.estimate_location import (
 from cascade.executor.construct_model import construct_model
 from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.input_data.db.locations import location_hierarchy
-from cascade.testing_utilities import make_execution_context
+from cascade.executor.execution_context import make_execution_context
 from cascade.testing_utilities.fake_data import retrieve_fake_data
 from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
