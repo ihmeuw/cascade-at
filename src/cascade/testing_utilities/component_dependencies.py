@@ -82,7 +82,7 @@ if __name__ == "__main__":
     parser.add_argument("package_name")
     args = parser.parse_args()
     directed = dependencies_are_directed(args.package_root, args.package_name)
-    exit(0 if directed else 1)
+    exit(0 if directed else 3776)
 
 
 def test_find_components():
