@@ -6,7 +6,7 @@ import numpy as np
 from pandas.testing import assert_frame_equal
 
 from cascade.dismod.constants import DensityEnum
-from cascade.testing_utilities import make_execution_context
+from cascade.executor.execution_context import make_execution_context
 from cascade.stats import meas_bounds_to_stdev
 
 from cascade.input_data.emr import (

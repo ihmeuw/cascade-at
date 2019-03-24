@@ -8,7 +8,7 @@ from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.configuration.form import RandomEffectBound
 from cascade.input_data.db.locations import location_hierarchy
-from cascade.testing_utilities import make_execution_context
+from cascade.executor.execution_context import make_execution_context
 from cascade.executor.create_settings import create_settings
 
 SUBJOBS_PER_LOCATION = 5

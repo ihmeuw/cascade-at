@@ -1,7 +1,6 @@
 from uuid import UUID
 
 import networkx as nx
-
 import pytest
 
 import cascade.core.db

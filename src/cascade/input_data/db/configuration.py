@@ -1,12 +1,11 @@
 import json
 
 from cascade.core.db import cursor
+from cascade.core.db import latest_model_version
+from cascade.core.log import getLoggers
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.form import Configuration
-from cascade.testing_utilities import make_execution_context
-from cascade.core.db import latest_model_version
 
-from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -44,8 +43,7 @@ def load_raw_settings_meid(ec, modelable_entity_id):
     MATHLOG.info(
         f"No model version specified so using the latest version for "
         f"model {modelable_entity_id} which is {mvid}")
-    ec = make_execution_context(model_version_id=mvid)
-    raw_settings = settings_json_from_epiviz(ec)
+    raw_settings = settings_json_from_epiviz(ec, mvid)
     return raw_settings, mvid
 
 
@@ -58,8 +56,7 @@ def load_raw_settings_mvid(ec, mvid):
         dict: Settings as a JSON dictionary of dictionaries.
         int: Model version ID that was passed in.
     """
-    ec.parameters.model_version_id = mvid
-    raw_settings = settings_json_from_epiviz(ec)
+    raw_settings = settings_json_from_epiviz(ec, mvid)
     return raw_settings, mvid
 
 
@@ -115,9 +112,7 @@ def json_settings_to_frozen_settings(raw_settings, mvid=None):
     return settings
 
 
-def settings_json_from_epiviz(execution_context):
-    model_version_id = execution_context.parameters.model_version_id
-
+def settings_json_from_epiviz(execution_context, model_version_id):
     query = """select parameter_json from at_model_parameter where model_version_id = %(model_version_id)s"""
     with cursor(execution_context) as c:
         c.execute(query, args={"model_version_id": model_version_id})

@@ -21,7 +21,7 @@ from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.form import SmoothingPrior
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.model.session import Session
-from cascade.testing_utilities import make_execution_context
+from cascade.executor.execution_context import make_execution_context
 from cascade.testing_utilities.compare_dismod_db import (
     CompareDatabases, pull_covariate, pull_covariate_multiplier
 )
