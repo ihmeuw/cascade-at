@@ -31,13 +31,13 @@ class ModelWriter:
      * Rates and integrands are always in the same order.
     """
 
-    def __init__(self, session):
+    def __init__(self, object_wrapper, dismod_file):
         """
         Args:
-            session (Session): The Dismod-AT Session into which this writes.
+            object_wrapper (Session): The Dismod-AT Session into which this writes.
         """
-        self._session = session
-        self._dismod_file = session.dismod_file
+        self._object_wrapper = object_wrapper
+        self._dismod_file = dismod_file
         self._ages = np.empty((0,), dtype=np.float)
         self._times = np.empty((0,), dtype=np.float)
         self._rate_rows = list()  # List of dictionaries for rates.
@@ -79,7 +79,7 @@ class ModelWriter:
         self._children = children
         iota_case = "pos" if "iota" in nonzero_rates else "zero"
         rho_case = "pos" if "rho" in nonzero_rates else "zero"
-        self._session.set_option(rate_case=f"iota_{iota_case}_rho_{rho_case}")
+        self._object_wrapper.set_option(rate_case=f"iota_{iota_case}_rho_{rho_case}")
 
     def write_ages_and_times(self, ages, times):
         """
@@ -107,7 +107,7 @@ class ModelWriter:
         if child_location is None:
             self._dismod_file.rate.loc[rate_id, "child_smooth_id"] = smooth_id
         else:
-            node_id = self._session.location_func(child_location)
+            node_id = self._object_wrapper.location_func(child_location)
             if rate_name not in self._nslist:
                 ns_id = len(self._nslist)
                 self._nslist[rate_name] = ns_id
@@ -279,7 +279,20 @@ class ModelWriter:
         return int(self._dismod_file.integrand.query("integrand_name==@name").integrand_id.values[0])
 
     def _rate_id_func(self, name):
-        return int(self._dismod_file.rate.query("rate_name==@name").rate_id)
+        if not isinstance(name, str):
+            raise TypeError(f"To get the rate ID, use one of the rate names, not {name}.")
+        rate_record = self._dismod_file.rate.query("rate_name==@name")
+        if len(rate_record) == 0:
+            raise RuntimeError(
+                f"The rate {name} was not found in db file rate table, and all rates should be in there. "
+                f"The whole rate table is:\n{self._dismod_file.rate}"
+            )
+        elif len(rate_record) > 1:
+            raise RuntimeError(
+                f"There are multiple rows for rate {name} in the db file rate table, which should not be: "
+                f"{rate_record}"
+            )
+        return int(rate_record.rate_id)
 
     def _fix_ages_times(self, df):
         """Given a Pandas df with age and time columns, assign age_id and time_id
@@ -314,7 +327,7 @@ class ModelWriter:
         self._dismod_file.update_table_columns("covariate", covariate_df)
         self._dismod_file.covariate = covariate_df
         self._covariate_id_func = cov_col_id_func
-        self._session.covariate_rename = covariate_renames
+        self._object_wrapper.covariate_rename = covariate_renames
 
 
 def _make_covariate_table(covariates):

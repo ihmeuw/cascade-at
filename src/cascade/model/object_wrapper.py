@@ -52,7 +52,7 @@ class ObjectWrapper:
     def model(self, new_model):
         """When you write a model, it deletes the file."""
         self.make_new_dismod_file(self._locations_df)
-        writer = ModelWriter(self)
+        writer = ModelWriter(self, self.dismod_file)
         new_model.write(writer)
         writer.close()
 

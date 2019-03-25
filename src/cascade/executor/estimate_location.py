@@ -173,7 +173,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
             local_settings.children, include_birth_prevalence)
     # This comes in yearly from 1950 to 2018
     data.age_specific_death_rate = asdr_as_fit_input(
-        local_settings.parent_location_id, local_settings.sexes,
+        parent_and_children, local_settings.sexes,
         data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
 
     data.cause_specific_mortality_rate = get_raw_csmr(
