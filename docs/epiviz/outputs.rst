@@ -8,6 +8,6 @@ EpiViz-AT Outputs
    :maxdepth: 2
 
    draws
+   posteriors
    residuals
    logs
-

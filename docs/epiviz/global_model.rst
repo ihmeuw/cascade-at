@@ -1,0 +1,51 @@
+.. _epiviz-global-model:
+
+Global Model
+============
+
+Dismod-AT solved the Illness-Death model in age and time for a hierarchical
+model with multiple locations. The Cascade ties these together into a single
+estimation for the world. Precedent for this comes from before the
+Dismod ii work [Barendregt2003]_, back to [ClaytonKaldor1987]_.
+
+
+Setting Priors
+--------------
+
+The global model uses estimates of aggregated data in order to inform
+estimates at lower levels. We can think of this as Empirical Bayesian
+([Carlin2000]_, [Kass1989]_) or, more generally, as a kind of bootstrapping.
+
+Two articles discuss how to estimate confidence intervals from maximum a-posteriori
+methods, [Pereyra2016]_, [Pereyra2017]_.
+
+Implementation in the code is discussed in a few different areas of documentation:
+
+ *  :ref:`posteriors-to-priors` - Mathematics of setting priors from fits.
+
+ *  :ref:`epiviz-priors-input` - Description of inputs to each estimation that affect priors.
+
+ *  :ref:`epiviz-posteriors` - Outputs from each estimation.
+
+
+.. [ClaytonKaldor1987] David Clayton and John Kaldor. Empirical Bayes Estimates
+   of Age-Standardized Relative Risksfor Use in Disease Mapping.Biometrics, 43(3):671–681, 1987.
+
+.. [Barendregt2003] Jan J Barendregt, Gerrit J Van Oortmarssen, Theo Vos, and
+   Christopher JL Murray. A genericmodel for the assessment of disease
+   epidemiology: the computational basis of dismod ii.Popu-lation health metrics, 1(1):4, 2003.
+
+.. [Pereyra2017] Marcelo Pereyra. Maximum-a-posteriori estimation with bayesian
+   confidence regions.SIAMJournal on Imaging Sciences, 10(1):285–302, 2017.
+
+.. [Pereyra2016] Marcelo Pereyra, Philip Schniter, Emilie Chouzenoux,
+   Jean-Christophe Pesquet, Jean-YvesTourneret, Alfred O Hero, and Steve McLaughlin.
+   A survey of stochastic simulation and op-timization methods in signal processing.
+   IEEE Journal of Selected Topics in Signal Processing,10(2):224–241, 2016.
+
+.. [Carlin2000] Bradley P Carlin and Thomas A Louis. Empirical bayes: Past,
+   present and future.Journal of theAmerican Statistical Association, 95(452):1286–1289, 2000.
+
+.. [Kass1989] Robert E Kass and Duane Steffey. Approximate bayesian inference
+   in conditionally independent hierarchical models (parametric empirical
+   bayes models).Journal of the American StatisticalAssociation, 84(407):717–726, 1989.
