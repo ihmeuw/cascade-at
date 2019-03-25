@@ -132,7 +132,7 @@ def constrain_omega(default_age_time, asdr, ev_settings, model, parent_location_
         def child_effect(age, time):
             return np.log(child_rate(age, time) / omega(age, time))
 
-        model.rate[("omega", child)] = constraint_from_rectangular_data(child_effect, default_age_time)
+        model.random_effect[("omega", child)] = constraint_from_rectangular_data(child_effect, default_age_time)
 
 
 def constraint_from_rectangular_data(rate_var, default_age_time):

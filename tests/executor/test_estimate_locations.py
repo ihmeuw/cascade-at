@@ -18,7 +18,7 @@ from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 
 
 @pytest.mark.parametrize("meid,mvid", [
-    (None, 267800),
+    (None, 268613),
 ])
 def test_with_known_id(ihme, meid, mvid, tmp_path):
     """This runs the equivalent of dismodel_main.main"""
