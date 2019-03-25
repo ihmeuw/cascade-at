@@ -7,9 +7,9 @@ import importlib
 from contextlib import contextmanager
 from pathlib import Path
 
-import pandas as pd
-
 from cascade.core.log import getLoggers
+from cascade.core import CascadeError
+
 CODELOG, MATHLOG = getLoggers(__name__)
 
 BLOCK_SHARED_FUNCTION_ACCESS = False
@@ -21,7 +21,7 @@ modify the value as ``module_proxy.BLOCK_SHARED_FUNCTION_ACCESS``.
 LOCAL_ODBC = Path("/ihme/code/dismod_at/share/local_odbc.ini")
 
 
-class DatabaseSandboxViolation(Exception):
+class DatabaseSandboxViolation(CascadeError):
     """Attempted to call a module that is intentionally restricted in the current environment."""
 
 
@@ -109,51 +109,3 @@ def connection(execution_context=None, database=None):
     yield connection
     connection.commit()
     connection.close()
-
-
-def model_version_exists(execution_context):
-    model_version_id = execution_context.parameters.model_version_id
-
-    query = """
-    select exists(
-             select * from epi.model_version
-             where model_version_id = %(model_version_id)s
-    )
-    """
-
-    with cursor(execution_context) as c:
-        c.execute(query, args={"model_version_id": model_version_id})
-        exists = c.fetchone()[0]
-
-        return exists == 1
-
-
-def latest_model_version(execution_context):
-    model_id = execution_context.parameters.modelable_entity_id
-
-    query = """
-    select model_version_id from epi.model_version
-    where modelable_entity_id = %(modelable_entity_id)s
-    order by last_updated desc
-    limit 1
-    """
-
-    with cursor(execution_context) as c:
-        c.execute(query, args={"modelable_entity_id": model_id})
-        result = c.fetchone()
-        if result is not None:
-            return result[0]
-        else:
-            raise RuntimeError(
-                f"No model version for modelable entity id {model_id} in database.")
-
-
-def dataframe_from_disk(path):
-    """ Load the file at `path` as a pandas dataframe.
-    """
-    if any(path.endswith(extension) for extension in [".hdf", ".h5", ".hdf5", ".he5"]):
-        return pd.read_hdf(path)
-    elif path.endswith(".csv"):
-        return pd.read_csv(path)
-    else:
-        raise ValueError(f"Unknown file format for bundle: {path}")

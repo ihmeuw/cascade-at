@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.core.db import dataframe_from_disk, db_queries, age_spans
+from cascade.core.db import db_queries, age_spans
 from cascade.dismod import DismodATException
 from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
@@ -20,7 +20,7 @@ from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_disk,
     bundle_to_observations,
     strip_bundle_exclusions,
-)
+    dataframe_from_disk)
 from cascade.input_data.configuration.construct_country import check_binary_covariates
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr, normalize_csmr
 from cascade.input_data.configuration.id_map import make_integrand_map

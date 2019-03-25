@@ -8,8 +8,18 @@ from cascade.model.priors import (
 from cascade.model.session import Session
 from cascade.model.smooth_grid import SmoothGrid
 from cascade.model.var import Var
+from cascade.core import CascadeError
+
+
+class ModelError(CascadeError):
+    """A problem with setup or solution of model.
+
+    It's a RuntimeE
+    """
+
 
 __all__ = [
     Model, Session, DismodGroups, SmoothGrid, Var, Covariate, ObjectWrapper,
-    Uniform, Constant, Gaussian, Laplace, StudentsT, LogGaussian, LogLaplace, LogStudentsT
+    Uniform, Constant, Gaussian, Laplace, StudentsT, LogGaussian, LogLaplace,
+    LogStudentsT, ModelError
 ]

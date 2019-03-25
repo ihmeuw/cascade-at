@@ -158,8 +158,9 @@ class Model(DismodGroups):
         for rate, child in self.random_effect:
             child_specific = child is not None
             if rate in child_specific_rate and child_specific_rate[rate] != child_specific:
-                raise RuntimeError(f"Model random effect for {rate} has both child-specific "
-                                   "and all-child specifications")
+                raise ValueError(
+                    f"Model random effect for {rate} has both child-specific "
+                    f"and all-child specifications")
             else:
                 child_specific_rate[rate] = child_specific
 
@@ -167,17 +168,17 @@ class Model(DismodGroups):
     def _check_covariates(covariates):
         for c in covariates:
             if not isinstance(c, Covariate):
-                raise RuntimeError(f"Covariate passed to model isn't an instance of covariate {c}.")
+                raise TypeError(f"Covariate passed to model isn't an instance of covariate {c}.")
 
     @staticmethod
     def _check_weights(weights):
         if not isinstance(weights, Mapping):
-            raise RuntimeError(f"Weights are a dictionary from string to Var classes, not {type(weights)}.")
+            raise TypeError(f"Weights are a dictionary from string to Var classes, not {type(weights)}.")
         for name, weight in weights.items():
             if not isinstance(weight, Var):
-                raise RuntimeError(f"Each weight should be a Var object, not {name}={type(weight)}.")
+                raise TypeError(f"Each weight should be a Var object, not {name}={type(weight)}.")
             if name not in dir(WeightEnum):
-                raise RuntimeError(f"Weights should be one of {[w.name for w in WeightEnum]}")
+                raise ValueError(f"Weights should be one of {[w.name for w in WeightEnum]}")
 
     @classmethod
     def from_var(cls, var, parent_location, weights=None, covariates=None,

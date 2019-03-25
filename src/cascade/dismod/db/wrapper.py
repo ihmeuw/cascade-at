@@ -107,8 +107,9 @@ def _ordered_by_foreign_key_dependency(schema, tables_to_write):
     # TODO: This should subset schema.sorted_tables to those tables in tables_to_write.
     dependency_graph = DiGraph()
 
-    if set(tables_to_write) - set(schema.tables.keys()):
-        raise ValueError("Asking to write tables not in schema")
+    unwanted_tables = set(tables_to_write) - set(schema.tables.keys())
+    if unwanted_tables:
+        raise DismodFileError(f"Asking to write tables not in schema: {unwanted_tables}")
 
     for scan_name, scan_table in schema.tables.items():
         dependency_graph.add_node(scan_name)
@@ -244,7 +245,8 @@ class DismodFile:
             self._table_data[table_name] = data
             return data
         else:
-            raise AttributeError(f"No such table {table_name}")
+            raise AttributeError(
+                f"Tried to write to {table_name} in Dismod db file but no such table is listed in the schema.")
 
     def __setattr__(self, table_name, df):
         if table_name in self.__dict__.get("_table_definitions", {}):
@@ -271,7 +273,7 @@ class DismodFile:
         except TypeError as te:
             if "mutable" in str(te):
                 CODELOG.warning(f"table {table_name} dtypes {table.dtypes}")
-            raise RuntimeError(f"The table {table_name} has unexpected value while saving.") from te
+            raise DismodFileError(f"The table {table_name} has unexpected value while saving.") from te
 
         is_new = table_name not in self._table_hash
         if not is_new:
@@ -286,7 +288,8 @@ class DismodFile:
         it was last written is not re-written.
         """
         if self.engine is None:
-            raise ValueError("Cannot flush before an engine is set")
+            raise RuntimeError("Cannot flush db file tables before an engine is set "
+                               "and the engine is None.")
         with self.engine.begin() as connection:
             CODELOG.debug(f"DismodFile has table data for {', '.join(sorted(self._table_data.keys()))}")
             for table_name in _ordered_by_foreign_key_dependency(Base.metadata, self._table_data.keys()):
@@ -352,7 +355,8 @@ class DismodFile:
                     for column_name, column_object in table_definition.c.items():
                         if column_name not in in_db:
                             raise RuntimeError(
-                                f"A column wasn't written to Dismod file: {table_name}.{column_name}. "
+                                f"Expected a column to be written but it was not there. "
+                                f"missing: {table_name}.{column_name}. "
                                 f"Columns present {table_info}."
                             )
                         column_type, primary_key = in_db[column_name]

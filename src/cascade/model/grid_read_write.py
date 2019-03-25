@@ -39,7 +39,7 @@ def _construct_vars_one_field(name, var_id, new_var):
     with_id = new_var.grid.merge(var_id.grid[["age", "time", "var_id"]], on=["age", "time"], how="left")
     if with_id.var_id.isna().any():
         na_vals = with_id[with_id.var_id.isna()]
-        raise RuntimeError(f"Internal error: Could not align {id_column} with var_id. {na_vals}")
+        raise RuntimeError(f"Could not align {id_column} with var_id. {na_vals} when writing to db file.")
     return pd.DataFrame({
         id_column: with_id.var_id.values,
         var_column: with_id["mean"].values,
@@ -69,7 +69,7 @@ def _assign_from_var_ids(table, var_ids, var_builder):
     to read from that table.
     """
     if table.empty:
-        raise AttributeError(f"Dismod file has no data in table {table.columns}.")
+        raise AttributeError(f"Dismod file has no data in table {table.columns} during read from vars.")
     var_groups = DismodGroups()
     for group_name, group in var_ids.items():
         for key, var_id_mapping in group.items():

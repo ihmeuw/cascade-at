@@ -42,7 +42,7 @@ class Covariate:
     @name.setter
     def name(self, nom):
         if not isinstance(nom, str):
-            raise ValueError(f"Covariate name must be a string {nom}")
+            raise TypeError(f"Covariate name must be a string, not {nom}")
         if len(nom) < 1:
             raise ValueError(f"Covariate name must not be empty string")
         self._name = nom
@@ -66,7 +66,9 @@ class Covariate:
         else:
             diff = float(difference)
             if diff < 0:
-                raise ValueError(f"max difference must be greater than zero {difference}")
+                raise ValueError(
+                    f"max difference for a covariate must be greater than "
+                    f"or equal to zero, not {difference}")
             self._max_difference = diff
 
     def __hash__(self):

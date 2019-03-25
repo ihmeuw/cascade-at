@@ -27,11 +27,11 @@ class DismodGroups(UserDict):
         if item in self.GROUPS:
             return self.data[item]
         else:
-            raise AttributeError(f"{item} is not an attribute")
+            raise AttributeError(f"{item} must be an attribute in {self.GROUPS}")
 
     def __setattr__(self, item, value):
         if item in self.GROUPS and self.__dict__.get("_frozen", False):
-            raise AttributeError(f"Cannot set attribute")
+            raise AttributeError(f"Cannot set attribute {item} because it is not writable.")
         else:
             object.__setattr__(self, item, value)
 
@@ -40,7 +40,7 @@ class DismodGroups(UserDict):
         This keeps us from treating this class as a dictionary by accident.
         """
         if self.__dict__.get("_frozen", False):
-            raise ValueError("Cannot set property on a DismodGroups object.")
+            raise ValueError(f"Cannot set property {key} on a DismodGroups object.")
         else:
             super().__setitem__(key, item)
 

@@ -8,4 +8,9 @@ except DistributionNotFound:
     # package is not installed
     __version__ = "unavailable"
 
-__all__ = ["getLoggers", "__version__"]
+
+class CascadeError(Exception):
+    """Cascade base for exceptions."""
+
+
+__all__ = ["getLoggers", "__version__", "CascadeError"]

@@ -16,14 +16,14 @@ class Var(AgeTimeGrid):
         self._spline = None
 
     def check(self, name=None):
-        """This raises a :py:class:`RuntimeError` if any part of the
+        """This raises a :py:class:`ValueError` if any part of the
         Var is uninitialized. None of the means should be nan. There should only be the
         three mulstds."""
         if not self.grid[self._column_name].notna().all():
-            raise RuntimeError(
+            raise ValueError(
                 f"Var {name} has {self.grid[self._column_name].isna().sum()} nan values")
         if set(self.mulstd.keys()) - {"value", "dage", "dtime"}:
-            raise RuntimeError(
+            raise ValueError(
                 f"Var {name} has mulstds besides the three: {list(self.mulstd.keys())}"
             )
 
@@ -81,7 +81,7 @@ class Var(AgeTimeGrid):
         """
         sig = "kind is one of value, dage, dtime, and value is a float."
         if kind not in PriorKindEnum.__members__:
-            raise TypeError(f"{sig} kind={kind}")
+            raise ValueError(f"{sig} kind={kind}")
         self.mulstd[kind].loc[:, self._column_name] = float(value)
 
     def get_mulstd(self, kind):
@@ -99,7 +99,7 @@ class Var(AgeTimeGrid):
 
         """
         if kind not in PriorKindEnum.__members__:
-            raise TypeError(f"Argument is one of value, dage, dtime, not {kind}.")
+            raise ValueError(f"Argument is one of value, dage, dtime, not {kind}.")
         return float(self.mulstd[kind][self._column_name])
 
     def __str__(self):
