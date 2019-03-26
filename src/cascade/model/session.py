@@ -267,7 +267,8 @@ class Session:
             elif max_iter_sentinel in stdout or max_iter_sentinel in stderr:
                 MATHLOG.warning("Dismod-AT exceeded iterations")
             else:
-                raise DismodATException(f"Dismod-AT failed to complete '{command}' command")
+                raise DismodATException(f"Dismod-AT failed to complete '{command}' command",
+                                        self._objects.db_filename)
 
     @staticmethod
     def _check_vars(var):
@@ -340,13 +341,13 @@ class FitResult:
     @property
     def fit_data(self):
         """Which of the data points were fit."""
-        raise NotImplementedError(f"Cannot retrieve fit data subset.")
+        raise NotImplementedError(f"Retrieve fit data subset not implemented.")
 
     @property
     def excluded_data(self):
         """Which of the data points were excluded due
         to hold outs or covariates."""
-        raise NotImplementedError(f"Cannot retrieve excluded data points.")
+        raise NotImplementedError(f"Retrieve excluded data points not implemented.")
 
 
 class SimulateResult:

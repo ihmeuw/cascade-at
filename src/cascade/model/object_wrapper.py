@@ -45,8 +45,12 @@ class ObjectWrapper:
         self._covariate_rename = dict()
 
     @property
+    def db_filename(self):
+        return self._filename
+
+    @property
     def model(self):
-        raise NotImplementedError("Cannot read a model.")
+        raise NotImplementedError("Reading a model is not implemented.")
 
     @model.setter
     def model(self, new_model):
@@ -87,7 +91,7 @@ class ObjectWrapper:
 
     @property
     def data(self):
-        raise NotImplementedError("Cannot read data.")
+        raise NotImplementedError("Reading data is not implemented.")
 
     @data.setter
     def data(self, data):
@@ -95,7 +99,7 @@ class ObjectWrapper:
 
     @property
     def avgint(self):
-        raise NotImplementedError("Cannot read avgint.")
+        raise NotImplementedError("Reading avgints is not implemented.")
 
     @avgint.setter
     def avgint(self, avgint):
@@ -202,7 +206,7 @@ class ObjectWrapper:
 
     @property
     def locations(self):
-        raise NotImplementedError("Cannot get locations")
+        raise NotImplementedError("Reading locations is not implemented.")
 
     @locations.setter
     def locations(self, locations):
