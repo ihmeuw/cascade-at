@@ -336,7 +336,7 @@ def _make_covariate_table(covariates):
         if not isinstance(check_ref_col.reference, Real):
             null_references.append(check_ref_col.name)
     if null_references:
-        raise RuntimeError(f"Covariate columns without reference values {null_references}")
+        raise ValueError(f"Covariate columns without reference values {null_references}")
 
     # Dismod requires us to rename covariates from names like sex, and "one"
     # to x_0, x_1,... They must be "x_<digit>".
@@ -359,7 +359,7 @@ def _make_covariate_table(covariates):
             covariate_id = [search.name for search in covariates].index(query_column)
         except ValueError as ve:
             if "is not in list" in str(ve):
-                raise RuntimeError(f"A covariate was not registered with the model. {ve}")
+                raise ValueError(f"A covariate was not registered with the model. {ve}")
         return covariate_id
 
     return covariate_columns, cov_col_id_func, renames

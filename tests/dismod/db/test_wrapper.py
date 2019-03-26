@@ -51,7 +51,7 @@ def test_ordering_of_tables(input, expected):
 
 
 def test_ordering_unhappy():
-    with pytest.raises(ValueError):
+    with pytest.raises(DismodFileError):
         next(_ordered_by_foreign_key_dependency(DismodFileBase.metadata, "nonexistent age".split()))
 
 

@@ -5,7 +5,6 @@ import pandas as pd
 from numpy import nan
 
 from cascade.core import getLoggers
-from cascade.core.db import dataframe_from_disk
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
@@ -189,3 +188,14 @@ def normalized_bundle_from_disk(path):
     bundle = dataframe_from_disk(path)
     bundle = bundle.rename(columns={"measure": "measure_id"})
     return _normalize_measures(bundle)
+
+
+def dataframe_from_disk(path):
+    """ Load the file at `path` as a pandas dataframe.
+    """
+    if any(path.endswith(extension) for extension in [".hdf", ".h5", ".hdf5", ".he5"]):
+        return pd.read_hdf(path)
+    elif path.endswith(".csv"):
+        return pd.read_csv(path)
+    else:
+        raise ValueError(f"Unknown file format for bundle: {path}")

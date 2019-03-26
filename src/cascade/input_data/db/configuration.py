@@ -1,7 +1,6 @@
 import json
 
 from cascade.core.db import cursor
-from cascade.core.db import latest_model_version
 from cascade.core.log import getLoggers
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.form import Configuration
@@ -182,3 +181,23 @@ def _trim_list(source_list):
             trimmed.append(tv)
             remove = False
     return trimmed, remove
+
+
+def latest_model_version(execution_context):
+    model_id = execution_context.parameters.modelable_entity_id
+
+    query = """
+    select model_version_id from epi.model_version
+    where modelable_entity_id = %(modelable_entity_id)s
+    order by last_updated desc
+    limit 1
+    """
+
+    with cursor(execution_context) as c:
+        c.execute(query, args={"modelable_entity_id": model_id})
+        result = c.fetchone()
+        if result is not None:
+            return result[0]
+        else:
+            raise RuntimeError(
+                f"No model version for modelable entity id {model_id} in database.")

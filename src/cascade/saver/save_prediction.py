@@ -52,7 +52,10 @@ def _predicted_to_uploadable_format(execution_context, predicted):
     predicted = predicted.drop("integrand", "columns")
 
     if np.any(predicted.time_lower != predicted.time_upper):
-        raise ValueError("Can't turn time ranges into time_ids")
+        raise ValueError(
+            "During upload of predictions, some have different upper and lower "
+            "bounds. Code does not know how to convert these."
+        )
     predicted = predicted.rename(columns={"time_lower": "year_id"})
     predicted = predicted.drop("time_upper", "columns")
 
@@ -65,7 +68,7 @@ def save_predicted_value(execution_context, predicted, fit_or_final):
     elif fit_or_final == "final":
         table = "model_estimate_final"
     else:
-        raise ValueError("fit_or_final must be 'fit' or 'final'")
+        raise ValueError("fit_or_final must be 'fit' or 'final' when saving predicted value.")
 
     predicted = _predicted_to_uploadable_format(execution_context, predicted)
 

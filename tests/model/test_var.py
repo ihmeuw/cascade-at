@@ -99,13 +99,13 @@ def test_mulstd(name, value):
 ])
 def test_mulstd_failure(name, value):
     onet = Var([50, 60], [2000, 2010])
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         onet.set_mulstd(name, value)
 
 
 def test_mulstd_read_failure():
     onet = Var([50, 60], [2000, 2010])
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         onet.get_mulstd("else")
 
     # Here the key is good, but there is nothing there.

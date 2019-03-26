@@ -107,7 +107,7 @@ class Session:
         if initial_guess:
             misalignment = model.check_alignment(initial_guess)
             if misalignment:
-                raise RuntimeError(f"Model and initial guess are misaligned: {misalignment}.")
+                raise ValueError(f"Model and initial guess are misaligned: {misalignment}.")
         data = Session._amend_data_input(data)
         self.setup_model_for_fit(model, data, initial_guess)
         if initial_guess is not None:
@@ -206,7 +206,7 @@ class Session:
         if fit_var:
             misalignment = model.check_alignment(fit_var)
             if misalignment:
-                raise RuntimeError(f"Model and fit var are misaligned: {misalignment}.")
+                raise ValueError(f"Model and fit var are misaligned: {misalignment}.")
         self.setup_model_for_fit(model, data, fit_var)
         self._objects.truth_var = fit_var
         self._run_dismod(["simulate", simulate_count])
@@ -263,11 +263,12 @@ class Session:
         max_iter_sentinel = "Maximum Number of Iterations Exceeded"
         if len(log) == 0 or f"end {command}" not in log.message.iloc[-1]:
             if oom_sentinel in stdout or oom_sentinel in stderr:
-                raise DismodATException("Dismod-AT ran out of memory")
+                raise MemoryError("Dismod-AT ran out of memory")
             elif max_iter_sentinel in stdout or max_iter_sentinel in stderr:
                 MATHLOG.warning("Dismod-AT exceeded iterations")
             else:
-                raise DismodATException(f"Dismod-AT failed to complete '{command}' command")
+                raise DismodATException(f"Dismod-AT failed to complete '{command}' command",
+                                        self._objects.db_filename)
 
     @staticmethod
     def _check_vars(var):
@@ -298,7 +299,7 @@ class Session:
         else:
             null_names = data[data.name.isnull()]
             if not null_names.empty:
-                raise RuntimeError(f"There are some data values that lack data names. {null_names}")
+                raise ValueError(f"There are some data values that lack data names. {null_names}")
 
         if "hold_out" not in data.columns:
             data = data.assign(hold_out=0)
@@ -340,13 +341,13 @@ class FitResult:
     @property
     def fit_data(self):
         """Which of the data points were fit."""
-        raise NotImplementedError(f"Cannot retrieve fit data subset.")
+        raise NotImplementedError(f"Retrieve fit data subset not implemented.")
 
     @property
     def excluded_data(self):
         """Which of the data points were excluded due
         to hold outs or covariates."""
-        raise NotImplementedError(f"Cannot retrieve excluded data points.")
+        raise NotImplementedError(f"Retrieve excluded data points not implemented.")
 
 
 class SimulateResult:

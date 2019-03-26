@@ -200,12 +200,12 @@ def _covariate_name_to_smooth(covariate_name, local_covariates, mulcovs):
     if not covariate_objs:
         return None
     elif len(covariate_objs) > 1:
-        raise RuntimeError(f"More than one covariate object this covariate {covariate_name}")
+        raise RuntimeError(f"More than one covariate object for this covariate: {covariate_name}")
     match_mulcov = [mc for mc in mulcovs if mc.column == covariate_objs[0]]
     if not match_mulcov:
         return None
     elif len(match_mulcov) > 1:
-        raise RuntimeError(f"More than one covariate multiplier matches this covariate {covariate_objs[0]}")
+        raise RuntimeError(f"More than one covariate multiplier matches this covariate: {covariate_objs[0]}")
     return match_mulcov[0].smooth
 
 

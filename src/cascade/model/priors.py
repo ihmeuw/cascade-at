@@ -11,8 +11,8 @@ CODELOG, MATHLOG = getLoggers(__name__)
 # https://bradbell.github.io/dismod_at/doc/prior_table.htm
 
 
-class PriorError(Exception):
-    pass
+class PriorError(ValueError):
+    """Wrong value passed into the priors."""
 
 
 @total_ordering
