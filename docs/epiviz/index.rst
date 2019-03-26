@@ -10,6 +10,7 @@ calls to run Dismod-AT.
    :maxdepth: 2
 
    overview
+   global_model
    cascade_plan
    inputs
    outputs

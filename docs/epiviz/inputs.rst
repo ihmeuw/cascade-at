@@ -8,6 +8,7 @@ EpiViz-AT Inputs
    :maxdepth: 2
 
    bundle
+   priors_as_data
    studycountry
    countryinterp
    asdr
