@@ -30,7 +30,10 @@ to limit which of the integrands from the parent to include in the data.
 .. attention::
 
     Does the min cv field in the user interface refer to the data priors,
-    to the fit priors, or to both?
+    to the fit priors, or to both? The advanced tab sets a min CV on the
+    data, and that will apply to this prior data, too. That value can
+    be `set by integrand <https://bradbell.github.io/dismod_at/doc/integrand_table.htm>`_,
+    but not in the EpiViz-AT user interface.
 
 
 Priors on Fit
@@ -53,7 +56,8 @@ However, the priors on fit apply to
 
  *  primary rates - the value priors, the dage priors, the dtime priors,
     and the mulstd priors, if present. These values can be calculated from
-    fits or calculate by the Dismod-AT predict function.
+    fits or calculate by the
+    `Dismod-AT predict command <https://bradbell.github.io/dismod_at/doc/predict_command.htm>`_.
 
  *  *not* the random effects
 
@@ -63,6 +67,13 @@ However, the priors on fit apply to
     these covariate multipliers. These
     priors *cannot come from the Dismod-AT predict function* because it
     does not predict values for the covariate multipliers.
+
+.. note::
+
+    Do we set priors on all of value, dage, and dtime, or some subset of these?
+    Do we set primary rates on the child using the parent underlying
+    rate and parent's random effect for the child, or do we also include
+    the covariate multipliers when setting the child underlying rates?
 
 Input data for priors on fit has a different shape from priors as input
 data points. If a grid in the parent estimation has a different shape
@@ -94,7 +105,13 @@ It will have the following columns.
  *  ``mean`` - The actual value for this draw, age, and time point.
 
 This ends up being quite different from the priors-as-data described above.
-Think of each draw from the parent estimation as a function :math:`f_d(a_i, t_i)`,
-where :math:`d` is the index of the draw and :math:`i` is the index of the age-time
-point. This step does an MLE by evaluating that function at some possibly-new
+Think of each draw from the parent estimation as a function :math:`f_d(a, t)`,
+where :math:`d` is the index of the draw. It's a continuous function determined
+by values at the knots.
+This step does an MLE by evaluating that function at some possibly-new
 age-time point :math:`f_d(a_j, t_j)`.
+
+.. note::
+
+    Do the "rate CV" from the user interface apply to the priors on the grids?
+    How do we determine precedence between fit by level and fit by integrand?

@@ -27,6 +27,13 @@ There are three reasons to use a covariate.
     data, the sex covariate is a covariate multiplier applied
     the same way as a study covariate.
 
+*One Covariate*
+    The "one covariate" is a covariate of all ones. It's treated within
+    the bundle management system as a study covariate. It's used
+    as a covariate on measurement standard deviations, in order to
+    account for between-study heterogeneity. A paper that might be
+    a jumping-off point for understanding this is [Serghiou2019]_.
+
 A covariate column that is used just for exclusion doesn't need
 a covariate multiplier. In practice, the sex covariate is used
 at global or super-region level as a study covariate. Then the
@@ -88,3 +95,7 @@ Policies for Study and Country Covariates
 
 .. _standard deviation:
     https://bradbell.github.io/dismod_at/doc/data_like.htm#Measurement%20Standard%20Deviation%20Covariates.gamma_j
+
+.. [Serghiou2019] Serghiou, Stylianos, and Steven N. Goodman.
+   "Random-Effects Meta-analysis: Summarizing Evidence With Caveats."
+   Jama 321.3 (2019): 301-302.
