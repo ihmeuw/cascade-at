@@ -14,7 +14,7 @@ Setting Priors
 
 The global model uses estimates of aggregated data in order to inform
 estimates at lower levels. We can think of this as Empirical Bayesian
-([Carlin2000]_, [Kass1989]_) but Bobby Reiner suggestes understanding it
+([Carlin2000]_, [Kass1989]_) but Bobby Reiner suggests understanding it
 as bootstrapping.
 
 Two articles discuss how to estimate confidence intervals from maximum a-posteriori
