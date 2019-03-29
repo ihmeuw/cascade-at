@@ -84,6 +84,7 @@ Each bundle measurement is converted to have a standard deviation
 using lower = :math:`x_l` and upper = :math:`x_u`,
 
 .. math::
+    :label: convert-stdev
 
     \sigma = \frac{x_u - x_l}{2 (1.96)}
 

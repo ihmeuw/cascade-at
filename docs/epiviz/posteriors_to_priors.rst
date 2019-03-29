@@ -18,6 +18,7 @@ it is an age-by-time rectangular grid of values, :math:`v_{at}`.
 There are value priors, dage priors, and dtime priors:
 
 .. math::
+    :label: prior-kind-definitions
 
     v_{at} \sim \mbox{dist}(\mu, \sigma)
 
@@ -43,6 +44,7 @@ central model of Dismod-AT, the
 `adjusted rate equation <https://bradbell.github.io/dismod_at/doc/avg_integrand.htm#Rate%20Functions.Adjusted%20Rate,%20r_ik>`_. Let's copy that here,
 
 .. math::
+    :label: adjusted-rate-definition
 
     r_{i,k}(a,t) = \exp\left[u_{i,k}(a,t) + \sum_{j\in J(k)}x_{i,j}\alpha_{j,k}(a,t)\right]q_{i,k}(a,t)
 
@@ -54,6 +56,7 @@ so this is grandparent-to-parent, where parent's index is :math:`c`,
 changing indices accordingly.
 
 .. math::
+    :label: remission-rate
 
     \rho_c(a,t) = \exp\left[u_c(a,t) + \sum_{j\in J(\rho)}x_{j}\alpha_j(a,t)\right]q_i(a,t)
 
@@ -62,6 +65,7 @@ covariates. Covariates are relative to their reference value.
 Then look at the child estimation, so this is for the parent-to-child.
 
 .. math::
+    :label: remission-child
 
     \rho_i(a,t) = \exp\left[u_i(a,t) + \sum_{j\in J(\rho)}x'_{j}\alpha'_j(a,t)\right]q(a,t)
 
@@ -69,6 +73,7 @@ The child index is :math:`i`. If we set :math:`u_i=0`, then we get a prediction
 for the underlying rate, of the parent,
 
 .. math::
+    :label: remission-from-parent
 
     \rho_u = \exp\left[\sum_{j\in J(\rho)}x'_{j}\alpha'_j(a,t)\right]q(a,t)
 
@@ -83,16 +88,19 @@ real rate for the parent, by the grandparent-to-parent estimation, with the
 predicted underlying rate for the parent-to-child estimation,
 
 .. math::
+    :label: remission-equivalence
 
     \rho_c(a,t) = \rho_u
 
 .. math::
+    :label: two-sided-equivalence
 
     \exp\left[u_c(a,t) + \sum_{j\in J(\rho)}x_{j}\alpha_j(a,t)\right]q_i(a,t) = \exp\left[\sum_{j\in J(\rho)}x'_{j}\alpha'_j(a,t)\right]q(a,t).
 
 Canceling on both sides, for :math:`(x', \alpha')=(x, \alpha)` leads to,
 
 .. math::
+    :label: canceled-underlying-equivalence
 
     q_i(a,t)\exp\left[u_c(a,t)\right] = q(a,t),
 
@@ -102,12 +110,13 @@ For each value in the grid for :math:`\rho`, the distribution
 for the grid values, dage, and dtime priors comes from
 
 .. math::
+    :label: priorfromparent-value
 
-   v_{at} \sim \mbox{MLE}(\rho_i(a,t) \exp u_c(a,t))
+    v_{at} \sim \mbox{MLE}(\rho_i(a,t) \exp u_c(a,t))
 
-   v_{a't} - v_{at} \sim \mbox{MLE}(\rho_i(a',t) \exp u_c(a',t) - \rho_i(a,t) \exp u_c(a,t))
+    v_{a't} - v_{at} \sim \mbox{MLE}(\rho_i(a',t) \exp u_c(a',t) - \rho_i(a,t) \exp u_c(a,t))
 
-   v_{at'} - v_{at'} \sim \mbox{MLE}(\rho_i(a,t') \exp u_c(a,t') - \rho_i(a,t) \exp u_c(a,t)).
+    v_{at'} - v_{at'} \sim \mbox{MLE}(\rho_i(a,t') \exp u_c(a,t') - \rho_i(a,t) \exp u_c(a,t)).
 
 As described above, Gaussian distributions do use MLE, but other distributions
 may use simpler estimators, depending on what's available in Scipy.
