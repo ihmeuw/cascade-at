@@ -151,6 +151,9 @@ class DismodFile:
     The arguments for ``avgint_columns`` and ``data_columns`` add columns
     to the avgint and data tables. These arguments are dictionaries from
     column name to column type.
+
+    This uses a deep copy of the metadata module so that, when it adds columns
+    to tables, it doesn't affect the module itself.
     """
 
     def __init__(self, engine=None):
