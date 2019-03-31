@@ -407,7 +407,7 @@ class DismodFile:
             table_name (str): Must be one of the tables defined by metadata.
 
         Returns:
-            An empty dataframe, but columns have correcct types.
+            An empty dataframe, but columns have correct types.
         """
         table_definition = self._table_definitions[table_name]
         return pd.DataFrame({k: pd.Series(dtype=v.type.python_type) for k, v in table_definition.c.items()})

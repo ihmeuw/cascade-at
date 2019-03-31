@@ -64,27 +64,27 @@ def dummy_data_row():
 @pytest.fixture
 def new_data():
     return pd.DataFrame(dict(
-        data_name = pd.Series(["foo", "bar"]),
-        integrand_id = pd.Series([1, 2], dtype="Int64"),
-        density_id = pd.Series([1, 1], dtype="Int64"),
-        node_id = pd.Series([37, 102], dtype="Int64"),
-        weight_id = pd.Series([1, 1], dtype="Int64"),
-        hold_out = pd.Series([0, 1], dtype="Int64"),
-        meas_value = pd.Series([0.0, 0.5]),
-        meas_std = pd.Series([0.01, 0.01], dtype=np.float),
-        eta = pd.Series([np.nan, 0.0005], dtype=np.float),
-        nu = pd.Series([np.nan, 5], dtype=np.float),
-        age_lower = pd.Series([0, 45], dtype=np.float),
-        age_upper = pd.Series([10, 70], dtype=np.float),
-        time_lower = pd.Series([1990, 2000], dtype=np.float),
-        time_upper = pd.Series([2000, 2010], dtype=np.float),
-        x_s_source = pd.Series([0, 2], dtype="Int64"),
-        x_sex = pd.Series([2.0, 4.0], dtype=np.float),
+        data_name=pd.Series(["foo", "bar"]),
+        integrand_id=pd.Series([1, 2], dtype="Int64"),
+        density_id=pd.Series([1, 1], dtype="Int64"),
+        node_id=pd.Series([37, 102], dtype="Int64"),
+        weight_id=pd.Series([1, 1], dtype="Int64"),
+        hold_out=pd.Series([0, 1], dtype="Int64"),
+        meas_value=pd.Series([0.0, 0.5]),
+        meas_std=pd.Series([0.01, 0.01], dtype=np.float),
+        eta=pd.Series([np.nan, 0.0005], dtype=np.float),
+        nu=pd.Series([np.nan, 5], dtype=np.float),
+        age_lower=pd.Series([0, 45], dtype=np.float),
+        age_upper=pd.Series([10, 70], dtype=np.float),
+        time_lower=pd.Series([1990, 2000], dtype=np.float),
+        time_upper=pd.Series([2000, 2010], dtype=np.float),
+        x_s_source=pd.Series([0, 2], dtype="Int64"),
+        x_sex=pd.Series([2.0, 4.0], dtype=np.float),
     ))
 
 
 @pytest.mark.parametrize(
-    "input,expected",
+    "in_tables,expected",
     [
         ("age time integrand density", "age density integrand time"),
         ("density prior age", "age density prior"),
@@ -93,8 +93,8 @@ def new_data():
         ("avgint node weight", "node weight avgint"),
     ],
 )
-def test_ordering_of_tables(input, expected):
-    out = list(_ordered_by_foreign_key_dependency(DismodFileBase.metadata, input.split()))
+def test_ordering_of_tables(in_tables, expected):
+    out = list(_ordered_by_foreign_key_dependency(DismodFileBase.metadata, in_tables.split()))
     assert out == expected.split()
 
 
