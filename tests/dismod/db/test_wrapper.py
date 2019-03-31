@@ -1,4 +1,5 @@
 import enum
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -58,6 +59,28 @@ def dummy_data_row():
         },
         index=[0],
     )
+
+
+@pytest.fixture
+def new_data():
+    return pd.DataFrame(dict(
+        data_name = pd.Series(["foo", "bar"]),
+        integrand_id = pd.Series([1, 2], dtype="Int64"),
+        density_id = pd.Series([1, 1], dtype="Int64"),
+        node_id = pd.Series([37, 102], dtype="Int64"),
+        weight_id = pd.Series([1, 1], dtype="Int64"),
+        hold_out = pd.Series([0, 1], dtype="Int64"),
+        meas_value = pd.Series([0.0, 0.5]),
+        meas_std = pd.Series([0.01, 0.01], dtype=np.float),
+        eta = pd.Series([np.nan, 0.0005], dtype=np.float),
+        nu = pd.Series([np.nan, 5], dtype=np.float),
+        age_lower = pd.Series([0, 45], dtype=np.float),
+        age_upper = pd.Series([10, 70], dtype=np.float),
+        time_lower = pd.Series([1990, 2000], dtype=np.float),
+        time_upper = pd.Series([2000, 2010], dtype=np.float),
+        x_s_source = pd.Series([0, 2], dtype="Int64"),
+        x_sex = pd.Series([2.0, 4.0], dtype=np.float),
+    ))
 
 
 @pytest.mark.parametrize(
@@ -269,29 +292,51 @@ def test_write_covariate_column__success(base_file):
     base_file.flush()
 
 
-def test_write_integer_column__success(base_file):
+def test_write_integer_column__success(base_file, new_data):
     # Constructs a DataFrame with explicitly-typed nullable integer types.
-    new_data = pd.DataFrame(dict(
-        data_name = pd.Series(["foo", "bar"]),
-        integrand_id = pd.Series([1, 2], dtype="Int64"),
-        density_id = pd.Series([1, 1], dtype="Int64"),
-        node_id = pd.Series([37, 102], dtype="Int64"),
-        weight_id = pd.Series([1, 1], dtype="Int64"),
-        hold_out = pd.Series([0, 1], dtype="Int64"),
-        meas_value = pd.Series([0.0, 0.5]),
-        meas_std = pd.Series([0.01, 0.01], dtype=np.float),
-        eta = pd.Series([np.nan, 0.0005], dtype=np.float),
-        nu = pd.Series([np.nan, 5], dtype=np.float),
-        age_lower = pd.Series([0, 45], dtype=np.float),
-        age_upper = pd.Series([10, 70], dtype=np.float),
-        time_lower = pd.Series([1990, 2000], dtype=np.float),
-        time_upper = pd.Series([2000, 2010], dtype=np.float),
-        x_s_source = pd.Series([0, 2], dtype="Int64"),
-        x_sex = pd.Series([2.0, 4.0], dtype=np.float),
-    ))
     assert new_data.hold_out.dtype == pd.Int64Dtype()
     base_file.data = new_data
     base_file.flush()
+
+
+def test_written_schema(new_data, tmp_path):
+    """Constructs a DataFrame with explicitly-typed nullable integer types."""
+    # tests whether it really gets written to the db with the expected type.
+    db_file = Path(tmp_path) / "file.db"
+    engine = get_engine(db_file)
+    dm_file = DismodFile(engine)
+    dm_file.data = new_data
+    dm_file.flush()
+
+    found_column = dict()
+    conn = sqlite3.connect(str(db_file))
+    c = conn.cursor()
+    # This schema description is a CREATE TABLE statement.
+    schema = c.execute('''SELECT sql FROM sqlite_master WHERE type = 'table' and tbl_name = 'data';''').fetchone()
+    for line in schema[0].split("\n"):
+        print(line)
+        m = re.search("(\w+)\s+(\w+)", line)
+        if m:
+            col, kind = (m.group(1), m.group(2))
+            print(f"col {col} kind {kind}")
+            if col in new_data.dtypes:
+                expected = new_data.dtypes[col]
+                if expected == np.float:
+                    assert kind == "real"
+                elif expected == np.dtype("O"):
+                    assert kind == "text"
+                elif expected == pd.Int64Dtype():
+                    assert kind == "integer"
+                else:
+                    assert False, f"expected {expected} found {line}"
+                found_column[col] = kind
+            elif col == "data_id":
+                assert kind == "integer"
+            elif col == "CREATE":
+                continue
+            else:
+                assert False, f"Unknown column {line}"
+    assert len(found_column) == len(new_data.dtypes)
 
 
 def test_read_covariate_column__success(base_file, dummy_data_row):
