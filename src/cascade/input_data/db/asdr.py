@@ -103,7 +103,7 @@ def asdr_by_sex(asdr, ages, sexes):
 
 
 def _upload_asdr_data_to_tier_3(gbd_round_id, cursor, model_version_id, asdr_data):
-    """Uploads asdr data to tier 3 attached to the current model_version_id.
+    """Uploads ASDR data to tier 3 attached to the current model_version_id.
     """
 
     insert_query = f"""
@@ -161,7 +161,7 @@ def load_asdr_to_t3(execution_context, data_access, location_and_children):
     missing_from_t3 = set(location_and_children) - set(locations_with_asdr_in_t3)
     if missing_from_t3:
         CODELOG.info(
-            f"""Uploading asdr data for model_version_id
+            f"""Uploading ASDR data for model_version_id
             {model_version_id} on '{database}'"""
         )
         asdr_data = get_asdr_data(gbd_round_id, list(missing_from_t3), data_access.with_hiv)
@@ -172,7 +172,7 @@ def load_asdr_to_t3(execution_context, data_access, location_and_children):
         return True
     else:
         CODELOG.info(
-            f"""asdr data for model_version_id {model_version_id}
+            f"""ASDR data for model_version_id {model_version_id}
             on '{database}' already exists, doing nothing."""
         )
         return False

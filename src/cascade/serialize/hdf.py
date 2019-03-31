@@ -182,7 +182,7 @@ def write_smooth_grid(hdf_group, smooth_grid, name):
 
     ds = hdf_group.create_dataset(name, data=data)
 
-# The dict is ordered, so this order is the same as the shape when
+    # The dict is ordered, so this order is the same as the shape when
     # calling create_dataset.
     scales = dict(
         prior_kind=PRIOR_KINDS,

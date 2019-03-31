@@ -89,9 +89,10 @@ def get_years_from_lower_age_to_mean_age(execution_context):
     Get the mean year estimate for age groups. This is the mean age beyond the
     start of the age group for people in a given age group.
 
-    NOTE:
-    Unlike the overall span of the age group, this value is demographically
-    specific.
+    .. note::
+
+        Unlike the overall span of the age group, this value is demographically
+        specific.
 
     Returns:
         pd.DataFrame: with columns ["age_group_id", "location_id",

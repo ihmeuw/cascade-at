@@ -1,4 +1,4 @@
-"""Upload csmr data to t3 table so EpiViz can access it for plotting."""
+"""Upload CSMR data to t3 table so EpiViz can access it for plotting."""
 
 import pandas as pd
 
@@ -50,7 +50,7 @@ def _gbd_process_version_id_from_cod_version(cod_version):
         result = c.fetchone()
 
     if result is None:
-        raise GBDDataError(f"No best gbd_process_version_id for cod version {cod_version}")
+        raise GBDDataError(f"No best gbd_process_version_id for COD version {cod_version}")
 
     return result[0]
 
@@ -82,7 +82,7 @@ def get_csmr_data(
 
 
 def _upload_csmr_data_to_tier_3(cursor, model_version_id, csmr_data):
-    """Uploads csmr data to tier 3 attached to the current model_version_id.
+    """Uploads CSMR data to tier 3 attached to the current model_version_id.
     """
 
     insert_query = f"""
@@ -130,7 +130,7 @@ def load_csmr_to_t3(execution_context, data_access, location_and_children):
     locations_with_data_in_t3 = _csmr_in_t3(execution_context, model_version_id)
     csmr_not_in_t3 = set(location_and_children) - set(locations_with_data_in_t3)
     if csmr_not_in_t3:
-        CODELOG.info(f"Uploading csmr data for model_version_id {model_version_id} on '{database}'")
+        CODELOG.info(f"Uploading CSMR data for model_version_id {model_version_id} on '{database}'")
 
         csmr_data = get_csmr_data(execution_context, list(csmr_not_in_t3), cause_id, cod_version, gbd_round_id)
 
@@ -140,6 +140,6 @@ def load_csmr_to_t3(execution_context, data_access, location_and_children):
         return True
     else:
         CODELOG.info(
-            f"csmr data for model_version_id {model_version_id} on '{database}' already exists, doing nothing."
+            f"CSMR data for model_version_id {model_version_id} on '{database}' already exists, doing nothing."
         )
         return False

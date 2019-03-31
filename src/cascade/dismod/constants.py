@@ -57,7 +57,7 @@ class IntegrandEnum(Enum):
     mtwith = 4
     """Mortality rate for those with condition."""
     susceptible = 5
-    """Fraction of susceptibles out of total populaion."""
+    """Fraction of susceptibles out of total population."""
     withC = 6
     """Fraction of population with the disease. Total pop is the denominator."""
     prevalence = 7
@@ -112,7 +112,7 @@ INTEGRAND_TO_WEIGHT = dict(
     relrisk=WeightEnum.constant,
 )
 """Each integrand has a natural association with a particular weight because
-it is a count of events with one of four denominators: cosntant, susceptibles,
+it is a count of events with one of four denominators: constant, susceptibles,
 with-condition, or the total population.
 """
 

@@ -1,7 +1,7 @@
 """This module provides basic database access tools.
 
 All other code which accesses the external databases should do so through the context managers defined here so we
-have consistency and a single chokepoint for that access.
+have consistency and a single choke point for that access.
 """
 import importlib
 from contextlib import contextmanager
@@ -81,7 +81,7 @@ def use_local_odbc_ini():
 @contextmanager
 def cursor(execution_context=None, database=None):
     """A context manager which exposes a database cursor connected to the database specified by
-    either the execution_context or database if that is specifed. The cursor will be closed when
+    either the execution_context or database if that is specified. The cursor will be closed when
     the manager exits and if it exits without raising an exception the connection will also be committed.
     """
 

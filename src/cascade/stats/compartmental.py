@@ -214,7 +214,7 @@ def mu_from_omega(omega, chi, P):
 
     Args:
         omega (function): Other-cause mortality
-        chi (function): Excess mortaltiy.
+        chi (function): Excess mortality.
         P (function): Prevalence.
 
     Returns:
