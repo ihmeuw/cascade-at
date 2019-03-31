@@ -183,8 +183,8 @@ def freeze_bundle(execution_context, model_version_id, bundle_id=None) -> bool:
 
     The freezing process works as follows:
     If there is any data in the tier 3 table for the model_version_id then it is assumed to already be frozen.
-    Otherwise download all data for the bundle from the tier 2 table in the main epi database and reupload it
-    to the dismodAT database (ie. promote it).
+    Otherwise download all data for the bundle from the tier 2 table in the main epi database and re-upload it
+    to the Dismod-AT database (ie. promote it).
 
     Returns:
       True if any data was promoted and False otherwise

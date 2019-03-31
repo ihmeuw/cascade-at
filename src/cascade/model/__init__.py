@@ -14,7 +14,7 @@ from cascade.core import CascadeError
 class ModelError(CascadeError):
     """A problem with setup or solution of model.
 
-    It's a RuntimeE
+    It's a RuntimeError.
     """
 
 

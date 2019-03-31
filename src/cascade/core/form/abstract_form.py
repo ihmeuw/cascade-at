@@ -4,7 +4,7 @@ validators. It tries to follow conventions from form validation systems in the
 web application world since that is a very similar problem.
 
 Example:
-    Validators are defined as classes with attributes which corrispond to the
+    Validators are defined as classes with attributes which correspond to the
     values they expect to receive. For example, consider this JSON blob:
 
     {"field_a": "10", "field_b": "22.4", "nested": {"field_c": "Some Text"}}
@@ -63,7 +63,8 @@ class FormComponent:
         nullable (bool): If False then missing data for this node is considered
           an error. Defaults to False.
         default: Default value to return if unset
-        name (str): The name used in the EpiViz interface.
+        display (str): The name used in the EpiViz interface.
+        validation_priority (int): Sort order for validation.
     """
 
     _children = None
@@ -152,6 +153,7 @@ class Field(FormComponent):
         Args:
             instance (Form): the instance of the form for which this field
                              should be validated.
+            root (Form): pointer back to the base of the form hierarchy.
 
         Returns:
             [(str, str, str)]: a list of error messages with path strings

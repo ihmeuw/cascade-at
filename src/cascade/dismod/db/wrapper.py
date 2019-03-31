@@ -9,6 +9,7 @@ from textwrap import dedent
 
 import numpy as np
 import pandas as pd
+from pandas.core.dtypes.base import ExtensionDtype
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
 from sqlalchemy import Integer, String, Float, Enum
@@ -33,56 +34,30 @@ def get_engine(file_path):
 
 
 def _validate_data(table_definition, data):
-    """Validates that the dtypes in data match the expected types in the table_definition
+    """Validates that the dtypes in data match the expected types in the table_definition.
+    Pandas makes this difficult because DataFrames with no length have Object type,
+    and those with nulls become float type.
     """
+    if len(data) == 0:
+        # Length zero columns get converted on write.
+        return
+
     columns_checked = set()
 
     for column_name, column_definition in table_definition.c.items():
         if column_name in data:
             actual_type = data[column_name].dtype
-            try:
-                expected_type = column_definition.type.python_type
-            except NotImplementedError:
-                # Custom column definitions can lack a type.
-                # We use custom column definitions for primary keys of type int.
-                expected_type = int
-
-            if len(data) == 0:
-                # Length zero columns get converted on write.
-                continue
-
-            if issubclass(expected_type, Enum):
-                # This is an Enum type column, I'm making the simplifying assumption
-                # that those will always be string type
-                expected_type = str
+            is_pandas_extension = isinstance(actual_type, ExtensionDtype)
+            expected_type = _expected_type(column_definition)
 
             if expected_type is int:
-                # Permit np.float because an int column with a None is cast to float.
-                # Same for object. This is cast on write.
-                # Because we use metadata, this will be converted for us to int when it is written.
-                allowed = [np.integer, np.floating]
-                if not any(np.issubdtype(actual_type, given_type) for given_type in allowed):
-                    raise DismodFileError(
-                        f"column '{column_name}' in data for table '{table_definition.name}' must be integer"
-                    )
+                _check_int_type(actual_type, column_name, is_pandas_extension, table_definition)
             elif expected_type is float:
-                if not np.issubdtype(actual_type, np.number):
-                    raise DismodFileError(
-                        f"column '{column_name}' in data for table '{table_definition.name}' must be numeric"
-                    )
+                _check_float_type(actual_type, column_name, table_definition)
             elif expected_type is str:
-                if len(data) > 0:
-                    # Use iloc to get the first entry, even if the index doesn't have 0.
-                    entry = data[column_name].iloc[0]
-                    correct = np.issubdtype(type(entry), np.str_) or entry is None
-
-                    if not correct:
-                        raise DismodFileError(
-                            f"column '{column_name}' in data for table '{table_definition.name}' must be string "
-                            f"but type is {actual_type}."
-                        )
-                else:
-                    pass  # Will convert to string on write of empty rows.
+                _check_str_type(actual_type, column_name, data, table_definition)
+            else:
+                raise RuntimeError(f"Unexpected type from column definitions: {expected_type}.")
         elif not (column_definition.primary_key or column_definition.nullable):
             raise DismodFileError(f"Missing column in data for table '{table_definition.name}': '{column_name}'")
         columns_checked.add(column_name)
@@ -90,6 +65,62 @@ def _validate_data(table_definition, data):
     extra_columns = set(data.columns).difference(table_definition.c.keys())
     if extra_columns:
         raise DismodFileError(f"extra columns in data for table '{table_definition.name}': {extra_columns}")
+
+
+def _expected_type(column_definition):
+    """Column definitions contain type information, and this augments those with rules."""
+    try:
+        expected_type = column_definition.type.python_type
+    except NotImplementedError:
+        # Custom column definitions can lack a type.
+        # We use custom column definitions for primary keys of type int.
+        expected_type = int
+    if issubclass(expected_type, Enum):
+        # This is an Enum type column, I'm making the simplifying assumption
+        # that those will always be string type
+        expected_type = str
+    return expected_type
+
+
+def _check_int_type(actual_type, column_name, is_pandas_extension, table_definition):
+    if is_pandas_extension:
+        if actual_type.is_dtype(pd.Int64Dtype()):
+            return
+        else:
+            raise DismodFileError(
+                f"column '{column_name}' in data for table '{table_definition.name}' must be integer"
+            )
+    else:
+        # Permit np.float because an int column with a None is cast to float.
+        # Same for object. This is cast on write.
+        # Because we use metadata, this will be converted for us to int when it is written.
+        allowed = [np.integer, np.floating]
+        if not any(np.issubdtype(actual_type, given_type) for given_type in allowed):
+            raise DismodFileError(
+                f"column '{column_name}' in data for table '{table_definition.name}' must be integer"
+            )
+
+
+def _check_float_type(actual_type, column_name, table_definition):
+    if not np.issubdtype(actual_type, np.number):
+        raise DismodFileError(
+            f"column '{column_name}' in data for table '{table_definition.name}' must be numeric"
+        )
+
+
+def _check_str_type(actual_type, column_name, data, table_definition):
+    if len(data) > 0:
+        # Use iloc to get the first entry, even if the index doesn't have 0.
+        entry = data[column_name].iloc[0]
+        correct = np.issubdtype(type(entry), np.str_) or entry is None
+
+        if not correct:
+            raise DismodFileError(
+                f"column '{column_name}' in data for table '{table_definition.name}' must be string "
+                f"but type is {actual_type}."
+            )
+    else:
+        pass  # Will convert to string on write of empty rows.
 
 
 def _ordered_by_foreign_key_dependency(schema, tables_to_write):
@@ -145,6 +176,9 @@ class DismodFile:
     The arguments for ``avgint_columns`` and ``data_columns`` add columns
     to the avgint and data tables. These arguments are dictionaries from
     column name to column type.
+
+    This uses a deep copy of the metadata module so that, when it adds columns
+    to tables, it doesn't affect the module itself.
     """
 
     def __init__(self, engine=None):
@@ -398,7 +432,7 @@ class DismodFile:
             table_name (str): Must be one of the tables defined by metadata.
 
         Returns:
-            An empty dataframe, but columns have correcct types.
+            An empty dataframe, but columns have correct types.
         """
         table_definition = self._table_definitions[table_name]
         return pd.DataFrame({k: pd.Series(dtype=v.type.python_type) for k, v in table_definition.c.items()})

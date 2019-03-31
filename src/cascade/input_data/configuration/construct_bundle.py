@@ -25,7 +25,7 @@ def _normalize_measures(data):
     if any(data.measure_id == 17):
         MATHLOG.info(
             f"Found case fatality rate, measure_id=17, in data. Ignoring it because it does not "
-            f"map to a dismodat integrand and cannot be used by the model."
+            f"map to a Dismod-AT integrand and cannot be used by the model."
         )
         data = data[data.measure_id != 17]
 
@@ -181,7 +181,7 @@ def normalized_bundle_from_database(execution_context, model_version_id, bundle_
 
 
 def normalized_bundle_from_disk(path):
-    """Load a bundle off disk. It is assumed to be in the same format that dismodODE
+    """Load a bundle off disk. It is assumed to be in the same format that Dismod-ODE
     used and we do a bit of adjusting to get it into the same format as our normalized
     from database bundles.
     """

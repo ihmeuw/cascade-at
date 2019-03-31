@@ -171,7 +171,7 @@ def location_id_from_location_and_level(locations, location_id, target_level):
             raise ValueError(
                 f"Expected a location level greater than 0 but found {target_level}")
 
-        # The -1 here is because epiviz uses a system where global == 1 and
+        # The -1 here is because EpiViz uses a system where global == 1 and
         # central comp uses a system where global == 0
         normalized_target = target_level - 1
         if normalized_target < len(drill):
