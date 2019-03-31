@@ -3,6 +3,7 @@ This describes the tables in the sqlite file that Dismod reads.
 """
 
 import numpy as np
+import pandas as pd
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Enum, ForeignKey
@@ -536,6 +537,7 @@ _TYPE_MAP = {
     int: Integer,
     float: Float,
     np.dtype("int64"): Integer,
+    pd.Int64Dtype(): Integer,  # nullable integer type.
     np.dtype("float64"): Float,
 }
 

@@ -35,6 +35,31 @@ def base_file(engine):
     return dm_file
 
 
+@pytest.fixture
+def dummy_data_row():
+    return pd.DataFrame(
+        {
+            "data_name": "foo",
+            "integrand_id": 1,
+            "density_id": 1,
+            "node_id": 1,
+            "weight_id": 1,
+            "hold_out": 0,
+            "meas_value": 0.0,
+            "meas_std": 0.0,
+            "eta": np.nan,
+            "nu": np.nan,
+            "age_lower": 0,
+            "age_upper": 10,
+            "time_lower": 1990,
+            "time_upper": 2000,
+            "x_s_source": 0,  # Dismod-AT allows arbitrary columns starting with x_.
+            "x_sex": 2.0,
+        },
+        index=[0],
+    )
+
+
 @pytest.mark.parametrize(
     "input,expected",
     [
@@ -244,29 +269,29 @@ def test_write_covariate_column__success(base_file):
     base_file.flush()
 
 
-@pytest.fixture
-def dummy_data_row():
-    return pd.DataFrame(
-        {
-            "data_name": "foo",
-            "integrand_id": 1,
-            "density_id": 1,
-            "node_id": 1,
-            "weight_id": 1,
-            "hold_out": 0,
-            "meas_value": 0.0,
-            "meas_std": 0.0,
-            "eta": np.nan,
-            "nu": np.nan,
-            "age_lower": 0,
-            "age_upper": 10,
-            "time_lower": 1990,
-            "time_upper": 2000,
-            "x_s_source": 0,
-            "x_sex": 2.0,
-        },
-        index=[0],
-    )
+def test_write_integer_column__success(base_file):
+    # Constructs a DataFrame with explicitly-typed nullable integer types.
+    new_data = pd.DataFrame(dict(
+        data_name = pd.Series(["foo", "bar"]),
+        integrand_id = pd.Series([1, 2], dtype="Int64"),
+        density_id = pd.Series([1, 1], dtype="Int64"),
+        node_id = pd.Series([37, 102], dtype="Int64"),
+        weight_id = pd.Series([1, 1], dtype="Int64"),
+        hold_out = pd.Series([0, 1], dtype="Int64"),
+        meas_value = pd.Series([0.0, 0.5]),
+        meas_std = pd.Series([0.01, 0.01], dtype=np.float),
+        eta = pd.Series([np.nan, 0.0005], dtype=np.float),
+        nu = pd.Series([np.nan, 5], dtype=np.float),
+        age_lower = pd.Series([0, 45], dtype=np.float),
+        age_upper = pd.Series([10, 70], dtype=np.float),
+        time_lower = pd.Series([1990, 2000], dtype=np.float),
+        time_upper = pd.Series([2000, 2010], dtype=np.float),
+        x_s_source = pd.Series([0, 2], dtype="Int64"),
+        x_sex = pd.Series([2.0, 4.0], dtype=np.float),
+    ))
+    assert new_data.hold_out.dtype == pd.Int64Dtype()
+    base_file.data = new_data
+    base_file.flush()
 
 
 def test_read_covariate_column__success(base_file, dummy_data_row):

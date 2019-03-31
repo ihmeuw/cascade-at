@@ -9,6 +9,7 @@ from textwrap import dedent
 
 import numpy as np
 import pandas as pd
+from pandas.core.dtypes.base import ExtensionDtype
 from networkx import DiGraph
 from networkx.algorithms.dag import lexicographical_topological_sort
 from sqlalchemy import Integer, String, Float, Enum
@@ -33,13 +34,16 @@ def get_engine(file_path):
 
 
 def _validate_data(table_definition, data):
-    """Validates that the dtypes in data match the expected types in the table_definition
+    """Validates that the dtypes in data match the expected types in the table_definition.
+    Pandas makes this difficult because DataFrames with no length have Object type,
+    and those with nulls become float type.
     """
     columns_checked = set()
 
     for column_name, column_definition in table_definition.c.items():
         if column_name in data:
             actual_type = data[column_name].dtype
+            is_pandas_extension = isinstance(actual_type, ExtensionDtype)
             try:
                 expected_type = column_definition.type.python_type
             except NotImplementedError:
@@ -57,6 +61,8 @@ def _validate_data(table_definition, data):
                 expected_type = str
 
             if expected_type is int:
+                if is_pandas_extension and actual_type.is_dtype(pd.Int64Dtype()):
+                    continue
                 # Permit np.float because an int column with a None is cast to float.
                 # Same for object. This is cast on write.
                 # Because we use metadata, this will be converted for us to int when it is written.
