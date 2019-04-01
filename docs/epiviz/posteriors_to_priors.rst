@@ -20,11 +20,11 @@ There are value priors, dage priors, and dtime priors:
 .. math::
     :label: prior-kind-definitions
 
-    v_{at} \sim \mbox{dist}(\mu, \sigma)
+    v_{at} \sim \mbox{dist}(\mu, \sigma)& \qquad\mbox{value prior}
 
-    v_{a't} - v_{at} \sim \mbox{dist}(\mu, \sigma)
+    v_{a't} - v_{at} \sim \mbox{dist}(\mu, \sigma)& \qquad\mbox{dage prior}
 
-    v_{at'} - v_{at} \sim \mbox{dist}(\mu, \sigma)
+    v_{at'} - v_{at} \sim \mbox{dist}(\mu, \sigma)& \qquad\mbox{dtime prior}
 
 where :math:`a'` is the next-larger value of :math:`a` and
 :math:`t'` is the next-larger value of :math:`t`.
@@ -38,17 +38,18 @@ where MLE is unavailable, the mean of the draws and standard deviation
 of the draws are used as estimators, as shown in
 :py:mod:`cascade.model.priors`.
 
-The relationship between the parent estimation (of parent and children)
-and the child estimation (of child and grandchildren) comes from the
+The relationship between a grandparent estimation (of grandparent and parent)
+and a parent estimation (of parent and children) comes from the
 central model of Dismod-AT, the
-`adjusted rate equation <https://bradbell.github.io/dismod_at/doc/avg_integrand.htm#Rate%20Functions.Adjusted%20Rate,%20r_ik>`_. Let's copy that here,
+`adjusted rate equation <https://bradbell.github.io/dismod_at/doc/avg_integrand.htm#Rate%20Functions.Adjusted%20Rate,%20r_ik>`_.
+Let's copy that here, with no changes,
 
 .. math::
     :label: adjusted-rate-definition
 
     r_{i,k}(a,t) = \exp\left[u_{i,k}(a,t) + \sum_{j\in J(k)}x_{i,j}\alpha_{j,k}(a,t)\right]q_{i,k}(a,t)
 
-and focus on a
+and rewrite it for a
 single rate for notational simplicity. Pick remission, :math:`\rho`,
 so :math:`u_i` is the random effect for :math:`\rho` for child :math:`i`.
 Write this same equation for the parent estimation,
@@ -56,18 +57,21 @@ so this is grandparent-to-parent, where parent's index is :math:`c`,
 changing indices accordingly.
 
 .. math::
-    :label: remission-rate
+    :label: remission-grandparent
 
-    \rho_c(a,t) = \exp\left[u_c(a,t) + \sum_{j\in J(\rho)}x_{j}\alpha_j(a,t)\right]q_i(a,t)
+    \rho_c(a,t) = \exp\left[u_c(a,t) + \sum_{j\in J(\rho)}(x_{j}-x_{j0})\alpha_j(a,t)\right]q_i(a,t)
 
-There are :math:`J(\rho)` covariate multipliers against the :math:`x_{i}`
-covariates. Covariates are relative to their reference value.
-Then look at the child estimation, so this is for the parent-to-child.
+There are :math:`J(\rho)` covariate multipliers against the :math:`x_{j}`
+covariates. We've added a reference value, :math:`x_{j0}` for each covariate,
+so that it's visible in the equation. Covariates are relative to their reference value.
+We then write the parent estimation, the one for parent-to-child, **in order to ask
+which terms in the grandparent estimation correspond to which terms
+in the parent estimation.** So this is for parent-to-child,
 
 .. math::
-    :label: remission-child
+    :label: remission-parent
 
-    \rho_i(a,t) = \exp\left[u_i(a,t) + \sum_{j\in J(\rho)}x'_{j}\alpha'_j(a,t)\right]q(a,t)
+    \rho_i(a,t) = \exp\left[u_i(a,t) + \sum_{j\in J(\rho)}(x'_{j} - x'_{j0})\alpha'_j(a,t)\right]q(a,t).
 
 The child index is :math:`i`. If we set :math:`u_i=0`, then we get a prediction
 for the underlying rate, of the parent,
@@ -75,9 +79,9 @@ for the underlying rate, of the parent,
 .. math::
     :label: remission-from-parent
 
-    \rho_u = \exp\left[\sum_{j\in J(\rho)}x'_{j}\alpha'_j(a,t)\right]q(a,t)
+    \rho_u = \exp\left[\sum_{j\in J(\rho)}(x'_{j} - x'_{j0})\alpha'_j(a,t)\right]q(a,t)
 
-The prime on :math:`(x', \alpha')` is a reminder that we have a choice about
+The prime on :math:`(x', x'_0, \alpha')` is a reminder that we have a choice about
 whether to change the reference value on covariate data, and we have another
 choice about whether to allow covariate multipliers to change between parent
 and child.
@@ -95,9 +99,9 @@ predicted underlying rate for the parent-to-child estimation,
 .. math::
     :label: two-sided-equivalence
 
-    \exp\left[u_c(a,t) + \sum_{j\in J(\rho)}x_{j}\alpha_j(a,t)\right]q_i(a,t) = \exp\left[\sum_{j\in J(\rho)}x'_{j}\alpha'_j(a,t)\right]q(a,t).
+    \exp\left[u_c(a,t) + \sum_{j\in J(\rho)}(x_{j}-x_{j0})\alpha_j(a,t)\right]q_i(a,t) = \exp\left[\sum_{j\in J(\rho)}(x'_{j} - x'_{j0})\alpha'_j(a,t)\right]q(a,t).
 
-Canceling on both sides, for :math:`(x', \alpha')=(x, \alpha)` leads to,
+Canceling on both sides, for :math:`(x', x'_0, \alpha')=(x, x_0, \alpha)` leads to,
 
 .. math::
     :label: canceled-underlying-equivalence
