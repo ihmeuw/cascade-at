@@ -18,6 +18,7 @@ def test_live_csmr(ihme, location_id, cause_id):
     data_access.add_csmr_cause = cause_id
     data_access.cod_version = 90
     data_access.gbd_round_id = 6
+    data_access.decomp_step = "step1"
     data_access.location_set_version_id = 429
     ages = age_spans.get_age_spans()
     raw = get_raw_csmr(ec, data_access, location_id, ages)

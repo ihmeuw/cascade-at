@@ -148,6 +148,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
         demographics=dict(age_group_ids="all", year_ids="all", sex_ids="all",
                           location_ids=parent_and_children),
         gbd_round_id=data_access.gbd_round_id,
+        decomp_step=data_access.decomp_step,
     )
     # Every age group defined, so that we can search for what's given.
     all_age_spans = age_spans.get_age_spans()
@@ -174,7 +175,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
     # This comes in yearly from 1950 to 2018
     data.age_specific_death_rate = asdr_as_fit_input(
         parent_and_children, local_settings.sexes,
-        data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
+        data_access.gbd_round_id, data_access.decomp_step, data.ages_df, with_hiv=data_access.with_hiv)
 
     data.cause_specific_mortality_rate = get_raw_csmr(
         execution_context, local_settings.data_access, local_settings.parent_location_id, all_age_spans)

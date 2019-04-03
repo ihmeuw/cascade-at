@@ -278,11 +278,12 @@ logging.root.setLevel(logging.INFO)
 location_id = 101  # Canadia
 sex_id = 1
 gbd_round_id = 5
+decomp_step = "step1"
 age_group_set_id = 12
 
 ages_df = db_queries.get_age_metadata(age_group_set_id=age_group_set_id, gbd_round_id=gbd_round_id)
 # This comes in yearly from 1950 to 2018
-mtother = asdr_as_fit_input(location_id, sex_id, gbd_round_id, ages_df, with_hiv=True)
+mtother = asdr_as_fit_input(location_id, sex_id, gbd_round_id, decomp_step, ages_df, with_hiv=True)
 # Reduce years by factor because it's slow with too much data.
 # Maybe smarter to work with a dense set of years, so limit to 1990-2000?
 mtother = mtother[(mtother.time_lower % 10) < 0.1]

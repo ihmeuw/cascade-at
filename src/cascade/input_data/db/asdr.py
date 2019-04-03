@@ -26,7 +26,7 @@ def _asdr_in_t3(execution_context, model_version_id):
     return [row[0] for row in location_rows]
 
 
-def get_asdr_data(gbd_round_id, location_and_children, with_hiv):
+def get_asdr_data(gbd_round_id, decomp_step, location_and_children, with_hiv):
     r"""Gets the age-specific death rate from IHME databases.
     This is :math:`{}_nm_x`, the mortality rate. This gets rates, not counts.
     """
@@ -38,6 +38,7 @@ def get_asdr_data(gbd_round_id, location_and_children, with_hiv):
         location_id=location_and_children,
         year_id=-1,
         gbd_round_id=gbd_round_id,
+        decomp_step=decomp_step,
         age_group_id=age_group_ids,
         sex_id=sex_ids,
         with_hiv=with_hiv,
@@ -53,7 +54,7 @@ def get_asdr_data(gbd_round_id, location_and_children, with_hiv):
     return asdr[cols]
 
 
-def asdr_as_fit_input(location_ids, sexes, gbd_round_id, ages_df, with_hiv):
+def asdr_as_fit_input(location_ids, sexes, gbd_round_id, decomp_step, ages_df, with_hiv):
     r"""Gets age-specific death rate (ASDR) from database and formats as
     input data. This is :math:`{}_nm_x`, the mortality rate by age group.
     Returns rates, not counts.
@@ -75,7 +76,7 @@ def asdr_as_fit_input(location_ids, sexes, gbd_round_id, ages_df, with_hiv):
     else:
         location_ids = list(location_ids)
 
-    asdr = get_asdr_data(gbd_round_id, location_ids, with_hiv)
+    asdr = get_asdr_data(gbd_round_id, decomp_step, location_ids, with_hiv)
     assert not (set(asdr.age_group_id.unique()) - set(ages_df.age_group_id.values))
     return asdr_by_sex(asdr, ages_df, sexes)
 
@@ -164,7 +165,7 @@ def load_asdr_to_t3(execution_context, data_access, location_and_children):
             f"""Uploading ASDR data for model_version_id
             {model_version_id} on '{database}'"""
         )
-        asdr_data = get_asdr_data(gbd_round_id, list(missing_from_t3), data_access.with_hiv)
+        asdr_data = get_asdr_data(gbd_round_id, data_access.decomp_step, list(missing_from_t3), data_access.with_hiv)
 
         with cursor(execution_context) as c:
             _upload_asdr_data_to_tier_3(gbd_round_id, c, model_version_id, asdr_data)

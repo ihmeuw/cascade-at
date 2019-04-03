@@ -56,7 +56,7 @@ def _gbd_process_version_id_from_cod_version(cod_version):
 
 
 def get_csmr_data(
-        execution_context, location_and_children, cause_id, cod_version, gbd_round_id):
+        execution_context, location_and_children, cause_id, cod_version, gbd_round_id, decomp_step):
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
     process_version_id = _gbd_process_version_id_from_cod_version(cod_version)
@@ -71,6 +71,7 @@ def get_csmr_data(
         measure_id=MEASURE_IDS["deaths"],
         sex_id="all",
         gbd_round_id=gbd_round_id,
+        decomp_step=decomp_step,
         process_version_id=process_version_id,
     )[keep_cols]
 

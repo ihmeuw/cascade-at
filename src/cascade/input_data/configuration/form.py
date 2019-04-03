@@ -320,6 +320,8 @@ class Policies(Form):
         display="number of most recent iterations taken into account for quasi-Newton"
     )
     fit_strategy = OptionField(["fit", "fit_fixed_then_fit"], default="fit", constructor=int, nullable=True)
+    decomp_step = StrField(nullable=True, default="step1")
+    gbd_round_id = IntField(nullable=True, default=6)
 
 
 class Configuration(Form):

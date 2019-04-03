@@ -170,7 +170,8 @@ class CascadePlan:
             model_options=model_options,
         )
         local_settings.data_access = _ParameterHierarchy(**dict(
-            gbd_round_id=self._settings.gbd_round_id,
+            gbd_round_id=policies["gbd_round_id"],
+            decomp_step=policies["decomp_step"],
             modelable_entity_id=self._settings.model.modelable_entity_id,
             model_version_id=self._settings.model.model_version_id,
             settings_file=self._args.settings_file,
