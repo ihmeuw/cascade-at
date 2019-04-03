@@ -54,9 +54,10 @@ def demographics_default():
 def test_country_covariates_real(ihme, demographics_default):
 
     country_covariate_id = 26
-    gbd_round_id = 5
+    gbd_round_id = 6
+    decomp_step = "step1"
 
-    ccov = country_covariates(country_covariate_id, demographics_default, gbd_round_id)
+    ccov = country_covariates(country_covariate_id, demographics_default, gbd_round_id, decomp_step)
 
     assert set(ccov.columns) == {
         "location_id", "age_group_id", "year_id", "sex_id", "mean_value"}
@@ -87,8 +88,9 @@ def test_country_covariates_mock(
     mock_db_queries.get_covariate_estimates.return_value = mock_ccov_estimates
 
     country_covariate_id = 33
-    gbd_round_id = 5
+    gbd_round_id = 6
+    decomp_step = "step1"
 
     pd.testing.assert_frame_equal(
-        country_covariates(country_covariate_id, demographics_default, gbd_round_id),
+        country_covariates(country_covariate_id, demographics_default, gbd_round_id, decomp_step),
         expected_ccov, check_like=True)

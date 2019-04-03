@@ -27,7 +27,8 @@ def get_raw_csmr(execution_context, data_access, parent_id, age_spans):
             location_and_children,
             data_access.add_csmr_cause,
             data_access.cod_version,
-            data_access.gbd_round_id
+            data_access.gbd_round_id,
+            data_access.decomp_step,
         )
     return convert_gbd_ids_to_dismod_values(raw_csmr, age_spans)
 

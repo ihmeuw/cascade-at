@@ -110,7 +110,7 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
         execution_context, local_settings.data_access, local_settings.parent_location_id, all_ages)
     data.age_specific_death_rate = asdr_as_fit_input(
         local_settings.parent_location_id, local_settings.sexes,
-        data_access.gbd_round_id, data.ages_df, with_hiv=data_access.with_hiv)
+        data_access.gbd_round_id, data_access.decomp_step, data.ages_df, with_hiv=data_access.with_hiv)
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
 
