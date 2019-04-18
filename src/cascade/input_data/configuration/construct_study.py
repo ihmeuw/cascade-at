@@ -26,26 +26,34 @@ def add_study_covariate_to_observations(observations, study_covariates, id_to_na
     Returns:
         pd.DataFrame: With the columns attached.
     """
-    with_ones = study_covariates.assign(value=pd.Series(np.ones(len(study_covariates), dtype=np.double)))
+    # Integer-typed column names cause trouble for Pandas.
+    string_ids = study_covariates.assign(study_covariate_id=study_covariates.study_covariate_id.astype(str))
+    str_id_to_name = {str(cid): cname for (cid, cname) in id_to_name.items()}
+    with_ones = string_ids.assign(value=pd.Series(np.ones(len(study_covariates), dtype=np.double)))
     try:
         cov_columns = with_ones.pivot(index="seq", columns="study_covariate_id", values="value") \
-            .fillna(0.0).rename(columns=id_to_name)
+            .fillna(0.0).rename(columns=str_id_to_name)
     except ValueError as ve:
         study_covariates.to_hdf("covariates", "table")
         raise InputDataError(f"Could not create covariate columns") from ve
-    missing_columns = set(id_to_name.values()) - set(cov_columns.columns)
+    missing_columns = set(str_id_to_name.values()) - set(cov_columns.columns)
     if missing_columns:
         cov_columns = cov_columns.assign(**{
             miss_col: pd.Series(np.zeros(len(cov_columns), dtype=np.double))
             for miss_col in missing_columns
         })
+    # else nothing to create.
+    extra_data = set(cov_columns.columns) - set(str_id_to_name.values())
+    if extra_data:
+        cov_columns = cov_columns.drop(columns=extra_data)
+    # else no extra columns to drop.
     try:
         obs_with_covs = observations.merge(cov_columns, left_on="seq", right_index=True, how="left")
     except KeyError as ke:
         raise InputDataError(f"These study covariate IDs have seq IDs that don't "
                              f"correspond to the bundle seq IDs") from ke
     # This sets NaNs in covariate columns to zeros.
-    filled = obs_with_covs.fillna(value={fname: 0.0 for fname in id_to_name.values()})
+    filled = obs_with_covs.fillna(value={fname: 0.0 for fname in str_id_to_name.values()})
     # Special study covariates won't have appeared in the database, so they
     # will be zeros. Fill them in.
     sex_assignment = {1: 0.5, 2: -0.5, 3: 0.0, 4: 0.0}
