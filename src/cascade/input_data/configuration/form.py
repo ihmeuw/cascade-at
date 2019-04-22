@@ -240,8 +240,6 @@ class Model(Form):
         errors = []
 
         if self.drill == "drill":
-            if self.is_field_unset("drill_location"):
-                errors.append("For a drill, please specify Drill location.")
             if self.is_field_unset("drill_sex"):
                 errors.append("For a drill, please specify Drill sex.")
 

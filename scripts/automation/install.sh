@@ -120,7 +120,7 @@ PYTHONDONTWRITEBYTECODE=1
 (cd "${CASCADE_DEVELOP_DIR}/tests" && python -m pytest -p no:cacheprovider --ihme)
 
 if [ "$?" -eq "0" ]; then
-    for softlink in prod dev current
+    for softlink in prod dev current fair
     do
         rm -f "${ENVDIR}/${softlink}"; ln -sf "${ENV}" "${ENVDIR}/${softlink}"
     done
