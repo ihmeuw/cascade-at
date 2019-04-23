@@ -349,13 +349,13 @@ def _fit_sim_compare_result(fit0, iota_parent_true, mulcov_income_iota_true):
     print(f"income on iota {mulcov_income_iota_true} {alpha_income}")
 
 
-@pytest.mark.parametrize("meas_std_effect", [
+@pytest.mark.parametrize("meas_noise_effect", [
     "add_std_scale_all",
     "add_std_scale_log",
     "add_var_scale_all",
     "add_var_scale_log",
 ])
-def test_fit_gamma(meas_std_effect, locations, dismod):
+def test_fit_gamma(meas_noise_effect, locations, dismod):
     """The fit_gamma.py example in Dismod-AT's distribution"""
     rng = np.random.RandomState(3798427592)
 
@@ -369,16 +369,16 @@ def test_fit_gamma(meas_std_effect, locations, dismod):
     parent_location = 1
     child_locations = list()
 
-    if meas_std_effect == 'add_std_scale_all':
+    if meas_noise_effect == 'add_std_scale_all':
         delta = data_std * (1.0 + gamma_true_scale)
         gamma_true = gamma_true_scale
-    elif meas_std_effect == 'add_std_scale_log':
+    elif meas_noise_effect == 'add_std_scale_log':
         delta = data_std * (1.0 + gamma_true_scale)
         gamma_true = gamma_true_scale * data_std
-    elif meas_std_effect == 'add_var_scale_all':
+    elif meas_noise_effect == 'add_var_scale_all':
         delta = data_std * sqrt(1.0 + gamma_true_scale)
         gamma_true = gamma_true_scale
-    elif meas_std_effect == 'add_var_scale_log':
+    elif meas_noise_effect == 'add_var_scale_log':
         delta = data_std * sqrt(1.0 + gamma_true_scale)
         gamma_true = gamma_true_scale * data_std * data_std
     else:
@@ -416,7 +416,7 @@ def test_fit_gamma(meas_std_effect, locations, dismod):
 
     # If you don't create a session with weights, they are automatically set to constant=1.
     session = Session(locations, parent_location, Path("example.db"))
-    option = dict(meas_std_effect=meas_std_effect, random_seed=0,
+    option = dict(meas_noise_effect=meas_noise_effect, random_seed=0,
                   zero_sum_random="iota", derivative_test_fixed="second-order",
                   max_num_iter_fixed=100, print_level_fixed=0,
                   tolerance_fixed=1e-10)
