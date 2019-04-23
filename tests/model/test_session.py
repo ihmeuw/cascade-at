@@ -17,7 +17,7 @@ def test_options(dismod):
     db_file = Path("option.db")
     session = Session(locations, parent_location, db_file)
     opts = dict(
-        meas_std_effect="add_std_scale_all",
+        meas_noise_effect="add_std_scale_all",
         parent_node_name="global",
         quasi_fixed="false",
         derivative_test_fixed="second-order",

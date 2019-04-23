@@ -16,7 +16,7 @@ In particular, policies are set in
 
 ======================================  ==================================================
 ``random_seed``                         Set by EpiViz-AT UI for each run.
-``meas_std_effect``                     ``add_var_scale_log``, set in policies
+``meas_noise_effect``                   ``add_var_scale_log``, set in policies
 ``zero_sum_random``                     In EV settings. Currently ignored.
 ``warn_on_stderr``
 ``ode_step_size``                       Set by modeler in EpiViz-AT.

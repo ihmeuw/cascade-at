@@ -13,7 +13,7 @@ def make_options(ev_settings, model_options):
     options = dict()
     # parent location id will be set for us
     # parent node name is set for us
-    options["meas_std_effect"] = ev_settings.policies.meas_std_effect
+    options["meas_noise_effect"] = ev_settings.policies.meas_std_effect
     if not ev_settings.model.is_field_unset("zero_sum_random"):
         options["zero_sum_random"] = " ".join(ev_settings.model.zero_sum_random)
     # data extra columns is set for us.

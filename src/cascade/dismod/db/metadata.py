@@ -525,10 +525,11 @@ class Var(Base):
     smooth_id = Column(Integer(), nullable=False)
     age_id = Column(Integer(), nullable=False)
     time_id = Column(Integer(), nullable=False)
-    node_id = Column(Integer(), nullable=False)
+    node_id = Column(Integer(), nullable=True)
     rate_id = Column(Integer(), nullable=False)
-    integrand_id = Column(Integer(), nullable=False)
-    covariate_id = Column(Integer(), nullable=False)
+    integrand_id = Column(Integer(), nullable=True)
+    covariate_id = Column(Integer(), nullable=True)
+    mulcov_id = Column(Integer(), nullable=True)
 
 
 _TYPE_MAP = {
