@@ -1,5 +1,6 @@
 from math import nan
 from pathlib import Path
+import re
 
 import pandas as pd
 
@@ -11,6 +12,11 @@ from cascade.model import Model
 from cascade.model.object_wrapper import ObjectWrapper
 
 CODELOG, MATHLOG = getLoggers(__name__)
+
+
+def check_iterations_exceeded(message_text):
+    return any([re.search(r"iteration.+exceeded", message_text, re.IGNORECASE),
+                re.search(r"exceeded.+iteration", message_text, re.IGNORECASE)])
 
 
 class Session:
@@ -260,11 +266,10 @@ class Session:
     def _check_dismod_command(self, command, return_code, stdout, stderr):
         log = self._objects.log
         oom_sentinel = "std:bad_alloc"
-        max_iter_sentinel = "Maximum Number of Iterations Exceeded"
         if len(log) == 0 or f"end {command}" not in log.message.iloc[-1]:
             if oom_sentinel in stdout or oom_sentinel in stderr:
                 raise MemoryError("Dismod-AT ran out of memory")
-            elif max_iter_sentinel in stdout or max_iter_sentinel in stderr:
+            elif check_iterations_exceeded(stdout) or check_iterations_exceeded(stderr):
                 MATHLOG.warning("Dismod-AT exceeded iterations")
             else:
                 raise DismodATException(f"Dismod-AT failed to complete '{command}' command",

@@ -4,6 +4,7 @@ Entry point for running a the work of a single location in an EpiViz-AT cascade.
 import os
 from bdb import BdbQuit
 from datetime import timedelta
+import faulthandler
 from pathlib import Path
 from pprint import pformat
 from timeit import default_timer
@@ -86,6 +87,7 @@ def entry(args=None):
     """Allow passing args for testing."""
     readable_by_all = 0o0002
     os.umask(readable_by_all)
+    faulthandler.enable()
 
     args = parse_arguments(args)
     logging_config(args)
