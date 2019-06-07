@@ -26,6 +26,11 @@ class ObjectWrapper:
     """
     An I/O layer on top of the Dismod db file that presents Model objects.
     It sets and gets models, vars, data, and residuals.
+
+    It takes work to ensure that all the database records are
+    consistent. This class groups sets of tables and columns
+    within those tables into higher-level objects that are then
+    easier to reason about.
     """
     def __init__(self, locations, parent_location, filename):
         assert isinstance(locations, pd.DataFrame)

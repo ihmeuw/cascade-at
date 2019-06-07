@@ -1,5 +1,24 @@
 """
 This describes the tables in the sqlite file that Dismod reads.
+
+Use this interface instead of raw SQL queries becasue
+
+ * It controls the data type for each column. The Sqlite
+   db doesn't say what the data type should be in Python.
+
+ * It verifies that the db has what we think it has and
+   warns us when database tables change names or when
+   columns change names.
+
+ * It lets us change a column name in the db table without
+   changing the column name we use to read it. This
+   protects us against column name changes, which are
+   freuqent.
+
+ * It records which tables depend on which other tables
+   which is necessary in order to write Pandas versions
+   to the SQL file in the right order.
+
 """
 
 import numpy as np
