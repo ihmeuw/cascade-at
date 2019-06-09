@@ -1,6 +1,7 @@
 from collections import Iterable
 from contextlib import contextmanager
 from math import nan, isnan
+from numbers import Real
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +10,6 @@ import pandas as pd
 from cascade.core import getLoggers
 from cascade.dismod.constants import DensityEnum, RateEnum, IntegrandEnum
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.model.serialize import default_integrand_names, make_log_table
 from cascade.model.data_read_write import (
     write_data, avgint_to_dataframe, read_avgint, read_data_residuals, read_simulation_data
 )
@@ -18,6 +18,7 @@ from cascade.model.grid_read_write import (
     read_simulation_model
 )
 from cascade.model.model_writer import ModelWriter
+from cascade.model.serialize import default_integrand_names, make_log_table
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -42,12 +43,6 @@ class ObjectWrapper:
         self.parent_location = parent_location
         self.location_func = None
         self._locations_df = locations
-
-        # From covariate name to the x_<number> name that is used internally.
-        # The session knows this piece of information but not the covariate
-        # reference values. This is here because the columns of avgint and data
-        # need to be renamed before writing, and they aren't part of the model.
-        self._covariate_rename = dict()
 
     @property
     def db_filename(self):
@@ -100,7 +95,7 @@ class ObjectWrapper:
 
     @data.setter
     def data(self, data):
-        write_data(self.dismod_file, data, self._covariate_rename)
+        write_data(self.dismod_file, data, self.covariate_rename)
 
     @property
     def avgint(self):
@@ -108,7 +103,8 @@ class ObjectWrapper:
 
     @avgint.setter
     def avgint(self, avgint):
-        self.dismod_file.avgint = avgint_to_dataframe(self.dismod_file, avgint, self.covariate_rename)
+        self.dismod_file.avgint = avgint_to_dataframe(
+            self.dismod_file, avgint, self.covariate_rename)
 
     @property
     def start_var(self):
@@ -211,7 +207,14 @@ class ObjectWrapper:
 
     @property
     def locations(self):
-        raise NotImplementedError("Reading locations is not implemented.")
+        """Returns a dataframe of locations, built from the node table."""
+        node = self.dismod_file.node
+        assert not ({"node_id", "node_name", "parent"} - set(node.columns))
+        if "c_location_id" not in node.columns:
+            node = node.assign(c_location_id=node.node_id)
+        locations = pd.DataFrame()
+        assert {"parent_id", "location_id", "name"} == set(locations.columns)
+        return locations
 
     @locations.setter
     def locations(self, locations):
@@ -235,23 +238,70 @@ class ObjectWrapper:
         self.location_func = location_to_node_func
 
     @property
-    def covariate_rename(self):
-        return self._covariate_rename
+    def covariates(self):
+        return None
 
-    @covariate_rename.setter
-    def covariate_rename(self, rename_dict):
+    @covariates.setter
+    def covariates(self, value):
+        """
+        Sets covariates. Must call before setting data.
+
+        Args:
+            covariate (List[Covariate]): A list of covariate objects.
+        """
+        null_references = list()
+        for check_ref_col in value:
+            if not isinstance(check_ref_col.reference, Real):
+                null_references.append(check_ref_col.name)
+        if null_references:
+            raise ValueError(f"Covariate columns without reference values {null_references}")
+
+        # Dismod requires us to rename covariates from names like sex, and "one"
+        # to x_0, x_1,... They must be "x_<digit>".
+        covariate_rename = dict()
+        for covariate_idx, covariate_obj in enumerate(value):
+            covariate_rename[covariate_obj.name] = f"x_{covariate_idx}"
+
+        self._ensure_schema_has_covariates(covariate_rename.values())
+        self.dismod_file.covariate = pd.DataFrame(
+            {
+                "covariate_id": np.arange(len(value)),
+                "covariate_name": [col.name for col in value],
+                "reference": np.array([col.reference for col in value], dtype=np.float),
+                "max_difference": np.array([col.max_difference for col in value], dtype=np.float),
+            }
+        )
+
+    @property
+    def covariate_rename(self):
+        """Covariates are stored in columns numbered ``x_0, x_1``, not by name.
+        This is a dictionary from name to ``x_0``, ``x_1``, and so on.
+        """
+        covariate_df = self.dismod_file.covariate
+        id_name = dict(covariate_df[["covariate_id", "covariate_name"]].to_records(index=False))
+        return {name: f"x_{idx}" for (idx, name) in id_name.items()}
+
+    @property
+    def covariate_to_index(self):
+        """Returns a dictionary from covariate name to its integer index."""
+        covariate_df = self.dismod_file.covariate
+        return dict(covariate_df[["covariate_name", "covariate_id"]].to_records(index=False))
+
+    def _ensure_schema_has_covariates(self, x_underscore_columns):
         """Both the data and avgints need to have extra columns for covariates.
         Dismod-AT wants these defined, and at least an empty data and avgint
         table, before it will write the model. This step updates the list
         of covariates in the database schema before creating empty tables
         if necessary."""
-        if set(rename_dict.values()) == set(self._covariate_rename.values()):
-            self._covariate_rename = rename_dict
+        previous_rename = self.covariate_rename
+        if set(x_underscore_columns) == set(previous_rename.values()):
             return
-        else:
-            # Only rewrite schema if the x_<integer> list has changed.
-            self._covariate_rename = rename_dict
-        covariate_columns = list(sorted(self._covariate_rename.values()))
+        # Only rewrite schema if the x_<integer> list has changed.
+        # because the schema depends on the number of covariates, not
+        # their names.
+        covariate_columns = list(x_underscore_columns)
+        # ASCII sorting isn't correct b/c x_11 is before x_2.
+        covariate_columns.sort(key=lambda x: int(x[2:]))
         for create_name in ["data", "avgint"]:
             empty = self.dismod_file.empty_table(create_name)
             without = [c for c in empty.columns if not c.startswith("x_")]
@@ -282,7 +332,6 @@ class ObjectWrapper:
         self.dismod_file = DismodFile()
         self.dismod_file.engine = get_engine(self._filename)
 
-        self._covariate_rename = dict()
         if locations is not None:
             self.locations = locations
         # Density table does not depend on model.
