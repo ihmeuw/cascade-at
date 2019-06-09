@@ -26,23 +26,32 @@ CODELOG, MATHLOG = getLoggers(__name__)
 class ObjectWrapper:
     """
     An I/O layer on top of the Dismod db file that presents Model objects.
-    It sets and gets models, vars, data, and residuals.
+    It sets and gets models, vars, data, and residuals. Set the locations
+    before anything else. In order to make a model, you must set:
+
+    1. Locations
+    2. Parent location ID
+    3. Model
 
     It takes work to ensure that all the database records are
     consistent. This class groups sets of tables and columns
     within those tables into higher-level objects that are then
     easier to reason about.
     """
-    def __init__(self, locations, parent_location, filename):
-        assert isinstance(locations, pd.DataFrame)
-        assert isinstance(parent_location, int)
-        assert isinstance(filename, (Path, str))
-
-        self._filename = Path(filename)
-        self.dismod_file = None
-        self.parent_location = parent_location
-        self.location_func = None
-        self._locations_df = locations
+    def __init__(self, filename):
+        """
+        Args:
+            filename (Path|str|None): Path to filename or None if this
+                DismodFile should be in memory, as used for testing.
+        """
+        if filename is not None:
+            assert isinstance(filename, (Path, str))
+            self._filename = Path(filename)
+        else:
+            self._filename = filename
+        self.dismod_file = DismodFile()
+        self.dismod_file.engine = get_engine(self._filename)
+        self.ensure_dismod_file_has_default_tables()
 
     @property
     def db_filename(self):
@@ -52,16 +61,50 @@ class ObjectWrapper:
     def model(self):
         raise NotImplementedError("Reading a model is not implemented.")
 
+    @property
+    def parent_location_id(self):
+        location_df = self.locations
+        if location_df.empty:
+            raise RuntimeError("Cannot get parent location until locations exist")
+        node_id = self.get_option("parent_node_id")
+        node_name = self.get_option("parent_node_name")
+        if node_id is not None:
+            parent_location = location_df[location_df.node_id == node_id].location_id.item()
+        elif node_name is not None:
+            parent_location = location_df[location_df.name == node_name].location_id.item()
+        else:
+            parent_location = None
+        return parent_location
+
+    @parent_location_id.setter
+    def parent_location_id(self, value):
+        location_df = self.locations
+        if location_df.empty:
+            raise RuntimeError("Cannot set parent location until locations exist")
+        parent_node_id = location_df[location_df.location_id == value].node_id.item()
+        self.set_option(
+            parent_node_id=parent_node_id,
+            parent_node_name=nan
+        )
+
     @model.setter
     def model(self, new_model):
         """When you write a model, it deletes the file."""
-        self.make_new_dismod_file(self._locations_df)
+        if self.locations.empty:
+            raise RuntimeError("Cannot create a model until locations exist")
         writer = ModelWriter(self, self.dismod_file)
         new_model.write(writer)
         writer.close()
 
     def set_option(self, **kwargs):
-        """Erase an option by setting it to None or nan."""
+        """Erase an option by setting it to None or nan.
+
+        * Setting a list of items sets it to a space-separated list of strings.
+        * Setting a bool sets it to "true" or "false", lower-case.
+        * Setting None or NaN, sets it to NaN.
+        * All other ``x`` become ``str(x)``.
+
+        """
         option = self.dismod_file.option
         unknowns = list()
         for name in kwargs.keys():
@@ -88,6 +131,14 @@ class ObjectWrapper:
         option = option.reset_index(drop=True)
         option = option.assign(option_id=option.index)
         self.dismod_file.option = option
+
+    def get_option(self, name):
+        option_df = self.dismod_file.option
+        records = option_df[option_df.option_name == name]
+        if len(records) == 1:
+            return records.option_value.item()
+        else:
+            return None
 
     @property
     def data(self):
@@ -207,14 +258,26 @@ class ObjectWrapper:
 
     @property
     def locations(self):
-        """Returns a dataframe of locations, built from the node table."""
+        """
+        Returns a dataframe of locations, built from the node table.
+        Input locations have location_id, name, and parent_id. This output
+        table also has a node_id.
+        """
         node = self.dismod_file.node
         assert not ({"node_id", "node_name", "parent"} - set(node.columns))
         if "c_location_id" not in node.columns:
             node = node.assign(c_location_id=node.node_id)
-        locations = pd.DataFrame()
-        assert {"parent_id", "location_id", "name"} == set(locations.columns)
-        return locations
+        location_map = node[["node_id", "c_location_id"]].rename(
+            columns={"node_id": "parent", "c_location_id": "parent_location_id"})
+        parent_location = node.merge(
+            location_map, on="parent", how="left")
+        missing = parent_location[parent_location.parent_location_id.isna()]
+        if len(missing) > 1:  # Root will have nan for parent.
+            raise ValueError(f"parent location IDs unknown {missing}")
+        return parent_location.rename(columns=dict(
+            parent_location_id="parent_id", c_location_id="location_id",
+            node_name="name"
+        ))[["parent_id", "location_id", "name", "node_id"]]
 
     @locations.setter
     def locations(self, locations):
@@ -233,9 +296,7 @@ class ObjectWrapper:
             return np.where(node.c_location_id == location_id)[0][0]
 
         node = node.assign(parent=node.parent_id.apply(location_to_node_func)).drop(columns=["parent_id"])
-
         self.dismod_file.node = node
-        self.location_func = location_to_node_func
 
     @property
     def covariates(self):
@@ -324,22 +385,21 @@ class ObjectWrapper:
         finally:
             self.dismod_file.engine = get_engine(self._filename)
 
-    def make_new_dismod_file(self, locations):
-        if self._filename.exists():
-            CODELOG.info(f"{self._filename} exists so overwriting it.")
-            self._filename.unlink()
-
-        self.dismod_file = DismodFile()
-        self.dismod_file.engine = get_engine(self._filename)
-
-        if locations is not None:
-            self.locations = locations
+    def ensure_dismod_file_has_default_tables(self):
+        """
+        There are a number of tables that a DismodFile should always have.
+        If they aren't there, this makes them. If they are there, this
+        doesn't change them.
+        """
+        db_file = self.dismod_file
         # Density table does not depend on model.
-        self.dismod_file.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+        if db_file.density.empty:
+            db_file.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
 
         # Standard integrand naming scheme.
         all_integrands = default_integrand_names()
-        self.dismod_file.integrand = all_integrands
+        if db_file.integrand.empty:
+            self.dismod_file.integrand = all_integrands
         # Fill in the min_meas_cv later if required. Ensure integrand kinds have
         # known IDs early. Not nan because this "is non-negative and less than
         # or equal to one."
@@ -361,8 +421,9 @@ class ObjectWrapper:
 
     def _create_options_table(self):
         # https://bradbell.github.io/dismod_at/doc/option_table.htm
+        # Only options in this list can be set.
         option = pd.DataFrame([
-            dict(option_name="parent_node_id", option_value=str(self.location_func(self.parent_location))),
+            dict(option_name="parent_node_id", option_value=nan),
             dict(option_name="parent_node_name", option_value=nan),
             dict(option_name="meas_noise_effect", option_value="add_var_scale_log"),
             dict(option_name="zero_sum_random", option_value=nan),

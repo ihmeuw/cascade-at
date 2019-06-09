@@ -105,7 +105,8 @@ class ModelWriter:
         if child_location is None:
             self._dismod_file.rate.loc[rate_id, "child_smooth_id"] = smooth_id
         else:
-            node_id = self._object_wrapper.location_func(child_location)
+            locs = self._object_wrapper.locations
+            node_id = locs[locs.location_id == child_location].node_id.item()
             if rate_name not in self._nslist:
                 ns_id = len(self._nslist)
                 self._nslist[rate_name] = ns_id
