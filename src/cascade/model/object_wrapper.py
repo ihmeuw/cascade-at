@@ -139,7 +139,7 @@ class ObjectWrapper:
         if len(records) == 1:
             return records.option_value.item()
         else:
-            return None
+            raise KeyError(f"Option {name} not found in options")
 
     @property
     def data(self):
