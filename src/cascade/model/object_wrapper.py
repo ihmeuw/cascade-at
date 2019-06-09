@@ -1,6 +1,7 @@
 from collections import Iterable
 from contextlib import contextmanager
 from math import nan, isnan
+from numbers import Real
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +10,6 @@ import pandas as pd
 from cascade.core import getLoggers
 from cascade.dismod.constants import DensityEnum, RateEnum, IntegrandEnum
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.model.serialize import default_integrand_names, make_log_table
 from cascade.model.data_read_write import (
     write_data, avgint_to_dataframe, read_avgint, read_data_residuals, read_simulation_data
 )
@@ -18,6 +18,7 @@ from cascade.model.grid_read_write import (
     read_simulation_model
 )
 from cascade.model.model_writer import ModelWriter
+from cascade.model.serialize import default_integrand_names, make_log_table
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -25,24 +26,33 @@ CODELOG, MATHLOG = getLoggers(__name__)
 class ObjectWrapper:
     """
     An I/O layer on top of the Dismod db file that presents Model objects.
-    It sets and gets models, vars, data, and residuals.
+    It sets and gets models, vars, data, and residuals. Set the locations
+    before anything else. In order to make a model, you must set:
+
+    1. Locations
+    2. Parent location ID
+    3. Model
+    4. Anything else.
+
+    It takes work to ensure that all the database records are
+    consistent. This class groups sets of tables and columns
+    within those tables into higher-level objects that are then
+    easier to reason about.
     """
-    def __init__(self, locations, parent_location, filename):
-        assert isinstance(locations, pd.DataFrame)
-        assert isinstance(parent_location, int)
-        assert isinstance(filename, (Path, str))
-
-        self._filename = Path(filename)
-        self.dismod_file = None
-        self.parent_location = parent_location
-        self.location_func = None
-        self._locations_df = locations
-
-        # From covariate name to the x_<number> name that is used internally.
-        # The session knows this piece of information but not the covariate
-        # reference values. This is here because the columns of avgint and data
-        # need to be renamed before writing, and they aren't part of the model.
-        self._covariate_rename = dict()
+    def __init__(self, filename):
+        """
+        Args:
+            filename (Path|str|None): Path to filename or None if this
+                DismodFile should be in memory, as used for testing.
+        """
+        if filename is not None:
+            assert isinstance(filename, (Path, str))
+            self._filename = Path(filename)
+        else:
+            self._filename = filename
+        self.dismod_file = DismodFile()
+        self.dismod_file.engine = get_engine(self._filename)
+        self.ensure_dismod_file_has_default_tables()
 
     @property
     def db_filename(self):
@@ -52,16 +62,50 @@ class ObjectWrapper:
     def model(self):
         raise NotImplementedError("Reading a model is not implemented.")
 
+    @property
+    def parent_location_id(self):
+        location_df = self.locations
+        if location_df.empty:
+            raise RuntimeError("Cannot get parent location until locations exist")
+        node_id = self.get_option("parent_node_id")
+        node_name = self.get_option("parent_node_name")
+        if node_id is not None:
+            parent_location = location_df[location_df.node_id == node_id].location_id.item()
+        elif node_name is not None:
+            parent_location = location_df[location_df.name == node_name].location_id.item()
+        else:
+            parent_location = None
+        return parent_location
+
+    @parent_location_id.setter
+    def parent_location_id(self, value):
+        location_df = self.locations
+        if location_df.empty:
+            raise RuntimeError("Cannot set parent location until locations exist")
+        parent_node_id = location_df[location_df.location_id == value].node_id.item()
+        self.set_option(
+            parent_node_id=parent_node_id,
+            parent_node_name=nan
+        )
+
     @model.setter
     def model(self, new_model):
         """When you write a model, it deletes the file."""
-        self.make_new_dismod_file(self._locations_df)
+        if self.locations.empty:
+            raise RuntimeError("Cannot create a model until locations exist")
         writer = ModelWriter(self, self.dismod_file)
         new_model.write(writer)
         writer.close()
 
     def set_option(self, **kwargs):
-        """Erase an option by setting it to None or nan."""
+        """Erase an option by setting it to None or nan.
+
+        * Setting a list of items sets it to a space-separated list of strings.
+        * Setting a bool sets it to "true" or "false", lower-case.
+        * Setting None or NaN, sets it to NaN.
+        * All other ``x`` become ``str(x)``.
+
+        """
         option = self.dismod_file.option
         unknowns = list()
         for name in kwargs.keys():
@@ -89,13 +133,21 @@ class ObjectWrapper:
         option = option.assign(option_id=option.index)
         self.dismod_file.option = option
 
+    def get_option(self, name):
+        option_df = self.dismod_file.option
+        records = option_df[option_df.option_name == name]
+        if len(records) == 1:
+            return records.option_value.item()
+        else:
+            raise KeyError(f"Option {name} not found in options")
+
     @property
     def data(self):
         raise NotImplementedError("Reading data is not implemented.")
 
     @data.setter
     def data(self, data):
-        write_data(self.dismod_file, data, self._covariate_rename)
+        write_data(self.dismod_file, data, self.covariate_rename)
 
     @property
     def avgint(self):
@@ -103,7 +155,8 @@ class ObjectWrapper:
 
     @avgint.setter
     def avgint(self, avgint):
-        self.dismod_file.avgint = avgint_to_dataframe(self.dismod_file, avgint, self.covariate_rename)
+        self.dismod_file.avgint = avgint_to_dataframe(
+            self.dismod_file, avgint, self.covariate_rename)
 
     @property
     def start_var(self):
@@ -191,6 +244,14 @@ class ObjectWrapper:
             self.dismod_file.engine.dispose()
             self.dismod_file.engine = None
 
+    @contextmanager
+    def close_db_while_running(self):
+        self.close()
+        try:
+            yield
+        finally:
+            self.dismod_file.engine = get_engine(self._filename)
+
     @property
     def log(self):
         self.dismod_file.refresh(["log"])
@@ -206,7 +267,26 @@ class ObjectWrapper:
 
     @property
     def locations(self):
-        raise NotImplementedError("Reading locations is not implemented.")
+        """
+        Returns a dataframe of locations, built from the node table.
+        Input locations have location_id, name, and parent_id. This output
+        table also has a node_id.
+        """
+        node = self.dismod_file.node
+        assert not ({"node_id", "node_name", "parent"} - set(node.columns))
+        if "c_location_id" not in node.columns:
+            node = node.assign(c_location_id=node.node_id)
+        location_map = node[["node_id", "c_location_id"]].rename(
+            columns={"node_id": "parent", "c_location_id": "parent_location_id"})
+        parent_location = node.merge(
+            location_map, on="parent", how="left")
+        missing = parent_location[parent_location.parent_location_id.isna()]
+        if len(missing) > 1:  # Root will have nan for parent.
+            raise ValueError(f"parent location IDs unknown {missing}")
+        return parent_location.rename(columns=dict(
+            parent_location_id="parent_id", c_location_id="location_id",
+            node_name="name"
+        ))[["parent_id", "location_id", "name", "node_id"]]
 
     @locations.setter
     def locations(self, locations):
@@ -225,28 +305,73 @@ class ObjectWrapper:
             return np.where(node.c_location_id == location_id)[0][0]
 
         node = node.assign(parent=node.parent_id.apply(location_to_node_func)).drop(columns=["parent_id"])
-
         self.dismod_file.node = node
-        self.location_func = location_to_node_func
+
+    @property
+    def covariates(self):
+        return None
+
+    @covariates.setter
+    def covariates(self, value):
+        """
+        Sets covariates. Must call before setting data.
+
+        Args:
+            covariate (List[Covariate]): A list of covariate objects.
+        """
+        null_references = list()
+        for check_ref_col in value:
+            if not isinstance(check_ref_col.reference, Real):
+                null_references.append(check_ref_col.name)
+        if null_references:
+            raise ValueError(f"Covariate columns without reference values {null_references}")
+
+        # Dismod requires us to rename covariates from names like sex, and "one"
+        # to x_0, x_1,... They must be "x_<digit>".
+        covariate_rename = dict()
+        for covariate_idx, covariate_obj in enumerate(value):
+            covariate_rename[covariate_obj.name] = f"x_{covariate_idx}"
+
+        self._ensure_schema_has_covariates(covariate_rename.values())
+        self.dismod_file.covariate = pd.DataFrame(
+            {
+                "covariate_id": np.arange(len(value)),
+                "covariate_name": [col.name for col in value],
+                "reference": np.array([col.reference for col in value], dtype=np.float),
+                "max_difference": np.array([col.max_difference for col in value], dtype=np.float),
+            }
+        )
 
     @property
     def covariate_rename(self):
-        return self._covariate_rename
+        """Covariates are stored in columns numbered ``x_0, x_1``, not by name.
+        This is a dictionary from name to ``x_0``, ``x_1``, and so on.
+        """
+        covariate_df = self.dismod_file.covariate
+        id_name = dict(covariate_df[["covariate_id", "covariate_name"]].to_records(index=False))
+        return {name: f"x_{idx}" for (idx, name) in id_name.items()}
 
-    @covariate_rename.setter
-    def covariate_rename(self, rename_dict):
+    @property
+    def covariate_to_index(self):
+        """Returns a dictionary from covariate name to its integer index."""
+        covariate_df = self.dismod_file.covariate
+        return dict(covariate_df[["covariate_name", "covariate_id"]].to_records(index=False))
+
+    def _ensure_schema_has_covariates(self, x_underscore_columns):
         """Both the data and avgints need to have extra columns for covariates.
         Dismod-AT wants these defined, and at least an empty data and avgint
         table, before it will write the model. This step updates the list
         of covariates in the database schema before creating empty tables
         if necessary."""
-        if set(rename_dict.values()) == set(self._covariate_rename.values()):
-            self._covariate_rename = rename_dict
+        previous_rename = self.covariate_rename
+        if set(x_underscore_columns) == set(previous_rename.values()):
             return
-        else:
-            # Only rewrite schema if the x_<integer> list has changed.
-            self._covariate_rename = rename_dict
-        covariate_columns = list(sorted(self._covariate_rename.values()))
+        # Only rewrite schema if the x_<integer> list has changed.
+        # because the schema depends on the number of covariates, not
+        # their names.
+        covariate_columns = list(x_underscore_columns)
+        # ASCII sorting isn't correct b/c x_11 is before x_2.
+        covariate_columns.sort(key=lambda x: int(x[2:]))
         for create_name in ["data", "avgint"]:
             empty = self.dismod_file.empty_table(create_name)
             without = [c for c in empty.columns if not c.startswith("x_")]
@@ -259,56 +384,49 @@ class ObjectWrapper:
             else:
                 CODELOG.debug(f"Adding to {create_name} table schema the columns {covariate_columns}")
 
-    @contextmanager
-    def close_db_while_running(self):
-        if self.dismod_file.engine is not None:
-            self.dismod_file.engine.dispose()
-            self.dismod_file.engine = None
-        try:
-            yield
-        finally:
-            self.dismod_file.engine = get_engine(self._filename)
-
-    def make_new_dismod_file(self, locations):
-        if self._filename.exists():
-            CODELOG.info(f"{self._filename} exists so overwriting it.")
-            self._filename.unlink()
-
-        self.dismod_file = DismodFile()
-        self.dismod_file.engine = get_engine(self._filename)
-
-        self._covariate_rename = dict()
-        if locations is not None:
-            self.locations = locations
+    def ensure_dismod_file_has_default_tables(self):
+        """
+        There are a number of tables that a DismodFile should always have.
+        If they aren't there, this makes them. If they are there, this
+        doesn't change them.
+        """
+        db_file = self.dismod_file
         # Density table does not depend on model.
-        self.dismod_file.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
+        if db_file.density.empty:
+            db_file.density = pd.DataFrame({"density_name": [x.name for x in DensityEnum]})
 
         # Standard integrand naming scheme.
         all_integrands = default_integrand_names()
-        self.dismod_file.integrand = all_integrands
-        # Fill in the min_meas_cv later if required. Ensure integrand kinds have
-        # known IDs early. Not nan because this "is non-negative and less than
-        # or equal to one."
-        self.dismod_file.integrand["minimum_meas_cv"] = 0
+        if db_file.integrand.empty:
+            self.dismod_file.integrand = all_integrands
+            # Fill in the min_meas_cv later if required. Ensure integrand kinds have
+            # known IDs early. Not nan because this "is non-negative and less than
+            # or equal to one."
+            self.dismod_file.integrand["minimum_meas_cv"] = 0
 
-        self.dismod_file.rate = pd.DataFrame(dict(
-            rate_id=[rate.value for rate in RateEnum],  # Will be 0-4.
-            rate_name=[rate.name for rate in RateEnum],
-            parent_smooth_id=nan,
-            child_smooth_id=nan,
-            child_nslist_id=nan,
-        ))
+        if db_file.rate.empty:
+            db_file.rate = pd.DataFrame(dict(
+                rate_id=[rate.value for rate in RateEnum],  # Will be 0-4.
+                rate_name=[rate.name for rate in RateEnum],
+                parent_smooth_id=nan,
+                child_smooth_id=nan,
+                child_nslist_id=nan,
+            ))
 
         # Defaults, empty, b/c Brad makes them empty even if there are none.
         for create_name in ["nslist", "nslist_pair", "mulcov", "smooth_grid", "smooth", "data", "avgint"]:
-            setattr(self.dismod_file, create_name, self.dismod_file.empty_table(create_name))
-        self.dismod_file.log = make_log_table()
-        self._create_options_table()
+            if getattr(db_file, create_name).empty:
+                setattr(db_file, create_name, self.dismod_file.empty_table(create_name))
+        if db_file.log.empty:
+            db_file.log = make_log_table()
+        if db_file.option.empty:
+            self._create_options_table()
 
     def _create_options_table(self):
         # https://bradbell.github.io/dismod_at/doc/option_table.htm
+        # Only options in this list can be set.
         option = pd.DataFrame([
-            dict(option_name="parent_node_id", option_value=str(self.location_func(self.parent_location))),
+            dict(option_name="parent_node_id", option_value=nan),
             dict(option_name="parent_node_name", option_value=nan),
             dict(option_name="meas_noise_effect", option_value="add_var_scale_log"),
             dict(option_name="zero_sum_random", option_value=nan),

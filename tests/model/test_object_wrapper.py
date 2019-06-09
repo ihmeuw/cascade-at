@@ -1,6 +1,7 @@
 from math import nan
 from pathlib import Path
 from sqlite3 import Connection
+from types import SimpleNamespace
 
 import networkx as nx
 import numpy as np
@@ -74,7 +75,9 @@ def test_model_grids_ok(basic_model, tmp_path):
     parent_location = 1
 
     db_file = "grids_ok.db"
-    wrapper = ObjectWrapper(locations, parent_location, db_file)
+    wrapper = ObjectWrapper(db_file)
+    wrapper.locations = locations
+    wrapper.parent_location_id = parent_location
     wrapper.model = basic_model
     wrapper.flush()
 
@@ -122,8 +125,9 @@ def test_locations():
         location_id=[1, 2, 3, 4],
         name=["global", "North America", "United States", "Canada"],
     ))
-    session = ObjectWrapper(locations, 1, "none.db")
-    session.make_new_dismod_file(locations)
+    session = ObjectWrapper("none.db")
+    session.locations = locations
+    session.parent_location_id = 1
     node_table = session.dismod_file.node
     assert len(node_table) == 4
     for find_col in ["node_id", "node_name", "parent", "c_location_id"]:
@@ -139,16 +143,54 @@ def test_locations_no_name():
         parent_id=[nan, 1, 2, 2],
         location_id=[1, 2, 3, 4],
     ))
-    session = ObjectWrapper(locations, 1, "none.db")
-    session.make_new_dismod_file(locations)
+    session = ObjectWrapper("none.db")
+    session.locations = locations
+    session.parent_location_id = 1
     node_table = session.dismod_file.node
     assert len(node_table) == 4
     for find_col in ["node_id", "node_name", "parent", "c_location_id"]:
         assert find_col in node_table.columns
+    loc_df = session.locations
     for loc, node_id in [(1, 0), (2, 1), (3, 2), (4, 3)]:
-        assert session.location_func(loc) == node_id
+        assert loc_df[loc_df.location_id == loc].node_id.item() == node_id
 
     assert node_table.at[2, "node_name"] == "3"
+
+
+def test_read_locations():
+    df = SimpleNamespace()
+    df.node = pd.DataFrame(dict(
+        parent=[nan, 0, 1, 1],
+        c_location_id=[1, 42, 37, 99],
+        node_id=[0, 1, 2, 3],
+        node_name=["global", "left", "right1", "right2"],
+    ))
+    locations = pd.DataFrame(dict(
+        location_id=[1, 42, 37, 99],
+        parent_id=[nan, 1, 42, 42],
+        node_id=[0, 1, 2, 3],
+        name=["global", "left", "right1", "right2"],
+    ))
+    obj_wrapper = ObjectWrapper("z.db")
+    obj_wrapper.locations = locations
+    obj_wrapper.parent_location_id = 1
+    obj_wrapper.dismod_file = df
+    locs = obj_wrapper.locations
+    assert len(locs.columns) == 4
+    # Ensure ordering is the same.
+    sublocs = locs[["location_id", "parent_id", "node_id", "name"]]
+    pd.testing.assert_frame_equal(locations, sublocs)
+
+
+def test_read_locations_empty():
+    df = SimpleNamespace()
+    df.node = pd.DataFrame(
+        columns=["parent", "c_location_id", "node_id", "node_name"])
+    obj_wrapper = ObjectWrapper("z.db")
+    obj_wrapper.dismod_file = df
+    locs = obj_wrapper.locations
+    assert len(locs.columns) == 4
+    assert len(locs) == 0
 
 
 def test_unknown_options():
@@ -159,8 +201,9 @@ def test_unknown_options():
     ))
     parent_location = 1
     db_file = Path("option.db")
-    wrapper = ObjectWrapper(locations, parent_location, db_file)
-    wrapper.make_new_dismod_file(locations)
+    wrapper = ObjectWrapper(db_file)
+    wrapper.locations = locations
+    wrapper.parent_location_id = parent_location
     with pytest.raises(KeyError):
         wrapper.set_option(unknown="hiya")
 
@@ -173,7 +216,9 @@ def test_write_avgint(basic_model, tmp_path):
     ))
     parent_location = 1
     db_file = tmp_path / "avgint_test.db"
-    wrapper = ObjectWrapper(locations, parent_location, db_file)
+    wrapper = ObjectWrapper(db_file)
+    wrapper.locations = locations
+    wrapper.parent_location_id = parent_location
 
     wrapper.model = basic_model
 
@@ -228,7 +273,9 @@ def test_obj_wrapper_min_meas_cv(basic_model, tmp_path):
     ))
     parent_location = 1
     db_file = tmp_path / "min_meas_cv.db"
-    wrapper = ObjectWrapper(locations, parent_location, db_file)
+    wrapper = ObjectWrapper(db_file)
+    wrapper.locations = locations
+    wrapper.parent_location_id = parent_location
 
     wrapper.model = basic_model
     for integrand_name in IntegrandEnum:
@@ -261,7 +308,9 @@ def test_obj_wrapper_min_meas_cv_exception(basic_model, tmp_path):
     ))
     parent_location = 1
     db_file = tmp_path / "min_meas_cv.db"
-    wrapper = ObjectWrapper(locations, parent_location, db_file)
+    wrapper = ObjectWrapper(db_file)
+    wrapper.locations = locations
+    wrapper.parent_location_id = parent_location
 
     wrapper.model = basic_model
     with pytest.raises(KeyError):

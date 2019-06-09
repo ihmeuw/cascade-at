@@ -2,7 +2,6 @@
 Writes a Model to a Dismod File.
 """
 from math import nan, inf
-from numbers import Real
 
 import numpy as np
 import pandas as pd
@@ -45,7 +44,6 @@ class ModelWriter:
         self._rate_id = dict()  # The rate ids with the primary rates.
         self._nslist = dict()  # rate to integer
         self._nslist_pair_rows = list()  # list of nslist id, node, and smooth
-        self._covariate_id_func = lambda x: nan
         self._flushed = False
         self._children = None
         self._clear_previous_model()
@@ -107,7 +105,8 @@ class ModelWriter:
         if child_location is None:
             self._dismod_file.rate.loc[rate_id, "child_smooth_id"] = smooth_id
         else:
-            node_id = self._object_wrapper.location_func(child_location)
+            locs = self._object_wrapper.locations
+            node_id = locs[locs.location_id == child_location].node_id.item()
             if rate_name not in self._nslist:
                 ns_id = len(self._nslist)
                 self._nslist[rate_name] = ns_id
@@ -129,7 +128,7 @@ class ModelWriter:
             "mulcov_type": MulCovEnum[kind].value,
             "rate_id": nan,
             "integrand_id": nan,
-            "covariate_id": self._covariate_id_func(covariate),
+            "covariate_id": self._object_wrapper.covariate_to_index[covariate],
             "smooth_id": self.add_random_field(grid_name, random_field),
         }
         if kind == "alpha":
@@ -323,43 +322,4 @@ class ModelWriter:
         for remaining in sorted(lookup.keys()):
             reorder.append(lookup[remaining])
         CODELOG.debug(f"covariates {', '.join(c.name for c in reorder)}")
-        covariate_df, cov_col_id_func, covariate_renames = _make_covariate_table(reorder)
-        self._dismod_file.update_table_columns("covariate", covariate_df)
-        self._dismod_file.covariate = covariate_df
-        self._covariate_id_func = cov_col_id_func
-        self._object_wrapper.covariate_rename = covariate_renames
-
-
-def _make_covariate_table(covariates):
-    null_references = list()
-    for check_ref_col in covariates:
-        if not isinstance(check_ref_col.reference, Real):
-            null_references.append(check_ref_col.name)
-    if null_references:
-        raise ValueError(f"Covariate columns without reference values {null_references}")
-
-    # Dismod requires us to rename covariates from names like sex, and "one"
-    # to x_0, x_1,... They must be "x_<digit>".
-    renames = dict()
-    for cov_idx, covariate in enumerate(covariates):
-        renames[covariate.name] = f"x_{cov_idx}"
-
-    covariate_columns = pd.DataFrame(
-        {
-            "covariate_id": np.arange(len(covariates)),
-            "covariate_name": [col.name for col in covariates],
-            "reference": np.array([col.reference for col in covariates], dtype=np.float),
-            "max_difference": np.array([col.max_difference for col in covariates], dtype=np.float),
-        }
-    )
-
-    def cov_col_id_func(query_column):
-        """From the original covariate name to the index in SQL file."""
-        try:
-            covariate_id = [search.name for search in covariates].index(query_column)
-        except ValueError as ve:
-            if "is not in list" in str(ve):
-                raise ValueError(f"A covariate was not registered with the model. {ve}")
-        return covariate_id
-
-    return covariate_columns, cov_col_id_func, renames
+        self._object_wrapper.covariates = reorder

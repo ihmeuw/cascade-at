@@ -45,6 +45,9 @@ class Model(DismodGroups):
         # the model. Even though avgint and data use them, a model is always
         # written before the avgint and data are written.
         self.covariates = covariates if covariates else list()
+        assert isinstance(self.covariates, list)
+        if len(self.covariates) > 0:
+            assert isinstance(self.covariates[0], Covariate)
         self._check_covariates(self.covariates)
         # There are always four weights, constant, susceptible,
         # with_condition, and total.

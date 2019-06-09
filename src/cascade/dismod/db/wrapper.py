@@ -3,6 +3,11 @@ Creates a file for Dismod-AT to read.
 
 The file format is sqlite3. This uses a local mapping of database tables
 to create it and add tables.
+
+The object wrapper makes Pandas Dataframes. They get passed here
+and validated. Then Pandas uses to_csv to write them to the sqlalchemy
+engine, which uses the metadata wrapper (and its custom conversions)
+to write them to a very specific format that Dismod-AT is able to read.
 """
 from copy import deepcopy
 from textwrap import dedent
@@ -37,6 +42,15 @@ def _validate_data(table_definition, data):
     """Validates that the dtypes in data match the expected types in the table_definition.
     Pandas makes this difficult because DataFrames with no length have Object type,
     and those with nulls become float type.
+
+    Dismod-AT has its own set of rules about representation of null values.
+
+     * For a text column, a missing value is an empty string, ``""``.
+     * For an integer column, a missing value is the minimum integer,
+       but no integer value should ever be missing.
+     * For a float column, infinity is the maximum float value,
+       which is ``10e318`` or minimum, which is ``-10e318`` according to
+       Dismod-AT's arbitrary version of calculating this.
     """
     if len(data) == 0:
         # Length zero columns get converted on write.
@@ -110,10 +124,7 @@ def _check_float_type(actual_type, column_name, table_definition):
 
 def _check_str_type(actual_type, column_name, data, table_definition):
     if len(data) > 0:
-        # Use iloc to get the first entry, even if the index doesn't have 0.
-        entry = data[column_name].iloc[0]
-        correct = np.issubdtype(type(entry), np.str_) or entry is None
-
+        correct = data[column_name].dtype == np.dtype('O')
         if not correct:
             raise DismodFileError(
                 f"column '{column_name}' in data for table '{table_definition.name}' must be string "

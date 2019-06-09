@@ -45,8 +45,13 @@ class Session:
         assert isinstance(parent_location, int)
         assert isinstance(filename, (Path, str))
 
-        self._filename = filename
-        self._objects = ObjectWrapper(locations, parent_location, filename)
+        self._filename = Path(filename)
+        if self._filename.exists():
+            CODELOG.info(f"{self._filename} exists so overwriting it.")
+            self._filename.unlink()
+        self._objects = ObjectWrapper(filename)
+        self._objects.locations = locations
+        self._objects.parent_location_id = parent_location
         self._options = dict()
 
     def fit(self, model, data, initial_guess=None):
