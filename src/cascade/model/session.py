@@ -45,7 +45,7 @@ class Session:
         assert isinstance(parent_location, int)
         assert isinstance(filename, (Path, str))
 
-        self._filename = filename
+        self._filename = Path(filename)
         if self._filename.exists():
             CODELOG.info(f"{self._filename} exists so overwriting it.")
             self._filename.unlink()

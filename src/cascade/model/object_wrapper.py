@@ -32,6 +32,7 @@ class ObjectWrapper:
     1. Locations
     2. Parent location ID
     3. Model
+    4. Anything else.
 
     It takes work to ensure that all the database records are
     consistent. This class groups sets of tables and columns
@@ -243,6 +244,14 @@ class ObjectWrapper:
             self.dismod_file.engine.dispose()
             self.dismod_file.engine = None
 
+    @contextmanager
+    def close_db_while_running(self):
+        self.close()
+        try:
+            yield
+        finally:
+            self.dismod_file.engine = get_engine(self._filename)
+
     @property
     def log(self):
         self.dismod_file.refresh(["log"])
@@ -375,16 +384,6 @@ class ObjectWrapper:
             else:
                 CODELOG.debug(f"Adding to {create_name} table schema the columns {covariate_columns}")
 
-    @contextmanager
-    def close_db_while_running(self):
-        if self.dismod_file.engine is not None:
-            self.dismod_file.engine.dispose()
-            self.dismod_file.engine = None
-        try:
-            yield
-        finally:
-            self.dismod_file.engine = get_engine(self._filename)
-
     def ensure_dismod_file_has_default_tables(self):
         """
         There are a number of tables that a DismodFile should always have.
@@ -400,24 +399,28 @@ class ObjectWrapper:
         all_integrands = default_integrand_names()
         if db_file.integrand.empty:
             self.dismod_file.integrand = all_integrands
-        # Fill in the min_meas_cv later if required. Ensure integrand kinds have
-        # known IDs early. Not nan because this "is non-negative and less than
-        # or equal to one."
-        self.dismod_file.integrand["minimum_meas_cv"] = 0
+            # Fill in the min_meas_cv later if required. Ensure integrand kinds have
+            # known IDs early. Not nan because this "is non-negative and less than
+            # or equal to one."
+            self.dismod_file.integrand["minimum_meas_cv"] = 0
 
-        self.dismod_file.rate = pd.DataFrame(dict(
-            rate_id=[rate.value for rate in RateEnum],  # Will be 0-4.
-            rate_name=[rate.name for rate in RateEnum],
-            parent_smooth_id=nan,
-            child_smooth_id=nan,
-            child_nslist_id=nan,
-        ))
+        if db_file.rate.empty:
+            db_file.rate = pd.DataFrame(dict(
+                rate_id=[rate.value for rate in RateEnum],  # Will be 0-4.
+                rate_name=[rate.name for rate in RateEnum],
+                parent_smooth_id=nan,
+                child_smooth_id=nan,
+                child_nslist_id=nan,
+            ))
 
         # Defaults, empty, b/c Brad makes them empty even if there are none.
         for create_name in ["nslist", "nslist_pair", "mulcov", "smooth_grid", "smooth", "data", "avgint"]:
-            setattr(self.dismod_file, create_name, self.dismod_file.empty_table(create_name))
-        self.dismod_file.log = make_log_table()
-        self._create_options_table()
+            if getattr(db_file, create_name).empty:
+                setattr(db_file, create_name, self.dismod_file.empty_table(create_name))
+        if db_file.log.empty:
+            db_file.log = make_log_table()
+        if db_file.option.empty:
+            self._create_options_table()
 
     def _create_options_table(self):
         # https://bradbell.github.io/dismod_at/doc/option_table.htm
