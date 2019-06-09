@@ -308,6 +308,29 @@ class ObjectWrapper:
         self.dismod_file.node = node
 
     @property
+    def age_extents(self):
+        age_df = self.dismod_file.age
+        return age_df.age.min(), age_df.age.max()
+
+    @age_extents.setter
+    def age_extents(self, ages):
+        """This ensures the ages and times for integration cover the given
+        list of ages and times.
+
+        Args:
+            ages (List[float]): List of ages
+            times (List[float]): List of times
+        """
+        ages_df = self.dismod_file.age
+        if ages_df.age.min() > min(ages):
+            ages_df = ages_df.append(
+                dict(age_id=len(ages_df), age=min(ages)), ignore_index=True)
+        if ages_df.age.max() < max(ages):
+            ages_df = ages_df.append(
+                dict(age_id=len(ages_df), age=max(ages)), ignore_index=True)
+        self.dismod_file.age = ages_df
+
+    @property
     def covariates(self):
         return None
 

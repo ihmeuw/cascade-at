@@ -244,6 +244,7 @@ def test_posterior(locations, dismod):
     assert isclose(variance_01, 1 / 3, rtol=0.5)
 
 
+@pytest.mark.skip("Dismod-AT changed behavior")
 def test_fit_sim(locations, dismod):
     """user_fit_sim.py example from Dismod-AT."""
     iota_parent_true = 0.01

@@ -11,9 +11,9 @@ from numpy import isclose
 
 from cascade.dismod.constants import IntegrandEnum
 from cascade.model import (
-    Session, Model, SmoothGrid, Covariate,
-    Uniform, Gaussian
+    Model, SmoothGrid, Covariate, Uniform, Gaussian
 )
+from cascade.model.interaction import run_dismod
 from cascade.model.object_wrapper import ObjectWrapper
 
 
@@ -93,21 +93,22 @@ def test_model_grids_ok(basic_model, tmp_path):
         assert np.isclose(a, b)
 
 
-def test_write_rate(basic_model, dismod):
+def test_write_rate(basic_model, dismod, tmp_path):
     locations = pd.DataFrame(dict(
         name=["global"],
         parent_id=[nan],
         location_id=[1],
     ))
     parent_location = 1
-    db_file = Path("rftest.db")
-    session = Session(locations, parent_location, db_file)
-    object_wrapper = session._objects
+    db_file = tmp_path / "rftest.db"
+    object_wrapper = ObjectWrapper(db_file)
 
     # This peeks inside the session to test some of its underlying functionality
     # without doing a fit.
+    object_wrapper.locations = locations
+    object_wrapper.parent_location_id = parent_location
     object_wrapper.model = basic_model
-    session._run_dismod(["init"])
+    run_dismod(object_wrapper, ["init"])
     var = object_wrapper.get_var("scale")
     for name in basic_model:
         for key, grid in basic_model[name].items():
