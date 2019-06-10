@@ -2,6 +2,7 @@
 Given a DismodFile object, collect numbers that characterize the size
 of the work.
 """
+import logging
 from argparse import ArgumentParser
 from inspect import getdoc
 from pathlib import Path
@@ -49,6 +50,33 @@ def smooth_count(db_file):
 
 
 @metric
+def children(db_file):
+    """Count of the number of child locations."""
+    option = db_file.option
+    # The file may have either the parent_node_id or parent_name set,
+    # and it might be "none" as a string, or "", or None.
+    parent_id = option[option.option_name == "parent_node_id"].option_value.item()
+    parent_name = option[option.option_name == "parent_node_name"].option_value.item()
+    node = db_file.node
+    try:
+        parent_node_id = int(parent_id)
+    except ValueError:
+        parent_node_id = None
+    if parent_node_id is None:
+        # Then try the other one.
+        parent_node_record = node[node.node_name == parent_name]
+        if len(parent_node_record) == 1:
+            try:
+                parent_node_id = int(parent_node_record)
+            except ValueError:
+                parent_node_id = None
+    if parent_node_id is not None:
+        return len(node[node.parent == parent_node_id])
+    else:
+        return 0
+
+
+@metric
 def rate_count(db_file):
     """How many rates are nonzero."""
     return len(db_file.rate[db_file.rate.parent_smooth_id.notnull()])
@@ -56,7 +84,10 @@ def rate_count(db_file):
 
 @metric
 def random_effect_points(db_file):
-    """How many grid points have random effects."""
+    """How many grid points have random effects. This takes each smooth
+    grid, multiplies it by the number of children, and counts every
+    age-time point in the grid. It's the number of variables that come
+    from random effects."""
     smooth = db_file.smooth.reset_index(drop=True)
     rate = db_file.rate[db_file.rate.child_smooth_id.notnull()]
     rate = rate.assign(child_smooth_id=rate.child_smooth_id.astype(int))
@@ -64,6 +95,10 @@ def random_effect_points(db_file):
         smooth, left_on="child_smooth_id", right_on="smooth_id", how="inner"
     )
     child_cnt = (child_random.n_age * child_random.n_time).sum()
+    location_children = children(db_file)
+    if location_children > 0:
+        # Each child smooth is used once for each of the children.
+        child_cnt = child_cnt * location_children
     nslist_pair = db_file.nslist_pair[db_file.nslist_pair.smooth_id.notnull()]
     nslist_pair = nslist_pair.assign(smooth_id=nslist_pair.smooth_id.astype(int))
     smooth = db_file.smooth.reset_index(drop=True)
@@ -121,9 +156,9 @@ def gather(db_file):
         name_to_value.update(data_records(db_file))
         for metric_name, retrieval in METRICS:
             name_to_value[metric_name] = retrieval(db_file)
-    except Exception as exc:
+    except Exception:
         # This code is a terrible reason to kill a job.
-        CODELOG.warning(f"Could not collect metrics {exc}")
+        CODELOG.exception(f"Could not collect metrics")
         name_to_value = dict()
     return name_to_value
 
@@ -134,12 +169,18 @@ def parser():
     )
     parse.add_argument("db_file", type=Path, nargs="?")
     parse.add_argument("--list-metrics", action="store_true")
+    parse.add_argument("-v", action="store_true")
     return parse
 
 
 def entry():
     """This is installed as a script in the Python environment."""
     args = parser().parse_args()
+    if args.v:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logging.basicConfig(level=level)
     if args.list_metrics:
         metrics = METRICS + [
             ("data_records", data_records),
