@@ -5,7 +5,7 @@ import pandas as pd
 from cascade.core import getLoggers
 from cascade.model import Model
 from cascade.model.interaction import (
-    prepare_init, prepare_fit, run_dismod, prepare_predict
+    prepare_init, prepare_fit, run_dismod, prepare_predict, amend_data_input
 )
 from cascade.model.object_wrapper import ObjectWrapper
 
@@ -204,7 +204,8 @@ class Session:
         self.setup_model_for_fit(model, data, fit_var)
         self._objects.truth_var = fit_var
         run_dismod(self._objects, ["simulate", simulate_count])
-        return SimulateResult(self._objects, simulate_count, model, data)
+        amended_data = amend_data_input(data)
+        return SimulateResult(self._objects, simulate_count, model, amended_data)
 
     def sample(self, simulate_result):
         """Given that a simulate has been run, make samples.

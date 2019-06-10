@@ -521,6 +521,7 @@ class DataSim(Base):
     data_subset_id = Column(Integer(), ForeignKey("data_subset_table.data_subset_id"), nullable=False)
     data_sim_value = Column(Float(), nullable=False)
     data_sim_delta = Column(Float(), nullable=False)
+    data_sim_stdcv = Column(Float(), nullable=False)
 
 
 class PriorSim(Base):

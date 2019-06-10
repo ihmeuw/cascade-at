@@ -18,7 +18,7 @@ def prepare_init(dismod_objects, locations, parent_location, model, data):
         # The data has to be in there before init in order to build
         # the data subset table.
         data = _point_age_time_to_interval(data)
-        data = _amend_data_input(data)
+        data = amend_data_input(data)
         dismod_objects.data = data
 
 
@@ -77,7 +77,7 @@ def _point_age_time_to_interval(data):
     return data.drop(columns={"age", "time"} & set(data.columns))
 
 
-def _amend_data_input(data):
+def amend_data_input(data):
     """If the data comes in without optional entries, add them.
     This doesn't translate to internal IDs for Dismod-AT. It rectifies
     the input, and this is how it should be saved or passed to another tool.
