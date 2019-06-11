@@ -86,7 +86,7 @@ def check_command(command, log, return_code, stdout, stderr):
        That indicates that Ipopt reached its limit, but that's OK.
 
     Args:
-        command (str): The command that was last run.
+        command (str|List[str]): The command that was last run.
         log (pd.DataFrame): The file's log messages in a dataframe.
         return_code (int): Unix process return code.
         stdout (str): Stdout as a string, not bytes.
@@ -102,9 +102,10 @@ def check_command(command, log, return_code, stdout, stderr):
         ipopt_class, ipopt_exit = _fit_ipopt_out(stdout)
         if ipopt_class != "examine":
             _claimed_to_be_complete(log, "fit", stderr)
-        # else it's OK that it didn't complete.
+        else:
+            CODELOG.info(f'Fit ended with "{ipopt_exit}" so not failing.')
     else:
-        _claimed_to_be_complete(log, command, stderr)
+        _claimed_to_be_complete(log, base_command, stderr)
 
 
 def _failure_for_any_dismod_command(return_code, stderr, stdout):
@@ -118,11 +119,7 @@ def _failure_for_any_dismod_command(return_code, stderr, stdout):
 
 
 def _claimed_to_be_complete(log, command, stderr):
-    if isinstance(command, str):
-        base_command = command
-    else:
-        base_command = command[0]
-    if len(log) == 0 or f"end {base_command}" not in log.message.iloc[-1]:
+    if len(log) == 0 or f"end {command}" not in log.message.iloc[-1]:
         raise DismodATException(
             f"Dismod-AT failed to complete '{command}' command\n{stderr}")
 
