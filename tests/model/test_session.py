@@ -3,10 +3,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from cascade.model import Session, Var, DismodGroups
-from cascade.model.session import check_iterations_exceeded
 
 
 def test_options(dismod):
@@ -29,6 +27,7 @@ def test_options(dismod):
         age_avg_split=[0.19, 0.5, 1, 2],
     )
     session.set_option(**opts)
+    session.age_extents = [0, 80]
 
     iota = Var([20], [2000])
     iota.grid.loc[:, "mean"] = 0.01
@@ -44,25 +43,3 @@ def test_options(dismod):
     ))
     # Run a predict in order to verify the options are accepted.
     session.predict(model_var, avgints, parent_location)
-
-
-@pytest.mark.parametrize("msg,expected", [
-    ("""Lots of numbers 2342.2342
-    And Dismod-AT exceeded iterations
-    """, True),
-    ("""Further text
-    EXIT: Maximum Number of Iterations Exceeded
-    dismod_at warning: ipopt failed to converge
-    """, True),
-    ("""and lastly
-    lots of iterations
-    and things exceeded
-    but not both""", False),
-    ("""totally nothing
-    to do with either
-    3249.3242
-    number
-    """, False)
-])
-def test_notice_exceeded(msg, expected):
-    assert check_iterations_exceeded(msg) == expected

@@ -4,6 +4,18 @@
 Metrics for Timing Dismod-AT
 ============================
 
+There are three main sources of numbers to use for testing.
+
+ 1. Measurements of resource usage, from
+    https://github.com/ihmeuw/rocketsonde or from ``/usr/bin/time -v``.
+
+ 2. Metrics on input data and parameters, as described below and
+    implemented in ``cascade.dismod.metrics``.
+
+ 3. Observations of what the program did, retrospectively, which
+    means counting the number of iterations it used, for instance.
+    These are done in ``cascade.dismod.process_behavior``.
+
 We need to characterize the memory usage and runtime of Dismod-AT.
 Here are factors that may contribute and why they may contribute.
 

@@ -183,7 +183,8 @@ def read_simulation_data(dismod_file, data, index):
     aligned = index_subset.merge(data_subset, on="data_subset_id", how="left") \
         .merge(db_data[["data_id", "data_name"]], on="data_id") \
         .drop(columns=["data_subset_id", "data_id"])
-    augmented = data.merge(aligned, left_on="name", right_on="data_name", how="left").drop(columns="data_name")
+    augmented = data.merge(aligned, left_on="name", right_on="data_name", how="left")
+    augmented = augmented.drop(columns="data_name")
     augmented.loc[augmented.data_sim_value.notna(), "mean"] = augmented.data_sim_value
     augmented.loc[augmented.data_sim_delta.notna(), "std"] = augmented.data_sim_delta
     return augmented.drop(columns=["data_sim_value", "data_sim_delta"])
