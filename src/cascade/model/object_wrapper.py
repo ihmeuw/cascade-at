@@ -8,10 +8,14 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
+from cascade.core.subprocess_utils import run_with_logging
+from cascade.dismod.constants import COMMAND_IO
 from cascade.dismod.constants import DensityEnum, RateEnum, IntegrandEnum
 from cascade.dismod.db.wrapper import DismodFile, get_engine
+from cascade.dismod.process_behavior import check_command
 from cascade.model.data_read_write import (
-    write_data, avgint_to_dataframe, read_avgint, read_data_residuals, read_simulation_data
+    write_data, avgint_to_dataframe, read_avgint, read_data_residuals,
+    read_simulation_data, amend_data_input
 )
 from cascade.model.grid_read_write import (
     read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_samples,
@@ -56,14 +60,55 @@ class ObjectWrapper:
 
     @property
     def db_filename(self):
+        """A pathlib.Path to the file."""
         return self._filename
 
     @property
-    def model(self):
-        raise NotImplementedError("Reading a model is not implemented.")
+    def locations(self):
+        """
+        Returns a dataframe of locations, built from the node table.
+        Input locations have ``location_id``, ``parent_id`` and optional
+        ``name``. This output table also has a ``node_id``, which was the node
+        used by Dismod-AT.
+        """
+        node = self.dismod_file.node
+        assert not ({"node_id", "node_name", "parent"} - set(node.columns))
+        if "c_location_id" not in node.columns:
+            node = node.assign(c_location_id=node.node_id)
+        location_map = node[["node_id", "c_location_id"]].rename(
+            columns={"node_id": "parent", "c_location_id": "parent_location_id"})
+        parent_location = node.merge(
+            location_map, on="parent", how="left")
+        missing = parent_location[parent_location.parent_location_id.isna()]
+        if len(missing) > 1:  # Root will have nan for parent.
+            raise ValueError(f"parent location IDs unknown {missing}")
+        return parent_location.rename(columns=dict(
+            parent_location_id="parent_id", c_location_id="location_id",
+            node_name="name"
+        ))[["parent_id", "location_id", "name", "node_id"]]
+
+    @locations.setter
+    def locations(self, locations):
+        for required_column in ["parent_id", "location_id"]:
+            if required_column not in locations.columns:
+                raise ValueError(f"Locations should be a DataFrame with location_id and parent_id, "
+                                 f"and optional name, not {locations.columns}.")
+        if "name" not in locations:
+            locations = locations.assign(name=locations.location_id.astype(str))
+        node = locations.rename(columns={"name": "node_name", "location_id": "c_location_id"})
+        node = node.reset_index(drop=True).assign(node_id=node.index)
+
+        def location_to_node_func(location_id):
+            if np.isnan(location_id):
+                return np.nan
+            return np.where(node.c_location_id == location_id)[0][0]
+
+        node = node.assign(parent=node.parent_id.apply(location_to_node_func)).drop(columns=["parent_id"])
+        self.dismod_file.node = node
 
     @property
     def parent_location_id(self):
+        """Integer location ID for the parent location."""
         location_df = self.locations
         if location_df.empty:
             raise RuntimeError("Cannot get parent location until locations exist")
@@ -87,6 +132,11 @@ class ObjectWrapper:
             parent_node_id=parent_node_id,
             parent_node_name=nan
         )
+
+    @property
+    def model(self):
+        """A cascade.model.Model object."""
+        raise NotImplementedError("Reading a model is not implemented.")
 
     @model.setter
     def model(self, new_model):
@@ -143,11 +193,33 @@ class ObjectWrapper:
 
     @property
     def data(self):
+        """
+        A Pandas DataFrame with columns:
+
+         * ``location`` - an integer location.
+         * ``integrand`` - string from the integrand names.
+         * ``age_lower`` and ``age_upper`` - float ages. If only ``age`` is
+            present, then both lower and upper will be equal to ``age``.
+         * ``time_lower`` and ``time_upper`` - float ages. If only ``time`` is
+            present, then both lower and upper will be equal to ``time``.
+         * ``density`` - string from density names.
+         * ``mean`` - float value
+         * ``std`` - float value
+         * ``name`` - Optional. Name for this record, as a string.
+         * ``hold_out`` - Optional. 0 for don't hold out, 1 for do.
+         * ``nu`` - Optional. Float parameter for distributions.
+         * ``eta`` - Optional. Float parameter for distributions.
+         * ``node_id`` - Optional. On read, this is the node that was used
+           internally by Dismod-AT.
+         * Covariate columns are floats and depend on covariates already
+           defined.
+        """
         raise NotImplementedError("Reading data is not implemented.")
 
     @data.setter
     def data(self, data):
-        write_data(self.dismod_file, data, self.covariate_rename)
+        with_missing_columns = amend_data_input(data)
+        write_data(self.dismod_file, with_missing_columns, self.covariate_rename)
 
     @property
     def avgint(self):
@@ -160,6 +232,7 @@ class ObjectWrapper:
 
     @property
     def start_var(self):
+        """A cascade.model.Var object with starting values for variables."""
         return self.get_var("start")
 
     @start_var.setter
@@ -168,6 +241,7 @@ class ObjectWrapper:
 
     @property
     def scale_var(self):
+        """A cascade.model.Var object with scaling values for variables."""
         return self.get_var("scale")
 
     @scale_var.setter
@@ -176,6 +250,7 @@ class ObjectWrapper:
 
     @property
     def fit_var(self):
+        """A cascade.model.Var object that is the result of a fit."""
         return self.get_var("fit")
 
     @fit_var.setter
@@ -184,6 +259,8 @@ class ObjectWrapper:
 
     @property
     def truth_var(self):
+        """A cascade.model.Var object to use as truth for simulation
+        or prediction."""
         return self.get_var("truth")
 
     @truth_var.setter
@@ -252,6 +329,33 @@ class ObjectWrapper:
         finally:
             self.dismod_file.engine = get_engine(self._filename)
 
+    def run_dismod(self, command):
+        """Pushes tables to the db file, runs Dismod-AT, and refreshes
+        tables written. This flushes the in-memory objects before
+        running Dismod.
+
+        Args:
+            command (List[str]|str): Command to run as a list of strings
+                or a single string without spaces.
+
+        Returns:
+            (str, str): Stdout and stderr as strings, not bytes.
+        """
+        if isinstance(command, str):
+            command = [command]
+        self.flush()
+        CODELOG.debug(f"Running Dismod-AT {command}")
+        with self.close_db_while_running():
+            str_command = [str(c) for c in command]
+            return_code, stdout, stderr = run_with_logging(
+                ["dmdismod", str(self.db_filename)] + str_command)
+
+        log = self.log
+        check_command(str_command[0], log, return_code, stdout, stderr)
+        if command[0] in COMMAND_IO:
+            self.refresh(COMMAND_IO[command[0]].output)
+        return stdout, stderr
+
     @property
     def log(self):
         self.dismod_file.refresh(["log"])
@@ -264,48 +368,6 @@ class ObjectWrapper:
         normalized = raw.drop(columns=["avgint_id", "predict_id"]).rename(columns={"avg_integrand": "mean"})
         not_predicted = avgint[~avgint.avgint_id.isin(raw.avgint_id)].drop(columns=["avgint_id"])
         return normalized, not_predicted
-
-    @property
-    def locations(self):
-        """
-        Returns a dataframe of locations, built from the node table.
-        Input locations have location_id, name, and parent_id. This output
-        table also has a node_id.
-        """
-        node = self.dismod_file.node
-        assert not ({"node_id", "node_name", "parent"} - set(node.columns))
-        if "c_location_id" not in node.columns:
-            node = node.assign(c_location_id=node.node_id)
-        location_map = node[["node_id", "c_location_id"]].rename(
-            columns={"node_id": "parent", "c_location_id": "parent_location_id"})
-        parent_location = node.merge(
-            location_map, on="parent", how="left")
-        missing = parent_location[parent_location.parent_location_id.isna()]
-        if len(missing) > 1:  # Root will have nan for parent.
-            raise ValueError(f"parent location IDs unknown {missing}")
-        return parent_location.rename(columns=dict(
-            parent_location_id="parent_id", c_location_id="location_id",
-            node_name="name"
-        ))[["parent_id", "location_id", "name", "node_id"]]
-
-    @locations.setter
-    def locations(self, locations):
-        for required_column in ["parent_id", "location_id"]:
-            if required_column not in locations.columns:
-                raise ValueError(f"Locations should be a DataFrame with location_id and parent_id, "
-                                 f"and optional name, not {locations.columns}.")
-        if "name" not in locations:
-            locations = locations.assign(name=locations.location_id.astype(str))
-        node = locations.rename(columns={"name": "node_name", "location_id": "c_location_id"})
-        node = node.reset_index(drop=True).assign(node_id=node.index)
-
-        def location_to_node_func(location_id):
-            if np.isnan(location_id):
-                return np.nan
-            return np.where(node.c_location_id == location_id)[0][0]
-
-        node = node.assign(parent=node.parent_id.apply(location_to_node_func)).drop(columns=["parent_id"])
-        self.dismod_file.node = node
 
     @property
     def age_extents(self):

@@ -1,3 +1,5 @@
+from math import nan
+
 import numpy as np
 
 from cascade.core import getLoggers
@@ -66,7 +68,6 @@ def write_data(dismod_file, data, covariate_rename):
     with_density = with_density.reset_index(drop=True).drop(columns=["density"])
     dismod_file.data = with_density.rename(
         columns={"mean": "meas_value", "std": "meas_std", "name": "data_name"})
-    _add_data_age_time_range(dismod_file, data)
 
 
 def _add_data_age_time_range(dismod_file, data):
@@ -188,3 +189,38 @@ def read_simulation_data(dismod_file, data, index):
     augmented.loc[augmented.data_sim_value.notna(), "mean"] = augmented.data_sim_value
     augmented.loc[augmented.data_sim_delta.notna(), "std"] = augmented.data_sim_delta
     return augmented.drop(columns=["data_sim_value", "data_sim_delta"])
+
+
+def _point_age_time_to_interval(data):
+    if data is None:
+        return
+    for at in ["age", "time"]:  # Convert from point ages and times.
+        for lu in ["lower", "upper"]:
+            if f"{at}_{lu}" not in data.columns and at in data.columns:
+                data = data.assign(**{f"{at}_{lu}": data[at]})
+    return data.drop(columns={"age", "time"} & set(data.columns))
+
+
+def amend_data_input(data):
+    """If the data comes in without optional entries, add them.
+    This doesn't translate to internal IDs for Dismod-AT. It rectifies
+    the input, and this is how it should be saved or passed to another tool.
+    """
+    if data is None:
+        return
+
+    data = _point_age_time_to_interval(data)
+
+    if "name" not in data.columns:
+        data = data.assign(name=data.index.astype(str))
+    else:
+        null_names = data[data.name.isnull()]
+        if not null_names.empty:
+            raise ValueError(f"There are some data values that lack data names. {null_names}")
+
+    if "hold_out" not in data.columns:
+        data = data.assign(hold_out=0)
+    for additional in ["nu", "eta"]:
+        if additional not in data.columns:
+            data = data.assign(**{additional: nan})
+    return data
