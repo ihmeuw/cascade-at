@@ -4,7 +4,7 @@ import pandas as pd
 
 from cascade.core import getLoggers
 from cascade.model import Model
-from cascade.model.data_read_write import amend_data_input, _point_age_time_to_interval
+from cascade.model.data_read_write import amend_data_input, point_age_time_to_interval
 from cascade.model.object_wrapper import ObjectWrapper
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -174,7 +174,7 @@ class Session:
         self._check_vars(var)
         model = Model.from_var(var, parent_location, weights=weights, covariates=covariates)
         self.setup_model_for_fit(model)
-        avgint = _point_age_time_to_interval(avgint)
+        avgint = point_age_time_to_interval(avgint)
         self._objects.avgint = avgint
         self._objects.truth_var = var
         self._objects.run_dismod(["predict", "truth_var"])

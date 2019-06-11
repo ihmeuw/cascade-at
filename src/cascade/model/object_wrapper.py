@@ -15,7 +15,7 @@ from cascade.dismod.db.wrapper import DismodFile, get_engine
 from cascade.dismod.process_behavior import check_command
 from cascade.model.data_read_write import (
     write_data, avgint_to_dataframe, read_avgint, read_data_residuals,
-    read_simulation_data, amend_data_input
+    read_simulation_data, amend_data_input, point_age_time_to_interval
 )
 from cascade.model.grid_read_write import (
     read_var_table_as_id, read_vars, write_vars, read_prior_residuals, read_samples,
@@ -227,6 +227,7 @@ class ObjectWrapper:
 
     @avgint.setter
     def avgint(self, avgint):
+        avgint = point_age_time_to_interval(avgint)
         self.dismod_file.avgint = avgint_to_dataframe(
             self.dismod_file, avgint, self.covariate_rename)
 
@@ -336,13 +337,13 @@ class ObjectWrapper:
 
         Args:
             command (List[str]|str): Command to run as a list of strings
-                or a single string without spaces.
+                or a single string.
 
         Returns:
             (str, str): Stdout and stderr as strings, not bytes.
         """
         if isinstance(command, str):
-            command = [command]
+            command = command.split()
         self.flush()
         CODELOG.debug(f"Running Dismod-AT {command}")
         with self.close_db_while_running():

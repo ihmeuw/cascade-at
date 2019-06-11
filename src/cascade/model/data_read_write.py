@@ -191,7 +191,7 @@ def read_simulation_data(dismod_file, data, index):
     return augmented.drop(columns=["data_sim_value", "data_sim_delta"])
 
 
-def _point_age_time_to_interval(data):
+def point_age_time_to_interval(data):
     if data is None:
         return
     for at in ["age", "time"]:  # Convert from point ages and times.
@@ -209,7 +209,7 @@ def amend_data_input(data):
     if data is None:
         return
 
-    data = _point_age_time_to_interval(data)
+    data = point_age_time_to_interval(data)
 
     if "name" not in data.columns:
         data = data.assign(name=data.index.astype(str))
