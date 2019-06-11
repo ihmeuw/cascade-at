@@ -364,6 +364,16 @@ class ObjectWrapper:
 
     @property
     def predict(self):
+        """
+        Returns two dataframes, one of the points predicted and one of the
+        points excluded from prediction because their covariates were out
+        of bounds.
+
+        Columns are ``sample_index``, ``integrand``, ``location``,
+        ``age_lower``, ``age_upper``, ``time_lower``, ``time_upper``,
+        ``mean``, and any covariates. If you drop the sample index,
+        and add standard deviation, this can serve as data values.
+        """
         avgint = read_avgint(self.dismod_file)
         raw = self.dismod_file.predict.merge(avgint, on="avgint_id", how="left")
         normalized = raw.drop(columns=["avgint_id", "predict_id"]).rename(columns={"avg_integrand": "mean"})
@@ -392,6 +402,29 @@ class ObjectWrapper:
             ages_df = ages_df.append(
                 dict(age_id=len(ages_df), age=max(ages)), ignore_index=True)
         self.dismod_file.age = ages_df
+
+    @property
+    def time_extents(self):
+        time_df = self.dismod_file.time
+        return time_df.time.min(), time_df.time.max()
+
+    @time_extents.setter
+    def time_extents(self, times):
+        """This ensures the times and times for integration cover the given
+        list of times and times.
+
+        Args:
+            times (List[float]): List of times
+            times (List[float]): List of times
+        """
+        times_df = self.dismod_file.time
+        if times_df.time.min() > min(times):
+            times_df = times_df.append(
+                dict(time_id=len(times_df), time=min(times)), ignore_index=True)
+        if times_df.time.max() < max(times):
+            times_df = times_df.append(
+                dict(time_id=len(times_df), time=max(times)), ignore_index=True)
+        self.dismod_file.time = times_df
 
     @property
     def covariates(self):

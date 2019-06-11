@@ -207,9 +207,7 @@ class Model(DismodGroups):
         nonzero_rates = list(var.rate.keys())
         model = cls(nonzero_rates, parent_location, child_locations, weights=weights, covariates=covariates)
 
-        # Maybe there is something special for handling random effects.
-        strictly_positive = dict()
-        strictly_positive["rate"] = True
+        strictly_positive = dict(rate=True)
         for group_name, group in var.items():
             skip_re_children = group_name == "random_effect" and not multiple_random_effects
             for key, var in group.items():
