@@ -3,14 +3,16 @@ Predict data and then fit it.
 """
 import logging
 from math import nan, inf
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
+from cascade.dismod import DismodATException
 from cascade.model import (
     Model, SmoothGrid, Covariate, DismodGroups, Var,
-    ObjectWrapper
+    ObjectWrapper, Gaussian, Uniform
 )
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -31,15 +33,33 @@ def reasonable_grid_from_var(var, age_time, strictly_positive):
         SmoothGrid: A single smooth grid with Uniform distributions.
     """
     smooth_grid = SmoothGrid(*age_time)
-    set_cols = ["density", "mean", "lower", "upper", "std"]
     if strictly_positive:
-        smooth_grid.value.grid.loc[:, set_cols] = [
-            "uniform", 1e-2, 1e-9, 5, 1e-3
-        ]
+        small = 1e-9
+        for age, time in smooth_grid.age_time():
+            meas_value = max(var[age, time], small)
+            meas_std = 0.1 * meas_value + 0.01
+            smooth_grid.value[age, time] = Gaussian(meas_value, meas_std, lower=small, upper=5)
     else:
-        smooth_grid.value.grid.loc[:, set_cols] = ["uniform", -inf, inf, 0, inf]
-    smooth_grid.dage.grid.loc[:, set_cols] = ["uniform", -inf, inf, 0, inf]
-    smooth_grid.dtime.grid.loc[:, set_cols] = ["uniform", -inf, inf, 0, inf]
+        for age, time in smooth_grid.age_time():
+            meas_value = var[age, time]
+            meas_std = 0.1
+            smooth_grid.value[age, time] = Gaussian(meas_value, meas_std)
+
+    # Set all grid points so that the edges are set.
+    smooth_grid.dage[:, :] = Uniform(-inf, inf, 0)
+    smooth_grid.dtime[:, :] = Uniform(-inf, inf, 0)
+    # Then calculate actual dage and dtime.
+    ages = smooth_grid.ages
+    times = smooth_grid.times
+    mid_time = times[0]
+    for age_start, age_finish in zip(ages[:-1], ages[1:]):
+        dage = var[age_finish, mid_time] - var[age_start, mid_time]
+        smooth_grid.dage[age_start, :] = Gaussian(dage, 0.01)
+    mid_age = ages[0]
+    for time_start, time_finish in zip(times[:-1], times[1:]):
+        dtime = var[mid_age, time_finish] - var[mid_age, time_start]
+        smooth_grid.dtime[time_start, :] = Gaussian(dtime, 0.01)
+
     return smooth_grid
 
 
@@ -145,7 +165,10 @@ def fit_sim():
 
     model = model_from_var(truth_var, parent_location, covariates=covariates)
 
-    dismod_objects = ObjectWrapper("running.db")
+    db_file = Path("running.db")
+    if db_file.exists():
+        db_file.unlink()
+    dismod_objects = ObjectWrapper(db_file)
     dismod_objects.locations = locations
     dismod_objects.parent_location_id = parent_location
     dismod_objects.model = model
@@ -193,4 +216,7 @@ def fit_sim():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    fit_sim()
+    try:
+        fit_sim()
+    except DismodATException as dat_exc:
+        print(dat_exc)
