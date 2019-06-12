@@ -14,6 +14,7 @@ from cascade.model import (
     Model, SmoothGrid, Covariate, DismodGroups, Var,
     ObjectWrapper, Gaussian, Uniform
 )
+from cascade.dismod.process_behavior import get_fit_output
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -32,16 +33,18 @@ def reasonable_grid_from_var(var, age_time, strictly_positive):
     Returns:
         SmoothGrid: A single smooth grid with Uniform distributions.
     """
+    if age_time is None:
+        age_time = (var.ages, var.times)
     smooth_grid = SmoothGrid(*age_time)
     if strictly_positive:
         small = 1e-9
         for age, time in smooth_grid.age_time():
-            meas_value = max(var[age, time], small)
+            meas_value = max(var(age, time), small)
             meas_std = 0.1 * meas_value + 0.01
             smooth_grid.value[age, time] = Gaussian(meas_value, meas_std, lower=small, upper=5)
     else:
         for age, time in smooth_grid.age_time():
-            meas_value = var[age, time]
+            meas_value = var(age, time)
             meas_std = 0.1
             smooth_grid.value[age, time] = Gaussian(meas_value, meas_std)
 
@@ -53,18 +56,18 @@ def reasonable_grid_from_var(var, age_time, strictly_positive):
     times = smooth_grid.times
     mid_time = times[0]
     for age_start, age_finish in zip(ages[:-1], ages[1:]):
-        dage = var[age_finish, mid_time] - var[age_start, mid_time]
+        dage = var(age_finish, mid_time) - var(age_start, mid_time)
         smooth_grid.dage[age_start, :] = Gaussian(dage, 0.01)
     mid_age = ages[0]
     for time_start, time_finish in zip(times[:-1], times[1:]):
-        dtime = var[mid_age, time_finish] - var[mid_age, time_start]
-        smooth_grid.dtime[time_start, :] = Gaussian(dtime, 0.01)
+        dtime = var(mid_age, time_finish) - var(mid_age, time_start)
+        smooth_grid.dtime[:, time_start] = Gaussian(dtime, 0.01)
 
     return smooth_grid
 
 
-def model_from_var(var, parent_location, multiple_random_effects=False,
-                   covariates=None):
+def model_from_var(var, parent_location, age_time=None,
+                   multiple_random_effects=False, covariates=None):
     """
     Given values across all rates, construct a model with loose priors
     in order to be able to predict from those rates.
@@ -103,7 +106,7 @@ def model_from_var(var, parent_location, multiple_random_effects=False,
             if assign_key not in model[group_name]:
                 must_be_positive = strictly_positive.get(group_name, False)
                 model[group_name][assign_key] = reasonable_grid_from_var(
-                    var, (var.ages, var.times), must_be_positive)
+                    var, age_time, must_be_positive)
 
     return model
 
@@ -121,13 +124,25 @@ TOPOLOGY = dict(
 are the ones that makes some sense."""
 
 
+def choose_ages(age_cnt, age_range, expansion=1.5):
+    """Chooses ages using a geometric series so the ranges increase."""
+    interval_cnt = age_cnt - 1
+    interval = age_range[1] - age_range[0]
+    base_interval = interval * (expansion - 1) / (expansion**interval_cnt - 1)
+    intervals = [base_interval * expansion**idx for idx in range(interval_cnt)]
+    return np.concatenate([[0], np.cumsum(intervals)])
+
+
 def fit_sim():
     """user_fit_sim.py from Dismod-AT done with file movement."""
     n_children = 2  # You can change the number of children.
     topology_choice = "born_remission"
+    age_cnt = 5
+    time_cnt = 3
 
     parent_location = 1
-    child_locations = [parent_location + 1 + add_child for add_child in range(n_children)]
+    child_locations = [parent_location + 1 + add_child
+                       for add_child in range(n_children)]
     locations = pd.DataFrame(dict(
         name=["Universe"] + [f"child_{cidx}" for cidx in range(n_children)],
         parent_id=[nan] + n_children * [parent_location],
@@ -163,7 +178,8 @@ def fit_sim():
         chi[100, base_year] = 0.2
         truth_var.rate["chi"] = chi
 
-    model = model_from_var(truth_var, parent_location, covariates=covariates)
+    model = model_from_var(
+        truth_var, parent_location, covariates=covariates)
 
     db_file = Path("running.db")
     if db_file.exists():
@@ -209,9 +225,36 @@ def fit_sim():
         eta=1e-5,
     )
     dismod_objects.data = data
+
+    # Now make a new model with different ages and times.
+    ages = np.linspace(0, 100, age_cnt)
+    times = np.linspace(1990, 2010, time_cnt)
+    model = model_from_var(
+        truth_var,
+        parent_location,
+        age_time=(ages, times),
+        covariates=covariates
+    )
+    dismod_objects.model = model
+    option = dict(random_seed=0,
+                  ode_step_size=10,
+                  zero_sum_random="iota",  # Zero-sum random affects result.
+                  quasi_fixed="true",
+                  derivative_test_fixed="first-order",
+                  max_num_iter_fixed=100,
+                  print_level_fixed=5,
+                  tolerance_fixed=1e-8,
+                  derivative_test_random="second-order",
+                  max_num_iter_random=100,
+                  tolerance_random=1e-8,
+                  print_level_random=0,
+                  )
+    dismod_objects.set_option(**option)
     dismod_objects.run_dismod("init")
-    CODELOG.info("fit random")
-    dismod_objects.run_dismod("fit random")
+    CODELOG.info("fit both")
+    stdout, stderr = dismod_objects.run_dismod("fit both")
+    exit_kind, exit_string, iteration_cnt = get_fit_output(stdout)
+    print(f"{exit_string} with {iteration_cnt} iterations")
 
 
 if __name__ == "__main__":
