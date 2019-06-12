@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from numpy.random import RandomState
 
 from cascade.core import getLoggers
 from cascade.dismod import DismodATException
@@ -135,11 +136,17 @@ def choose_ages(age_cnt, age_range, expansion=1.5):
 
 def fit_sim():
     """user_fit_sim.py from Dismod-AT done with file movement."""
+    rng = RandomState(3947242)
     n_children = 2  # You can change the number of children.
     topology_choice = "born_remission"
     age_cnt = 5
     time_cnt = 3
-
+    covariate_cnt = 20
+    data_integrands = [
+        "Sincidence", "prevalence", "mtother", "mtspecific", "mtexcess",
+        "remission", "relrisk", "mtall", "susceptible", "Tincidence",
+        "mtwith", "withC", "mtstandard",
+    ]
     parent_location = 1
     child_locations = [parent_location + 1 + add_child
                        for add_child in range(n_children)]
@@ -149,13 +156,15 @@ def fit_sim():
         location_id=[parent_location] + child_locations,
     ))
 
-    income_covariate = Covariate("income", reference=0.5)
-    covariates = [income_covariate]
+    base_year = 2000
+    covariates = [
+        Covariate(f"sdi{cov_create_idx}", reference=0.1)
+        for cov_create_idx in range(covariate_cnt)
+    ]
 
     # The model sits on one age and time and has only incidence rate, iota.
     topology = TOPOLOGY[topology_choice]
     truth_var = DismodGroups()
-    base_year = 2000
     if "iota" in topology:
         iota = Var([0, 50], [base_year])
         iota[0, :] = 0
@@ -178,6 +187,16 @@ def fit_sim():
         chi[100, base_year] = 0.2
         truth_var.rate["chi"] = chi
 
+    for make_cov_var in covariates:
+        cov_var = Var([50], base_year)
+        cov_var[:, :] = 0.1
+        if rng.choice([False, True], p=[0.2, 0.8]):
+            apply_to = rng.choice(topology)
+            truth_var.alpha[(make_cov_var.name, apply_to)] = cov_var
+        else:
+            apply_to = rng.choice(data_integrands)
+            truth_var.beta[(make_cov_var.name, apply_to)] = cov_var
+
     model = model_from_var(
         truth_var, parent_location, covariates=covariates)
 
@@ -193,19 +212,19 @@ def fit_sim():
 
     dismod_objects.run_dismod("init")
     dismod_objects.truth_var = truth_var
-    data_integrands = [
-        "Sincidence", "prevalence", "mtother", "mtspecific", "mtexcess",
-        "remission", "relrisk", "mtall", "susceptible", "Tincidence",
-        "mtwith", "withC", "mtstandard",
-    ]
+
     data_ages = np.linspace(0, 100, 21)
     data_times = np.linspace(1990, 2010, 5)
+    covariate_values = {
+        make_cov_val.name: 0.1
+        for make_cov_val in covariates
+    }
     data_predictions = pd.DataFrame([dict(
         integrand=integrand,
         location=location,
         age=age,
         time=time,
-        income=0.3,
+        **covariate_values,
     )
         for integrand in data_integrands
         for location in child_locations
