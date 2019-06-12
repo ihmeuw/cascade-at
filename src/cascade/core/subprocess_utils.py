@@ -1,12 +1,17 @@
 import asyncio
-import subprocess
 import re
+import subprocess
+from pathlib import Path
+from subprocess import run
+from tempfile import gettempdir
+from uuid import uuid4
 
 from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 _NONWHITESPACE = re.compile(r"\S")
+MODEL_NAME = re.compile(r"model name\s+: (.*)")
 
 
 async def _read_pipe(pipe, callback=lambda text: None):
@@ -71,3 +76,66 @@ def run_with_logging(command):
         return process.returncode, process.stdout.decode(), process.stderr.decode()
     else:
         return loop.run_until_complete(async_run_with_logging(command, loop))
+
+
+def processor_type():
+    """Gets processor type so that we can adjust for inherent processor
+    speed, if that becomes important.
+
+    Returns:
+        str: The processor name in a long form, with GHz usually.
+    """
+    model_name = None
+    cpu_info = Path("/proc/cpuinfo")
+    if cpu_info.exists():
+        with cpu_info.open() as cpu_stream:
+            cpu_lines = cpu_stream.read()
+        model_name_match = MODEL_NAME.search(cpu_lines)
+        if model_name_match:
+            model_name = model_name_match.group(1)
+    return model_name
+
+
+CAN_TIME = "unknown"
+
+
+def add_gross_timing(command):
+    """Uses /usr/bin/time to add timing to a command.
+    Requires /usr/bin/time on the machine, with a version that has
+    the verbose flag and output-to-file flag. It tests whether that's
+    present and does no timing if it isn't.
+    """
+    global CAN_TIME
+    timer = Path("/usr/bin/time")
+    tmp = Path(gettempdir()) / str(uuid4())
+    time_line = [str(timer), "-vo", str(tmp)]
+    if CAN_TIME == "unknown":
+        # Check whether the timer could work. Do this once.
+        if not timer.exists():
+            CAN_TIME = "no"
+        else:
+            result = run(time_line + ["/bin/ls"])
+            if result.returncode != 0:
+                CAN_TIME = "no"
+            else:
+                CAN_TIME = "yes"
+    if CAN_TIME == "yes":
+        command = command.split()
+        return ["/usr/bin/time", "-vo", str(tmp)] + command, tmp
+    else:
+        return tmp, None
+
+
+def read_gross_timing(tmp_file):
+    """Reads the temporary file with timing information and then deletes it.
+
+    Returns:
+        Dictionary of key-value pairs with timing information.
+    """
+    if tmp_file is None:
+        return dict()
+    with tmp_file.open() as tmp_stream:
+        lines = tmp_stream.readlines()
+    tmp_file.unlink()
+    key_value = ([x.strip() for x in line.split(":")] for line in lines)
+    return dict(kv for kv in key_value if len(kv) == 2)
