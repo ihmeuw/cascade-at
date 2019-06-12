@@ -66,3 +66,8 @@ Dismod-AT.
 
 Aaron suggested a nonparametric regression technique to help with fitting
 curves for this data: https://cran.r-project.org/web/packages/acepack/index.html.
+
+These metrics end up in two places:
+
+ * cascade.core.subprocess_utils - Runs ``/usr/bin/time``.
+ * cascade.dismod.metrics - Collects db file data.

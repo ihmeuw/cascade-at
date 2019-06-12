@@ -1,8 +1,11 @@
 import logging
+from subprocess import run
 
 import pytest
 
-from cascade.core.subprocess_utils import run_with_logging
+from cascade.core.subprocess_utils import (
+    run_with_logging, add_gross_timing, read_gross_timing
+)
 
 
 def test_run_with_logging__stdout(caplog):
@@ -32,3 +35,30 @@ def test_run_with_logging__non_zero_exit():
 def test_run_with_logging__bad_executable():
     with pytest.raises(FileNotFoundError):
         run_with_logging(["blargh"])
+
+
+def test_add_gross_timing():
+    command = "ls ."
+    command, tmp_file = add_gross_timing(command)
+    assert command == ["/usr/bin/time", "-vo", str(tmp_file), "ls", "."]
+
+
+def test_try_gross_timing():
+    command, tmp_file = add_gross_timing("/bin/ls .")
+    res = run(command)
+    assert res.returncode == 0
+    kv = read_gross_timing(tmp_file)
+    assert len(kv) > 0
+
+
+def test_read_gross_timing(tmp_path):
+    f = tmp_path / "z.txt"
+    with f.open("w") as fout:
+        fout.write("\tCommand being timed: 'ls'\n")
+        fout.write("\tSwaps: 0\n")
+        fout.write("Randomness\n")
+    kv = read_gross_timing(f)
+    assert "Command being timed" in kv
+    assert "Swaps" in kv
+    assert kv["Swaps"] == "0"
+    assert len(kv) == 2
