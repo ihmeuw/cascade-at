@@ -2,6 +2,7 @@
 Predict data and then fit it.
 """
 import logging
+from itertools import product
 from math import nan, inf
 from pathlib import Path
 
@@ -11,11 +12,11 @@ from numpy.random import RandomState
 
 from cascade.core import getLoggers
 from cascade.dismod import DismodATException
+from cascade.dismod.process_behavior import get_fit_output
 from cascade.model import (
     Model, SmoothGrid, Covariate, DismodGroups, Var,
     ObjectWrapper, Gaussian, Uniform
 )
-from cascade.dismod.process_behavior import get_fit_output
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -186,6 +187,11 @@ def fit_sim():
         chi[0, base_year] = 0.0
         chi[100, base_year] = 0.2
         truth_var.rate["chi"] = chi
+
+    for random_effect_rate, re_child in product(topology, child_locations):
+        random_effect = Var([50], [base_year])
+        random_effect[:, :] = 0.05
+        truth_var.random_effect[(random_effect_rate, re_child)] = random_effect
 
     for make_cov_var in covariates:
         cov_var = Var([50], base_year)

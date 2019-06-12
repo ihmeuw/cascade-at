@@ -66,7 +66,7 @@ def get_fit_output(stdout):
         stdout (str): Stdout as a string, not bytes.
 
     Returns:
-        (str, str): The first member is one of the strings
+        (str, str, int): The first member is one of the strings
         "perfect", "failed", "examine", or "unknown",
         and the second string is the EXIT message from Ipopt.
         The "examine" means that Ipopt likely produced a result
