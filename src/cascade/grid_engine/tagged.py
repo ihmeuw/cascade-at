@@ -1,7 +1,7 @@
+from collections import defaultdict
 from functools import wraps
 from inspect import signature
-from collections import defaultdict
-from typing import Tuple
+
 import networkx as nx
 
 
@@ -47,14 +47,17 @@ def tag_job(job_action):
     return wrapped
 
 
+# How do these functions pass data to each other?
+# If it's disk, is there a rule about how each one finds
+# its files. Could be in TMPDIR.
 @tag_job
-def first_fit(a, b) -> Tuple[int, int]:
-    return a + b, a - b
+def first_fit(location, parent):
+    return parent - 2
 
 
 @tag_job
-def simulation(a):
-    return a + 7
+def simulation(location, fit):
+    return fit + 7
 
 
 def gather(a):
@@ -76,7 +79,7 @@ def single_location(location):
     return dependency
 
 
-def aggregate(a):
+def aggregate(final):
     dependency = nx.DiGraph()
     dependency.add_node((aggregate, 0))
     return dependency
@@ -96,7 +99,7 @@ def whole_set():
     ]
     for final in leaves:
         depend_subgraphs.add_node("aggregate", subgraph=aggregate(leaves))
-        depend_subgraphs.add_edge(final, "aggregate")
+        depend_subgraphs.add_edge(final, "aggregate", role=f"final_{final}")
     return depend_subgraphs
 
 
