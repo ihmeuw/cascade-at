@@ -1,11 +1,11 @@
 import asyncio
 import re
 import subprocess
-from pathlib import Path
-from subprocess import run
 from tempfile import gettempdir
 from uuid import uuid4
-
+from functools import lru_cache
+from pathlib import Path
+from subprocess import run, DEVNULL
 from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -96,7 +96,18 @@ def processor_type():
     return model_name
 
 
-CAN_TIME = "unknown"
+@lru_cache(maxsize=1)
+def this_machine_has_newer_time_command():
+    """Check whether the timer could work. Do this once.
+    Some systems have older copies of /usr/bin/time that don't have -v."""
+    timer = Path("/usr/bin/time")
+    time_line = [str(timer), "-vo"]
+    if timer.exists():
+        result = run(time_line + ["/dev/null", "/bin/ls"],
+                     stdout=DEVNULL, stderr=DEVNULL)
+        if result.returncode == 0:
+            return time_line
+    return None
 
 
 def add_gross_timing(command):
@@ -105,25 +116,14 @@ def add_gross_timing(command):
     the verbose flag and output-to-file flag. It tests whether that's
     present and does no timing if it isn't.
     """
-    global CAN_TIME
-    timer = Path("/usr/bin/time")
-    tmp = Path(gettempdir()) / str(uuid4())
-    time_line = [str(timer), "-vo", str(tmp)]
-    if CAN_TIME == "unknown":
-        # Check whether the timer could work. Do this once.
-        if not timer.exists():
-            CAN_TIME = "no"
-        else:
-            result = run(time_line + ["/bin/ls"])
-            if result.returncode != 0:
-                CAN_TIME = "no"
-            else:
-                CAN_TIME = "yes"
-    if CAN_TIME == "yes":
-        command = command.split()
-        return ["/usr/bin/time", "-vo", str(tmp)] + command, tmp
+    time_line = this_machine_has_newer_time_command()
+    if time_line:
+        if isinstance(command, str):
+            command = command.split()
+        tmp = Path(gettempdir()) / str(uuid4())
+        return time_line + [str(tmp)] + command, tmp
     else:
-        return tmp, None
+        return command, None
 
 
 def read_gross_timing(tmp_file):
@@ -132,10 +132,16 @@ def read_gross_timing(tmp_file):
     Returns:
         Dictionary of key-value pairs with timing information.
     """
-    if tmp_file is None:
+    try:
+        with tmp_file.open() as tmp_stream:
+            lines = tmp_stream.readlines()
+    except OSError as ose:
+        CODELOG.info(f"Could not read timing file {ose}")
         return dict()
-    with tmp_file.open() as tmp_stream:
-        lines = tmp_stream.readlines()
-    tmp_file.unlink()
-    key_value = ([x.strip() for x in line.split(":")] for line in lines)
+    try:
+        tmp_file.unlink()
+    except OSError as ose:
+        CODELOG.info(f"Could not delete timing file {ose}")
+        return dict()
+    key_value = ([x.strip() for x in line.split(": ")] for line in lines)
     return dict(kv for kv in key_value if len(kv) == 2)
