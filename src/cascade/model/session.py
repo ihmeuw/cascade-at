@@ -37,9 +37,7 @@ class Session:
         assert isinstance(filename, (Path, str))
 
         self._filename = Path(filename)
-        if self._filename.exists():
-            CODELOG.info(f"{self._filename} exists so overwriting it.")
-            self._filename.unlink()
+        self._delete_db_file()
         self._objects = ObjectWrapper(filename)
         # Every time a new file is made, these local objects are set again
         # in the dismod objects.
@@ -47,6 +45,11 @@ class Session:
         self._parent_location = parent_location
         self._options = dict()
         self._age_extents = None
+
+    def _delete_db_file(self):
+        if self._filename.exists():
+            CODELOG.info(f"{self._filename} exists so overwriting it.")
+            self._filename.unlink()
 
     def fit(self, model, data, initial_guess=None):
         """This is a fit without a predict. If the model
