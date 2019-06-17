@@ -5,7 +5,8 @@ import json
 import logging
 import os
 from argparse import ArgumentParser
-from itertools import product
+from copy import copy
+from itertools import product, combinations
 from math import nan, inf
 from pathlib import Path
 from types import SimpleNamespace
@@ -73,6 +74,13 @@ def reasonable_grid_from_var(var, age_time, strictly_positive):
     return smooth_grid
 
 
+def pretty_groups(groups, indent=""):
+    for group_name, group in groups.items():
+        CODELOG.debug(f"{indent}{group_name}")
+        for key, item in group.items():
+            CODELOG.debug(f"{indent}  {key}: {item}")
+
+
 def model_from_var(var, parent_location, age_time=None,
                    multiple_random_effects=False, covariates=None):
     """
@@ -103,7 +111,7 @@ def model_from_var(var, parent_location, age_time=None,
     for group_name, group in var.items():
         is_random_effect = group_name == "random_effect"
         skip_re_children = is_random_effect and not multiple_random_effects
-        for key, var in group.items():
+        for key, item_var in group.items():
             if skip_re_children:
                 # Make one smooth grid for all children.
                 assign_key = (key[0], None)
@@ -113,21 +121,23 @@ def model_from_var(var, parent_location, age_time=None,
             if assign_key not in model[group_name]:
                 must_be_positive = strictly_positive.get(group_name, False)
                 model[group_name][assign_key] = reasonable_grid_from_var(
-                    var, age_time, must_be_positive)
+                    item_var, age_time, must_be_positive)
 
+    pretty_groups(var)
+    pretty_groups(model)
     return model
 
 
 TOPOLOGY = dict(
+    no_remission=["iota", "chi", "omega"],
     single_measure_a=["omega"],
     single_measure_b=["iota"],
     born=["omega", "chi"],
     no_death=["iota", "rho"],
-    no_remission=["iota", "chi", "omega"],
     born_remission=["rho", "omega", "chi"],
     illness_death=["iota", "chi", "rho", "omega"],
 )
-"""There are 16 ways to set up rates on SCR, and these
+"""There are 16 ways to set up rates on Susceptible-Condition-Removed, and these
 are the ones that makes some sense."""
 
 
@@ -138,6 +148,51 @@ def choose_ages(age_cnt, age_range, expansion=1.5):
     base_interval = interval * (expansion - 1) / (expansion**interval_cnt - 1)
     intervals = [base_interval * expansion**idx for idx in range(interval_cnt)]
     return np.concatenate([[0], np.cumsum(intervals)])
+
+
+CHOICES = dict(
+    n_children=[8, 4, 2, 16, 32, 64, 128],
+    topology_choice=list(TOPOLOGY.keys()),
+    age_cnt=[8, 16, 32],
+    time_cnt=[2, 4, 8, 16, 32],
+    covariate_cnt=[0, 1, 2, 4, 8, 16],
+    fit_kind=["both", "fixed", "random"],
+    percent_alpha_covariate=[1, 0.8, 0.5, 0.2, 0],
+    cohort_cost=["both", "no", "yes"],
+    data_at_extent=[True, False],
+    zero_sum_random=[True, False],
+    ode_step_size=[10, 20, 5, 2, 1, 0.5],
+    quasi_fixed=["false", "true"],
+    # Walk iterations at the same time, and always walk them.
+    data_cnt=[1000, 200, 500, 100, 2000, 5000],
+)
+"""The first choice in each list will be the default.
+All combinations are excursions from that default.
+"""
+
+
+def all_choices(level_cnt=2):
+    categories = CHOICES.keys()
+    total = [dict()]  # Start with default settings.
+    for levels in range(1, level_cnt + 1):
+        for multiple_cats in combinations(categories, levels):
+            multiple_values = [CHOICES[c] for c in multiple_cats]
+            for combo in product(*multiple_values):
+                total.append(dict(zip(multiple_cats, combo)))
+    with_iterations = list()
+    default_choices = {key: values[0] for (key, values) in CHOICES.items()}
+    # For every combination of parameters, it's important to know the difference
+    # between setup time and iteration time, so that we can choose the
+    # number of iterations, so we always go through three iterations counts.
+    for single_run in total:
+        for iter_cnt in [1, 20, 40]:
+            new_run = copy(default_choices)
+            new_run.update(single_run)
+            new_run["max_num_iter_fixed"] = iter_cnt
+            new_run["max_num_iter_random"] = iter_cnt
+            with_iterations.append(new_run)
+
+    return with_iterations
 
 
 def fit_sim(settings, rng):
@@ -318,18 +373,18 @@ def configure_sim(seed):
         rng = RandomState(seed)
     else:
         rng = RandomState()
+        # Choose a seed so that we know how to reseed to get the same run.
         seed = rng.randint(2342434)
         print(f"seed is {seed}")
         rng = RandomState(seed)
+    every_choice = all_choices()
     task_id = os.environ.get("SGE_TASK_ID", None)
     if task_id is not None:
-        choice_idx = int(task_id) - 1
+        choice_idx = (int(task_id) - 1) % len(every_choice)
     else:
-        choice_idx = rng.randint(2398)
-    CODELOG.info(f"Using choice {choice_idx}")
-    settings = SimpleNamespace()
-    settings.fit_kind = "both"
-
+        choice_idx = rng.randint(len(every_choice))
+    CODELOG.info(f"Using choice {choice_idx} of {len(every_choice)}")
+    settings = SimpleNamespace(**every_choice[choice_idx])
     CODELOG.info(settings)
     return settings, rng
 
