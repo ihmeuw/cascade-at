@@ -1,10 +1,15 @@
 """
 Predict data and then fit it.
 """
+import json
 import logging
+import os
+from argparse import ArgumentParser
 from itertools import product
 from math import nan, inf
 from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -135,9 +140,8 @@ def choose_ages(age_cnt, age_range, expansion=1.5):
     return np.concatenate([[0], np.cumsum(intervals)])
 
 
-def fit_sim():
+def fit_sim(settings, rng):
     """user_fit_sim.py from Dismod-AT done with file movement."""
-    rng = RandomState(3947242)
     n_children = 2  # You can change the number of children.
     topology_choice = "born_remission"
     age_cnt = 5
@@ -276,15 +280,72 @@ def fit_sim():
                   )
     dismod_objects.set_option(**option)
     dismod_objects.run_dismod("init")
-    CODELOG.info("fit both")
-    stdout, stderr = dismod_objects.run_dismod("fit both")
+    run_and_record_fit(dismod_objects, settings)
+
+
+def run_and_record_fit(dismod_objects, settings):
+    dismod_at_choice = f"fit {settings.fit_kind}"
+    CODELOG.info(dismod_at_choice)
+    stdout, stderr, metrics = dismod_objects.run_dismod(dismod_at_choice)
     exit_kind, exit_string, iteration_cnt = get_fit_output(stdout)
     print(f"{exit_string} with {iteration_cnt} iterations")
+    metrics["ipopt iterations"] = iteration_cnt
+    print(metrics)
+    json.dump(
+        metrics,
+        open(f"{uuid4()}.json", "w"),
+        default=json_translate,
+        indent=2,
+    )
+
+
+def json_translate(o):
+    """This exists because we try to write an np.int64 to JSON."""
+    if isinstance(o, np.int64):
+        return int(o)
+    raise TypeError
+
+
+def make_parser():
+    parser = ArgumentParser()
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--choices", type=int, default=0)
+    return parser
+
+
+def configure_sim(seed):
+    if seed != 0:
+        rng = RandomState(seed)
+    else:
+        rng = RandomState()
+        seed = rng.randint(2342434)
+        print(f"seed is {seed}")
+        rng = RandomState(seed)
+    task_id = os.environ.get("SGE_TASK_ID", None)
+    if task_id is not None:
+        choice_idx = int(task_id) - 1
+    else:
+        choice_idx = rng.randint(2398)
+    CODELOG.info(f"Using choice {choice_idx}")
+    settings = SimpleNamespace()
+    settings.fit_kind = "both"
+
+    CODELOG.info(settings)
+    return settings, rng
+
+
+def entry():
+    logging.basicConfig(level=logging.INFO)
+    args = make_parser().parse_args()
+    if args.choices != 0:
+        # print(len(all_choices(args.choices)))
+        exit(0)
+    try:
+        sim_settings, sim_rng = configure_sim(args.seed)
+        fit_sim(sim_settings, sim_rng)
+    except DismodATException as dat_exc:
+        print(dat_exc)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    try:
-        fit_sim()
-    except DismodATException as dat_exc:
-        print(dat_exc)
+    entry()

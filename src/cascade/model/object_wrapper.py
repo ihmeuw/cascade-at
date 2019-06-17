@@ -8,10 +8,14 @@ import numpy as np
 import pandas as pd
 
 from cascade.core import getLoggers
+from cascade.core.subprocess_utils import (
+    add_gross_timing, read_gross_timing, processor_type
+)
 from cascade.core.subprocess_utils import run_with_logging
 from cascade.dismod.constants import COMMAND_IO
 from cascade.dismod.constants import DensityEnum, RateEnum, IntegrandEnum
 from cascade.dismod.db.wrapper import DismodFile, get_engine
+from cascade.dismod.metrics import gather_metrics
 from cascade.dismod.process_behavior import check_command
 from cascade.model.data_read_write import (
     write_data, avgint_to_dataframe, read_avgint, read_data_residuals,
@@ -340,22 +344,29 @@ class ObjectWrapper:
                 or a single string.
 
         Returns:
-            (str, str): Stdout and stderr as strings, not bytes.
+            (str, str, Dict): Stdout and stderr as strings, not bytes.
         """
         if isinstance(command, str):
             command = command.split()
         self.flush()
         CODELOG.debug(f"Running Dismod-AT {command}")
-        with self.close_db_while_running():
-            str_command = [str(c) for c in command]
-            return_code, stdout, stderr = run_with_logging(
-                ["dmdismod", str(self.db_filename)] + str_command)
-
+        str_command = [str(word) for word in command]
+        include_dismod = ["dmdismod", str(self.db_filename)] + str_command
+        timed_command, timing_out_file = add_gross_timing(include_dismod)
+        metrics = gather_metrics(self.dismod_file)
+        metrics["dismod_at command"] = " ".join(str(x) for x in command)
+        metrics.update({"processor type": processor_type()})
+        try:
+            with self.close_db_while_running():
+                str_command = [str(c) for c in command]
+                return_code, stdout, stderr = run_with_logging(timed_command)
+        finally:
+            metrics.update(read_gross_timing(timing_out_file))
         log = self.log
         check_command(str_command[0], log, return_code, stdout, stderr)
         if command[0] in COMMAND_IO:
             self.refresh(COMMAND_IO[command[0]].output)
-        return stdout, stderr
+        return stdout, stderr, metrics
 
     @property
     def log(self):
