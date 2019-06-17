@@ -18,6 +18,7 @@ from numpy.random import RandomState
 
 from cascade.core import getLoggers
 from cascade.dismod import DismodATException
+from cascade.dismod.constants import INTEGRAND_COHORT_COST
 from cascade.dismod.process_behavior import get_fit_output
 from cascade.model import (
     Model, SmoothGrid, Covariate, DismodGroups, Var,
@@ -27,7 +28,7 @@ from cascade.model import (
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def reasonable_grid_from_var(var, age_time, strictly_positive):
+def reasonable_grid_from_var(var, age_time, group_name):
     """
     Create a smooth grid with priors that are Uniform and
     impossibly large, in the same shape as a Var.
@@ -36,25 +37,36 @@ def reasonable_grid_from_var(var, age_time, strictly_positive):
         var (Var): A single var grid.
         age_time (List[float],List[float]): Tuple of ages and times
             on which to put the prior distributions.
-        strictly_positive (bool): Whether the value prior is positive.
+        group_name (str): "rate", "random_effect", "alpha", "beta", "gamma"
 
     Returns:
         SmoothGrid: A single smooth grid with Uniform distributions.
     """
     if age_time is None:
         age_time = (var.ages, var.times)
+    smallest_rate = 1e-9
+    min_meas_std = 1e-4
+    difference_stdev = 0.2  # Can be large.
     smooth_grid = SmoothGrid(*age_time)
-    if strictly_positive:
-        small = 1e-9
+    if group_name == "rate":
         for age, time in smooth_grid.age_time():
-            meas_value = max(var(age, time), small)
-            meas_std = 0.1 * meas_value + 0.01
-            smooth_grid.value[age, time] = Gaussian(meas_value, meas_std, lower=small, upper=5)
-    else:
+            meas_value = max(var(age, time), smallest_rate)
+            meas_std = 0.1 * meas_value + min_meas_std
+            smooth_grid.value[age, time] = Gaussian(
+                meas_value, meas_std, lower=smallest_rate, upper=meas_value * 5)
+    elif group_name == "random_effect":
         for age, time in smooth_grid.age_time():
             meas_value = var(age, time)
-            meas_std = 0.1
+            meas_std = 0.1 * meas_value + 0.01
             smooth_grid.value[age, time] = Gaussian(meas_value, meas_std)
+    elif group_name in {"alpha", "beta", "gamma"}:
+        for age, time in smooth_grid.age_time():
+            meas_value = var(age, time)
+            meas_std = 0.1 * meas_value + 0.01
+            smooth_grid.value[age, time] = Gaussian(
+                meas_value, meas_std, lower=-1, upper=1)
+    else:
+        raise RuntimeError(f"Unknown group_name {group_name}")
 
     # Set all grid points so that the edges are set.
     smooth_grid.dage[:, :] = Uniform(-inf, inf, 0)
@@ -65,11 +77,14 @@ def reasonable_grid_from_var(var, age_time, strictly_positive):
     mid_time = times[0]
     for age_start, age_finish in zip(ages[:-1], ages[1:]):
         dage = var(age_finish, mid_time) - var(age_start, mid_time)
-        smooth_grid.dage[age_start, :] = Gaussian(dage, 0.01)
+        smooth_grid.dage[age_start, :] = Gaussian(dage, difference_stdev)
+        # Rough check that the sign is right.
+        assert dage >= -0.1, f"dage {var.ages}"
     mid_age = ages[0]
     for time_start, time_finish in zip(times[:-1], times[1:]):
         dtime = var(mid_age, time_finish) - var(mid_age, time_start)
-        smooth_grid.dtime[:, time_start] = Gaussian(dtime, 0.01)
+        assert dtime >= -0.1
+        smooth_grid.dtime[:, time_start] = Gaussian(dtime, difference_stdev)
 
     return smooth_grid
 
@@ -81,14 +96,14 @@ def pretty_groups(groups, indent=""):
             CODELOG.debug(f"{indent}  {key}: {item}")
 
 
-def model_from_var(var, parent_location, age_time=None,
+def model_from_var(var_groups, parent_location, age_time=None,
                    multiple_random_effects=False, covariates=None):
     """
     Given values across all rates, construct a model with loose priors
     in order to be able to predict from those rates.
 
     Args:
-        var (DismodGroups[Var]): Values on grids.
+        var_groups (DismodGroups[Var]): Values on grids.
         parent_location (int): A parent location, because that isn't
             in the keys.
         multiple_random_effects (bool): Create a separate smooth grid for
@@ -98,8 +113,8 @@ def model_from_var(var, parent_location, age_time=None,
     Returns:
         Model: with Uniform distributions everywhere and no mulstd.
     """
-    child_locations = list(sorted({k[1] for k in var.random_effect.keys()}))
-    nonzero_rates = list(var.rate.keys())
+    child_locations = list(sorted({k[1] for k in var_groups.random_effect.keys()}))
+    nonzero_rates = list(var_groups.rate.keys())
     model = Model(
         nonzero_rates,
         parent_location,
@@ -107,10 +122,11 @@ def model_from_var(var, parent_location, age_time=None,
         covariates=covariates,
     )
 
-    strictly_positive = dict(rate=True)
-    for group_name, group in var.items():
+    # Cycle through rate, random_effect, alpha, beta, gamma.
+    for group_name, group in var_groups.items():
         is_random_effect = group_name == "random_effect"
         skip_re_children = is_random_effect and not multiple_random_effects
+        # Within each of the five, cycle through rate surfaces.
         for key, item_var in group.items():
             if skip_re_children:
                 # Make one smooth grid for all children.
@@ -119,11 +135,10 @@ def model_from_var(var, parent_location, age_time=None,
                 assign_key = key
 
             if assign_key not in model[group_name]:
-                must_be_positive = strictly_positive.get(group_name, False)
                 model[group_name][assign_key] = reasonable_grid_from_var(
-                    item_var, age_time, must_be_positive)
+                    item_var, age_time, group_name)
 
-    pretty_groups(var)
+    pretty_groups(var_groups)
     pretty_groups(model)
     return model
 
@@ -132,13 +147,31 @@ TOPOLOGY = dict(
     no_remission=["iota", "chi", "omega"],
     single_measure_a=["omega"],
     single_measure_b=["iota"],
-    born=["omega", "chi"],
+    # born=["omega", "chi"],
     no_death=["iota", "rho"],
-    born_remission=["rho", "omega", "chi"],
+    # born_remission=["rho", "omega", "chi"],
     illness_death=["iota", "chi", "rho", "omega"],
 )
 """There are 16 ways to set up rates on Susceptible-Condition-Removed, and these
 are the ones that makes some sense."""
+
+
+TOPOLOGY_FORBIDDEN_INTEGRANDS = dict(
+    no_remission=["remission"],
+    single_measure_a=[
+        "Sincidence", "remission", "mtexcess", "withC", "prevalence",
+        "Tincidence", "mtspecific", "mtstandard", "relrisk"
+    ],
+    single_measure_b=[
+        "remission", "mtexcess", "withC", "prevalence",
+        "Tincidence", "mtspecific", "mtstandard", "relrisk", "mtother"
+    ],
+    born=["Sincidence", "Tincidence", "remission"],
+    no_death=["mtexcess", "mtother", "mtspecific", "mtall", "mtstandard", "relrisk"],
+    born_remission=["Sincidence", "Tincidence"],
+    illness_death=[],
+)
+"""These are kinds of data you CANNOT have for each topology."""
 
 
 def choose_ages(age_cnt, age_range, expansion=1.5):
@@ -151,20 +184,20 @@ def choose_ages(age_cnt, age_range, expansion=1.5):
 
 
 CHOICES = dict(
-    n_children=[8, 4, 2, 16, 32, 64, 128],
+    n_children=[8, 4, 2, 16, 32],
     topology_choice=list(TOPOLOGY.keys()),
     age_cnt=[8, 16, 32],
     time_cnt=[2, 4, 8, 16, 32],
-    covariate_cnt=[0, 1, 2, 4, 8, 16],
+    covariate_cnt=[4, 1, 2, 0, 8, 16],
     fit_kind=["both", "fixed", "random"],
-    percent_alpha_covariate=[1, 0.8, 0.5, 0.2, 0],
+    percent_alpha_covariate=[1, 0.6, 0.3, 0],
     cohort_cost=["both", "no", "yes"],
     data_at_extent=[True, False],
     zero_sum_random=[True, False],
-    ode_step_size=[10, 20, 5, 2, 1, 0.5],
+    ode_step_size=[10, 20, 5, 2, 1],
     quasi_fixed=["false", "true"],
     # Walk iterations at the same time, and always walk them.
-    data_cnt=[1000, 200, 500, 100, 2000, 5000],
+    data_cnt=[100, 500, 200, 1000, 50],
 )
 """The first choice in each list will be the default.
 All combinations are excursions from that default.
@@ -197,16 +230,25 @@ def all_choices(level_cnt=2):
 
 def fit_sim(settings, rng):
     """user_fit_sim.py from Dismod-AT done with file movement."""
-    n_children = 2  # You can change the number of children.
-    topology_choice = "born_remission"
-    age_cnt = 5
-    time_cnt = 3
-    covariate_cnt = 20
-    data_integrands = [
-        "Sincidence", "prevalence", "mtother", "mtspecific", "mtexcess",
-        "remission", "relrisk", "mtall", "susceptible", "Tincidence",
-        "mtwith", "withC", "mtstandard",
-    ]
+    n_children = settings.n_children  # You can change the number of children.
+    topology_choice = settings.topology_choice
+    age_cnt = settings.age_cnt
+    time_cnt = settings.time_cnt
+    covariate_cnt = settings.covariate_cnt
+    topology = TOPOLOGY[topology_choice]
+    if settings.cohort_cost == "yes":
+        data_integrands = [k for (k, v) in INTEGRAND_COHORT_COST.items() if v]
+    elif settings.cohort_cost == "no":
+        data_integrands = [k for (k, v) in INTEGRAND_COHORT_COST.items() if not v]
+    elif settings.cohort_cost == "both":
+        data_integrands = list(INTEGRAND_COHORT_COST.keys())
+    else:
+        raise RuntimeError(f"Unrecognized cohort cost {settings.cohort_cost}")
+
+    # If there's no remission, you can't have remission data.
+    forbidden_integrands = TOPOLOGY_FORBIDDEN_INTEGRANDS[topology_choice]
+    data_integrands = list(set(data_integrands) - set(forbidden_integrands))
+
     parent_location = 1
     child_locations = [parent_location + 1 + add_child
                        for add_child in range(n_children)]
@@ -223,7 +265,6 @@ def fit_sim(settings, rng):
     ]
 
     # The model sits on one age and time and has only incidence rate, iota.
-    topology = TOPOLOGY[topology_choice]
     truth_var = DismodGroups()
     if "iota" in topology:
         iota = Var([0, 50], [base_year])
@@ -237,14 +278,14 @@ def fit_sim(settings, rng):
     if "omega" in topology:
         omega = Var([0, 1, 10, 100], [base_year])
         omega[0, base_year] = 0.08
-        omega[1, base_year] = 0.04
-        omega[10, base_year] = 0.001
-        omega[100, base_year] = 0.2
+        omega[1, base_year] = 0.01
+        omega[10, base_year] = 0.0001
+        omega[100, base_year] = 0.05
         truth_var.rate["omega"] = omega
     if "chi" in topology:
         chi = Var([0, 100], [base_year])
         chi[0, base_year] = 0.0
-        chi[100, base_year] = 0.2
+        chi[100, base_year] = 0.05
         truth_var.rate["chi"] = chi
 
     for random_effect_rate, re_child in product(topology, child_locations):
@@ -252,10 +293,10 @@ def fit_sim(settings, rng):
         random_effect[:, :] = 0.05
         truth_var.random_effect[(random_effect_rate, re_child)] = random_effect
 
-    for make_cov_var in covariates:
+    for make_cov_idx, make_cov_var in enumerate(covariates):
         cov_var = Var([50], base_year)
-        cov_var[:, :] = 0.1
-        if rng.choice([False, True], p=[0.2, 0.8]):
+        cov_var[:, :] = make_cov_var.reference
+        if make_cov_idx < settings.percent_alpha_covariate * len(covariates):
             apply_to = rng.choice(topology)
             truth_var.alpha[(make_cov_var.name, apply_to)] = cov_var
         else:
@@ -285,17 +326,22 @@ def fit_sim(settings, rng):
         for make_cov_val in covariates
     }
     data_predictions = pd.DataFrame([dict(
-        integrand=integrand,
-        location=location,
-        age=age,
-        time=time,
+        integrand=rng.choice(data_integrands),
+        location=rng.choice(child_locations),
+        age=rng.choice(data_ages),
+        time=rng.choice(data_times),
         **covariate_values,
     )
-        for integrand in data_integrands
-        for location in child_locations
-        for age in data_ages
-        for time in data_times
+        for _i in range(settings.data_cnt)
     ])
+    if settings.data_at_extent:
+        data_predictions = data_predictions.assign(
+            age_lower=(data_predictions.age - 1).clip(0, 100),
+            age_upper=(data_predictions.age + 1).clip(0, 100),
+            time_lower=(data_predictions.time - 1).clip(1990, 2010),
+            time_upper=(data_predictions.time + 1).clip(1990, 2010),
+        )
+        data_predictions = data_predictions.drop(columns=["age", "time"])
 
     dismod_objects.avgint = data_predictions
     dismod_objects.run_dismod(["predict", "truth_var"])
@@ -320,10 +366,14 @@ def fit_sim(settings, rng):
         covariates=covariates
     )
     dismod_objects.model = model
+    if settings.zero_sum_random:
+        zero_sum_list = " ".join(topology)
+    else:
+        zero_sum_list = nan
     option = dict(random_seed=0,
-                  ode_step_size=10,
-                  zero_sum_random="iota",  # Zero-sum random affects result.
-                  quasi_fixed="true",
+                  ode_step_size=settings.ode_step_size,
+                  zero_sum_random=zero_sum_list,
+                  quasi_fixed=settings.quasi_fixed,
                   derivative_test_fixed="first-order",
                   max_num_iter_fixed=100,
                   print_level_fixed=5,
@@ -335,6 +385,14 @@ def fit_sim(settings, rng):
                   )
     dismod_objects.set_option(**option)
     dismod_objects.run_dismod("init")
+    requires_prerun = settings.fit_kind != "fixed"
+    if requires_prerun:
+        fit_kind = settings.fit_kind
+        settings.fit_kind = "fixed"
+        run_and_record_fit(dismod_objects, settings)
+        settings.fit_kind = fit_kind
+        dismod_objects.start_var = dismod_objects.fit_var
+        dismod_objects.scale_var = dismod_objects.fit_var
     run_and_record_fit(dismod_objects, settings)
 
 
@@ -363,14 +421,25 @@ def json_translate(o):
 
 def make_parser():
     parser = ArgumentParser()
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--choices", type=int, default=0)
+    parser.add_argument("-v", action="store_true", default=False)
+    parser.add_argument("--seed", type=int, default=0,
+                        help="rerun with same seed")
+    parser.add_argument("--choice", type=int, default=-1,
+                        help="Rerun a particular choice_idx")
+    # These are all in order to modify one value in a run.
+    for param, param_values in CHOICES.items():
+        param_default = param_values[0]
+        arg = param.replace("_", "-")
+        parser.add_argument(f"--{arg}", type=type(param_default),
+                            required=False)
+    parser.add_argument("--choices", action="store_true",
+                        help="Show how many choices there are")
     return parser
 
 
-def configure_sim(seed):
-    if seed != 0:
-        rng = RandomState(seed)
+def configure_sim(args):
+    if args.seed != 0:
+        rng = RandomState(args.seed)
     else:
         rng = RandomState()
         # Choose a seed so that we know how to reseed to get the same run.
@@ -379,24 +448,31 @@ def configure_sim(seed):
         rng = RandomState(seed)
     every_choice = all_choices()
     task_id = os.environ.get("SGE_TASK_ID", None)
-    if task_id is not None:
+    if args.choice >= 0:
+        choice_idx = args.choice
+    elif task_id is not None:
         choice_idx = (int(task_id) - 1) % len(every_choice)
     else:
         choice_idx = rng.randint(len(every_choice))
     CODELOG.info(f"Using choice {choice_idx} of {len(every_choice)}")
-    settings = SimpleNamespace(**every_choice[choice_idx])
+    chosen = every_choice[choice_idx]
+    for underscore_arg in chosen.keys():
+        if hasattr(args, underscore_arg) and getattr(args, underscore_arg):
+            chosen[underscore_arg] = getattr(args, underscore_arg)
+    settings = SimpleNamespace(**chosen)
     CODELOG.info(settings)
     return settings, rng
 
 
 def entry():
-    logging.basicConfig(level=logging.INFO)
     args = make_parser().parse_args()
-    if args.choices != 0:
-        # print(len(all_choices(args.choices)))
+    level = logging.DEBUG if args.v else logging.INFO
+    logging.basicConfig(level=level)
+    if args.choices:
+        print(len(all_choices(args.choices)))
         exit(0)
     try:
-        sim_settings, sim_rng = configure_sim(args.seed)
+        sim_settings, sim_rng = configure_sim(args)
         fit_sim(sim_settings, sim_rng)
     except DismodATException as dat_exc:
         print(dat_exc)
