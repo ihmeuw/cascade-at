@@ -306,7 +306,7 @@ def fit_sim(settings, rng):
     model = model_from_var(
         truth_var, parent_location, covariates=covariates)
 
-    db_dir = Path("db")
+    db_dir = Path("/ihme/scratch/users/adolgert/db")
     db_dir.mkdir(exist_ok=True)
     db_file = db_dir / f"{uuid4()}.db"
     if db_file.exists():
@@ -406,9 +406,12 @@ def run_and_record_fit(dismod_objects, settings):
     print(f"{exit_string} with {iteration_cnt} iterations")
     metrics["ipopt iterations"] = iteration_cnt
     print(metrics)
+    timing_dir = Path("timing")
+    timing_dir.mkdir(exist_ok=True)
+    timing_path = timing_dir / f"{uuid4()}.json"
     json.dump(
         metrics,
-        open(f"{uuid4()}.json", "w"),
+        timing_path.open("w"),
         default=json_translate,
         indent=2,
     )
