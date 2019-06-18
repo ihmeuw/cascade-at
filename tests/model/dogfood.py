@@ -191,7 +191,7 @@ CHOICES = dict(
     covariate_cnt=[4, 1, 2, 0, 8, 16],
     fit_kind=["both", "fixed", "random"],
     percent_alpha_covariate=[1, 0.6, 0.3, 0],
-    cohort_cost=["both", "no", "yes"],
+    cohort_cost=["no", "both", "yes"],
     data_at_extent=[True, False],
     zero_sum_random=[True, False],
     ode_step_size=[10, 20, 5, 2, 1],
@@ -469,13 +469,14 @@ def entry():
     level = logging.DEBUG if args.v else logging.INFO
     logging.basicConfig(level=level)
     if args.choices:
-        print(len(all_choices(args.choices)))
+        print(len(all_choices()))
         exit(0)
     try:
         sim_settings, sim_rng = configure_sim(args)
         fit_sim(sim_settings, sim_rng)
     except DismodATException as dat_exc:
         print(dat_exc)
+        exit(1)
 
 
 if __name__ == "__main__":
