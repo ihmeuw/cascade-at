@@ -306,7 +306,9 @@ def fit_sim(settings, rng):
     model = model_from_var(
         truth_var, parent_location, covariates=covariates)
 
-    db_file = Path("running.db")
+    db_dir = Path("db")
+    db_dir.mkdir(exist_ok=True)
+    db_file = db_dir / f"{uuid4()}.db"
     if db_file.exists():
         db_file.unlink()
     dismod_objects = ObjectWrapper(db_file)
