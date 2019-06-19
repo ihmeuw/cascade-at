@@ -1,10 +1,19 @@
 """
 Predict data and then fit it.
+This application is a way to see whether the set of steps,
+that we consider the main work of the wrapper, will work for
+a range of parameters. It's set up to work through different
+sets of parameters and, if something breaks, to give you a good
+way to rerun the failing set with modifications.
+
+Each run writes two kinds of files, a db file, which it will
+delete if all goes well, and a json file with timings for
+a run of the fit.
 """
 import json
 import logging
 import os
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from copy import copy
 from itertools import product, combinations
 from math import nan, inf
@@ -106,6 +115,9 @@ def model_from_var(var_groups, parent_location, age_time=None,
         var_groups (DismodGroups[Var]): Values on grids.
         parent_location (int): A parent location, because that isn't
             in the keys.
+        age_time (Tuple[List[float],List[float]]): Ages and times to use
+            for the priors that this creates. If None, use the var ages
+            and times.
         multiple_random_effects (bool): Create a separate smooth grid for
             each random effect in the Var. The default is to create a
             single smooth grid for all random effects.
@@ -147,13 +159,15 @@ TOPOLOGY = dict(
     no_remission=["iota", "chi", "omega"],
     single_measure_a=["omega"],
     single_measure_b=["iota"],
-    # born=["omega", "chi"],
     no_death=["iota", "rho"],
-    # born_remission=["rho", "omega", "chi"],
     illness_death=["iota", "chi", "rho", "omega"],
 )
 """There are 16 ways to set up rates on Susceptible-Condition-Removed, and these
-are the ones that makes some sense."""
+are the ones that makes some sense. There are two topologies that never
+converge, so they are removed and considered a modeling question:
+having birth prevalence but no incidence (rho, omega, chi), and
+having no remission at all (omega, chi).
+"""
 
 
 TOPOLOGY_FORBIDDEN_INTEGRANDS = dict(
@@ -425,13 +439,20 @@ def json_translate(o):
 
 
 def make_parser():
-    parser = ArgumentParser()
+    parser = ArgumentParser(
+        description=__doc__,
+        formatter_class=RawDescriptionHelpFormatter
+    )
     parser.add_argument("-v", action="store_true", default=False)
     parser.add_argument("--seed", type=int, default=0,
                         help="rerun with same seed")
     parser.add_argument("--choice", type=int, default=-1,
                         help="Rerun a particular choice_idx")
     # These are all in order to modify one value in a run.
+    # The point is that, if you see a failing run, you can, by hand
+    # reduce the number of data points or time points until it
+    # fails _faster_, and then use that set of parameters and db file for
+    # debugging.
     for param, param_values in CHOICES.items():
         param_default = param_values[0]
         arg = param.replace("_", "-")

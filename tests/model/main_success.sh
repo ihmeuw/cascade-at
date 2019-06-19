@@ -10,7 +10,7 @@
 #$ -cwd
 # 3580
 source /ihme/code/adolgert/venv/cascade3.7/bin/activate
-python dogfood.py
+python main_success_scenario.py
 if [[ "$?" -ne "0" ]]
 then
   echo Dismod-AT failed to run
