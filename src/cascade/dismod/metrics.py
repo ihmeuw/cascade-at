@@ -150,7 +150,7 @@ def options(db_file):
     return dict(opt[opt.option_name.isin(relevant)].to_records(index=False))
 
 
-def gather(db_file):
+def gather_metrics(db_file):
     try:
         name_to_value = options(db_file)
         name_to_value.update(data_records(db_file))
@@ -195,7 +195,7 @@ def entry():
         print(f"File {args.db_file} not found")
         exit(1)
     db_file = DismodFile(get_engine(args.db_file))
-    values = gather(db_file)
+    values = gather_metrics(db_file)
     key_len = max([len(key) for key in values.keys()])
     for metric_name, value in values.items():
         print(f"{metric_name:{key_len + 1}s}{value}")

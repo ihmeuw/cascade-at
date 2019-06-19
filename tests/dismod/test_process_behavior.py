@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from cascade.dismod.process_behavior import check_command
+from cascade.dismod.process_behavior import check_command, get_fit_output
 from cascade.dismod import DismodATException
 
 
@@ -42,3 +42,25 @@ def test_process_failure_general(cmd, log, ret, stdout):
     log_df = pd.DataFrame(dict(message=[log]))
     with pytest.raises(DismodATException):
         check_command(cmd, log_df, ret, stdout, "")
+
+
+STDOUT = """
+ 81 -2.4294118e-02 0.00e+00 7.51e-09 -11.0 5.45e-09    -  1.00e+00 5.00e-01f  2
+
+Number of Iterations....: 81
+
+                                   (scaled)                 (unscaled)
+Objective...............:  -2.4294117959982979e-02   -2.4294117959982979e-02
+otal CPU secs in IPOPT (w/o function evaluations)   =      0.192
+Total CPU secs in NLP function evaluations           =      0.056
+
+EXIT: Optimal Solution Found.
+
+"""
+
+
+def test_pulls_iterations():
+    kind, message, iterations = get_fit_output(STDOUT)
+    assert kind == "perfect"
+    assert message == "Optimal Solution Found."
+    assert iterations == 81

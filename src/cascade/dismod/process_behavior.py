@@ -25,6 +25,7 @@ from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 RE_EXIT = re.compile(r"EXIT: (.*)")
+RE_ITERATIONS = re.compile(r"Number of Iterations\W+ (\d+)")
 
 
 IPOPT_PERFECT = {
@@ -65,7 +66,7 @@ def get_fit_output(stdout):
         stdout (str): Stdout as a string, not bytes.
 
     Returns:
-        (str, str): The first member is one of the strings
+        (str, str, int): The first member is one of the strings
         "perfect", "failed", "examine", or "unknown",
         and the second string is the EXIT message from Ipopt.
         The "examine" means that Ipopt likely produced a result
@@ -73,7 +74,14 @@ def get_fit_output(stdout):
         continue.
     """
     ipopt_class, ipopt_exit = _fit_ipopt_out(stdout)
-    return ipopt_class, ipopt_exit
+    iter_match = RE_ITERATIONS.search(stdout)
+    iteration_cnt = 0
+    if iter_match:
+        try:
+            iteration_cnt = int(iter_match.group(1))
+        except ValueError:
+            CODELOG.warning(f"Failed to translate {iter_match} to int")
+    return ipopt_class, ipopt_exit, iteration_cnt
 
 
 def check_command(command, log, return_code, stdout, stderr):
