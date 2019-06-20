@@ -45,8 +45,7 @@ All detailed questions about Dismod-AT are in the
 Documentation Layout
 ^^^^^^^^^^^^^^^^^^^^
 
-This Cascade documentation looks at the problem in parts.
-
+ *  Global Model - Background for how the hierarchy of locations fits together.
  *  Cascade Plan - decides what to do at each level of the location hierarchy.
  *  EpiViz-AT Inputs - describes input data and transformations to that data.
  *  EpiViz-AT Outputs - describes output data and transformations to that data.

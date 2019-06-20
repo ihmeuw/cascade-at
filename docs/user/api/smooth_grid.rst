@@ -4,7 +4,7 @@ SmoothGrid Class
 ----------------
 
 A SmoothGrid represents model priors (as opposed to data priors) in
-a Dismod-AT model. A :py:class:`cascade.model.Model` is a bunch of
+a Dismod-AT model. A :py:class:`Model <cascade.model.Model>` is a bunch of
 SmoothGrids, one for each rate, random effect, and covariate multiplier.
 
 For instance, in order to set priors on underlying incidence rate, iota,

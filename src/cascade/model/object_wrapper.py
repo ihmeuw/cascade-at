@@ -64,7 +64,8 @@ class ObjectWrapper:
 
     @property
     def db_filename(self):
-        """A pathlib.Path to the file."""
+        """pathlib.Path: path to the file. Read-only. Make
+        a different `ObjectWrapper` for a different file."""
         return self._filename
 
     @property
@@ -112,7 +113,9 @@ class ObjectWrapper:
 
     @property
     def parent_location_id(self):
-        """Integer location ID for the parent location."""
+        """int: location ID for the parent location. This is not the node ID,
+        which is an internal Dismod-AT representation that has to be
+        zero-indexed."""
         location_df = self.locations
         if location_df.empty:
             raise RuntimeError("Cannot get parent location until locations exist")
@@ -139,7 +142,8 @@ class ObjectWrapper:
 
     @property
     def model(self):
-        """A cascade.model.Model object."""
+        """cascade.model.Model: The main model object. Can write but
+        not read."""
         raise NotImplementedError("Reading a model is not implemented.")
 
     @model.setter
@@ -158,6 +162,11 @@ class ObjectWrapper:
         * Setting a bool sets it to "true" or "false", lower-case.
         * Setting None or NaN, sets it to NaN.
         * All other ``x`` become ``str(x)``.
+
+        The exact allowed options are described here:
+
+        .. literalinclude:: ../../../src/cascade/model/object_wrapper.py
+           :pyobject: ObjectWrapper._create_options_table
 
         """
         option = self.dismod_file.option
@@ -188,6 +197,7 @@ class ObjectWrapper:
         self.dismod_file.option = option
 
     def get_option(self, name):
+        """Gets an option, as set with ``set_option``."""
         option_df = self.dismod_file.option
         records = option_df[option_df.option_name == name]
         if len(records) == 1:
@@ -198,14 +208,15 @@ class ObjectWrapper:
     @property
     def data(self):
         """
+        pd.DataFrame: Data can be set but not read.
         A Pandas DataFrame with columns:
 
          * ``location`` - an integer location.
          * ``integrand`` - string from the integrand names.
          * ``age_lower`` and ``age_upper`` - float ages. If only ``age`` is
-            present, then both lower and upper will be equal to ``age``.
+           present, then both lower and upper will be equal to ``age``.
          * ``time_lower`` and ``time_upper`` - float ages. If only ``time`` is
-            present, then both lower and upper will be equal to ``time``.
+           present, then both lower and upper will be equal to ``time``.
          * ``density`` - string from density names.
          * ``mean`` - float value
          * ``std`` - float value
@@ -227,6 +238,8 @@ class ObjectWrapper:
 
     @property
     def avgint(self):
+        """pd.DataFrame: The average integrands have the same shape as
+        the data and can be set but not read."""
         raise NotImplementedError("Reading avgints is not implemented.")
 
     @avgint.setter
@@ -237,7 +250,8 @@ class ObjectWrapper:
 
     @property
     def start_var(self):
-        """A cascade.model.Var object with starting values for variables."""
+        """cascade.model.DismodGroups: A set of Var with
+        starting values for variables. Can read or write."""
         return self.get_var("start")
 
     @start_var.setter
@@ -246,7 +260,8 @@ class ObjectWrapper:
 
     @property
     def scale_var(self):
-        """A cascade.model.Var object with scaling values for variables."""
+        """cascade.model.DismodGroups: A set of Var with scaling
+        values for variables. Can read or write."""
         return self.get_var("scale")
 
     @scale_var.setter
@@ -255,7 +270,8 @@ class ObjectWrapper:
 
     @property
     def fit_var(self):
-        """A cascade.model.Var object that is the result of a fit."""
+        """cascade.model.DismodGroups: A set of Var that
+        is the result of a fit. Can read or write."""
         return self.get_var("fit")
 
     @fit_var.setter
@@ -264,8 +280,8 @@ class ObjectWrapper:
 
     @property
     def truth_var(self):
-        """A cascade.model.Var object to use as truth for simulation
-        or prediction."""
+        """cascade.model.DismodGroups: A set of Var
+        to use as truth for simulation or prediction. Can read or write."""
         return self.get_var("truth")
 
     @truth_var.setter
@@ -282,6 +298,13 @@ class ObjectWrapper:
         self.flush()
 
     def set_minimum_meas_cv(self, integrand, value):
+        """The minimum measured CV is neither an option nor a dataset,
+        so this sets those values.
+
+        Args:
+            integrand (str): One of the integrands.
+            value (float): The CV value, greater than or equal to zero.
+        """
         if value is not None:
             fvalue = float(value)
             assert fvalue >= 0.0
@@ -296,31 +319,58 @@ class ObjectWrapper:
 
     @property
     def prior_residuals(self):
+        """pd.DataFrame: Reads prior residuals into a dataframe."""
         var_id = read_var_table_as_id(self.dismod_file)
         return read_prior_residuals(self.dismod_file, var_id)
 
     @property
     def data_residuals(self):
+        """pd.DataFrame: Reads data residuals into a dataframe."""
         return read_data_residuals(self.dismod_file)
 
     @property
     def samples(self):
+        """pd.DataFrame: These are generated by the simulate command."""
         var_id = read_var_table_as_id(self.dismod_file)
         return read_samples(self.dismod_file, var_id)
 
     def read_simulation_model_and_data(self, model, data, index):
+        """The Dismod-AT simulate command creates a new model and new data
+        for each simulation. This reads one of the models generated.
+
+        Args:
+            model (Model): This is the model that generated the simulations.
+            data (pd.DataFrame): This is the data that generated the simulations.
+            index (int): Which simulation to read.
+
+        Returns:
+            (Model, pd.DataFrame): the model and data for a single simulation.
+
+        """
         var_id = read_var_table_as_id(self.dismod_file)
         sim_model = read_simulation_model(self.dismod_file, model, var_id, index)
         sim_data = read_simulation_data(self.dismod_file, data, index)
         return sim_model, sim_data
 
     def refresh(self, list_of_tables):
+        """Asks the wrapper to re-read data out of Dismod-AT. Accepts
+        a list of which tables to read.
+
+        Args:
+            list_of_tables (List[str]): Names of tables.
+        """
         self.dismod_file.refresh(list_of_tables)
 
     def flush(self):
+        """Writes all modified data to disk. This asks the caching
+        mechanism to stop caching and ensure data is in the file."""
         self.dismod_file.flush()
 
     def close(self):
+        """Closes the database engine. This makes sure that the running
+        Python application isn't connected to the file Dismod-AT has
+        to read because Dismod-AT can't read it while the application
+        reads it."""
         self.flush()
         if self.dismod_file.engine is not None:
             self.dismod_file.engine.dispose()
@@ -328,6 +378,16 @@ class ObjectWrapper:
 
     @contextmanager
     def close_db_while_running(self):
+        """
+        A context manager to make it easier to work with this object
+        and run Dismod-AT. It closes the file, flushes it, and then
+        refreshes the file afterwards.
+
+        .. code::
+
+            with dismod_objects.close_db_while_running():
+                dismod_objects.run_dismod(["fit"])
+        """
         self.close()
         try:
             yield
@@ -370,6 +430,8 @@ class ObjectWrapper:
 
     @property
     def log(self):
+        """pd.DataFrame: Each record is a log entry indicating what
+        the Dismod-AT executable did."""
         self.dismod_file.refresh(["log"])
         return self.dismod_file.log
 
@@ -393,18 +455,23 @@ class ObjectWrapper:
 
     @property
     def age_extents(self):
+        """This ensures the ages and times for integration cover the given
+        list of ages and times. If you ask Dismod-AT to fit data, and some
+        of that data is outside the range of times in the model, it asks
+        you to insert two data points into its age and time tables as
+        reassurance you intend to integrate over a longer region.
+        With this function, you can give it a list of lots of ages and
+        times, and it ensures they are all within bounds, or it will
+        increase those bounds.
+
+        Args:
+            ages (List[float]): List of ages
+        """
         age_df = self.dismod_file.age
         return age_df.age.min(), age_df.age.max()
 
     @age_extents.setter
     def age_extents(self, ages):
-        """This ensures the ages and times for integration cover the given
-        list of ages and times.
-
-        Args:
-            ages (List[float]): List of ages
-            times (List[float]): List of times
-        """
         ages_df = self.dismod_file.age
         if ages_df.age.min() > min(ages):
             ages_df = ages_df.append(
@@ -416,18 +483,23 @@ class ObjectWrapper:
 
     @property
     def time_extents(self):
+        """This ensures the ages and times for integration cover the given
+        list of ages and times. If you ask Dismod-AT to fit data, and some
+        of that data is outside the range of times in the model, it asks
+        you to insert two data points into its age and time tables as
+        reassurance you intend to integrate over a longer region.
+        With this function, you can give it a list of lots of ages and
+        times, and it ensures they are all within bounds, or it will
+        increase those bounds.
+
+        Args:
+            times (List[float]): List of times
+        """
         time_df = self.dismod_file.time
         return time_df.time.min(), time_df.time.max()
 
     @time_extents.setter
     def time_extents(self, times):
-        """This ensures the times and times for integration cover the given
-        list of times and times.
-
-        Args:
-            times (List[float]): List of times
-            times (List[float]): List of times
-        """
         times_df = self.dismod_file.time
         if times_df.time.min() > min(times):
             times_df = times_df.append(
@@ -439,16 +511,17 @@ class ObjectWrapper:
 
     @property
     def covariates(self):
-        return None
-
-    @covariates.setter
-    def covariates(self, value):
         """
-        Sets covariates. Must call before setting data.
+        Sets covariates. Must call before setting data. Cannot read
+        covariates.
 
         Args:
             covariate (List[Covariate]): A list of covariate objects.
         """
+        return None
+
+    @covariates.setter
+    def covariates(self, value):
         null_references = list()
         for check_ref_col in value:
             if not isinstance(check_ref_col.reference, Real):

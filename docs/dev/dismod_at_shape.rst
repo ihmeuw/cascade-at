@@ -15,7 +15,8 @@ This document describes requirements on the *shape* of the bundle. The
 shape is the number and type of columns in a bundle, including
 preconditions on those columns. These aren't requirements of Dismod-AT
 itself but requirements of Cascade, a Python program that runs Dismod-AT
-within IHME.
+within IHME. Central Comp really wants to know what shape Dismod-AT
+needs. That's what this document is for.
 
 There are Hub pages about the Epi Uploader that describe the incoming data.
 

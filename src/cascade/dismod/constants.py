@@ -113,7 +113,8 @@ INTEGRAND_TO_WEIGHT = dict(
 )
 """Each integrand has a natural association with a particular weight because
 it is a count of events with one of four denominators: constant, susceptibles,
-with-condition, or the total population.
+with-condition, or the total population. For isntance, if you supply
+mtspecific data, it will always use the weight called "total."
 """
 
 
@@ -146,6 +147,7 @@ DismodIO = namedtuple("CommandIO", "input output")
 """Each Dismod-AT command reads and writes subsets of tables.
 These are those tables."""
 
+
 COMMAND_IO = dict(
     init=DismodIO(
         ["age", "avgint", "covariate", "data", "density", "integrand",
@@ -163,4 +165,8 @@ COMMAND_IO = dict(
                     ["sample", "age_avg"]),
     predict=DismodIO(["sample", "fit", "truth"], ["predict", "age_avg"]),
 )
-"""Given a command, what tables does it read and write?"""
+"""Given a command, what tables does it read and write?
+This is used to decide which tables must be refreshed after Dismod-AT
+executes a command. We do this because refreshing the data table can
+take tens of minutes, not seconds.
+"""

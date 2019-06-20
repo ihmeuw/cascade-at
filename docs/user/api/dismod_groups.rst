@@ -14,6 +14,18 @@ DismodGroups Class
    The fit returned by Dismod will be a DismodGroups containing Var objects.
    The Model itself is a DismodGroups containing SmoothGrid objects.
 
+   A classic use of this is to create a new ``DismodGroups`` of ``Var``.
+   The first loop is over the rate, random effect, and covariate group
+   names. The inner loop is over particular sets of keys, which are
+   composed of tuples of the primary rate, covariate name, and location IDs.
+
+   .. code::
+
+       var_groups = DismodGroups()
+       for group_name, group in var_ids.items():
+           for key, var_id_mapping in group.items():
+               var_groups[group_name][key] = var_builder(table, var_id_mapping)
+
    .. py:attribute:: rate[primary_rate]
 
       This is a dictionary of rates. They are always one of the

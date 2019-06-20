@@ -3,6 +3,12 @@
 Posteriors to Priors
 ====================
 
+The specification below was Drew's first attempt.
+Brad Bell has created a
+`user cascade example <https://bradbell.github.io/dismod_at/doc/user_cascade.py.htm>`_
+which serves as a specification for a next attempt, from
+which we will make another implementation.
+
 Given the solved estimation at a location, results can be used
 to prime estimation at all child locations. There are two general
 techniques. One is to set parameters on prior distributions for

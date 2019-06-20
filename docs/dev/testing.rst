@@ -65,6 +65,12 @@ There is a separate directory for acceptance tests. It's called ``acceptance``
 in the unit directory. Here, too, run ``pytest``, but it will take longer
 and do thread tests, which are tests from one interaction to a response.
 
+Unit and acceptance tests are run with the ``--ihme`` flag
+turned on, just before the end of installation. If they fail, then
+installation fails. Be sure to run unit tests on the cluster
+with ``--ihme``, even if they pass in Tox, which runs a subset
+of tests.
+
 
 Structure of Tests
 ------------------
