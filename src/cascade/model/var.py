@@ -7,8 +7,22 @@ from cascade.model.age_time_grid import AgeTimeGrid
 
 class Var(AgeTimeGrid):
     """A Var is a function of age and time, defined by values on a grid.
+    It linearly interpolates over values defined at grid points in a
+    rectangular grid of age and time.
 
-    The initial state of a model is a Var. The result of a fit is a Var.
+    This is a single age-time grid. It is usually found in
+    :py:class:`cascade.model.DismodGroups`
+    object which is a set of age-time grids. The following are
+    ``DismodGroups`` containing
+    :py:class:`cascade.model.Var`: the fit, initial guess, truth var,
+    and scale var.
+
+    Args:
+        ages (List[float]): Points along the age axis.
+        times (List[float]): Points in time.
+        column_name (str): A var has an internal Pandas DataFrame
+            representation, and this column name can be ``mean``
+            or ``meas_value``, depending on which Var is needed.
     """
     def __init__(self, ages, times, column_name="mean"):
         self._column_name = column_name

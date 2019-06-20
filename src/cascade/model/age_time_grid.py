@@ -34,6 +34,10 @@ class AgeTimeGrid:
 
     >>> atg[:, :]["mean"] = [5.9]
 
+    Why is this in Pandas, when it's a regular array of data with an
+    index, which makes it better suited to XArray, or even a
+    Numpy array? It needs to interface with a database representation,
+    and Pandas is a better match there.
     """
     def __init__(self, ages, times, columns):
         try:

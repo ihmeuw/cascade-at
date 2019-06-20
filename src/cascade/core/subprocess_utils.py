@@ -1,11 +1,12 @@
 import asyncio
 import re
 import subprocess
-from tempfile import gettempdir
-from uuid import uuid4
 from functools import lru_cache
 from pathlib import Path
 from subprocess import run, DEVNULL
+from tempfile import gettempdir
+from uuid import uuid4
+
 from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -70,6 +71,22 @@ async def async_run_with_logging(command, loop):
 
 
 def run_with_logging(command):
+    """
+    This runs a Unix subprocess. It captures standard out from that subprocess
+    while it runs and can print that standard out to a file. It does this
+    complicated maneuver because users of Dismod-AT can see its progress
+    in a web browser by refreshing a web page that displays the file.
+
+    Args:
+        command (List[str]): The command to run, as a list of strings.
+
+    Returns:
+        (int, str, str): The return code, stdout, and stderr.
+    """
+    # This intentionally uses the asyncio supplied by Python 3.6, instead
+    # of the newer keywords in Python 3.7, because a prototype implementation
+    # with the newer keywords didn't work better and put pressure on using
+    # newer versions for testing.
     loop = asyncio.get_event_loop()
     if loop.is_running():
         process = subprocess.run(command, capture_output=True)
