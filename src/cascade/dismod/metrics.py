@@ -151,15 +151,22 @@ def options(db_file):
 
 
 def gather_metrics(db_file):
+    # This code is a terrible reason to kill a job, so catch all
+    # exceptions, but report them.
     try:
         name_to_value = options(db_file)
-        name_to_value.update(data_records(db_file))
-        for metric_name, retrieval in METRICS:
-            name_to_value[metric_name] = retrieval(db_file)
     except Exception:
-        # This code is a terrible reason to kill a job.
-        CODELOG.exception(f"Could not collect metrics")
+        CODELOG.exception(f"Could not collect options metrics")
         name_to_value = dict()
+    try:
+        name_to_value.update(data_records(db_file))
+    except Exception:
+        CODELOG.exception(f"Could not collect data records metrics")
+    for metric_name, retrieval in METRICS:
+        try:
+            name_to_value[metric_name] = retrieval(db_file)
+        except Exception:
+            CODELOG.exception(f"Could not collect metric {metric_name}")
     return name_to_value
 
 
@@ -168,13 +175,15 @@ def parser():
         description="Measure quantities to characterize a db_file."
     )
     parse.add_argument("db_file", type=Path, nargs="?")
-    parse.add_argument("--list-metrics", action="store_true")
+    parse.add_argument("--list-metrics", action="store_true",
+                       description="Tell me about the metrics.")
     parse.add_argument("-v", action="store_true")
     return parse
 
 
 def entry():
-    """This is installed as a script in the Python environment."""
+    """This is installed as a script in the Python environment
+    so that you can print metrics on any db file."""
     args = parser().parse_args()
     if args.v:
         level = logging.DEBUG
