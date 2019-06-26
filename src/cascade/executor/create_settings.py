@@ -20,7 +20,9 @@ from textwrap import dedent
 import networkx as nx
 from numpy.random import RandomState
 
-from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.cascade_plan import (
+    recipe_graph_from_settings, location_specific_settings, execution_ordered,
+)
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings
@@ -351,10 +353,9 @@ def create_local_settings(rng=None, settings=None, locations=None):
     depth = 4
     locations = locations if locations else make_locations(depth)
     settings = create_settings(choices, locations)
-    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
+    recipe_graph = recipe_graph_from_settings(locations, settings, args)
     # skip-cache also turns off the first, non-estimation, job.
-    j = list(c.cascade_jobs)[0:]
-    job_choice = choices.choice(list(range(len(j))), name="job_idx")
-    job_kind, job_args = c.cascade_job(j[job_choice])
-    assert job_kind.startswith("estimate_location:")
+    jobs = list(execution_ordered(recipe_graph))[1:]
+    job_choice = choices.choice(list(range(len(jobs))), name="job_idx")
+    job_kind, job_args = location_specific_settings(locations, settings, args, jobs[job_choice])
     return job_args, locations

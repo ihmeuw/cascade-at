@@ -40,10 +40,13 @@ from subprocess import run
 from types import SimpleNamespace
 
 import networkx as nx
+from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import (
-    recipe_graph_from_settings
+    recipe_graph_from_settings,
+    location_specific_settings,
 )
+from cascade.executor.create_settings import create_settings
 
 
 def test_multiple_process_run():
@@ -97,8 +100,11 @@ def generate_task_graph():
     LocationWork, LocationJob, LocationTask
     Task
     """
+    rng = RandomState(43234)
     locations = nx.balanced_tree(3, 3, nx.DiGraph)
-    settings = None
+    locations.graph["root"] = "0"
+    assert len(locations) == 40
+    settings = create_settings(rng, locations)
     args = SimpleNamespace(**dict(
         skip_cache=False,
         num_samples=5,
@@ -108,9 +114,8 @@ def generate_task_graph():
         no_upload=True,
     ))
     recipe_graph = recipe_graph_from_settings(locations, settings, args)
-    nx.lexicographical_topological_sort(self._task_graph)
     for node in recipe_graph:
-        local_settings = location_specific_settings(locations, settings, args, node)
+        substeps, local_settings = location_specific_settings(locations, settings, args, node)
         tasks = recipe_to_tasks(node, local_settings)
         recipe_graph.node(subgraph=tasks)
     task_graph = recipe_graph_to_task_graph(recipe_graph)

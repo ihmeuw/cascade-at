@@ -146,7 +146,7 @@ I see the computational structure as layers of graphs.
 
  2. The subset of that location hierarchy that will be used for this model.
 
- 3. The graph of recipes constructed from that subsetted location hierarhcy.
+ 3. The graph of recipes constructed from that subsetted location hierarchy.
     That may include a pre-global step to download data from IHME databases
     and save it in a file. It will include an aggregation step at the end,
     so that this graph isn't a tree structure.
@@ -164,6 +164,38 @@ Once we have the graph of tasks, we can hand that to any of the
 backends for UGE, for running as functions, or for running as
 subprocesses. Each of those backends can handle partial execution
 and error-handling in its own way.
+
+The tasks in the task graph could be processes, functions, UGE
+jobs, or UGE tasks. (A UGE job has one or more tasks, where a
+UGE task array has multiple tasks.) What is the right way to represent
+one of those tasks?
+
+ * A task is not a function, because it also has resource requirements
+   for memory and run time.
+
+ * A task is not a Unix process because it doesn't always have
+   file descriptors, process identifiers, and the other trappings
+   of a Unix process.
+
+I'd like to think of a task as a component, the way Szyperski
+defines them in *Component Software.* They have
+
+ 1. A signature.
+ 2. Order guarantees for usage of time and memory.
+ 3. Well-defined exception-handling across the boundary.
+ 4. Eventual consistency for completion. (I'm fuzzy on whether
+    this was one of his rules. It's been a while.)
+
+Out of respect for those guarantees, I propose a design
+that implements each task as a class that has a list of
+input and output files and tables, and that has a function
+that returns expected resource usage as a function of
+input data parameters.
+
+Recording inputs and outputs also helps with restarts.
+Sometimes the scheduler doesn't tell the truth because of
+network partitioning, but the files never lie, so we can use
+file presence or absence to determine restarts.
 
 
 Testing Strategy

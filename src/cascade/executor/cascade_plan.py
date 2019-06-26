@@ -101,26 +101,42 @@ class RecipeIdentifier:
     1. Location ID, which may be 0, to indicate that this task is
        associated with no location, or all locations.
     2. A string identifier for the set of tasks at this location.
-    """
-    __slots__ = ["_location_id", "_transform"]
 
-    def __init__(self, location_id, transform):
+    Args:
+        location_id (int): Location identifier from GBD.
+        recipe (str): Identifies a list of tasks to do.
+        sex (str): One of male, female, or both, to indicate sex split.
+    """
+    __slots__ = ["_location_id", "_recipe", "_sex"]
+
+    def __init__(self, location_id, recipe, sex):
+        assert isinstance(location_id, int)
+        assert isinstance(recipe, str)
+        allowed_sexes = {"male", "female", "both"}
+        assert sex in allowed_sexes
+        assert recipe not in allowed_sexes
+
         self._location_id = location_id
-        self._transform = transform
+        self._recipe = recipe
+        self._sex = sex
 
     @property
     def location_id(self):
         return self._location_id
 
     @property
-    def transform(self):
-        return self._transform
+    def recipe(self):
+        return self._recipe
+
+    @property
+    def sex(self):
+        return self._sex
 
     def __hash__(self):
-        return hash((self._location_id, self._transform))
+        return hash((self._location_id, self._recipe, self._sex))
 
     def __repr__(self):
-        return f"RecipeIdentifier({self.location_id}, {self.transform})"
+        return f"RecipeIdentifier({self.location_id}, {self.recipe} {self.sex})"
 
 
 def recipe_graph_from_settings(locations, settings, args):
@@ -132,7 +148,7 @@ def recipe_graph_from_settings(locations, settings, args):
     Args:
         locations (nx.Graph): A graph of locations in a hierarchy.
         settings (Configuration): The EpiViz-AT Form (in form.py)
-        args (argparse.Namespace): Parsed arguments.
+        args (Namespace|SimpleNamespace): Parsed arguments.
 
     Returns:
         nx.DiGraph: Each node is a RecipeIdentifier. Edges denote dependency
@@ -160,10 +176,10 @@ def recipe_graph_from_settings(locations, settings, args):
     if args.skip_cache:
         setup_task = []
     else:
-        setup_task = [RecipeIdentifier(drill[0], "bundle_setup")]
+        setup_task = [RecipeIdentifier(drill[0], "bundle_setup", "both")]
 
     tasks = setup_task + [
-        RecipeIdentifier(drill_location, "estimate_location")
+        RecipeIdentifier(drill_location, "estimate_location", "both")
         for drill_location in drill
     ]
     task_pairs = list(zip(tasks[:-1], tasks[1:]))
@@ -173,6 +189,14 @@ def recipe_graph_from_settings(locations, settings, args):
     # Add a custom graph attribute to record the tree root.
     task_graph.graph["root"] = tasks[0]
     return task_graph
+
+
+def execution_ordered(graph):
+    """For either a recipe graph or a task graph, this orders the nodes
+    such that they go depth-first. This is chosen so that the data
+    has the most locality during computation."""
+    assert "root" in graph.graph, "Expect graph root to be in its dictionary."
+    return nx.dfs_preorder_nodes(graph, graph.graph["root"])
 
 
 def location_specific_settings(locations, settings, args, recipe_id):
@@ -192,6 +216,9 @@ def location_specific_settings(locations, settings, args, recipe_id):
     There are child locations for the last task though.
 
     Args:
+        locations (nx.DiGraph): Location hierarchy
+        settings: Settings from EpiViz-AT
+        args (Namespace|SimpleNamespace): Command-line arguments
         recipe_id (RecipeIdentifier): Identifies what happens at
             this location.
 
