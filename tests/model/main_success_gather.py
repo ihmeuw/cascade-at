@@ -1,9 +1,9 @@
-import json
-import sys
 import csv
+import json
+from argparse import ArgumentParser
 from pathlib import Path
-import pandas as pd
 
+import pandas as pd
 
 RENAME_HEADER = {
     "wall clock": "wall",
@@ -11,7 +11,7 @@ RENAME_HEADER = {
     "User time": "user",
     "Maximum resident": "rss",
     "avgint": None,
-    "children": None,
+    "n_children": None,
     "data_cnt": None,
     "data_extent_cohort": None,
     "data_extent_primary": None,
@@ -19,6 +19,7 @@ RENAME_HEADER = {
     "data_point_primary": None,
     "dismod_at command": "effect",
     "derivative_test_fixed": None,
+    "topology_choice": None,
     "ipopt iterations": "iterations",
     "quasi_fixed": None,
     "random_effect_points": None,
@@ -26,7 +27,22 @@ RENAME_HEADER = {
     "smooth_count": None,
     "variables": None,
     "zero_sum_random": None,
+    "processor type": "processor",
+    "Exit status": "exit_status",
+    "Percent of CPU this job got": "percent_cpu",
+    "Maximum resident set size (kbytes)": "max_rss_kb",
+    "Major (requiring I/O) page faults": "major_page_faults",
+    "Minor (reclaiming a frame) page faults": "minor_page_faults",
+    "Voluntary context switches": "voluntary_context_switches",
+    "Involuntary context switches": "involuntary_context_switches",
+    "File system inputs": "file_system_inputs",
+    "File system outputs": "file_system_outputs",
+    "Signals delivered": "signals_delivered",
 }
+"""
+None means the name is fine.
+If it's missing, it doesn't get used.
+"""
 
 
 def load_records(directory):
@@ -45,7 +61,7 @@ def shorter_names(records):
     rename = dict()
     for search_key, rename_value in RENAME_HEADER.items():
         match = [col for col in columns if search_key in col]
-        assert len(match) == 1
+        assert len(match) == 1, f"{search_key}, matches {match}"
         if rename_value:
             rename[match[0]] = rename_value
         else:
@@ -71,6 +87,30 @@ def individual_corrections(df):
         wall=df.wall.apply(timing_to_seconds),
         zero_sum_random=~df.zero_sum_random.isnull(),
         effect=df.effect.str[4:],
+        avgint=df.avgint.astype(int),
+        data_cnt=df.data_cnt.astype(int),
+        data_extent_cohort=df.data_extent_cohort.astype(int),
+        data_extent_primary=df.data_extent_primary.astype(int),
+        data_point_cohort=df.data_point_cohort.astype(int),
+        data_point_primary=df.data_point_primary.astype(int),
+        exit_status=df.exit_status.astype(int),
+        file_system_inputs=df.file_system_inputs.astype(int),
+        file_system_outputs=df.file_system_outputs.astype(int),
+        involuntary_context_switches=df.involuntary_context_switches.astype(int),
+        iterations=df.iterations.astype(int),
+        major_page_faults=df.major_page_faults.astype(int),
+        max_rss_kb=df.max_rss_kb.astype(int),
+        minor_page_faults=df.minor_page_faults.astype(int),
+        n_children=df.n_children.astype(int),
+        fraction_cpu=df.percent_cpu.str[:-1].astype(float) / 100,
+        random_effect_points=df.random_effect_points.astype(int),
+        rate_count=df.rate_count.astype(int),
+        signals_delivered=df.signals_delivered.astype(int),
+        smooth_count=df.smooth_count.astype(int),
+        sys=df.sys.astype(float),
+        user=df.user.astype(float),
+        variables=df.variables.astype(int),
+        voluntary_context_switches=df.voluntary_context_switches.astype(int),
     )
     df.loc[df.effect == "fixed", "random_effect_points"] = 0
     return df
@@ -84,8 +124,11 @@ def load_and_transform(directory):
 
 
 def entry():
-    directory = Path(sys.argv[1])
-    df = load_and_transform(directory)
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--timing", type=Path, help="Directory containing timings")
+    args = parser.parse_args()
+    df = load_and_transform(args.timing)
     df.to_csv("timings.csv", index=False)
 
 
