@@ -3,7 +3,10 @@ from numpy.random import RandomState
 import pytest
 
 from cascade.core.form import Form, FormList, FloatField
-from cascade.executor.cascade_plan import CascadePlan, make_model_options
+from cascade.executor.cascade_plan import (
+    make_model_options, location_specific_settings, execution_ordered,
+    recipe_graph_from_settings,
+)
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.configuration.form import RandomEffectBound
@@ -22,8 +25,8 @@ def test_create_start_finish(ihme):
     settings.model.split_sex = 3
     settings.model.drill_location_start = 4
     settings.model.drill_location_end = 6
-    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    assert len(c._task_graph.nodes) == 1 + SUBJOBS_PER_LOCATION * 3
+    recipe_graph = recipe_graph_from_settings(locations, settings, args)
+    assert len(recipe_graph) == 1 + SUBJOBS_PER_LOCATION * 3
     print(nx.to_edgelist(c._task_graph))
 
 

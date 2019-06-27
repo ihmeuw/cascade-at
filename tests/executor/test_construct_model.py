@@ -7,7 +7,9 @@ import numpy as np
 from numpy import isclose, inf
 from numpy.random import RandomState
 
-from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.cascade_plan import (
+    recipe_graph_from_settings, execution_ordered,
+)
 from cascade.executor.construct_model import matching_knots
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import (
@@ -94,8 +96,8 @@ def make_local_settings(given_settings):
     args = parse_arguments(["z.db"])
     locations = location_hierarchy(gbd_round_id=6, location_set_version_id=429)
     settings = create_settings(choices, locations)
-    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    j = list(c.cascade_jobs)[1:]
+    c = recipe_graph_from_settings(locations, settings, args)
+    j = list(execution_ordered(c))[1:]
     job_choice = choices.choice(list(range(len(j))), name="job_idx")
     job_kind, job_args = c.cascade_job(j[job_choice])
     assert job_kind.startswith("estimate_location:")

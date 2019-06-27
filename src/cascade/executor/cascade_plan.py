@@ -2,12 +2,15 @@
 Specification for what parameters are used at what location within
 the Cascade.
 """
+from types import SimpleNamespace
+
 import networkx as nx
 
 from cascade.core import getLoggers
 from cascade.core.parameters import ParameterProperty, _ParameterHierarchy
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.builder import policies_from_settings
+from cascade.input_data.configuration.sex import SEX_ID_TO_NAME, SEX_NAME_TO_ID
 from cascade.input_data.db.locations import (
     location_id_from_start_and_finish
 )
@@ -139,6 +142,28 @@ class RecipeIdentifier:
         return f"RecipeIdentifier({self.location_id}, {self.recipe} {self.sex})"
 
 
+class JobIdentifier(RecipeIdentifier):
+    __slots__ = ["_location_id", "_recipe", "_sex", "_job_name"]
+
+    def __init__(self, recipe_identifier, job_name):
+        self._job_name = job_name
+        super().__init__(
+            recipe_identifier.location_id,
+            recipe_identifier.recipe,
+            recipe_identifier.sex,
+        )
+
+    @property
+    def job_name(self):
+        return self._job_name
+
+    def __hash__(self):
+        return hash((self._location_id, self._recipe, self._sex, self._job_name))
+
+    def __repr__(self):
+        return f"RecipeIdentifier({self.location_id}, {self.recipe} {self.sex}, {self.job_name})"
+
+
 def recipe_graph_from_settings(locations, settings, args):
     """
     This defines the full set of recipes that are the model.
@@ -146,7 +171,7 @@ def recipe_graph_from_settings(locations, settings, args):
     and we may execute a subset of these.
 
     Args:
-        locations (nx.Graph): A graph of locations in a hierarchy.
+        locations (nx.DiGraph): A graph of locations in a hierarchy.
         settings (Configuration): The EpiViz-AT Form (in form.py)
         args (Namespace|SimpleNamespace): Parsed arguments.
 
@@ -156,30 +181,37 @@ def recipe_graph_from_settings(locations, settings, args):
         tells you the first node.
     """
     if not settings.model.is_field_unset("drill") and settings.model.drill == "drill":
-        if not settings.model.is_field_unset("drill_location_start"):
-            drill_start = settings.model.drill_location_start
-        else:
-            drill_start = None
-        if not settings.model.is_field_unset("drill_location_end"):
-            drill_end = settings.model.drill_location_end
-        else:
-            raise InputDataError(f"Set to drill but drill location end not set")
-        try:
-            drill = location_id_from_start_and_finish(locations, drill_start, drill_end)
-        except ValueError as ve:
-            raise InputDataError(f"Location parameter is wrong in settings.") from ve
+        recipe_graph = drill_recipe_graph(locations, settings, args)
     else:
-        MATHLOG.error(f"Must be set to 'drill'")
-        raise InputDataError(f"Must be set to 'drill'")
+        recipe_graph = global_recipe_graph(locations, settings, args)
+    for recipe_identifier in recipe_graph.nodes:
+        local_settings = location_specific_settings(locations, settings, args, recipe_identifier)
+        recipe_graph.node[recipe_identifier]["local_settings"] = local_settings
+    return recipe_graph
+
+
+def drill_recipe_graph(locations, settings, args):
+    if not settings.model.is_field_unset("drill_location_start"):
+        drill_start = settings.model.drill_location_start
+    else:
+        drill_start = None
+    if not settings.model.is_field_unset("drill_location_end"):
+        drill_end = settings.model.drill_location_end
+    else:
+        raise InputDataError(f"Set to drill but drill location end not set")
+    try:
+        drill = location_id_from_start_and_finish(locations, drill_start, drill_end)
+    except ValueError as ve:
+        raise InputDataError(f"Location parameter is wrong in settings.") from ve
     MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
     drill = list(drill)
+    drill_sex = SEX_ID_TO_NAME[settings.model.drill_sex]
     if args.skip_cache:
         setup_task = []
     else:
-        setup_task = [RecipeIdentifier(drill[0], "bundle_setup", "both")]
-
+        setup_task = [RecipeIdentifier(drill[0], "bundle_setup", drill_sex)]
     tasks = setup_task + [
-        RecipeIdentifier(drill_location, "estimate_location", "both")
+        RecipeIdentifier(drill_location, "estimate_location", drill_sex)
         for drill_location in drill
     ]
     task_pairs = list(zip(tasks[:-1], tasks[1:]))
@@ -191,11 +223,61 @@ def recipe_graph_from_settings(locations, settings, args):
     return task_graph
 
 
+def global_recipe_graph(locations, settings, args):
+    """
+    Constructs the graph of recipes.
+
+    Args:
+        locations (nx.DiGraph): Root node in the data, and each node
+            has a level.
+        settings: The global settings object.
+        args (Namespace|SimpleNamespace): Command-line arguments.
+
+    Returns:
+        nx.DiGraph: Each node is a RecipeIdentifier.
+    """
+    assert "root" in locations.graph
+    recipe_graph = nx.DiGraph()
+    # Start with bundle setup
+    global_node = RecipeIdentifier(locations.graph["root"], "estimate_location", "both")
+    if not args.skip_cache:
+        bundle_setup = RecipeIdentifier(0, "bundle_setup", "both")
+        recipe_graph.graph["root"] = bundle_setup
+        recipe_graph.add_edge(bundle_setup, global_node)
+    else:
+        recipe_graph.graph["root"] = global_node
+
+    # Follow location hierarchy, splitting into male and female below a level.
+    for start, finish in locations.edges:
+        if "level" not in locations.nodes[finish]:
+            raise RuntimeError(
+                "Expect location graph nodes to have a level property")
+        finish_level = locations.nodes[finish]["level"]
+        if finish_level == settings.model.split_sex:
+            for finish_sex in ["male", "female"]:
+                recipe_graph.add_edge(
+                    RecipeIdentifier(start, "estimate_location", "both"),
+                    RecipeIdentifier(finish, "estimate_location", finish_sex),
+                )
+        elif finish_level > settings.model.split_sex:
+            for same_sex in ["male", "female"]:
+                recipe_graph.add_edge(
+                    RecipeIdentifier(start, "estimate_location", same_sex),
+                    RecipeIdentifier(finish, "estimate_location", same_sex),
+                )
+        else:
+            recipe_graph.add_edge(
+                RecipeIdentifier(start, "estimate_location", "both"),
+                RecipeIdentifier(finish, "estimate_location", "both"),
+            )
+    return recipe_graph
+
+
 def execution_ordered(graph):
     """For either a recipe graph or a task graph, this orders the nodes
     such that they go depth-first. This is chosen so that the data
     has the most locality during computation."""
-    assert "root" in graph.graph, "Expect graph root to be in its dictionary."
+    assert "root" in graph.graph, "Expect to find G.graph['root']"
     return nx.dfs_preorder_nodes(graph, graph.graph["root"])
 
 
@@ -234,10 +316,10 @@ def location_specific_settings(locations, settings, args, recipe_id):
 
     if settings.model.is_field_unset("drill_sex"):
         # An unset drill sex gets all data.
-        sexes = [1, 2, 3]
+        sexes = list(SEX_ID_TO_NAME.keys())
     else:
         # Setting to male or female pulls in "both."
-        sexes = [settings.model.drill_sex, 3]
+        sexes = [settings.model.drill_sex, SEX_NAME_TO_ID["both"]]
 
     policies = policies_from_settings(settings)
     model_options = make_model_options(locations, parent_location_id, settings)
@@ -248,7 +330,7 @@ def location_specific_settings(locations, settings, args, recipe_id):
 
     local_settings = EstimationParameters(
         settings=settings,
-        policies=policies,
+        policies=SimpleNamespace(**policies),
         children=list(sorted(locations.successors(parent_location_id))),
         parent_location_id=parent_location_id,
         grandparent_location_id=grandparent_location_id,
@@ -279,12 +361,54 @@ def location_specific_settings(locations, settings, args, recipe_id):
         num_processes=args.num_processes,
         pdb=args.pdb,
     ))
-    substeps = list()
-    if settings.policies.fit_strategy == "fit_fixed_then_fit":
-        substeps.append("initial_guess_from_fit_fixed")
-    substeps.extend([
-        "compute_initial_fit",
-        "compute_draws_from_parent_fit",
-        "save_predictions"
+    return local_settings
+
+
+class Job:
+    def __init__(self, name, recipe_identifier, local_settings):
+        self.name = name
+        self.recipe = recipe_identifier
+        self.local_settings = local_settings
+        if name != "compute_draws_from_parent_fit":
+            self.multiplicity = 1
+        else:
+            self.multiplicity = local_settings.number_of_fixed_effect_samples
+
+
+def recipe_to_jobs(recipe_identifier, local_settings):
+    """Given a recipe, return a list of jobs that must be done in order."""
+    sub_jobs = list()
+    if recipe_identifier.recipe == "bundle_setup":
+        bundle_setup = Job("bundle_setup", recipe_identifier, local_settings)
+        sub_jobs.append(bundle_setup)
+    elif recipe_identifier.recipe == "estimate_location":
+        if local_settings.policies.fit_strategy == "fit_fixed_then_fit":
+            sub_jobs.append(Job("fit_fixed_then_fit", recipe_identifier, local_settings))
+        sub_jobs.extend([
+            Job(job_name, recipe_identifier, local_settings)
+            for job_name in [
+                "compute_initial_fit",
+                "compute_draws_from_parent_fit",
+                "save_predictions"
+            ]])
+    else:
+        raise RuntimeError(f"Unknown recipe identifier {recipe_identifier}")
+    return sub_jobs
+
+
+def recipe_graph_to_job_graph(recipe_graph):
+    recipe = dict()  # recipe_identifier -> (input node, output node)
+    job_graph = nx.DiGraph()
+    for copy_identifier in recipe_graph.nodes:
+        job_list = recipe_graph.node[copy_identifier]["job_list"]
+        recipe[copy_identifier] = dict(input=job_list[0], output=job_list[-1])
+        if len(job_list) > 1:
+            job_graph.add_edges_from(zip(job_list[:-1], job_list[1:]))
+        else:
+            job_graph.add_node(job_list[0])
+
+    job_graph.add_edges_from([
+        (recipe[start]["output"], recipe[finish]["input"])
+        for (start, finish) in recipe_graph.edges
     ])
-    return substeps, local_settings
+    return job_graph

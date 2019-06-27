@@ -1,16 +1,14 @@
 """
-Constructs random models.
+This is a fairly sophisticated generator of EpiViz-AT settings.
+It makes settings that are internally-consistent and possibly-stochastic.
+You decide how much to specify:
 
-rates 5
-random effects (child count)
-alpha (5*covariates)
-beta, gammma (13*covariates)
+ 1. You can choose parameters you would like to fix to particular values.
+ 2. Pass those parameters to the settings generator.
+ 3. The settings generator creates a random settings file starting from
+    the selections you chose.
 
-none or some of children, covariates, integrands
-
-grid at 1 point or >1 point for age or time
-priors present or absent on value, dage, dtime
-bounds upper/lower can differ between rates, res, and covariates.
+If you don't choose an initial set, then all the parameters are random.
 """
 from configparser import ConfigParser
 from copy import deepcopy
@@ -96,7 +94,7 @@ BASE_CASE = {
     ],
     "tolerance": {
         "fixed": 1e-10
-    }
+    },
 }
 
 

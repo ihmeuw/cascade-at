@@ -13,7 +13,7 @@ from cascade.core import getLoggers, __version__
 from cascade.core.db import use_local_odbc_ini
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_logging import logging_config
-from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.cascade_plan import recipe_graph_from_settings
 from cascade.executor.estimate_location import (
     prepare_data_for_estimate, construct_model_for_estimate_location,
     initial_guess_from_fit_fixed, compute_initial_fit, compute_draws_from_parent_fit,
@@ -36,7 +36,7 @@ def generate_plan(execution_context, args):
         location_set_version_id=settings.location_set_version_id,
         gbd_round_id=settings.gbd_round_id
     )
-    return CascadePlan.from_epiviz_configuration(locations, settings, args)
+    return recipe_graph_from_settings(locations, settings, args)
 
 
 def configure_execution_context(execution_context, args, local_settings):

@@ -37,6 +37,7 @@ use a stub for settings, because we care about only one or two
 parameters from the settings.
 """
 from subprocess import run
+from collections import namedtuple
 from types import SimpleNamespace
 
 import networkx as nx
@@ -45,6 +46,8 @@ from numpy.random import RandomState
 from cascade.executor.cascade_plan import (
     recipe_graph_from_settings,
     location_specific_settings,
+    recipe_to_jobs,
+    recipe_graph_to_job_graph,
 )
 from cascade.executor.create_settings import create_settings
 
@@ -84,7 +87,15 @@ def test_single_location_fit_stage_run():
     assert products.exist()
 
 
-def generate_task_graph():
+def add_level_to_graph(digraph, root=None):
+    if root is None:
+        root = digraph.graph["root"]
+    digraph.node[root]["level"] = 0
+    for start, finish in nx.bfs_edges(digraph, root):
+        digraph.node[finish]["level"] = digraph.node[start]["level"] + 1
+
+
+def generate_job_graph():
     """
     Stage, Transform, Job, Task, Estimation
 
@@ -102,7 +113,8 @@ def generate_task_graph():
     """
     rng = RandomState(43234)
     locations = nx.balanced_tree(3, 3, nx.DiGraph)
-    locations.graph["root"] = "0"
+    locations.graph["root"] = 0
+    add_level_to_graph(locations)
     assert len(locations) == 40
     settings = create_settings(rng, locations)
     args = SimpleNamespace(**dict(
@@ -112,10 +124,18 @@ def generate_task_graph():
         num_processes=5,
         db_only=False,
         no_upload=True,
+        settings_file=None,
+        bundle_file=None,
+        bundle_study_covariates_file=None,
     ))
     recipe_graph = recipe_graph_from_settings(locations, settings, args)
     for node in recipe_graph:
-        substeps, local_settings = location_specific_settings(locations, settings, args, node)
-        tasks = recipe_to_tasks(node, local_settings)
-        recipe_graph.node(subgraph=tasks)
-    task_graph = recipe_graph_to_task_graph(recipe_graph)
+        jobs = recipe_to_jobs(node, recipe_graph.nodes[node]["local_settings"])
+        recipe_graph.nodes[node]["job_list"] = jobs
+    job_graph = recipe_graph_to_job_graph(recipe_graph)
+    return job_graph
+
+
+def test_generate_job_graph():
+    job_graph = generate_job_graph()
+    assert job_graph is not None
