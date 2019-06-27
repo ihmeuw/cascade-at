@@ -434,12 +434,14 @@ def run_and_record_fit(dismod_objects, settings):
     timing_dir = TIMING_FILE_LOCATION
     timing_dir.mkdir(exist_ok=True, parents=True)
     timing_path = timing_dir / f"{uuid4()}.json"
-    json.dump(
-        metrics,
-        timing_path.open("w"),
-        default=json_translate,
-        indent=2,
-    )
+    with timing_path.open("w") as timing_out:
+        json.dump(
+            metrics,
+            timing_out,
+            default=json_translate,
+            indent=2,
+        )
+        timing_out.write(os.linesep)
 
 
 def json_translate(o):

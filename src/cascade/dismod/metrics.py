@@ -129,12 +129,14 @@ def data_records(db_file):
                   (data.time_lower != data.time_upper))
     cohort_cost = {k for (k, v) in INTEGRAND_COHORT_COST.items() if v}
     has_cohort_cost = data.integrand_name.isin(cohort_cost)
+    by_integrand = data.groupby(by="integrand_name").size().to_dict()
     return dict(
         data_cnt=len(data),
         data_extent_cohort=(has_extent & has_cohort_cost).sum(),
         data_point_cohort=(~has_extent & has_cohort_cost).sum(),
         data_extent_primary=(has_extent & ~has_cohort_cost).sum(),
         data_point_primary=(~has_extent & ~has_cohort_cost).sum(),
+        **by_integrand,
     )
 
 
