@@ -1,6 +1,12 @@
 library(acepack)
 
 
+modify.incoming.data <- function(df) {
+  df[["data_cohort"]] <- df[["data_extent_cohort"]] + df[["data_point_cohort"]]
+  df
+}
+
+
 # Reads the file produced by the Python translation.
 # The Python is necessary because Python code saved the JSON
 # in a specific format that rjson can't read.
@@ -9,7 +15,7 @@ timing.data <- function(timings.file) {
   for (make.cat in categorical.x) {
     df[[make.cat]] <- as.integer(df[[make.cat]])
   }
-  df
+  modify.incoming.data(df)
 }
 
 timings.file <- "/home/adolgert/dev/cascade/tests/model/timings.csv"
@@ -23,7 +29,8 @@ possible.x <- c(
   "variables", "zero_sum_random", "Sincidence",
   "Tincidence", "mtall", "mtexcess", "mtother",
   "mtspecific", "mtstandard", "prevalence",
-  "relrisk", "remission", "susceptible", "withC"
+  "relrisk", "remission", "susceptible", "withC",
+  "data_cohort"
 )
 
 categorical.x <- c(
@@ -112,5 +119,6 @@ check.through.level.single <- function(df, y.variable, level=2) {
 
 run <- function(levels=2) {
   df <- timing.data("timings.csv")
-  check.through.level(df, levels)
+  only.both <- df[df$effect == 1,]
+  check.through.level(only.both, levels)
 }
