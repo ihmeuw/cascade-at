@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from cascade.dismod.constants import INTEGRAND_TO_WEIGHT
+
+
 RENAME_HEADER = {
     "wall clock": "wall",
     "System time": "sys",
@@ -38,6 +41,7 @@ RENAME_HEADER = {
     "File system inputs": "file_system_inputs",
     "File system outputs": "file_system_outputs",
     "Signals delivered": "signals_delivered",
+    **{integrand: None for integrand in INTEGRAND_TO_WEIGHT.keys()},
 }
 """
 None means the name is fine.
@@ -59,13 +63,17 @@ def shorter_names(records):
         columns |= set(parameters)
 
     rename = dict()
+    did_not_match = list()
     for search_key, rename_value in RENAME_HEADER.items():
         match = [col for col in columns if search_key in col]
-        assert len(match) == 1, f"{search_key}, matches {match}"
-        if rename_value:
-            rename[match[0]] = rename_value
+        if len(match) == 1:
+            if rename_value:
+                rename[match[0]] = rename_value
+            else:
+                rename[match[0]] = search_key
         else:
-            rename[match[0]] = search_key
+            did_not_match.append(search_key)
+    print(f"Search keys did not match {did_not_match}")
     return [
         {rename[k]: v for (k, v) in record.items() if k in rename}
         for record in records
