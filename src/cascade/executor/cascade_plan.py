@@ -135,18 +135,24 @@ class RecipeIdentifier:
     def sex(self):
         return self._sex
 
+    def __eq__(self, other):
+        if not isinstance(other, RecipeIdentifier):
+            return False
+        return all(getattr(self, x) == getattr(other, x)
+                   for x in ["location_id", "recipe", "sex"])
+
     def __hash__(self):
         return hash((self._location_id, self._recipe, self._sex))
 
     def __repr__(self):
-        return f"RecipeIdentifier({self.location_id}, {self.recipe} {self.sex})"
+        return f"RecipeIdentifier({self.location_id}, {self.recipe}, {self.sex})"
 
 
 class JobIdentifier(RecipeIdentifier):
-    __slots__ = ["_location_id", "_recipe", "_sex", "_job_name"]
+    __slots__ = ["_location_id", "_recipe", "_sex", "_name"]
 
-    def __init__(self, recipe_identifier, job_name):
-        self._job_name = job_name
+    def __init__(self, recipe_identifier, name):
+        self._name = name
         super().__init__(
             recipe_identifier.location_id,
             recipe_identifier.recipe,
@@ -154,14 +160,17 @@ class JobIdentifier(RecipeIdentifier):
         )
 
     @property
-    def job_name(self):
-        return self._job_name
+    def name(self):
+        return self._name
+
+    def __eq__(self, other):
+        return RecipeIdentifier.__eq__(self, other) and self.name == other.name
 
     def __hash__(self):
-        return hash((self._location_id, self._recipe, self._sex, self._job_name))
+        return hash((self._location_id, self._recipe, self._sex, self.name))
 
     def __repr__(self):
-        return f"RecipeIdentifier({self.location_id}, {self.recipe} {self.sex}, {self.job_name})"
+        return f"RecipeIdentifier({self.location_id}, {self.recipe}, {self.sex}, {self.name})"
 
 
 def recipe_graph_from_settings(locations, settings, args):
@@ -237,6 +246,10 @@ def global_recipe_graph(locations, settings, args):
         nx.DiGraph: Each node is a RecipeIdentifier.
     """
     assert "root" in locations.graph
+    if settings.model.split_sex == "most_detailed":
+        split_sex = max([locations.nodes[nl]["level"] for nl in locations.nodes])
+    else:
+        split_sex = int(settings.model.split_sex)
     recipe_graph = nx.DiGraph()
     # Start with bundle setup
     global_node = RecipeIdentifier(locations.graph["root"], "estimate_location", "both")
@@ -253,13 +266,13 @@ def global_recipe_graph(locations, settings, args):
             raise RuntimeError(
                 "Expect location graph nodes to have a level property")
         finish_level = locations.nodes[finish]["level"]
-        if finish_level == settings.model.split_sex:
+        if finish_level == split_sex:
             for finish_sex in ["male", "female"]:
                 recipe_graph.add_edge(
                     RecipeIdentifier(start, "estimate_location", "both"),
                     RecipeIdentifier(finish, "estimate_location", finish_sex),
                 )
-        elif finish_level > settings.model.split_sex:
+        elif finish_level > split_sex:
             for same_sex in ["male", "female"]:
                 recipe_graph.add_edge(
                     RecipeIdentifier(start, "estimate_location", same_sex),
@@ -374,6 +387,10 @@ class Job:
         else:
             self.multiplicity = local_settings.number_of_fixed_effect_samples
 
+    @property
+    def job_identifier(self):
+        return JobIdentifier(self.recipe, self.name)
+
 
 def recipe_to_jobs(recipe_identifier, local_settings):
     """Given a recipe, return a list of jobs that must be done in order."""
@@ -412,3 +429,11 @@ def recipe_graph_to_job_graph(recipe_graph):
         for (start, finish) in recipe_graph.edges
     ])
     return job_graph
+
+
+def job_graph_from_settings(locations, settings, args):
+    recipe_graph = recipe_graph_from_settings(locations, settings, args)
+    for node in recipe_graph:
+        jobs = recipe_to_jobs(node, recipe_graph.nodes[node]["local_settings"])
+        recipe_graph.nodes[node]["job_list"] = jobs
+    return recipe_graph_to_job_graph(recipe_graph)

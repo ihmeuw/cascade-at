@@ -37,17 +37,16 @@ use a stub for settings, because we care about only one or two
 parameters from the settings.
 """
 from subprocess import run
-from collections import namedtuple
 from types import SimpleNamespace
 
 import networkx as nx
+import pytest
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import (
-    recipe_graph_from_settings,
-    location_specific_settings,
-    recipe_to_jobs,
-    recipe_graph_to_job_graph,
+    global_recipe_graph,
+    job_graph_from_settings,
+    drill_recipe_graph,
 )
 from cascade.executor.create_settings import create_settings
 
@@ -95,29 +94,26 @@ def add_level_to_graph(digraph, root=None):
         digraph.node[finish]["level"] = digraph.node[start]["level"] + 1
 
 
-def generate_job_graph():
-    """
-    Stage, Transform, Job, Task, Estimation
-
-    Names we use:
-     * global fit
-     * MAP estimate
-     * pre-global fit
-     * mid-hierarchy fit
-     * aggregate
-     * make draws
-
-    LocationGraph, ByLocationGraph, EstimationGraph
-    LocationWork, LocationJob, LocationTask
-    Task
-    """
-    rng = RandomState(43234)
-    locations = nx.balanced_tree(3, 3, nx.DiGraph)
+@pytest.fixture
+def locations():
+    tree_height = 3
+    branching_factor = 3
+    locations = nx.balanced_tree(branching_factor, tree_height, nx.DiGraph)
+    assert len(locations) == 40
     locations.graph["root"] = 0
     add_level_to_graph(locations)
-    assert len(locations) == 40
-    settings = create_settings(rng, locations)
-    args = SimpleNamespace(**dict(
+    return locations
+
+
+@pytest.fixture
+def basic_settings(locations):
+    rng = RandomState(43234)
+    return create_settings(rng, locations)
+
+
+@pytest.fixture
+def build_args():
+    return SimpleNamespace(**dict(
         skip_cache=False,
         num_samples=5,
         pdb=False,
@@ -128,14 +124,59 @@ def generate_job_graph():
         bundle_file=None,
         bundle_study_covariates_file=None,
     ))
-    recipe_graph = recipe_graph_from_settings(locations, settings, args)
-    for node in recipe_graph:
-        jobs = recipe_to_jobs(node, recipe_graph.nodes[node]["local_settings"])
-        recipe_graph.nodes[node]["job_list"] = jobs
-    job_graph = recipe_graph_to_job_graph(recipe_graph)
-    return job_graph
 
 
-def test_generate_job_graph():
-    job_graph = generate_job_graph()
-    assert job_graph is not None
+def test_global_recipe_graph(locations, basic_settings, build_args):
+    global_graph = global_recipe_graph(locations, basic_settings, build_args)
+    assert nx.is_directed_acyclic_graph(global_graph)
+    components = nx.number_connected_components(global_graph.to_undirected())
+    print(f"Connected component count {components}")
+    assert nx.is_connected(global_graph.to_undirected())
+    print(nx.dag_longest_path_length(global_graph))
+    print(global_graph.nodes)
+    location_height = nx.dag_longest_path_length(locations)
+    assert nx.dag_longest_path_length(global_graph) == 1 + location_height
+
+
+def test_global_recipe_most_detailed(locations, basic_settings, build_args):
+    basic_settings.model.split_sex = "most_detailed"
+    global_graph = global_recipe_graph(locations, basic_settings, build_args)
+    setup = 1
+    both = sum(3**n for n in range(4))
+    split = 3
+    other = sum(3**n for n in range(split, 4))
+    assert len(global_graph) == setup + both + other
+
+
+def test_global_recipe_skip_cache(locations, basic_settings, build_args):
+    build_args.skip_cache = True
+    global_graph = global_recipe_graph(locations, basic_settings, build_args)
+    location_height = nx.dag_longest_path_length(locations)
+    assert nx.dag_longest_path_length(global_graph) == location_height
+    both = sum(3**n for n in range(4))
+    split = int(basic_settings.model.split_sex)
+    other = sum(3**n for n in range(split, 4))
+    assert len(global_graph) == both + other
+
+
+def test_drill_recipe_graph(locations, basic_settings, build_args):
+    basic_settings.model.drill_location_start = 0
+    basic_settings.model.drill_location_end = 9
+    drill_graph = drill_recipe_graph(locations, basic_settings, build_args)
+    assert nx.is_directed_acyclic_graph(drill_graph)
+    assert nx.is_connected(drill_graph.to_undirected())
+    print(nx.dag_longest_path_length(drill_graph))
+    print(drill_graph.nodes)
+    assert nx.dag_longest_path_length(drill_graph) == 3
+
+
+def test_generate_job_graph(locations, basic_settings, build_args):
+    """
+    """
+    job_graph = job_graph_from_settings(locations, basic_settings, build_args)
+    assert isinstance(job_graph, nx.DiGraph)
+    assert nx.is_directed_acyclic_graph(job_graph)
+    assert nx.is_connected(job_graph.to_undirected())
+    print(nx.dag_longest_path_length(job_graph))
+    print(job_graph.nodes)
+    assert nx.dag_longest_path_length(job_graph) == 3
