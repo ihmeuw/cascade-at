@@ -119,6 +119,18 @@ def individual_corrections(df):
         user=df.user.astype(float),
         variables=df.variables.astype(int),
         voluntary_context_switches=df.voluntary_context_switches.astype(int),
+        Sincidence=df.Sincidence.fillna(0).astype(int),
+        Tincidence=df.Tincidence.fillna(0).astype(int),
+        mtall=df.mtall.fillna(0).astype(int),
+        mtexcess=df.mtexcess.fillna(0).astype(int),
+        mtother=df.mtother.fillna(0).astype(int),
+        mtspecific=df.mtspecific.fillna(0).astype(int),
+        mtstandard=df.mtstandard.fillna(0).astype(int),
+        prevalence=df.prevalence.fillna(0).astype(int),
+        relrisk=df.relrisk.fillna(0).astype(int),
+        remission=df.remission.fillna(0).astype(int),
+        susceptible=df.susceptible.fillna(0).astype(int),
+        withC=df.withC.fillna(0).astype(int),
     )
     df.loc[df.effect == "fixed", "random_effect_points"] = 0
     return df

@@ -20,7 +20,10 @@ possible.x <- c(
   "effect", "derivative_test_fixed", "iterations",
   "n_children", "quasi_fixed", "random_effect_points",
   "rate_count", "smooth_count", "topology_choice",
-  "variables", "zero_sum_random"
+  "variables", "zero_sum_random", "Sincidence",
+  "Tincidence", "mtall", "mtexcess", "mtother",
+  "mtspecific", "mtstandard", "prevalence",
+  "relrisk", "remission", "susceptible", "withC"
 )
 
 categorical.x <- c(
@@ -28,9 +31,7 @@ categorical.x <- c(
   "topology_choice", "zero_sum_random"
 )
 
-possible.y <- c(
-  "max_rss_kb", "user"
-)
+possible.y <- c("max_rss_kb", "user")
 
 
 # df is the dataframe with all variables
@@ -64,24 +65,52 @@ show.best <- function(rsq, combinations) {
 }
 
 
+# Use the top choices from the last level for
+# the next level.
+top.choices <- function(rsq, combinations, keep=20) {
+  comb.cnt <- dim(combinations)[2]
+  reorder <- order(rsq, 1:comb.cnt, decreasing=TRUE)
+  top.cnt <- min(length(rsq), keep)
+  top.x <- numeric(0)
+  for (top.idx in 1:top.cnt) {
+    comb.idx = reorder[top.idx]
+    top.x <- union(top.x, combinations[, comb.idx])
+  }
+  top.x
+}
+
+
 # Look at all combinations of x values to see which
 # combinations maximize r-squared.
 check.through.level <- function(df, level=2) {
-  for (x.count in 1:level) {
-    combinations <- combn(possible.x, x.count)
-    comb.cnt <- dim(combinations)[2]
-    resource <- list(max_rss_kb=array(0, comb.cnt),
-                     user=array(0, comb.cnt))
-    for (comb.idx in 1:comb.cnt) {
-      for (y.variable in possible.y) {
-        rsq <- compare.n(df, combinations[,comb.idx], y.variable)
-        resource[[y.variable]][comb.idx] <- rsq
-      }
-    }
-    
-    for (show.y in possible.y) {
-      cat("Best values for level", x.count, "resource", show.y, "\n")
-      show.best(resource[[show.y]], combinations)
-    }
+  for (y.variable in possible.y) {
+    check.through.level.single(df, y.variable, level)
   }
+}
+
+
+check.through.level.single <- function(df, y.variable, level=2) {
+  allowed.x <- possible.x
+  for (x.count in 1:level) {
+    if (x.count > length(allowed.x)) break
+    combinations <- combn(allowed.x, x.count)
+    comb.cnt <- dim(combinations)[2]
+    resource.rsq <- array(0, comb.cnt)
+    for (comb.idx in 1:comb.cnt) {
+      rsq <- compare.n(df, combinations[,comb.idx], y.variable)
+      resource.rsq[comb.idx] <- rsq
+    }
+    # Limit the allowed x for the next round.
+    allowed.x <- top.choices(resource.rsq, combinations)
+    
+    cat("===== level", x.count, "resource", y.variable, "\n")
+    show.best(resource.rsq, combinations)
+    if (comb.cnt == 1) break
+  }
+}
+
+
+run <- function(levels=2) {
+  df <- timing.data("timings.csv")
+  check.through.level(df, levels)
 }
