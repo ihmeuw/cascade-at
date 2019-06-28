@@ -19,8 +19,8 @@ import networkx as nx
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import (
-    recipe_graph_from_settings, location_specific_settings, execution_ordered,
-)
+    recipe_graph_from_settings, location_specific_settings, )
+from cascade.runner.entry import execution_ordered
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings

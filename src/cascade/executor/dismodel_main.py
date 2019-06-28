@@ -1,10 +1,10 @@
 """
 Entry point for running a the work of a single location in an EpiViz-AT cascade.
 """
+import faulthandler
 import os
 from bdb import BdbQuit
 from datetime import timedelta
-import faulthandler
 from pathlib import Path
 from pprint import pformat
 from timeit import default_timer
@@ -13,18 +13,19 @@ from cascade.core import getLoggers, __version__
 from cascade.core.db import use_local_odbc_ini
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_logging import logging_config
-from cascade.executor.cascade_plan import recipe_graph_from_settings
+from cascade.executor.cascade_plan import job_graph_from_settings
 from cascade.executor.estimate_location import (
     prepare_data_for_estimate, construct_model_for_estimate_location,
     initial_guess_from_fit_fixed, compute_initial_fit, compute_draws_from_parent_fit,
     save_predictions,
 )
+from cascade.executor.execution_context import make_execution_context
 from cascade.executor.setup_tier import setup_tier_data
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
-from cascade.executor.execution_context import make_execution_context
+from cascade.runner.entry import run_job_graph
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -36,7 +37,7 @@ def generate_plan(execution_context, args):
         location_set_version_id=settings.location_set_version_id,
         gbd_round_id=settings.gbd_round_id
     )
-    return recipe_graph_from_settings(locations, settings, args)
+    return job_graph_from_settings(locations, settings, args)
 
 
 def configure_execution_context(execution_context, args, local_settings):
@@ -54,7 +55,11 @@ def configure_execution_context(execution_context, args, local_settings):
 def main(args):
     start_time = default_timer()
     execution_context = make_execution_context(gbd_round_id=6, num_processes=args.num_processes)
-    plan = generate_plan(execution_context, args)
+    job_graph = generate_plan(execution_context, args)
+    subgraph = job_graph.nodes
+    continuation = False
+    backend = "single_process"
+    run_job_graph(job_graph, subgraph, backend, continuation)
 
     local_cache = LocalCache(maxsize=200)
     for cascade_task_identifier in plan.cascade_jobs:

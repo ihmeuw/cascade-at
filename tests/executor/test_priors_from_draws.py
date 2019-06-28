@@ -7,8 +7,9 @@ from numpy.random import RandomState
 
 import cascade.executor.priors_from_draws
 from cascade.executor.cascade_plan import (
-    recipe_graph_from_settings, execution_ordered, location_specific_settings
+    recipe_graph_from_settings, location_specific_settings
 )
+from cascade.runner.entry import execution_ordered
 from cascade.executor.construct_model import construct_model
 from cascade.executor.create_settings import create_settings, make_locations
 from cascade.executor.dismodel_main import parse_arguments

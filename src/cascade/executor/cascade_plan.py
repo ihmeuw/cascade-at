@@ -295,14 +295,6 @@ def global_recipe_graph_add_estimations(locations, recipe_graph, split_sex):
             )
 
 
-def execution_ordered(graph):
-    """For either a recipe graph or a task graph, this orders the nodes
-    such that they go depth-first. This is chosen so that the data
-    has the most locality during computation."""
-    assert "root" in graph.graph, "Expect to find G.graph['root']"
-    return nx.dfs_preorder_nodes(graph, graph.graph["root"])
-
-
 def location_specific_settings(locations, settings, args, recipe_id):
     """
     This takes a modeler's description of how the model should be set up,
@@ -395,6 +387,9 @@ class Job:
             self.multiplicity = 1
         else:
             self.multiplicity = local_settings.number_of_fixed_effect_samples
+
+    def __call__(self):
+        pass
 
     @property
     def job_identifier(self):

@@ -1,18 +1,17 @@
 import networkx as nx
-from numpy.random import RandomState
 import pytest
+from numpy.random import RandomState
 
 from cascade.core.form import Form, FormList, FloatField
 from cascade.executor.cascade_plan import (
-    make_model_options, location_specific_settings, execution_ordered,
-    recipe_graph_from_settings,
+    make_model_options, recipe_graph_from_settings,
 )
-from cascade.executor.dismodel_main import parse_arguments
-from cascade.input_data.db.configuration import load_settings
-from cascade.input_data.configuration.form import RandomEffectBound
-from cascade.input_data.db.locations import location_hierarchy
-from cascade.executor.execution_context import make_execution_context
 from cascade.executor.create_settings import create_settings
+from cascade.executor.dismodel_main import parse_arguments
+from cascade.executor.execution_context import make_execution_context
+from cascade.input_data.configuration.form import RandomEffectBound
+from cascade.input_data.db.configuration import load_settings
+from cascade.input_data.db.locations import location_hierarchy
 
 SUBJOBS_PER_LOCATION = 5
 

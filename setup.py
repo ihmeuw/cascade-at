@@ -25,6 +25,7 @@ setup(
             ["dmres2csv=cascade.executor.model_residuals_main:entry"],
             ["dmsr2csv=cascade.executor.model_results_main:entry"],
             ["dmgetsettings=cascade.executor.epiviz_json:entry"],
+            ["dmrun=cascade.runner.entry:entry"],
         ]
     },
     scripts=["scripts/dmdismod", "scripts/dmdismodpy"],

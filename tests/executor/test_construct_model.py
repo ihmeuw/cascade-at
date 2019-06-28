@@ -8,8 +8,8 @@ from numpy import isclose, inf
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import (
-    recipe_graph_from_settings, execution_ordered,
-)
+    recipe_graph_from_settings, )
+from cascade.runner.entry import execution_ordered
 from cascade.executor.construct_model import matching_knots
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import (
