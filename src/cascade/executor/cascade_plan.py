@@ -193,9 +193,11 @@ def recipe_graph_from_settings(locations, settings, args):
         recipe_graph = drill_recipe_graph(locations, settings, args)
     else:
         recipe_graph = global_recipe_graph(locations, settings, args)
+
     for recipe_identifier in recipe_graph.nodes:
         local_settings = location_specific_settings(locations, settings, args, recipe_identifier)
-        recipe_graph.node[recipe_identifier]["local_settings"] = local_settings
+        recipe_graph.nodes[recipe_identifier]["local_settings"] = local_settings
+
     return recipe_graph
 
 
@@ -219,17 +221,17 @@ def drill_recipe_graph(locations, settings, args):
         setup_task = []
     else:
         setup_task = [RecipeIdentifier(drill[0], "bundle_setup", drill_sex)]
-    tasks = setup_task + [
+    recipes = setup_task + [
         RecipeIdentifier(drill_location, "estimate_location", drill_sex)
         for drill_location in drill
     ]
-    task_pairs = list(zip(tasks[:-1], tasks[1:]))
-    task_graph = nx.DiGraph()
-    task_graph.add_nodes_from(tasks)
-    task_graph.add_edges_from(task_pairs)
+    recipe_pairs = list(zip(recipes[:-1], recipes[1:]))
+    recipe_graph = nx.DiGraph(root=recipes[0])
+    recipe_graph.add_nodes_from(recipes)
+    recipe_graph.add_edges_from(recipe_pairs)
     # Add a custom graph attribute to record the tree root.
-    task_graph.graph["root"] = tasks[0]
-    return task_graph
+    recipe_graph.graph["root"] = recipes[0]
+    return recipe_graph
 
 
 def global_recipe_graph(locations, settings, args):
@@ -250,9 +252,9 @@ def global_recipe_graph(locations, settings, args):
         split_sex = max([locations.nodes[nl]["level"] for nl in locations.nodes])
     else:
         split_sex = int(settings.model.split_sex)
-    recipe_graph = nx.DiGraph()
-    # Start with bundle setup
     global_node = RecipeIdentifier(locations.graph["root"], "estimate_location", "both")
+    recipe_graph = nx.DiGraph(root=global_node)
+    # Start with bundle setup
     if not args.skip_cache:
         bundle_setup = RecipeIdentifier(0, "bundle_setup", "both")
         recipe_graph.graph["root"] = bundle_setup
@@ -260,6 +262,14 @@ def global_recipe_graph(locations, settings, args):
     else:
         recipe_graph.graph["root"] = global_node
 
+    global_recipe_graph_add_estimations(locations, recipe_graph, split_sex)
+
+    return recipe_graph
+
+
+def global_recipe_graph_add_estimations(locations, recipe_graph, split_sex):
+    """There are estimations for every location and for both sexes below
+    the level where we split sex. This modifies the recipe graph in place."""
     # Follow location hierarchy, splitting into male and female below a level.
     for start, finish in locations.edges:
         if "level" not in locations.nodes[finish]:
@@ -283,7 +293,6 @@ def global_recipe_graph(locations, settings, args):
                 RecipeIdentifier(start, "estimate_location", "both"),
                 RecipeIdentifier(finish, "estimate_location", "both"),
             )
-    return recipe_graph
 
 
 def execution_ordered(graph):
@@ -393,7 +402,18 @@ class Job:
 
 
 def recipe_to_jobs(recipe_identifier, local_settings):
-    """Given a recipe, return a list of jobs that must be done in order."""
+    """Given a recipe, return a list of jobs that must be done in order.
+
+    Args:
+        recipe_identifier (RecipeIdentifier): A data struct that specifies
+            what a modeler thinks of as one estimation.
+        local_settings (Namespace|SimpleNamespace): These are settings that
+            have been localized to apply to a particular location.
+
+    Returns:
+        List[Job]: A list of jobs to run in order. Could make it a graph,
+        but that's unnecessary.
+    """
     sub_jobs = list()
     if recipe_identifier.recipe == "bundle_setup":
         bundle_setup = Job("bundle_setup", recipe_identifier, local_settings)
@@ -414,18 +434,26 @@ def recipe_to_jobs(recipe_identifier, local_settings):
 
 
 def recipe_graph_to_job_graph(recipe_graph):
-    recipe = dict()  # recipe_identifier -> (input node, output node)
+    recipe_edges = dict()  # recipe_identifier -> (input node, output node)
     job_graph = nx.DiGraph()
     for copy_identifier in recipe_graph.nodes:
         job_list = recipe_graph.node[copy_identifier]["job_list"]
-        recipe[copy_identifier] = dict(input=job_list[0], output=job_list[-1])
-        if len(job_list) > 1:
-            job_graph.add_edges_from(zip(job_list[:-1], job_list[1:]))
-        else:
-            job_graph.add_node(job_list[0])
+        if len(job_list) < 1:
+            raise RuntimeError(f"Recipe {copy_identifier} doesn't have any sub-jobs.")
+        job_ids = [job_node.job_identifier for job_node in job_list]
+        job_graph.add_nodes_from(
+            (jid, dict(job=add_job))
+            for (jid, add_job) in zip(job_ids, job_list)
+        )
+        job_graph.add_edges_from(zip(job_ids[:-1], job_ids[1:]))
+        recipe_edges[copy_identifier] = dict(input=job_ids[0], output=job_ids[-1])
 
+        if copy_identifier == recipe_graph.graph["root"]:
+            job_graph.graph["root"] = job_ids[0]
+
+    assert "root" in job_graph.graph, "Could not find a root node for the graph"
     job_graph.add_edges_from([
-        (recipe[start]["output"], recipe[finish]["input"])
+        (recipe_edges[start]["output"], recipe_edges[finish]["input"])
         for (start, finish) in recipe_graph.edges
     ])
     return job_graph

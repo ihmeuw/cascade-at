@@ -51,6 +51,7 @@ from cascade.executor.cascade_plan import (
 from cascade.executor.create_settings import create_settings
 
 
+@pytest.mark.skip("target")
 def test_multiple_process_run():
     command = "dmrun {mvid} --multiprocess --mock-stage"
     products = all_output(command[1:])
@@ -58,6 +59,7 @@ def test_multiple_process_run():
     assert products.exist()
 
 
+@pytest.mark.skip("target")
 def test_grid_engine_run():
     command = "dmrun {mvid} --mock-stage"
     products = all_output(command[1:])
@@ -65,6 +67,7 @@ def test_grid_engine_run():
     assert products.exist()
 
 
+@pytest.mark.skip("target")
 def test_single_process_run():
     command = "dmrun {mvid} --single-process --mock-stage"
     products = all_output(command[1:])
@@ -72,6 +75,7 @@ def test_single_process_run():
     assert products.exist()
 
 
+@pytest.mark.skip("target")
 def test_single_location_run():
     command = "dmrun {mvid} --location 102 --single-process --mock-stage"
     products = all_output(command[1:])
@@ -79,6 +83,7 @@ def test_single_location_run():
     assert products.exist()
 
 
+@pytest.mark.skip("target")
 def test_single_location_fit_stage_run():
     command = "dmrun {mvid} --location 102 --fit --single-process --mock-stage"
     products = all_output(command[1:])
@@ -133,7 +138,6 @@ def test_global_recipe_graph(locations, basic_settings, build_args):
     print(f"Connected component count {components}")
     assert nx.is_connected(global_graph.to_undirected())
     print(nx.dag_longest_path_length(global_graph))
-    print(global_graph.nodes)
     location_height = nx.dag_longest_path_length(locations)
     assert nx.dag_longest_path_length(global_graph) == 1 + location_height
 
@@ -173,10 +177,12 @@ def test_drill_recipe_graph(locations, basic_settings, build_args):
 def test_generate_job_graph(locations, basic_settings, build_args):
     """
     """
+    basic_settings.model.drill = "global"
     job_graph = job_graph_from_settings(locations, basic_settings, build_args)
     assert isinstance(job_graph, nx.DiGraph)
     assert nx.is_directed_acyclic_graph(job_graph)
     assert nx.is_connected(job_graph.to_undirected())
-    print(nx.dag_longest_path_length(job_graph))
-    print(job_graph.nodes)
-    assert nx.dag_longest_path_length(job_graph) == 3
+    print(f"Longest path length {nx.dag_longest_path_length(job_graph)}")
+    location_height = 4
+    jobs_per_location = 3
+    assert nx.dag_longest_path_length(job_graph) == jobs_per_location * location_height
