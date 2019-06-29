@@ -3,7 +3,13 @@ library(acepack)
 
 modify.incoming.data <- function(df) {
   df[["data_cohort"]] <- df[["data_extent_cohort"]] + df[["data_point_cohort"]]
-  df
+  df[["data_expensive"]] <- df[["prevalence"]] + df[["relrisk"]] + df[["Tincidence"]]
+      + df[["withC"]] + df[["susceptible"]]
+  # only larger data
+  df.large<-df[df$max_rss_kb > 5e+4,]
+  # fit both, not fit fixed or fit random
+  only.both <- df.large[df.large$effect == 1,]
+  only.both
 }
 
 
@@ -30,7 +36,7 @@ possible.x <- c(
   "Tincidence", "mtall", "mtexcess", "mtother",
   "mtspecific", "mtstandard", "prevalence",
   "relrisk", "remission", "susceptible", "withC",
-  "data_cohort"
+  "data_cohort", "data_expensive"
 )
 
 categorical.x <- c(
@@ -54,9 +60,7 @@ compare.n <- function(df, x.variables, y.variable) {
     }
   }
   # cat("the x", x.variables, "the y", y.variable, "cat", categorical, "\n")
-  ace.out <- ace(df[x.variables], df[[y.variable]],
-                 cat=categorical)
-  ace.out$rsq
+  ace(df[x.variables], df[[y.variable]],cat=categorical)
 }
 
 
@@ -74,7 +78,7 @@ show.best <- function(rsq, combinations) {
 
 # Use the top choices from the last level for
 # the next level.
-top.choices <- function(rsq, combinations, keep=20) {
+top.choices <- function(rsq, combinations, keep=100) {
   comb.cnt <- dim(combinations)[2]
   reorder <- order(rsq, 1:comb.cnt, decreasing=TRUE)
   top.cnt <- min(length(rsq), keep)
@@ -104,7 +108,7 @@ check.through.level.single <- function(df, y.variable, level=2) {
     comb.cnt <- dim(combinations)[2]
     resource.rsq <- array(0, comb.cnt)
     for (comb.idx in 1:comb.cnt) {
-      rsq <- compare.n(df, combinations[,comb.idx], y.variable)
+      rsq <- compare.n(df, combinations[,comb.idx], y.variable)$rsq
       resource.rsq[comb.idx] <- rsq
     }
     # Limit the allowed x for the next round.
@@ -119,6 +123,5 @@ check.through.level.single <- function(df, y.variable, level=2) {
 
 run <- function(levels=2) {
   df <- timing.data("timings.csv")
-  only.both <- df[df$effect == 1,]
-  check.through.level(only.both, levels)
+  check.through.level(df, levels)
 }
