@@ -11,6 +11,7 @@ and design documents gathered during development.
    testing
    logging
    documentation
+   code_map
    dismod_at_shape
    versioning
    design_sketches

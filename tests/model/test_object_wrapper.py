@@ -13,7 +13,6 @@ from cascade.dismod.constants import IntegrandEnum
 from cascade.model import (
     Model, SmoothGrid, Covariate, Uniform, Gaussian
 )
-from cascade.model.interaction import run_dismod
 from cascade.model.object_wrapper import ObjectWrapper
 
 
@@ -108,7 +107,7 @@ def test_write_rate(basic_model, dismod, tmp_path):
     object_wrapper.locations = locations
     object_wrapper.parent_location_id = parent_location
     object_wrapper.model = basic_model
-    run_dismod(object_wrapper, ["init"])
+    object_wrapper.run_dismod(["init"])
     var = object_wrapper.get_var("scale")
     for name in basic_model:
         for key, grid in basic_model[name].items():

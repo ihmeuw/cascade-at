@@ -1,8 +1,65 @@
+.. _timing-dismod-at:
+
+Timing Dismod-AT
+================
+
+.. _code-for-timing:
+
+Code for Timing
+---------------
+
+We think that most of the runtime for each Cascade job will be running
+Dismod-AT and that the Python part of the code will be fairly
+predictable and not memory intensive. Therefore, we time Dismod-AT itself
+in order to characterize run times and memory usage.
+
+Dismod-AT's run times and memory usage can vary a lot, depending on parameters.
+There isn't a single number, such as the number of input data records,
+that is the most important for estimating run time and memory usage.
+Therefore, we will run it a lot of times and use statistical approaches
+in order to make a guess about run time and memory usage.
+
+The strategy is to run Dismod-AT many times in different configurations.
+We use Dismod-AT's predict function in order to create fake data,
+so that we know the answer before we ask it to fit.
+This is an experiment, and the experimental design used here is
+called fractional factorial because it defines a baseline set of
+important parameters and then variations on all those parameters. Then
+it walks one parameter at a time through its variations. Then it walks
+two parameters at a time to see interaction. Then it walks three,
+and so on, up to a combination you decide. Doing two at a time
+requires 3850 runs.
+
+The code for timing is in the ``examples/`` directory. The
+relevant files are
+
+ * ``main_success_scenario.py`` - This is a main that runs Dismod-AT
+   any one of thousands of ways. Each way to run is indexed by a single
+   number for replay.
+
+ * ``main_success.sh`` - A shell file for Grid Engine to run the
+   main success scenario many times.
+
+ * ``main_success_gather.py`` - The JSON files created by Python aren't
+   readable by R. Probably Python's fault. This reads those files and
+   makes a single CSV out of them.
+
+ * ``gathertiming.R`` - This analyzes the data from the main success
+   scenario. This uses R's acepack in order to see which parameters
+   matter most.
+
+ * ``add_integrands.py`` - This is a main that goes through the data
+   in order to re-analyze the db files that are created.
+
+This would be an excellent unit test, except that the
+main success scenario *often doesn't run.* Dismod-AT is just really
+hard to set up, even if you create data where you know the right answer.
+
+
 .. _metrics-for-timing:
 
-
-Metrics for Timing Dismod-AT
-============================
+Metrics
+-------
 
 There are three main sources of numbers to use for testing.
 
@@ -66,3 +123,8 @@ Dismod-AT.
 
 Aaron suggested a nonparametric regression technique to help with fitting
 curves for this data: https://cran.r-project.org/web/packages/acepack/index.html.
+
+These metrics end up in two places:
+
+ * cascade.core.subprocess_utils - Runs ``/usr/bin/time``.
+ * cascade.dismod.metrics - Collects db file data.

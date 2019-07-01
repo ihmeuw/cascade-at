@@ -1,6 +1,6 @@
-###########
-The Cascade
-###########
+#########################
+The Cascade for EpiViz-AT
+#########################
 
 EpiViz-AT is the user interface for Dismod-AT at
 IHME. This documents the Python wrapper that EpiViz-AT
