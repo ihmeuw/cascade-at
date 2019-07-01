@@ -1,10 +1,16 @@
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from cascade.runner.status import for_each_member, FlyWeightJob, job_states
 
 
 def test_for_each_member_happy():
-    tree = ET.parse('qstat_sample0.xml')
+    xml_path = Path("qstat_sample0.xml")
+    if not xml_path.exists():
+        xml_path = Path("runner") / xml_path
+    if not xml_path.exists():
+        return
+    tree = ET.parse(xml_path)
     structure = for_each_member(tree.getroot().find("djob_info"))
     job = FlyWeightJob(structure[0])
     print(job.status)

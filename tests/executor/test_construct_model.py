@@ -16,9 +16,8 @@ from cascade.executor.create_settings import (
     create_local_settings, create_settings, SettingsChoices
 )
 from cascade.executor.dismodel_main import parse_arguments
-from cascade.executor.estimate_location import (
-    modify_input_data, construct_model
-)
+from cascade.executor.estimate_location import modify_input_data
+from cascade.executor.construct_model import construct_model
 from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.form import SmoothingPrior
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe

@@ -12,6 +12,8 @@ from cascade.executor.execution_context import make_execution_context
 from cascade.input_data.configuration.form import RandomEffectBound
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
+from cascade.executor.job_definitions import job_graph_from_settings
+from cascade.runner.entry import execution_ordered
 
 SUBJOBS_PER_LOCATION = 5
 
@@ -77,14 +79,14 @@ def test_random_settings():
     locations.add_edges_from([(1, c) for c in children])
     for i in range(100):
         settings = create_settings(rng, locations)
-        c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-        for idx, j in enumerate(c.cascade_jobs):
-            job_kind, job_args = c.cascade_job(j)
+        job_graph = job_graph_from_settings(locations, settings, args)
+        for idx, job_id in enumerate(execution_ordered(job_graph)):
+            job = job_graph.nodes[job_id]["job"]
             if idx > 0:
-                assert job_kind.startswith("estimate_location:")
+                assert job_id.recipe == "estimate_location"
             else:
-                assert job_kind == "bundle_setup"
-            assert job_args is not None
+                assert job_id.recipe == "bundle_setup"
+            assert job.local_settings is not None
 
 
 def field_set(name):
