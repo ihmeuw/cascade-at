@@ -25,8 +25,10 @@ def graph_do(run_next: function, memory_limit: float, sleep_duration: float = 1)
     This runs processes and blocks until completion.
     The ``run_next`` function must have the signature
     ``run_next(completed) -> args.``
+    The tasks run at a high nice level because we assume we are running
+    on a user's machine.
 
-    where ``completed`` is a set of the IDs of tasks,
+    ``completed`` is a set of the IDs of tasks,
     which are likely location IDs, and it returns a
     dictionary from ID to a Namespace object with attributes
     ``memory`` and ``args``.

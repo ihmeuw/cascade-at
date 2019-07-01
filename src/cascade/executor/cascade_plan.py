@@ -11,9 +11,8 @@ from cascade.core.parameters import ParameterProperty, _ParameterHierarchy
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.builder import policies_from_settings
 from cascade.input_data.configuration.sex import SEX_ID_TO_NAME, SEX_NAME_TO_ID
-from cascade.input_data.db.locations import (
-    location_id_from_start_and_finish
-)
+from cascade.input_data.db.locations import location_id_from_start_and_finish
+from cascade.runner.job_graph import RecipeIdentifier
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -93,84 +92,6 @@ def add_bound_random_to_location_properties(re_bound_location, locations):
         else:
             CODELOG.debug(f"setting root to {value}")
             locations.node[locations.graph["root"]]["bound_random"] = value
-
-
-class RecipeIdentifier:
-    """This is a tuple that identifies a recipe within the graph of recipes.
-    A Recipe is the set of steps executed for a single location, but it is
-    also the set of steps run at the start or end of a whole model. For
-    instance, aggregation is a recipe.
-
-    1. Location ID, which may be 0, to indicate that this task is
-       associated with no location, or all locations.
-    2. A string identifier for the set of tasks at this location.
-
-    Args:
-        location_id (int): Location identifier from GBD.
-        recipe (str): Identifies a list of tasks to do.
-        sex (str): One of male, female, or both, to indicate sex split.
-    """
-    __slots__ = ["_location_id", "_recipe", "_sex"]
-
-    def __init__(self, location_id, recipe, sex):
-        assert isinstance(location_id, int)
-        assert isinstance(recipe, str)
-        allowed_sexes = {"male", "female", "both"}
-        assert sex in allowed_sexes
-        assert recipe not in allowed_sexes
-
-        self._location_id = location_id
-        self._recipe = recipe
-        self._sex = sex
-
-    @property
-    def location_id(self):
-        return self._location_id
-
-    @property
-    def recipe(self):
-        return self._recipe
-
-    @property
-    def sex(self):
-        return self._sex
-
-    def __eq__(self, other):
-        if not isinstance(other, RecipeIdentifier):
-            return False
-        return all(getattr(self, x) == getattr(other, x)
-                   for x in ["location_id", "recipe", "sex"])
-
-    def __hash__(self):
-        return hash((self._location_id, self._recipe, self._sex))
-
-    def __repr__(self):
-        return f"RecipeIdentifier({self.location_id}, {self.recipe}, {self.sex})"
-
-
-class JobIdentifier(RecipeIdentifier):
-    __slots__ = ["_location_id", "_recipe", "_sex", "_name"]
-
-    def __init__(self, recipe_identifier, name):
-        self._name = name
-        super().__init__(
-            recipe_identifier.location_id,
-            recipe_identifier.recipe,
-            recipe_identifier.sex,
-        )
-
-    @property
-    def name(self):
-        return self._name
-
-    def __eq__(self, other):
-        return RecipeIdentifier.__eq__(self, other) and self.name == other.name
-
-    def __hash__(self):
-        return hash((self._location_id, self._recipe, self._sex, self.name))
-
-    def __repr__(self):
-        return f"RecipeIdentifier({self.location_id}, {self.recipe}, {self.sex}, {self.name})"
 
 
 def recipe_graph_from_settings(locations, settings, args):
@@ -376,87 +297,3 @@ def location_specific_settings(locations, settings, args, recipe_id):
         pdb=args.pdb,
     ))
     return local_settings
-
-
-class Job:
-    def __init__(self, name, recipe_identifier, local_settings):
-        self.name = name
-        self.recipe = recipe_identifier
-        self.local_settings = local_settings
-        if name != "compute_draws_from_parent_fit":
-            self.multiplicity = 1
-        else:
-            self.multiplicity = local_settings.number_of_fixed_effect_samples
-
-    def __call__(self):
-        pass
-
-    @property
-    def job_identifier(self):
-        return JobIdentifier(self.recipe, self.name)
-
-
-def recipe_to_jobs(recipe_identifier, local_settings):
-    """Given a recipe, return a list of jobs that must be done in order.
-
-    Args:
-        recipe_identifier (RecipeIdentifier): A data struct that specifies
-            what a modeler thinks of as one estimation.
-        local_settings (Namespace|SimpleNamespace): These are settings that
-            have been localized to apply to a particular location.
-
-    Returns:
-        List[Job]: A list of jobs to run in order. Could make it a graph,
-        but that's unnecessary.
-    """
-    sub_jobs = list()
-    if recipe_identifier.recipe == "bundle_setup":
-        bundle_setup = Job("bundle_setup", recipe_identifier, local_settings)
-        sub_jobs.append(bundle_setup)
-    elif recipe_identifier.recipe == "estimate_location":
-        if local_settings.policies.fit_strategy == "fit_fixed_then_fit":
-            sub_jobs.append(Job("fit_fixed_then_fit", recipe_identifier, local_settings))
-        sub_jobs.extend([
-            Job(job_name, recipe_identifier, local_settings)
-            for job_name in [
-                "compute_initial_fit",
-                "compute_draws_from_parent_fit",
-                "save_predictions"
-            ]])
-    else:
-        raise RuntimeError(f"Unknown recipe identifier {recipe_identifier}")
-    return sub_jobs
-
-
-def recipe_graph_to_job_graph(recipe_graph):
-    recipe_edges = dict()  # recipe_identifier -> (input node, output node)
-    job_graph = nx.DiGraph()
-    for copy_identifier in recipe_graph.nodes:
-        job_list = recipe_graph.node[copy_identifier]["job_list"]
-        if len(job_list) < 1:
-            raise RuntimeError(f"Recipe {copy_identifier} doesn't have any sub-jobs.")
-        job_ids = [job_node.job_identifier for job_node in job_list]
-        job_graph.add_nodes_from(
-            (jid, dict(job=add_job))
-            for (jid, add_job) in zip(job_ids, job_list)
-        )
-        job_graph.add_edges_from(zip(job_ids[:-1], job_ids[1:]))
-        recipe_edges[copy_identifier] = dict(input=job_ids[0], output=job_ids[-1])
-
-        if copy_identifier == recipe_graph.graph["root"]:
-            job_graph.graph["root"] = job_ids[0]
-
-    assert "root" in job_graph.graph, "Could not find a root node for the graph"
-    job_graph.add_edges_from([
-        (recipe_edges[start]["output"], recipe_edges[finish]["input"])
-        for (start, finish) in recipe_graph.edges
-    ])
-    return job_graph
-
-
-def job_graph_from_settings(locations, settings, args):
-    recipe_graph = recipe_graph_from_settings(locations, settings, args)
-    for node in recipe_graph:
-        jobs = recipe_to_jobs(node, recipe_graph.nodes[node]["local_settings"])
-        recipe_graph.nodes[node]["job_list"] = jobs
-    return recipe_graph_to_job_graph(recipe_graph)

@@ -13,16 +13,9 @@ from cascade.core import getLoggers, __version__
 from cascade.core.db import use_local_odbc_ini
 from cascade.executor.argument_parser import DMArgumentParser
 from cascade.executor.cascade_logging import logging_config
-from cascade.executor.cascade_plan import job_graph_from_settings
-from cascade.executor.estimate_location import (
-    prepare_data_for_estimate, construct_model_for_estimate_location,
-    initial_guess_from_fit_fixed, compute_initial_fit, compute_draws_from_parent_fit,
-    save_predictions,
-)
 from cascade.executor.execution_context import make_execution_context
-from cascade.executor.setup_tier import setup_tier_data
+from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.input_data.configuration import SettingsError
-from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.runner.entry import run_job_graph
@@ -37,10 +30,10 @@ def generate_plan(execution_context, args):
         location_set_version_id=settings.location_set_version_id,
         gbd_round_id=settings.gbd_round_id
     )
-    return job_graph_from_settings(locations, settings, args)
+    return job_graph_from_settings(locations, settings, args), settings
 
 
-def configure_execution_context(execution_context, args, local_settings):
+def configure_execution_context(execution_context, args, settings):
     if args.infrastructure:
         execution_context.parameters.organizational_mode = "infrastructure"
     else:
@@ -49,41 +42,43 @@ def configure_execution_context(execution_context, args, local_settings):
     execution_context.parameters.base_directory = args.base_directory
 
     for param in ["modelable_entity_id", "model_version_id"]:
-        setattr(execution_context.parameters, param, getattr(local_settings.data_access, param))
+        setattr(execution_context.parameters, param, getattr(settings.model, param))
+
+
+def subgraph_from_args(nodes, args):
+    """Given all nodes in the global model, choose which to run
+    in this execution."""
+    for search in ["location_id", "recipe", "sex", "name"]:
+        if search in args:
+            nodes = [n for n in nodes if getattr(n, search) == getattr(args, search)]
+    return nodes
 
 
 def main(args):
     start_time = default_timer()
     execution_context = make_execution_context(gbd_round_id=6, num_processes=args.num_processes)
-    job_graph = generate_plan(execution_context, args)
-    subgraph = job_graph.nodes
+    job_graph, settings = generate_plan(execution_context, args)
+    configure_execution_context(execution_context, args, settings)
+
+    subgraph = subgraph_from_args(job_graph.nodes, args)
+    if len(subgraph) == 0:
+        MATHLOG.warning(f"There are no jobs selected for arguments {args}")
+        raise RuntimeError(f"No nodes selected by {args}.")
+    what_to_run = dict(
+        job_graph=job_graph,
+        subgraph=subgraph,
+        execution_context=execution_context,
+    )
+    # This requests running one draw of the sample draws.
+    if "task_index" in args and args.task_index is not None:
+        what_to_run["task_index"] = args.task_index
+
+    if args.single_process:
+        backend = "single_process"
+    else:
+        backend = "grid_engine"
     continuation = False
-    backend = "single_process"
-    run_job_graph(job_graph, subgraph, backend, continuation)
-
-    local_cache = LocalCache(maxsize=200)
-    for cascade_task_identifier in plan.cascade_jobs:
-        cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
-        configure_execution_context(execution_context, args, this_location_work)
-
-        if cascade_job == "bundle_setup":
-            # Move bundle to next tier
-            setup_tier_data(execution_context, this_location_work.data_access, this_location_work.parent_location_id)
-        elif cascade_job == "estimate_location:prepare_data":
-            prepare_data_for_estimate(execution_context, this_location_work, local_cache)
-        elif cascade_job == "estimate_location:construct_model":
-            construct_model_for_estimate_location(this_location_work, local_cache)
-        elif cascade_job == "estimate_location:initial_guess_from_fit_fixed":
-            initial_guess_from_fit_fixed(execution_context, this_location_work, local_cache)
-        elif cascade_job == "estimate_location:compute_initial_fit":
-            compute_initial_fit(execution_context, this_location_work, local_cache)
-        elif cascade_job == "estimate_location:compute_draws_from_parent_fit":
-            compute_draws_from_parent_fit(execution_context, this_location_work, local_cache)
-        elif cascade_job == "estimate_location:save_predictions":
-            save_predictions(execution_context, this_location_work, local_cache)
-        else:
-            assert f"Unknown job type, {cascade_job}"
-
+    run_job_graph(what_to_run, backend, continuation)
     elapsed_time = timedelta(seconds=default_timer() - start_time)
     MATHLOG.debug(f"Completed successfully in {elapsed_time}")
 
@@ -149,7 +144,15 @@ def parse_arguments(args):
     parser.add_argument("--num-processes", type=int, default=4,
                         help="How many subprocesses to start.")
     parser.add_argument("--num-samples", type=int, help="Override number of samples.")
-    parser.add_argument("--pdb", action="store_true")
+    parser.add_argument("--pdb", action="store_true",
+                        help="Drops you into the debugger on exception")
+    parser.add_argument("--location-id", type=int, help="location ID for this work")
+    parser.add_argument("--sex", type=str, help="sex as male, female, both")
+    parser.add_argument("--recipe", type=str, help="name of the recipe")
+    parser.add_argument("--name", type=str, help="job within the recipe")
+    parser.add_argument("--task-index", type=int, help="index of draw")
+    parser.add_argument("--single-process", action="store_true",
+                        help="Run within this process, not in a subprocess.")
     return parser.parse_args(args)
 
 

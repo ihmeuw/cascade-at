@@ -4,8 +4,10 @@ import networkx as nx
 import pytest
 
 import cascade.core.db
+import cascade.runner.grid_process
 
 cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
+cascade.runner.grid_process.BLOCK_QCALLS = True
 
 
 @pytest.fixture
@@ -43,9 +45,11 @@ def pytest_addoption(parser):
     group.addoption("--ihme", action="store_true",
                     help="run functions requiring access to central comp and Dismod-AT")
     group.addoption("--signals", action="store_true",
-                    help="run functions requiring access to central comp and Dismod-AT")
+                    help="tests using Unix signals can crash the Mac.")
     group.addoption("--dismod", action="store_true",
                     help="requires access to Dismod-AT command line")
+    group.addoption("--cluster", action="store_true",
+                    help="run functions requiring access to fair cluster")
 
 
 @pytest.fixture
@@ -62,6 +66,22 @@ class IhmeDbFuncArg:
             pytest.skip(f"specify --ihme to run tests requiring Central Comp databases")
 
         cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = False
+
+
+@pytest.fixture
+def cluster(request):
+    return ClusterFuncArg(request)
+
+
+class ClusterFuncArg:
+    """
+    Uses a pattern from https://pytest.readthedocs.io/en/2.0.3/example/attic.html
+    """
+    def __init__(self, request):
+        if not request.config.getoption("cluster"):
+            pytest.skip(f"specify --cluster to run tests requiring the cluster")
+
+        cascade.runner.grid_process.BLOCK_QCALLS = False
 
 
 @pytest.fixture

@@ -30,11 +30,12 @@ def application_config():
         Dict[str,str]: A dictionary of settings.
     """
     base_data = pkg_resources.resource_string("cascade.executor", "data/config.toml")
-    try:
-        raw_data = pkg_resources.resource_string("cascade.local_config", "config.toml")
-    except ModuleNotFoundError:
-        raw_data = b""
     parameters = toml.loads(base_data.decode())
-    local_parameters = toml.loads(raw_data.decode())
-    parameters.update(local_parameters)
+    try:
+        if pkg_resources.resource_exists("cascade.local_config", "config.toml"):
+            raw_data = pkg_resources.resource_string("cascade.local_config", "config.toml")
+            parameters.update(toml.loads(raw_data.decode()))
+    except ModuleNotFoundError:
+        pass  # This won't be installed unless it's an infrastructure install.
+    parameters.update(parameters)
     return parameters

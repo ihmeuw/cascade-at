@@ -45,9 +45,9 @@ from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import (
     global_recipe_graph,
-    job_graph_from_settings,
     drill_recipe_graph,
 )
+from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.executor.create_settings import create_settings
 
 

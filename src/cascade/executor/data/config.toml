@@ -8,3 +8,33 @@ code-log-directory = "codelog"
 corporate-odbc = "/corporate/shared"
 personal-odbc = "~/.odbc.ini"
 local-odbc = "/corporate/copied/odbc"
+
+
+[GridEngine]
+# Configuration for job submission under SGE, UGE.
+qstat-timeout-seconds = 60
+qsub-timeout-seconds = 60
+qconf-timeout-seconds = 60
+qdel-timeout-seconds = 60
+on-failure-timeout-seconds = 300
+# From sge_job.h in gridengine source code
+# Numbers on the right correspond to the bit-masks
+# qstat uses to report current status of each task.
+job-states = '''
+#define JIDLE                                0x00000000
+#define JHELD                                0x00000010
+#define JMIGRATING                           0x00000020
+#define JQUEUED                              0x00000040
+#define JRUNNING                             0x00000080
+#define JSUSPENDED                           0x00000100
+#define JTRANSFERING                         0x00000200
+#define JDELETED                             0x00000400
+#define JWAITING                             0x00000800
+#define JEXITING                             0x00001000
+#define JWRITTEN                             0x00002000
+#define JWAITING4OSJID                       0x00004000
+#define JERROR 0x00008000
+'''
+restart-file-location = "./restart"
+queues = ["default.q"]
+project = "arbitrary_project"
