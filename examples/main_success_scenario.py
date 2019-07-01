@@ -15,6 +15,7 @@ import logging
 import os
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 from copy import copy
+from getpass import getuser
 from itertools import product, combinations
 from math import nan, inf
 from pathlib import Path
@@ -35,21 +36,26 @@ from cascade.model import (
 )
 
 CODELOG, MATHLOG = getLoggers(__name__)
+DB_FILE_LOCATION = Path("/ihme/scratch/users") / getuser() / "db"
+TIMING_FILE_LOCATION = Path("timing")  # A relative path to current working
 
 
 def reasonable_grid_from_var(var, age_time, group_name):
     """
-    Create a smooth grid with priors that are Uniform and
-    impossibly large, in the same shape as a Var.
+    This constructs the smooth_grid for which that var is the single true fit.
 
     Args:
         var (Var): A single var grid.
         age_time (List[float],List[float]): Tuple of ages and times
             on which to put the prior distributions.
         group_name (str): "rate", "random_effect", "alpha", "beta", "gamma"
+            The var is one of the smooth grids in this group. We need to
+            know the group in order to know what kinds of distributions
+            are allowed and whether values can be less than zero.
 
     Returns:
-        SmoothGrid: A single smooth grid with Uniform distributions.
+        SmoothGrid: A single smooth grid with priors that should
+        solve for the given Var.
     """
     if age_time is None:
         age_time = (var.ages, var.times)
@@ -60,18 +66,22 @@ def reasonable_grid_from_var(var, age_time, group_name):
     if group_name == "rate":
         for age, time in smooth_grid.age_time():
             meas_value = max(var(age, time), smallest_rate)
+            # Meas value should ramp from zero up.
             meas_std = 0.1 * meas_value + min_meas_std
             smooth_grid.value[age, time] = Gaussian(
                 meas_value, meas_std, lower=smallest_rate, upper=meas_value * 5)
     elif group_name == "random_effect":
         for age, time in smooth_grid.age_time():
             meas_value = var(age, time)
-            meas_std = 0.1 * meas_value + 0.01
+            # meas_value should be near zero, so add some stdev
+            meas_std = 0.1 * meas_value + 0.1
+            # No upper or lower bounds on random effect distributions.
             smooth_grid.value[age, time] = Gaussian(meas_value, meas_std)
     elif group_name in {"alpha", "beta", "gamma"}:
         for age, time in smooth_grid.age_time():
             meas_value = var(age, time)
-            meas_std = 0.1 * meas_value + 0.01
+            meas_std = 0.1 * meas_value + 0.1
+            # These can have upper and lower bounds.
             smooth_grid.value[age, time] = Gaussian(
                 meas_value, meas_std, lower=-1, upper=1)
     else:
@@ -98,7 +108,7 @@ def reasonable_grid_from_var(var, age_time, group_name):
     return smooth_grid
 
 
-def pretty_groups(groups, indent=""):
+def pretty_print_groups(groups, indent=""):
     for group_name, group in groups.items():
         CODELOG.debug(f"{indent}{group_name}")
         for key, item in group.items():
@@ -150,8 +160,8 @@ def model_from_var(var_groups, parent_location, age_time=None,
                 model[group_name][assign_key] = reasonable_grid_from_var(
                     item_var, age_time, group_name)
 
-    pretty_groups(var_groups)
-    pretty_groups(model)
+    pretty_print_groups(var_groups)
+    pretty_print_groups(model)
     return model
 
 
@@ -188,15 +198,6 @@ TOPOLOGY_FORBIDDEN_INTEGRANDS = dict(
 """These are kinds of data you CANNOT have for each topology."""
 
 
-def choose_ages(age_cnt, age_range, expansion=1.5):
-    """Chooses ages using a geometric series so the ranges increase."""
-    interval_cnt = age_cnt - 1
-    interval = age_range[1] - age_range[0]
-    base_interval = interval * (expansion - 1) / (expansion**interval_cnt - 1)
-    intervals = [base_interval * expansion**idx for idx in range(interval_cnt)]
-    return np.concatenate([[0], np.cumsum(intervals)])
-
-
 CHOICES = dict(
     n_children=[8, 4, 2, 16, 32],
     topology_choice=list(TOPOLOGY.keys()),
@@ -219,6 +220,11 @@ All combinations are excursions from that default.
 
 
 def all_choices(level_cnt=2):
+    """Constructs a list of experiments from the choices given above.
+    The level is the order of the fractional-factorial experiment.
+    So 2 means we look at all combinations of interactions
+    of two of the parameters at a time.
+    """
     categories = CHOICES.keys()
     total = [dict()]  # Start with default settings.
     for levels in range(1, level_cnt + 1):
@@ -320,11 +326,15 @@ def fit_sim(settings, rng):
     model = model_from_var(
         truth_var, parent_location, covariates=covariates)
 
-    db_dir = Path("/ihme/scratch/users/adolgert/db")
-    db_dir.mkdir(exist_ok=True)
+    if Path("/ihme").exists():
+        db_dir = DB_FILE_LOCATION
+    else:
+        db_dir = Path("timing_db_files")
+    db_dir.mkdir(exist_ok=True, parents=True)
     db_file = db_dir / f"{uuid4()}.db"
     if db_file.exists():
         db_file.unlink()
+    settings.db_file = str(db_file)
     dismod_objects = ObjectWrapper(db_file)
     dismod_objects.locations = locations
     dismod_objects.parent_location_id = parent_location
@@ -403,8 +413,7 @@ def fit_sim(settings, rng):
     dismod_objects.run_dismod("init")
     requires_prerun = settings.fit_kind != "fixed"
     if requires_prerun:
-        fit_kind = settings.fit_kind
-        settings.fit_kind = "fixed"
+        fit_kind, settings.fit_kind = settings.fit_kind, "fixed"
         run_and_record_fit(dismod_objects, settings)
         settings.fit_kind = fit_kind
         dismod_objects.start_var = dismod_objects.fit_var
@@ -419,16 +428,20 @@ def run_and_record_fit(dismod_objects, settings):
     exit_kind, exit_string, iteration_cnt = get_fit_output(stdout)
     print(f"{exit_string} with {iteration_cnt} iterations")
     metrics["ipopt iterations"] = iteration_cnt
+    # The originally-intended settings can augment this dictionary.
+    metrics.update(settings.__dict__)
     print(metrics)
-    timing_dir = Path("timing")
-    timing_dir.mkdir(exist_ok=True)
+    timing_dir = TIMING_FILE_LOCATION
+    timing_dir.mkdir(exist_ok=True, parents=True)
     timing_path = timing_dir / f"{uuid4()}.json"
-    json.dump(
-        metrics,
-        timing_path.open("w"),
-        default=json_translate,
-        indent=2,
-    )
+    with timing_path.open("w") as timing_out:
+        json.dump(
+            metrics,
+            timing_out,
+            default=json_translate,
+            indent=2,
+        )
+        timing_out.write(os.linesep)
 
 
 def json_translate(o):
@@ -465,13 +478,13 @@ def make_parser():
 
 def configure_sim(args):
     if args.seed != 0:
-        rng = RandomState(args.seed)
+        rng_seed = args.seed
     else:
         rng = RandomState()
         # Choose a seed so that we know how to reseed to get the same run.
-        seed = rng.randint(2342434)
-        print(f"seed is {seed}")
-        rng = RandomState(seed)
+        rng_seed = rng.randint(2342434)
+    print(f"seed is {rng_seed}")
+    rng = RandomState(rng_seed)
     every_choice = all_choices()
     task_id = os.environ.get("SGE_TASK_ID", None)
     if args.choice >= 0:
@@ -485,6 +498,10 @@ def configure_sim(args):
     for underscore_arg in chosen.keys():
         if hasattr(args, underscore_arg) and getattr(args, underscore_arg):
             chosen[underscore_arg] = getattr(args, underscore_arg)
+    # Add these so they show up in the json metrics output.
+    chosen["rng_seed"] = rng_seed
+    chosen["choice_idx"] = choice_idx
+    chosen["task_id"] = task_id
     settings = SimpleNamespace(**chosen)
     CODELOG.info(settings)
     return settings, rng
