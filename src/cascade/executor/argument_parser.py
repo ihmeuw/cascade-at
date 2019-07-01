@@ -9,10 +9,9 @@ import pkg_resources
 import toml
 
 from cascade.core.log import getLoggers
+from cascade.executor.execution_context import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
-EPIVIZ_LOG_DIR = Path("epi/dismod_at/logs")
-CODE_LOG_DIR = Path("temp/sgeoutput")
 
 
 class ArgumentException(Exception):
@@ -40,25 +39,28 @@ class BaseArgumentParser(ArgumentParser):
     * ``stage`` This positional argument lets you specify what stage
       to run among the stages. If it isn't present, then all stages run.
 
-    The two log files are
+    The two log files are in the Epi directories under
 
-         * ``/ihme/epi/dismod_at/<mvid>/log.log`` for
+         * ``dismod_at/<mvid>/log.log`` for
            the math log that EpiViz sees.
-         * ``/ihme/epi/at_cascade/logs/<date-time>.log`` for the code log.
+         * ``at_cascade/logs/<date-time>.log`` for the code log.
 
     """
 
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
-
+        config = application_config()["DataLayout"]
+        root_dir = Path(config["root-directory"]).resolve()
+        code_log = config["code-log-directory"]
+        epiviz_log = config["epiviz-log-directory"]
         self.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity of logging")
         self.add_argument("-q", "--quiet", action="count", default=0, help="Decrease verbosity of logging")
         self.add_argument("--logmod", action="append", default=[], help="Set logging to debug for submodule")
         self.add_argument("--modlevel", type=str, default="debug", help="Log level for specified modules")
-        self.add_argument("--epiviz-log", type=Path, default=EPIVIZ_LOG_DIR, help="Directory for EpiViz log")
-        self.add_argument("--code-log", type=Path, default=CODE_LOG_DIR, help="Directory for code log")
-        self.add_argument("--root-dir", type=Path, default=Path("/ihme"),
+        self.add_argument("--epiviz-log", type=Path, default=epiviz_log, help="Directory for EpiViz log")
+        self.add_argument("--code-log", type=Path, default=code_log, help="Directory for code log")
+        self.add_argument("--root-dir", type=Path, default=root_dir,
                           help="Directory to use as root for logs.")
 
         arguments = toml.loads(pkg_resources.resource_string("cascade.executor", "data/parameters.toml").decode())

@@ -3,7 +3,7 @@ from getpass import getuser
 
 import cascade.executor.dismodel_main
 from cascade.core import getLoggers
-from cascade.executor.argument_parser import EPIVIZ_LOG_DIR, CODE_LOG_DIR
+from cascade.executor.execution_context import application_config
 from cascade.executor.dismodel_main import entry, main, parse_arguments
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -23,9 +23,10 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
     # b) directories exist or not
     # c) -v, -q, -v -v
     # Check for g+w for this user on this machine.
-    code_dir = tmp_path / CODE_LOG_DIR
+    directories = application_config()["DataLayout"]
+    code_dir = tmp_path / directories["code-log-directory"]
     code_dir.mkdir(parents=True)
-    math_dir = tmp_path / EPIVIZ_LOG_DIR
+    math_dir = tmp_path / directories["epiviz-log-directory"]
     math_dir.mkdir(parents=True)
 
     monkeypatch.setattr(cascade.executor.dismodel_main, "main", mock_main)
