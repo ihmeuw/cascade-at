@@ -68,7 +68,7 @@ class Var(AgeTimeGrid):
         >>> assert var[50, 2000] == 1e-4
 
         Trying to read from an age and time not in the ages and times
-        of the grid will result in a :py:class:`ValueError`.
+        of the grid will result in a :py:class:`KeyError`.
 
         An easy way to set values is to use the `age_time` iterator,
         which loops through the ages and times in the underlying grid.
