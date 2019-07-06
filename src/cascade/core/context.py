@@ -39,7 +39,7 @@ class ExecutionContext:
             else:
                 return (Path(".") / str(location_id)).expanduser()
 
-    def model_base_directory(self, location_id):
+    def model_base_directory(self, location_id, sex=None):
         if hasattr(self.parameters, "base_directory") and self.parameters.base_directory:
             base_directory = Path(self.parameters.base_directory)
         else:
@@ -57,4 +57,6 @@ class ExecutionContext:
 
         group_locations = location_id // 100
         with_loc = with_mvid / str(group_locations) / str(location_id)
+        if sex:
+            with_loc = with_loc / sex
         return with_loc.expanduser()

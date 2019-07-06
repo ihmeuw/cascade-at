@@ -88,6 +88,17 @@ class JobIdentifier(RecipeIdentifier):
 
 
 class Job:
+    """
+    Responsible for ensuring a thread of execution can complete.
+    It handles:
+
+     * Declaring what resources it needs from memory and cores.
+     * Using file descriptors to describe external input and output.
+
+    Each job describes one or more *tasks,* where the job's
+    multiplicity is the number of tasks to start for this job.
+    This corresponds to Grid Engine jobs and tasks.
+    """
     def __init__(self, name, recipe_identifier, local_settings):
         self.name = name
         self.recipe = recipe_identifier
@@ -106,11 +117,16 @@ class Job:
 
     @property
     def memory_resource(self):
+        """The memory is a float and declared in Gigabytes."""
         return 16
 
     @property
     def thread_resource(self):
+        """The thread is a thread of execution and an integer."""
         return 2
+
+    def mock_run(self):
+        pass
 
 
 def recipe_graph_to_job_graph(recipe_graph):

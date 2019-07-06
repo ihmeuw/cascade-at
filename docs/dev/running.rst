@@ -210,3 +210,85 @@ There are two main collaborators that can be faked for testing.
     It could also be that we fake qsub or fake at the level
     of tasks, by making each task read and write stub files.
 
+
+Design of Jobs
+--------------
+
+At each node of the graph is a job object of some kind.
+This section discusses choices around how to write that
+job object.
+
+Risks
+^^^^^
+
+From working with Dismod-MR's implementation, these are
+some of the big risks:
+
+ * It won't be clear what files or database records exist
+   when a Grid Engine job starts. Dismod-MR code has
+   conditional statements to recreate data if it doesn't exist.
+   They seem to be necessary because output files are conditionally
+   created from the layer above.
+
+ * There can be variation in the data types of columns
+   in input files for Dismod-MR. This variation makes Pandas
+   merges more likely to fail, so there is a lot of trial
+   and error to get new functions to work. There is a lot of
+   code that casts data types unnecessarily, too.
+
+ * There isn't any way to check that the graph of jobs
+   is constructed correctly, except by running it, and those
+   runs will test only one path through the code.
+
+
+Approaches
+^^^^^^^^^^
+
+I don't want to create more ceremony than necessary. This
+is also a distributed execution of work, and it can take
+weeks to run, so some level of reassurance is appropriate.
+
+Here are some possible approaches.
+
+**Every Grid Engine job is a process with a separate main.**
+This means we make an argparse for each. The input and output
+is through files and databases. If we want to pass information,
+we either set up a server or use a file.
+
+**Every Grid Engine job is a separate Job class.**
+Here, we make a class that represents resource usage that the
+main function will need. It's a functor that can be dressed
+up as a process when necessary.
+
+**Every Grid Engine job is a function.** We use the
+``ExecutionContext`` object, that we've already woven through
+the code, to represent interaction with the outside world,
+and we mediate access to files and databases with that,
+so that the function's requests don't need to know what
+directory their files live in. Resource requirements
+can be a decorator or a separate object.
+
+There isn't much difference between the function and the
+job class, and the job class might be more relaxed,
+easier for people to understand quickly.
+
+I'm still confused about how to handle inputs and outputs
+for each section. It's clear from risks that being able
+to enumerate these could be really helpful.
+
+We could make rules about inputs and outputs
+that might help ensure that they exist when the job
+starts running. Sometimes it helps to make
+"intermediate impossible" statements, so the following
+*are not true but may be useful.*
+
+ * Every input is an argument to the function,
+   and every output is in the return value.
+   All I/O is to these inputs and outputs.
+
+ * Every input or output is a file object,
+   no matter how the Job is called, for testing
+   or in a process, or by Grid Engine.
+
+
+

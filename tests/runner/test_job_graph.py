@@ -29,7 +29,7 @@ class FitFixed(Job):
         )
 
     def __call__(self, execution_context):
-        pass
+        raise RuntimeError(f"Don't call me.")
 
 
 def test_job_read_file():
@@ -39,3 +39,10 @@ def test_job_read_file():
     assert job is not None
     ec = make_execution_context()
     assert ec is not None
+
+
+def test_mock_job():
+    recipe_id = RecipeIdentifier(21, "estimate_location", "both")
+    local_settings = SimpleNamespace()
+    job = FitFixed(recipe_id, local_settings)
+    job.mock_run()
