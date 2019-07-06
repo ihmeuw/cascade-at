@@ -1,3 +1,5 @@
+import shelve
+
 from cascade.core import getLoggers
 from cascade.dismod import DismodATException
 from cascade.executor.cascade_plan import recipe_graph_from_settings
@@ -7,13 +9,56 @@ from cascade.executor.estimate_location import retrieve_data, modify_input_data,
     compute_parent_fit, make_draws, save_outputs
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.input_data.configuration.raw_input import validate_input_data_types
+from cascade.runner.data_passing import ShelfFile, PandasFile, DbFile
 from cascade.runner.job_graph import Job, recipe_graph_to_job_graph
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-class EstimateLocationPrepareData(Job):
-    def __call__(self, execution_context, local_settings, local_cache):
+class GlobalPrepareData(Job):
+    def __init__(self, recipe_id, local_settings):
+        super().__init__("global_prepare", recipe_id, local_settings)
+        parent_location_id = local_settings.parent_location_id
+        self.inputs = dict()
+        self.outputs = dict(
+            shared=ShelfFile("globaldata", parent_location_id, "both", required_keys=[
+                "locations", "country_covariate_ids", "country_covariates",
+                "country_covariates_binary", "study_id_to_name", "integrands",
+            ]),
+            data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+        )
+
+    def __call__(self, execution_context):
+        """
+        Retrieves all data from databases and puts it into output files.
+
+        Args:
+            execution_context: Describes environment for this process.
+        """
+        pass
+
+
+class FindSingleMAP(Job):
+    def __init__(self, recipe_id, local_settings, neighbors):
+        super().__init__("find_single_maximum", recipe_id, local_settings)
+        parent_location_id = local_settings.parent_location_id
+        self.inputs = dict(
+            input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+        )
+        estimation_parent = [
+            predecessor for predecessor in neighbors["predecessors"]
+            if predecessor.recipe == "estimate_location"
+        ]
+        if estimation_parent:
+            grandparent_location = estimation_parent[0].location_id
+            grandparent_sex = estimation_parent[0].sex
+            self.inputs["grandparent"] = PandasFile(
+                "summary.hdf", grandparent_location, grandparent_sex)
+        self.outputs = dict(
+            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
+        )
+
+    def __call__(self, execution_context):
         """
         Estimates rates for a single location in the location hierarchy.
         This does multiple fits and predictions in order to estimate uncertainty.
@@ -23,16 +68,104 @@ class EstimateLocationPrepareData(Job):
             local_settings: A dictionary describing the work to do. This has
                 a location ID corresponding to the location for this fit.
         """
+        pass
+
+
+class FindFixedMAP(Job):
+    def __init__(self, recipe_id, local_settings, neighbors):
+        super().__init__("find_maximum_fixed", recipe_id, local_settings)
+        parent_location_id = local_settings.parent_location_id
+        self.inputs = dict(
+            input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+        )
+        estimation_parent = [
+            predecessor for predecessor in neighbors["predecessors"]
+            if predecessor.recipe == "estimate_location"
+        ]
+        if estimation_parent:
+            grandparent_location = estimation_parent[0].location_id
+            grandparent_sex = estimation_parent[0].sex
+            self.inputs["grandparent"] = PandasFile(
+                "summary.hdf", grandparent_location, grandparent_sex)
+        self.outputs = dict(
+            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
+        )
+
+    def __call__(self, execution_context):
+        pass
+
+
+class FindBothMAP(Job):
+    def __init__(self, recipe_id, local_settings):
+        super().__init__("find_maximum_both", recipe_id, local_settings)
+        parent_location_id = local_settings.parent_location_id
+        self.inputs = dict(
+            input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
+        )
+        self.outputs = dict(
+            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
+        )
+
+    def __call__(self, execution_context):
+        pass
+
+
+class ConstructDraw(Job):
+    def __init__(self, recipe_id, local_settings):
+        super().__init__("draw", recipe_id, local_settings)
+        parent_location_id = local_settings.parent_location_id
+        self.inputs = dict(
+            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
+        )
+        self.outputs = dict(
+            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
+        )
+
+    def __call__(self, execution_context):
+        pass
+
+
+class Summarize(Job):
+    def __init__(self, recipe_id, local_settings, neighbors):
+        super().__init__("summarize", recipe_id, local_settings)
+        parent_location_id = local_settings.parent_location_id
+        self.inputs = dict(
+            input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
+        )
+        self.outputs = dict(
+            summary=PandasFile("summary.hdf", parent_location_id, recipe_id.sex)
+        )
+
+    def __call__(self, execution_context):
+        pass
+
+
+class EstimateLocationPrepareData(Job):
+    def __call__(self, execution_context):
+        """
+        Estimates rates for a single location in the location hierarchy.
+        This does multiple fits and predictions in order to estimate uncertainty.
+
+        Args:
+            execution_context: Describes environment for this process.
+            local_settings: A dictionary describing the work to do. This has
+                a location ID corresponding to the location for this fit.
+        """
+        local_settings = self.local_settings
         covariate_multipliers, covariate_data_spec = create_covariate_specifications(
             local_settings.settings.country_covariate, local_settings.settings.study_covariate
         )
-        local_cache.set("covariate_multipliers:{local_settings.parent_location_id}", covariate_multipliers)
-        local_cache.set("covariate_data_spec:{local_settings.parent_location_id}", covariate_data_spec)
-        input_data = retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache)
+        shared = shelve.open(str(self.outputs["shared"].path(execution_context)))
+        shared["covariate_multipliers"] = covariate_multipliers
+        shared["covariate_data_spec"] = covariate_data_spec
+        input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
         columns_wrong = validate_input_data_types(input_data)
         assert not columns_wrong, f"validation failed {columns_wrong}"
-        modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
-        local_cache.set("prepared_input_data:{local_settings.parent_location_id}", modified_data)
+        grandparent = shelve.open(str(self.inputs["grandparent_shared"].path(execution_context)))
+        modified_data = modify_input_data(input_data, local_settings, covariate_data_spec, grandparent)
+        shared["prepared_input_data"] = modified_data
 
 
 class EstimateLocationConstructModel(Job):
@@ -93,7 +226,7 @@ class EstimateLocationSavePredictions(Job):
             save_outputs(fit_result, predictions, execution_context, local_settings)
 
 
-def recipe_to_jobs(recipe_identifier, local_settings):
+def recipe_to_jobs(recipe_identifier, local_settings, neighbors):
     """Given a recipe, return a list of jobs that must be done in order.
 
     Args:
@@ -108,18 +241,18 @@ def recipe_to_jobs(recipe_identifier, local_settings):
     """
     sub_jobs = list()
     if recipe_identifier.recipe == "bundle_setup":
-        bundle_setup = Job("bundle_setup", recipe_identifier, local_settings)
+        bundle_setup = GlobalPrepareData(recipe_identifier, local_settings)
         sub_jobs.append(bundle_setup)
     elif recipe_identifier.recipe == "estimate_location":
         if local_settings.policies.fit_strategy == "fit_fixed_then_fit":
-            sub_jobs.append(Job("fit_fixed_then_fit", recipe_identifier, local_settings))
+            sub_jobs.append(FindFixedMAP(recipe_identifier, local_settings, neighbors))
+            sub_jobs.append(FindBothMAP(recipe_identifier, local_settings))
+        else:
+            sub_jobs.append(FindSingleMAP(recipe_identifier, local_settings, neighbors))
         sub_jobs.extend([
-            Job(job_name, recipe_identifier, local_settings)
-            for job_name in [
-                "compute_initial_fit",
-                "compute_draws_from_parent_fit",
-                "save_predictions"
-            ]])
+            ConstructDraw(recipe_identifier, local_settings),
+            Summarize(recipe_identifier, local_settings, neighbors),
+        ])
     else:
         raise RuntimeError(f"Unknown recipe identifier {recipe_identifier}")
     return sub_jobs
@@ -128,6 +261,9 @@ def recipe_to_jobs(recipe_identifier, local_settings):
 def job_graph_from_settings(locations, settings, args):
     recipe_graph = recipe_graph_from_settings(locations, settings, args)
     for node in recipe_graph:
-        jobs = recipe_to_jobs(node, recipe_graph.nodes[node]["local_settings"])
+        predecessors = recipe_graph.predecessors(node)
+        successors = recipe_graph.successors(node)
+        neighbors = dict(predecessors=predecessors, successors=successors)
+        jobs = recipe_to_jobs(node, recipe_graph.nodes[node]["local_settings"], neighbors)
         recipe_graph.nodes[node]["job_list"] = jobs
     return recipe_graph_to_job_graph(recipe_graph)

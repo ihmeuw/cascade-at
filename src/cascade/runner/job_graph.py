@@ -130,6 +130,9 @@ class Job:
 
 
 def recipe_graph_to_job_graph(recipe_graph):
+    """Each node in the recipe graph contains a list of jobs. This creates
+    a graph of the relationships among the jobs, assuming each list of jobs
+    must be executed in order, through the list."""
     recipe_edges = dict()  # recipe_identifier -> (input node, output node)
     job_graph = nx.DiGraph()
     for copy_identifier in recipe_graph.nodes:

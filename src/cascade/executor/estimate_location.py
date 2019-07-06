@@ -22,7 +22,6 @@ from cascade.input_data.configuration.construct_country import check_binary_cova
 from cascade.input_data.configuration.construct_country import convert_gbd_ids_to_dismod_values
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr, normalize_csmr
 from cascade.input_data.configuration.id_map import make_integrand_map
-from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.country_covariates import country_covariate_set
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
@@ -34,9 +33,8 @@ from cascade.saver.save_prediction import save_predicted_value, uncertainty_from
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache=None):
+def retrieve_data(execution_context, local_settings, covariate_data_spec, grandparent_cache):
     """Gets data from the outside world."""
-    local_cache = local_cache if local_cache else LocalCache()
     data = SimpleNamespace()
     data_access = local_settings.data_access
     model_version_id = data_access.model_version_id
@@ -104,11 +102,11 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
     # These are the draws as output of the parent location.
-    data.draws = local_cache.get(f"fit-draws:{local_settings.grandparent_location_id}")
+    data.draws = grandparent_cache.get("fit_draws")
 
     # The parent can also supply integrands as a kind of prior.
     # These will be shaped like input measurement data.
-    data.integrands = local_cache.get(f"fit-integrands:{local_settings.grandparent_location_id}")
+    data.integrands = grandparent_cache.get("fit_integrands")
 
     return data
 
