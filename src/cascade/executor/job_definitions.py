@@ -39,6 +39,7 @@ class GlobalPrepareData(Job):
 
 
 class FindSingleMAP(Job):
+    """Run the fit without any pre-fit."""
     def __init__(self, recipe_id, local_settings, neighbors):
         super().__init__("find_single_maximum", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
@@ -72,6 +73,7 @@ class FindSingleMAP(Job):
 
 
 class FindFixedMAP(Job):
+    """Do a "fit fixed" which will precede the "fit both"."""
     def __init__(self, recipe_id, local_settings, neighbors):
         super().__init__("find_maximum_fixed", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
@@ -96,6 +98,7 @@ class FindFixedMAP(Job):
 
 
 class FindBothMAP(Job):
+    """Do a "fit both" assuming a "fit fixed" was done first."""
     def __init__(self, recipe_id, local_settings):
         super().__init__("find_maximum_both", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
@@ -112,28 +115,36 @@ class FindBothMAP(Job):
 
 
 class ConstructDraw(Job):
+    """This one job has a task to do a fit for each draw."""
     def __init__(self, recipe_id, local_settings):
         super().__init__("draw", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
         self.inputs = dict(
             db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
         )
-        self.outputs = dict(
-            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
-        )
+        draw_cnt = local_settings.number_of_fixed_effect_samples
+        self.outputs = dict()
+        for draw_idx in range(draw_cnt):
+            draw_file = DbFile(f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
+            self.outputs[f"db_file{draw_idx}"] = draw_file
 
     def __call__(self, execution_context):
         pass
 
 
 class Summarize(Job):
+    """Gather results of draws."""
     def __init__(self, recipe_id, local_settings, neighbors):
         super().__init__("summarize", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
+        draw_cnt = local_settings.number_of_fixed_effect_samples
         self.inputs = dict(
             input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
             db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
         )
+        for draw_idx in range(draw_cnt):
+            draw_file = DbFile(f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
+            self.inputs[f"db_file{draw_idx}"] = draw_file
         self.outputs = dict(
             summary=PandasFile("summary.hdf", parent_location_id, recipe_id.sex)
         )
