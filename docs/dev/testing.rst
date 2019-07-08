@@ -30,7 +30,7 @@ couple are custom flags we created.
 The rest are standard options, but they are so important that I'm listing them
 here.
 
- * ``pytest --log-level debug`` Captures log messages nicely within unit tests.
+ * ``pytest ---log-cli-level debug`` Captures log messages nicely within unit tests.
 
  * ``pytest --pdb`` This flag asks to drop into the debugger when an exception
    happens in a unit test. Very helpful when using tests for test-driven development.

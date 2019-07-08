@@ -1,5 +1,7 @@
 from functools import lru_cache
 from subprocess import run, PIPE, TimeoutExpired, CalledProcessError
+from time import sleep
+from enum import Enum
 
 from cascade.core.log import getLoggers
 from cascade.executor.execution_context import application_config
@@ -30,11 +32,35 @@ def find_full_path(executable):
     return process_result.stdout.strip()
 
 
+class OKReturnCodes(Enum):
+    """These come from grid engine source."""
+    success = 0
+    status_ok_do_again = 24
+    transaction_rejected_try_again = 25
+
+
+def actually_failed(called_process_error):
+    """Look at stderr of a qsub job to decide whether it's a real failure.
+    Be conservative about quitting b/c this is used in a server process
+    that will rarely change arguments, so it's likely that qmaster
+    is having problems if this fails.
+    """
+    return_code = called_process_error.returncode
+    for ok_code in OKReturnCodes:
+        if return_code == ok_code.value:
+            CODELOG.info(f"Return code was {ok_code} so try again.")
+            return
+    for really_done in ["invalid", "rejected"]:
+        if really_done in str(called_process_error.stderr):
+            raise RuntimeError(called_process_error.stderr)
+
+
 def run_check(executable, arguments):
     """
     Run a process using a set of rules around when to throw an
     exception. We define this here so that there is consistency around
-    calling qsub and friends.
+    calling qsub and friends. This enforces the structure of how
+    qsub, qstat, etc. use return codes and stderr.
 
     Args:
         executable (str): Either ``qsub``, ``qstat``, ``qconf``, ``qdel``.
@@ -70,7 +96,8 @@ def run_check(executable, arguments):
             return process_out.stdout.strip()
         except CalledProcessError as cpe:
             CODELOG.info(f"{executable} call {cpe.cmd} failed: {cpe.stderr}")
-            timeout = timeout_failure
+            actually_failed(cpe)
+            sleep(timeout_failure)
         except TimeoutExpired:
             CODELOG.info(f"{executable} timed out after {timeout}s")
-            timeout = timeout_failure
+            sleep(timeout_failure)

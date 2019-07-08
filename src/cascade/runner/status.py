@@ -278,6 +278,11 @@ class MiteWeightJob:
         """
         return 0
 
+    def __repr__(self):
+        return "MiteWeightJob(" + ", ".join(str(x) for x in [
+            self.name, self.status, self.owner, self.job_id
+        ]) + ")"
+
 
 def qstat_short(effective_user=None):
     """

@@ -74,7 +74,7 @@ def qsub(template, command):
     """
     Runs a qsub command with a template.
 
-    We either try to put a super-thoughtful interface on qsub, or we
+    We can either try to put a super-thoughtful interface on qsub, or we
     let the user manage its arguments. This focuses on making it a little
     easier to manage arguments with the template.
 
