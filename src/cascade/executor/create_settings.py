@@ -19,11 +19,11 @@ import networkx as nx
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import (
-    recipe_graph_from_settings, location_specific_settings, )
-from cascade.runner.entry import execution_ordered
+    recipe_graph_from_settings, )
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings
+from cascade.runner.entry import execution_ordered
 
 BASE_CASE = {
     "model": {
@@ -326,6 +326,7 @@ class SettingsChoices:
         else:
             assert self.rng, f"Unexpected setting chosen {name} {choices}"
             self.random.append((name, choices))
+            assert len(choices) > 0
             return self.rng.choice(choices, p=p)
 
 
@@ -353,7 +354,7 @@ def create_local_settings(rng=None, settings=None, locations=None):
     settings = create_settings(choices, locations)
     recipe_graph = recipe_graph_from_settings(locations, settings, args)
     # skip-cache also turns off the first, non-estimation, job.
-    jobs = list(execution_ordered(recipe_graph))[1:]
+    jobs = list(execution_ordered(recipe_graph))
     job_choice = choices.choice(list(range(len(jobs))), name="job_idx")
-    job_kind, job_args = location_specific_settings(locations, settings, args, jobs[job_choice])
-    return job_args, locations
+    local_settings = recipe_graph.node[jobs[job_choice]]["local_settings"]
+    return local_settings, locations

@@ -280,5 +280,7 @@ def add_job_list(recipe_graph):
         predecessors = recipe_graph.predecessors(node)
         successors = recipe_graph.successors(node)
         neighbors = dict(predecessors=predecessors, successors=successors)
-        jobs = recipe_to_jobs(node, recipe_graph.nodes[node]["local_settings"], neighbors)
+        jobs = recipe_to_jobs(
+            node, recipe_graph.nodes[node]["local_settings"], neighbors
+        )
         recipe_graph.nodes[node]["job_list"] = jobs

@@ -19,7 +19,7 @@ class FileEntity:
         location_id (int): The location for which this file is written.
         sex (str): One of male, female, both.
     """
-    def __init__(self, relative_path, location_id=None, sex=None):
+    def __init__(self, relative_path, location_id, sex=None):
         # If location_id isn't specified, it's the same location as the reader.
         self.relative_path = Path(relative_path)
         self.location_id = location_id
@@ -32,6 +32,20 @@ class FileEntity:
         full_path = base_directory / self.relative_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
         return full_path
+
+    def validate(self, execution_context):
+        """Validate by checking file exists.
+
+        Returns:
+            None, on success, or a string on error.
+        """
+        path = self.path(execution_context)
+        if not path.exists():
+            return f"File {path} not found"
+
+    def mock(self, execution_context):
+        """Touch the file into existence."""
+        self.path(execution_context).open("w").close()
 
     def remove(self, execution_context):
         """Delete, unlink, remove the file. No error if it doesn't exist."""
@@ -138,10 +152,13 @@ class PandasFile(FileEntity):
 
         if self._columns:
             for key, cols in self._columns.items():
-                df = pd.DataFrame(columns=cols)
-                df.to_hdf(path, key=key)
+                df = pd.DataFrame({c: [0] for c in cols})
+                df.to_hdf(path, key=key, mode="a", format="fixed")
         else:
-            pd.DataFrame().to_hdf(path, key="data")
+            df = pd.DataFrame(dict(key=[1], value=[1]))
+            df.to_hdf(
+                path, key="data", mode="a", format="fixed",
+            )
 
 
 class ShelfFile(FileEntity):

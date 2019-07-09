@@ -13,6 +13,7 @@ from cascade.input_data.configuration.local_cache import LocalCache
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 
 
+@pytest.mark.skip("for the main rewrite")
 @pytest.mark.parametrize("meid,mvid", [
     (None, 268613),
 ])
@@ -47,6 +48,7 @@ def test_with_known_id(ihme, meid, mvid, tmp_path):
         # else is a bundle setup.
 
 
+@pytest.mark.skip("for the main rewrite")
 @pytest.mark.parametrize("draw", list(range(10)))
 def test_retrieve_data(ihme, draw):
     ec = make_execution_context()

@@ -1,19 +1,8 @@
-from pathlib import Path
 from types import SimpleNamespace
 
 from cascade.executor.execution_context import make_execution_context
+from cascade.runner.data_passing import FileEntity
 from cascade.runner.job_graph import Job, RecipeIdentifier
-
-
-class FileEntity:
-    def __init__(self, relative_path, location_id=None):
-        # If location_id isn't specified, it's the same location as the reader.
-        self.location_id = location_id
-        self.relative_path = Path(relative_path)
-
-    def path(self, execution_context):
-        db_path = execution_context.db_path(self.location_id) / self.relative_path
-        return db_path
 
 
 class FitFixed(Job):
@@ -22,10 +11,10 @@ class FitFixed(Job):
 
         self.inputs = dict(
             db_file=FileEntity("fixed.db", 23),
-            parent_draws=FileEntity("posterior_predictions.csv"),
+            parent_draws=FileEntity("posterior_predictions.csv", 23),
         )
         self.outputs = dict(
-            fit_fixed=FileEntity("fixed.db")
+            fit_fixed=FileEntity("fixed.db", 47)
         )
 
     def __call__(self, execution_context):
@@ -46,4 +35,4 @@ def test_mock_job():
     local_settings = SimpleNamespace()
     job = FitFixed(recipe_id, local_settings)
     ec = make_execution_context()
-    job.mock_run(ec)
+    job.mock_run(ec, check_inputs=False)

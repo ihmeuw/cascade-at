@@ -177,7 +177,7 @@ def global_recipe_graph(locations, settings, args):
     recipe_graph = nx.DiGraph(root=global_node)
     # Start with bundle setup
     if not args.skip_cache:
-        bundle_setup = RecipeIdentifier(0, "bundle_setup", "both")
+        bundle_setup = RecipeIdentifier(locations.graph["root"], "bundle_setup", "both")
         recipe_graph.graph["root"] = bundle_setup
         recipe_graph.add_edge(bundle_setup, global_node)
     else:

@@ -15,7 +15,7 @@ from cascade.input_data.db.locations import location_hierarchy
 from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.runner.entry import execution_ordered
 
-SUBJOBS_PER_LOCATION = 5
+SUBJOBS_PER_LOCATION = 3
 
 
 def test_create_start_finish(ihme):
@@ -27,8 +27,9 @@ def test_create_start_finish(ihme):
     settings.model.drill_location_start = 4
     settings.model.drill_location_end = 6
     recipe_graph = recipe_graph_from_settings(locations, settings, args)
-    assert len(recipe_graph) == 1 + SUBJOBS_PER_LOCATION * 3
-    print(nx.to_edgelist(c._task_graph))
+    assert len(recipe_graph) == 1 + 3
+    job_graph = job_graph_from_settings(locations, settings, args)
+    assert len(job_graph) == 1 + SUBJOBS_PER_LOCATION * 3
 
 
 def test_single_start_finish(ihme):
@@ -39,9 +40,8 @@ def test_single_start_finish(ihme):
     settings.model.split_sex = 3
     settings.model.drill_location_start = 6
     settings.model.drill_location_end = 6
-    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    assert len(c._task_graph.nodes) == 1 + SUBJOBS_PER_LOCATION
-    print(nx.to_edgelist(c._task_graph))
+    job_graph = job_graph_from_settings(locations, settings, args)
+    assert len(job_graph) == 1 + SUBJOBS_PER_LOCATION
 
 
 def test_iterate_tasks(ihme):
@@ -49,24 +49,15 @@ def test_iterate_tasks(ihme):
     ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
     locations = location_hierarchy(6, location_set_version_id=429)
     settings = load_settings(ec, None, 267770, None)
-    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
+    job_graph = job_graph_from_settings(locations, settings, args)
+    ordered = execution_ordered(job_graph)
     cnt = 0
-    last = -1
-    parent = None
-    for idx, t in enumerate(c.cascade_jobs):
+    for idx, job_id in enumerate(ordered):
+        if idx == 0:
+            assert job_id.recipe == "bundle_setup"
         if idx > 1:
-            assert t[0] > last  # only true in drill
-        if t[1][1] == "compute_and_save_draws":
-            last = t[0]
-
-        which, local_settings = c.cascade_job(t)
-        assert which == "bundle_setup" or which.startswith("estimate_location:")
-        assert hasattr(local_settings, "parent_location_id")
-        if idx > 0 and t[1][1] == "compute_and_save_draws":
-            assert local_settings.grandparent_location_id == parent
-            parent = local_settings.parent_location_id
-            assert len(local_settings.children) > 0
-
+            assert job_id.location_id > 0
+            assert job_id.recipe == "estimate_location"
         cnt += 1
     assert cnt == 1 + SUBJOBS_PER_LOCATION * 2
 

@@ -2,6 +2,7 @@ from itertools import product
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 from numpy import inf
 from numpy.random import RandomState
 
@@ -9,12 +10,12 @@ import cascade.executor.priors_from_draws
 from cascade.executor.cascade_plan import (
     recipe_graph_from_settings, location_specific_settings
 )
-from cascade.runner.entry import execution_ordered
 from cascade.executor.construct_model import construct_model
 from cascade.executor.create_settings import create_settings, make_locations
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.model.priors import Uniform, Gaussian
 from cascade.model.smooth_grid import SmoothGrid
+from cascade.runner.entry import execution_ordered
 
 
 def jitter(vars, rng):
@@ -28,6 +29,7 @@ def jitter_one_grid(var, rng):
         var[age, time] = (1 + 0.1 * (rng.uniform() - 0.5)) * var[age, time]
 
 
+@pytest.mark.skip("for the main rewrite")
 def test_priors_from_draws_fair(monkeypatch):
     """Stochastic draw construction."""
     # The goal is to check that the logic of which grids are applied is correct.

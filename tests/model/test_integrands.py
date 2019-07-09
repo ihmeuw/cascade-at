@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 
 from cascade.dismod.constants import IntegrandEnum

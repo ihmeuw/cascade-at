@@ -40,7 +40,7 @@ def test_file_path_validates(context):
     required_tables = ["one", "two"]
     db = DbFile("my.db", location_id=34, required_tables=required_tables)
     # Test for missing file.
-    assert db.validate(context["ec"])["found"] == set()
+    assert db.validate(context["ec"])
     db.mock(context["ec"])
     # Show mocking works.
     assert db.validate(context["ec"]) is None
@@ -60,17 +60,16 @@ def test_file_path_anti_validates(context):
     required = ["one", "two", "three"]
     db = DbFile("my.db", location_id=34, sex="female", required_tables=required)
     validation = db.validate(ec)
-    assert validation["expected"] == set(required)
-    assert validation["found"] == set(given)
+    assert validation is not None
 
 
 def test_pandas_no_validate(context):
     ec = context["ec"]
     # No validation
     pdf = PandasFile("my.hdf", location_id=29, sex="both")
-    assert pdf.validate(ec)["found"] == set()
+    assert pdf.validate(ec)
     pdf.mock(ec)
-    pdf.validate(ec)
+    assert not pdf.validate(ec)
 
 
 def test_pandas_validate_happy(context):
@@ -80,9 +79,9 @@ def test_pandas_validate_happy(context):
         data=["integrand", "stdev"],
     )
     pdf = PandasFile("my.hdf", location_id=29, required_frames=datasets)
-    assert pdf.validate(ec)["found"] == set()
+    assert pdf.validate(ec)
     pdf.mock(ec)
-    assert pdf.validate(ec) is None
+    assert not pdf.validate(ec)
 
 
 def test_pandas_validate_missing_dataset(context):

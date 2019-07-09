@@ -315,7 +315,7 @@ def test_written_schema(new_data, tmp_path):
     schema = c.execute('''SELECT sql FROM sqlite_master WHERE type = 'table' and tbl_name = 'data';''').fetchone()
     for line in schema[0].split("\n"):
         print(line)
-        m = re.search("(\w+)\s+(\w+)", line)
+        m = re.search(r"(\w+)\s+(\w+)", line)
         if m:
             col, kind = (m.group(1), m.group(2))
             print(f"col {col} kind {kind}")
