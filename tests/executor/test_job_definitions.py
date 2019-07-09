@@ -10,7 +10,7 @@ from cascade.executor.execution_context import make_execution_context
 from cascade.executor.job_definitions import (
     GlobalPrepareData, FindSingleMAP, add_job_list
 )
-from cascade.runner.entry import run_mock
+from cascade.runner.graph_execute import run_mock
 from cascade.runner.job_graph import RecipeIdentifier, recipe_graph_to_job_graph
 
 

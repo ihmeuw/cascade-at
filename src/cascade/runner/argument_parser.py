@@ -5,11 +5,8 @@ import sys
 from argparse import ArgumentParser
 from pathlib import Path
 
-import pkg_resources
-import toml
-
 from cascade.core.log import getLoggers
-from cascade.executor.execution_context import application_config
+from cascade.runner.application_config import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -18,7 +15,7 @@ class ArgumentException(Exception):
     """The command-line arguments were wrong."""
 
 
-class BaseArgumentParser(ArgumentParser):
+class DMArgumentParser(ArgumentParser):
     """
     This argument parser has default arguments in order to make
     it simpler to build multiple main programs. They include
@@ -54,27 +51,24 @@ class BaseArgumentParser(ArgumentParser):
         root_dir = Path(config["root-directory"]).resolve()
         code_log = config["code-log-directory"]
         epiviz_log = config["epiviz-log-directory"]
-        self.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity of logging")
-        self.add_argument("-q", "--quiet", action="count", default=0, help="Decrease verbosity of logging")
-        self.add_argument("--logmod", action="append", default=[], help="Set logging to debug for submodule")
-        self.add_argument("--modlevel", type=str, default="debug", help="Log level for specified modules")
-        self.add_argument("--epiviz-log", type=Path, default=epiviz_log, help="Directory for EpiViz log")
-        self.add_argument("--code-log", type=Path, default=code_log, help="Directory for code log")
-        self.add_argument("--root-dir", type=Path, default=root_dir,
-                          help="Directory to use as root for logs.")
-
-        arguments = toml.loads(pkg_resources.resource_string("cascade.executor", "data/parameters.toml").decode())
-        arg_types = dict(bool=bool, str=str, float=float, int=int)
-        for arg_name, spec in arguments.items():
-            if spec["type"] == "bool":
-                action = "store_{}".format(str(not spec["default"]).lower())
-                self.add_argument(f"--{arg_name}", action=action, help=spec["help"])
-            else:
-                base = dict(default=None, help=None)
-                base.update(spec)
-                self.add_argument(
-                    f"--{arg_name}", type=arg_types[base["type"]], default=base["default"], help=base["help"]
-                )
+        log_parse = self.add_argument_group(
+            "logs",
+            "Options that affect logging",
+        )
+        log_parse.add_argument("-v", "--verbose", action="count", default=0,
+                               help="Increase verbosity of logging")
+        log_parse.add_argument("-q", "--quiet", action="count", default=0,
+                               help="Decrease verbosity of logging")
+        log_parse.add_argument("--logmod", action="append", default=[],
+                               help="Set logging to debug for submodule")
+        log_parse.add_argument("--modlevel", type=str, default="debug",
+                               help="Log level for specified modules")
+        log_parse.add_argument("--epiviz-log", type=Path, default=epiviz_log,
+                               help="Directory for EpiViz log")
+        log_parse.add_argument("--code-log", type=Path, default=code_log,
+                               help="Directory for code log")
+        log_parse.add_argument("--root-dir", type=Path, default=root_dir,
+                               help="Directory to use as root for logs.")
 
     def exit(self, status=0, message=None):
         """
@@ -93,9 +87,3 @@ class BaseArgumentParser(ArgumentParser):
 
         CODELOG.error(message)
         raise ArgumentException(message, status)
-
-
-class DMArgumentParser(BaseArgumentParser):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.add_argument("stage", type=str, nargs="?", help="A single stage to run.")

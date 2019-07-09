@@ -1,36 +1,160 @@
-"""
-Entry point for running a the work of a single location in an EpiViz-AT cascade.
-"""
-import faulthandler
-import os
-from bdb import BdbQuit
-from datetime import timedelta
+import json
+import pickle
 from pathlib import Path
-from pprint import pformat
-from timeit import default_timer
+from textwrap import fill
 
-from cascade.core import getLoggers, __version__
-from cascade.core.db import use_local_odbc_ini
-from cascade.executor.argument_parser import DMArgumentParser
-from cascade.executor.cascade_logging import logging_config
+import networkx as nx
+
+from cascade.core import getLoggers
 from cascade.executor.execution_context import make_execution_context
 from cascade.executor.job_definitions import job_graph_from_settings
-from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
-from cascade.runner.entry import run_job_graph
+from cascade.runner.entry import entry
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def generate_plan(execution_context, args):
-    """Creates a plan for the whole hierarchy, of which this job will be one."""
-    settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
-    locations = location_hierarchy(
-        location_set_version_id=settings.location_set_version_id,
-        gbd_round_id=settings.gbd_round_id
-    )
-    return job_graph_from_settings(locations, settings, args), settings
+class Application:
+    """
+    Responsible for management of settings and creation of job graphs.
+    """
+    def __init__(self):
+        self.locations = None
+        self.settings = None
+        self.execution_context = None
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--meid", type=int,
+            help="Modelable entity ID. This identifies the cause of disease.",
+        )
+        parser.add_argument(
+            "--mvid", type=int,
+            help=("Model version ID. There are multiple model versions for "
+                  "each model entity"),
+        )
+        context_parser = parser.add_argument_group(
+            "context",
+            "Settings to change the process directories and environment."
+        )
+        context_parser.add_argument(
+            "--infrastructure", action="store_true",
+            help=fill("Whether we are running as infrastructure component. "
+                      "Controls whether this tries to store files in the "
+                      "base directory or whether it works in the"
+                      "current directory."),
+        )
+        context_parser.add_argument(
+            "--base-directory", type=Path, default=".",
+            help="Directory in which to find and store files.",
+        )
+
+        pdb_parser = parser.add_argument_group(
+            "debug",
+            "These affect how this executes, for debugging."
+        )
+        pdb_parser.add_argument(
+            "--no-upload", action="store_true",
+            help=fill("This turns off all writing to databases, so that a run "
+                      "will not affect outputs"),
+        )
+        pdb_parser.add_argument(
+            "--db-only", action="store_true",
+            help=fill("Run until it creates a Dismod-AT db file, and then quit. "
+                      "This may make less sense when talking about a large "
+                      "graph of computations."),
+        )
+
+        data_parser = parser.add_argument_group(
+            "data",
+            "Parsers to change what data is used for input."
+        )
+        data_parser.add_argument(
+            "--settings-file", type=Path,
+            help="Read settings from this file.",
+        )
+        data_parser.add_argument(
+            "-b", "--bundle-file", type=Path,
+            help=fill("The bundle normally comes from the databases but this "
+                      "lets you specify a particular file as input. If this "
+                      "isn't given, it will look for the bundle in the db or "
+                      "in a known input directory."),
+        )
+        data_parser.add_argument(
+            "-s", "--bundle-study-covariates-file", type=Path,
+            help=fill("Read the study covariates from a separate file. "
+                      "If this is not specified, then they are read from "
+                      "either the databases or from the known file location."),
+        )
+
+        graph_parser = parser.add_argument_group(
+            "graph",
+            "Changes to the graph of work that is done."
+        )
+        graph_parser.add_argument(
+            "--skip-cache", action="store_true",
+            help=fill("Don't save bundle data to tier 3. Instead, read "
+                      "it directly from tier 2."),
+        )
+        graph_parser.add_argument("--num-samples", type=int, help="Override number of samples.")
+
+        sub_graph = parser.add_argument_group(
+            "sub_graph",
+            "These arguments select a subset of nodes to run."
+        )
+        sub_graph.add_argument("--location-id", type=int, help="location ID for this work")
+        sub_graph.add_argument("--sex", type=str, help="sex as male, female, both")
+        sub_graph.add_argument("--recipe", type=str, help="name of the recipe")
+        sub_graph.add_argument("--name", type=str, help="job within the recipe")
+        return parser
+
+    def create_settings(self, args):
+        # We need a sort-of-correct execution context when we first load
+        # and then it gets refined after settings are loaded.
+        execution_context = make_execution_context(
+            gbd_round_id=6, num_processes=args.num_processes
+        )
+        self.settings = load_settings(
+            execution_context, args.meid, args.mvid, args.settings_file)
+        self.locations = location_hierarchy(
+            location_set_version_id=self.settings.location_set_version_id,
+            gbd_round_id=self.settings.gbd_round_id
+        )
+        configure_execution_context(execution_context, args, self.settings)
+        self.execution_context = execution_context
+
+    def load_settings(self, args):
+        # The execution context isn't part of the settings, so it is
+        # rebuilt here when settings are loaded.
+        execution_context = make_execution_context(
+            gbd_round_id=6, num_processes=args.num_processes
+        )
+        base = execution_context.model_base_directory(0)
+        self.settings = json.load(base / "settings.json")
+        self.locations = pickle.load((base / "locations.pickle").open("rb"))
+        configure_execution_context(execution_context, args, self.settings)
+        self.execution_context = execution_context
+
+    def save_settings(self):
+        base = self.execution_context.model_base_directory(0)
+        json.dump(self.settings, base / "settings.json", indent=4)
+        pickle.dump(self.locations, (base / "locations.pickle").open("wb"))
+
+    def graph_of_jobs(self, args):
+        return job_graph_from_settings(self.locations, self.settings, args)
+
+    def sub_graph_to_run(self, args):
+        job_graph = self.graph_of_jobs(args)
+        nodes = job_graph.nodes
+
+        for search in ["location_id", "recipe", "sex", "name"]:
+            if search in args:
+                nodes = [n for n in nodes if getattr(n, search) == getattr(args, search)]
+
+        sub_graph = nx.subgraph(job_graph, nodes)
+        sub_graph.graph["execution_context"] = self.execution_context
+        return sub_graph
 
 
 def configure_execution_context(execution_context, args, settings):
@@ -45,116 +169,6 @@ def configure_execution_context(execution_context, args, settings):
         setattr(execution_context.parameters, param, getattr(settings.model, param))
 
 
-def subgraph_from_args(nodes, args):
-    """Given all nodes in the global model, choose which to run
-    in this execution."""
-    for search in ["location_id", "recipe", "sex", "name"]:
-        if search in args:
-            nodes = [n for n in nodes if getattr(n, search) == getattr(args, search)]
-    return nodes
-
-
-def main(args):
-    start_time = default_timer()
-    execution_context = make_execution_context(gbd_round_id=6, num_processes=args.num_processes)
-    job_graph, settings = generate_plan(execution_context, args)
-    configure_execution_context(execution_context, args, settings)
-
-    subgraph = subgraph_from_args(job_graph.nodes, args)
-    if len(subgraph) == 0:
-        MATHLOG.warning(f"There are no jobs selected for arguments {args}")
-        raise RuntimeError(f"No nodes selected by {args}.")
-    what_to_run = dict(
-        job_graph=job_graph,
-        subgraph=subgraph,
-        execution_context=execution_context,
-    )
-    # This requests running one draw of the sample draws.
-    if "task_index" in args and args.task_index is not None:
-        what_to_run["task_index"] = args.task_index
-
-    if args.single_process:
-        backend = "single_process"
-    else:
-        backend = "grid_engine"
-    continuation = False
-    run_job_graph(what_to_run, backend, continuation)
-    elapsed_time = timedelta(seconds=default_timer() - start_time)
-    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
-
-
-def entry(args=None):
-    """Allow passing args for testing."""
-    readable_by_all = 0o0002
-    os.umask(readable_by_all)
-    faulthandler.enable()
-
-    args = parse_arguments(args)
-    logging_config(args)
-
-    MATHLOG.debug(f"Cascade version {__version__}.")
-    if "JOB_ID" in os.environ:
-        MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
-
-    try:
-        if args.skip_cache:
-            args.no_upload = True
-
-        use_local_odbc_ini()
-        main(args)
-    except SettingsError as e:
-        MATHLOG.error(str(e))
-        CODELOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
-        error_lines = list()
-        for error_spot, human_spot, error_message in e.form_errors:
-            if args.settings_file is not None:
-                error_location = error_spot
-            else:
-                error_location = human_spot
-            error_lines.append(f"\t{error_location}: {error_message}")
-        MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
-        exit(1)
-    except BdbQuit:
-        pass
-    except Exception:
-        if args.pdb:
-            import pdb
-            import traceback
-
-            traceback.print_exc()
-            pdb.post_mortem()
-        else:
-            MATHLOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
-            raise
-
-
-def parse_arguments(args):
-    parser = DMArgumentParser("Run DismodAT from Epiviz")
-    parser.add_argument("db_file_path", type=Path, default="z.db")
-    parser.add_argument("--settings-file", type=Path)
-    parser.add_argument("--infrastructure", action="store_true",
-                        help="Whether we are running as infrastructure component")
-    parser.add_argument("--base-directory", type=Path, default=".",
-                        help="Directory in which to find and store files.")
-    parser.add_argument("--no-upload", action="store_true")
-    parser.add_argument("--db-only", action="store_true")
-    parser.add_argument("-b", "--bundle-file", type=Path)
-    parser.add_argument("-s", "--bundle-study-covariates-file", type=Path)
-    parser.add_argument("--skip-cache", action="store_true")
-    parser.add_argument("--num-processes", type=int, default=4,
-                        help="How many subprocesses to start.")
-    parser.add_argument("--num-samples", type=int, help="Override number of samples.")
-    parser.add_argument("--pdb", action="store_true",
-                        help="Drops you into the debugger on exception")
-    parser.add_argument("--location-id", type=int, help="location ID for this work")
-    parser.add_argument("--sex", type=str, help="sex as male, female, both")
-    parser.add_argument("--recipe", type=str, help="name of the recipe")
-    parser.add_argument("--name", type=str, help="job within the recipe")
-    parser.add_argument("--task-index", type=int, help="index of draw")
-    parser.add_argument("--single-process", action="store_true",
-                        help="Run within this process, not in a subprocess.")
-    return parser.parse_args(args)
-
-
 if __name__ == "__main__":
-    entry()
+    app = Application()
+    entry(app)

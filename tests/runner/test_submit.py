@@ -4,7 +4,7 @@ from time import sleep, time
 import pytest
 
 import cascade.runner.submit
-from cascade.executor.execution_context import application_config
+from cascade.runner.application_config import application_config
 from cascade.runner.status import qstat_short
 from cascade.runner.submit import template_to_args, qsub
 

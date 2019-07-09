@@ -5,7 +5,7 @@ from os import linesep
 from textwrap import indent
 
 from cascade.core.log import getLoggers
-from cascade.executor.execution_context import application_config
+from cascade.runner.application_config import application_config
 from .grid_process import run_check
 
 CODELOG, MATHLOG = getLoggers(__name__)

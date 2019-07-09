@@ -23,7 +23,7 @@ from cascade.executor.cascade_plan import (
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings
-from cascade.runner.entry import execution_ordered
+from cascade.runner.graph_execute import execution_ordered
 
 BASE_CASE = {
     "model": {

@@ -6,7 +6,7 @@ import sys
 from getpass import getuser
 from secrets import token_urlsafe
 
-from cascade.executor.math_log import MathLogFormatter
+from cascade.runner.math_log import MathLogFormatter
 
 
 def logging_config(args):

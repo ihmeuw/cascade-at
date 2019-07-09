@@ -4,7 +4,7 @@ from time import sleep
 from enum import Enum
 
 from cascade.core.log import getLoggers
-from cascade.executor.execution_context import application_config
+from cascade.runner.application_config import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 

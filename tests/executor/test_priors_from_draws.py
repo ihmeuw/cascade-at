@@ -15,7 +15,7 @@ from cascade.executor.create_settings import create_settings, make_locations
 from cascade.executor.dismodel_main import parse_arguments
 from cascade.model.priors import Uniform, Gaussian
 from cascade.model.smooth_grid import SmoothGrid
-from cascade.runner.entry import execution_ordered
+from cascade.runner.graph_execute import execution_ordered
 
 
 def jitter(vars, rng):

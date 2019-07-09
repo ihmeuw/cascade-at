@@ -3,7 +3,7 @@ from getpass import getuser
 
 import cascade.executor.dismodel_main
 from cascade.core import getLoggers
-from cascade.executor.execution_context import application_config
+from cascade.runner.application_config import application_config
 from cascade.executor.dismodel_main import entry, main, parse_arguments
 
 CODELOG, MATHLOG = getLoggers(__name__)

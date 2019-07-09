@@ -7,8 +7,8 @@ import pytest
 import stat
 import toml
 
-from cascade.executor.argument_parser import DMArgumentParser, ArgumentException
-from cascade.executor.cascade_logging import logging_config
+from cascade.runner.argument_parser import DMArgumentParser, ArgumentException
+from cascade.runner.cascade_logging import logging_config
 
 
 def test_argparse_happy():

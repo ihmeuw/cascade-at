@@ -1,4 +1,4 @@
-from cascade.runner.entry import execution_ordered
+from cascade.runner.graph_execute import execution_ordered
 import networkx as nx
 
 

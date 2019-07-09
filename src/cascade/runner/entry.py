@@ -1,91 +1,119 @@
-import networkx as nx
+import faulthandler
+import os
+from bdb import BdbQuit
+from pprint import pformat
+from textwrap import fill
 
-from cascade.core.log import getLoggers
-from cascade.executor.execution_context import application_config
-from .submit import max_run_time_on_queue, qsub
+from cascade.core import getLoggers, __version__
+from cascade.core.db import use_local_odbc_ini
+from cascade.runner.argument_parser import DMArgumentParser
+from cascade.runner.cascade_logging import logging_config
+from cascade.input_data.configuration import SettingsError
+from cascade.runner.graph_execute import run_job_graph
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def execution_ordered(graph):
-    """For either a recipe graph or a task graph, this orders the nodes
-    such that they go depth-first. This is chosen so that the data
-    has the most locality during computation. It's not strictly
-    depth-first, but depth-first, given that all predecessors must
-    be complete before a node executes."""
-    assert "root" in graph.graph, "Expect to find G.graph['root']"
-    possible = [graph.graph["root"]]
-    seen = set()
-    in_order = list()
-    while possible:
-        node = possible.pop()
-        parents_must_complete = set(graph.predecessors(node))
-        if node not in seen and not parents_must_complete - seen:
-            seen.add(node)
-            in_order.append(node)
-            for successor in graph.successors(node):
-                possible.append(successor)
-
-    return in_order
-
-
-def run_job_graph(work, backend, continuation):
-    run_graph = nx.subgraph(work["job_graph"], work["sub_graph"])
-    assert nx.is_connected(run_graph.to_undirected())
-    if backend == "single_process":
-        run_single_process(work, run_graph, continuation)
-    elif backend == "grid_engine":
-        run_qsub(run_graph, continuation)
+def main(app, args):
+    # get or make settings
+    if args.create_settings:
+        app.create_settings(args)
     else:
-        raise RuntimeError(f"Cannot identify backend {backend}.")
+        app.load_settings(args)
+
+    # save settings if requested
+    if args.save_settings:
+        app.save_settings()
+
+    if run:
+        if args.grid_engine:
+            backend = "grid_engine"
+        else:
+            backend = "single_process"
+        work = app.sub_graph_to_run(args)
+        continuation = False
+        run_job_graph(work, backend, continuation)
 
 
-def run_single_process(work, run_graph, continuation):
-    assert not continuation
-    local_cache = dict()
-    for node in execution_ordered(run_graph):
-        job = run_graph.nodes[node]["job"]
-        for run_idx in range(job.multiplicity):
-            job(
-                work["execution_context"],
-                run_graph.nodes[node]["local_settings"],
-                local_cache,
-            )
+def entry(app, args=None):
+    """
+    This is most of the main, but it needs to be initialized with
+    an Application instance::
+
+        if __name__ == "__main__":
+            app = Application()
+            entry(app)
+
+    """
+    readable_by_all = 0o0002
+    os.umask(readable_by_all)
+    faulthandler.enable()
+
+    parser = make_parser()
+    app.add_arguments(parser)
+    args = parser.parse_args(args)
+    logging_config(args)
+
+    MATHLOG.debug(f"Cascade version {__version__}.")
+    if "JOB_ID" in os.environ:
+        MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
+
+    try:
+        if args.skip_cache:
+            args.no_upload = True
+
+        use_local_odbc_ini()
+        main(app, args)
+    except SettingsError as e:
+        MATHLOG.error(str(e))
+        CODELOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
+        error_lines = list()
+        for error_spot, human_spot, error_message in e.form_errors:
+            if args.settings_file is not None:
+                error_location = error_spot
+            else:
+                error_location = human_spot
+            error_lines.append(f"\t{error_location}: {error_message}")
+        MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
+        exit(1)
+    except BdbQuit:
+        pass
+    except Exception:
+        if args.pdb:
+            import pdb
+            import traceback
+
+            traceback.print_exc()
+            pdb.post_mortem()
+        else:
+            MATHLOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
+            raise
 
 
-def run_mock(work, run_graph, continuation):
-    assert not continuation
-    for node in execution_ordered(run_graph):
-        job = run_graph.nodes[node]["job"]
-        for run_idx in range(job.multiplicity):
-            job.mock_run(work["execution_context"])
-
-
-def run_qsub(work, run_graph, continuation, mvid=None):
-    assert not continuation
-    mvid = mvid if mvid else "7714565980"
-    grid_engine_job = dict()
-    parameters = application_config()["GridEngine"]
-    main_queue = parameters["queues"][0]
-    max_runtime = max_run_time_on_queue(main_queue)
-    for node in execution_ordered(run_graph):
-        job = run_graph.nodes[node]["job"]
-        memory = f"{job.memory_resource}G"
-        threads = f"{job.thread_resource}"
-        template = dict(
-            N=f"dmat_{mvid}_{node}",
-            q=main_queue,
-            l=dict(h_rt=max_runtime, m_mem_free=memory, fthread=threads),
-            P=parameters["project"],
-            j="y",
-            b="y",
-        )
-        holds = [grid_engine_job[parent]
-                 for parent in run_graph.predecessors(node)]
-        if holds:
-            template["h"] = holds
-        if node.multiplicity > 1:
-            template["t"] = f"1-{node.multiplicity}"  # task array
-        command = ["/bin/bash", "--noprofile", "--norc", rooted_script, mvid, epi_environment]
-        job_id = qsub(template, command)
-        grid_engine_job[node] = job_id
+def make_parser():
+    parser = DMArgumentParser("Run DismodAT from Epiviz")
+    run_parser = parser.add_argument_group(
+        "runner",
+        fill("These commands affect how the jobs run, whether they "
+             "are run in this process or started by Grid Engine"),
+    )
+    run_parser.add_argument(
+        "--num-processes", type=int, default=4,
+        help="How many subprocesses to start if we start subproceses.",
+    )
+    run_parser.add_argument(
+        "--pdb", action="store_true",
+        help="Drops you into the debugger on exception"
+    )
+    run_parser.add_argument(
+        "--single-use-machine", action="store_true",
+        help="True if processes should use a high nice value."
+    )
+    run_parser.add_argument(
+        "--grid-engine", action="store_true",
+        help=fill(
+            "Start Grid Engine jobs. If this isn't specified, then "
+            "the application will run jobs in this process."
+        ),
+    )
+    return parser

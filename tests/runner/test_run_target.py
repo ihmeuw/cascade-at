@@ -50,10 +50,14 @@ from cascade.executor.cascade_plan import (
 from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.executor.create_settings import create_settings
 
+"""
+dmrun --mvid 2345234 --create-settings --save-settings --grid-engine
+dmrun --mvid 2345234 --location-id 1 --recipe bundle_setup
+"""
 
 @pytest.mark.skip("target")
 def test_multiple_process_run():
-    command = "dmrun {mvid} --multiprocess --mock-stage"
+    command = "dmrun --mvid 2342 --multiprocess --mock-stage"
     products = all_output(command[1:])
     run(command)
     assert products.exist()

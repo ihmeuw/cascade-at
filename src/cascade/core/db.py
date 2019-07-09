@@ -9,7 +9,7 @@ from pathlib import Path
 
 from cascade.core import CascadeError
 from cascade.core.log import getLoggers
-from cascade.executor.execution_context import application_config
+from cascade.runner.application_config import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
