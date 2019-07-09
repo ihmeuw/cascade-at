@@ -56,31 +56,31 @@ class DbFile(FileEntity):
     """
     def __init__(self, relative_path, location_id=None, sex=None, required_tables=None):
         super().__init__(relative_path, location_id, sex)
-        self._tables = set(required_tables) if required_tables else None
+        self._tables = set(required_tables) if required_tables else set()
 
     def validate(self, execution_context):
         """Validate by checking which tables exist because this establishes
         which steps have been run. Doesn't look inside the tables.
 
         Returns:
-            None, on success, or a dictionary of expected and found, on error.
+            None, on success, or a string on error.
         """
-        if self._tables is None:
+        if not self._tables:
             return
         path = self.path(execution_context)
         if not path.exists():
-            return dict(found=set(), expected=self._tables)
+            return f"File {path} not found"
         with sqlite3.connect(path) as conn:
             result = conn.execute("select name from sqlite_master where type='table'")
             tables = {x[0] for x in result}
 
         if self._tables - tables:
-            return dict(found=tables, expected=self._tables)
+            return f"found {tables}, expected {self._tables}"
 
     def mock(self, execution_context):
         """Creates a sqlite3 file with the given tables. They don't correspond
         to the columns that are actually expected."""
-        if self._tables is None:
+        if not self._tables:
             self.path(execution_context).open("w").close()
         path = self.path(execution_context)
         with sqlite3.connect(path) as conn:
@@ -117,26 +117,31 @@ class PandasFile(FileEntity):
     def validate(self, execution_context):
         """
         Returns:
-            None, on success, or a dictionary of expected and found, on error.
+            None, on success, or a string on error.
         """
         path = self.path(execution_context)
         if not path.exists():
-            return dict(found=set(), expected=self._columns)
-        errors = dict()
+            return f"File {path} not found"
+        errors = list()
         for key, cols in self._columns.items():
             try:
                 df = pd.read_hdf(path, key=key)
                 if cols != set(df.columns):
-                    errors[key] = dict(found=df.columns, expected=cols)
+                    errors.append(f"for {key} found {df.columns} expected {cols}.")
             except KeyError as key:
-                errors[key] = dict(found=set(), expected=cols)
-        return errors if errors else None
+                errors.append(f"for {key} found nothing expected {cols}.")
+        return " ".join(errors) if errors else None
 
     def mock(self, execution_context):
         path = self.path(execution_context)
-        for key, cols in self._columns.items():
-            df = pd.DataFrame(columns=cols)
-            df.to_hdf(path, key=key)
+        CODELOG.debug(f"Mocking Pandas dataframe {path}.")
+
+        if self._columns:
+            for key, cols in self._columns.items():
+                df = pd.DataFrame(columns=cols)
+                df.to_hdf(path, key=key)
+        else:
+            pd.DataFrame().to_hdf(path, key="data")
 
 
 class ShelfFile(FileEntity):
@@ -158,19 +163,19 @@ class ShelfFile(FileEntity):
         """
         Validates that there are variables named after the required keys.
         Returns:
-            None, on success, or a dictionary of expected and found, on error.
+            None, on success, or a string on error.
         """
         path = self.path(execution_context)
         search_name = path.parent / (path.name + ".dat")
         if not search_name.exists():
             CODELOG.debug(f"Shelf path doesn't exist {path}")
-            return dict(expected=self._keys, found=set())
+            return f"Shelf path doesn't exist {path}"
         if self._keys:
             with shelve.open(str(path)) as db:
                 in_file = set(db.keys())
             if self._keys - in_file:
                 CODELOG.debug(f"Shelf keys not found {path}")
-                return dict(expected=self._keys, found=in_file)
+                return f"Shelf keys not found {path} expected {self._keys} found {in_file}"
 
     def mock(self, execution_context):
         path = self.path(execution_context)

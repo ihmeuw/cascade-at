@@ -10,9 +10,23 @@ CODELOG, MATHLOG = getLoggers(__name__)
 def execution_ordered(graph):
     """For either a recipe graph or a task graph, this orders the nodes
     such that they go depth-first. This is chosen so that the data
-    has the most locality during computation."""
+    has the most locality during computation. It's not strictly
+    depth-first, but depth-first, given that all predecessors must
+    be complete before a node executes."""
     assert "root" in graph.graph, "Expect to find G.graph['root']"
-    return nx.dfs_preorder_nodes(graph, graph.graph["root"])
+    possible = [graph.graph["root"]]
+    seen = set()
+    in_order = list()
+    while possible:
+        node = possible.pop()
+        parents_must_complete = set(graph.predecessors(node))
+        if node not in seen and not parents_must_complete - seen:
+            seen.add(node)
+            in_order.append(node)
+            for successor in graph.successors(node):
+                possible.append(successor)
+
+    return in_order
 
 
 def run_job_graph(work, backend, continuation):
@@ -30,12 +44,21 @@ def run_single_process(work, run_graph, continuation):
     assert not continuation
     local_cache = dict()
     for node in execution_ordered(run_graph):
-        for run_idx in range(node.multiplicity):
-            run_graph.nodes[node]["job"](
+        job = run_graph.nodes[node]["job"]
+        for run_idx in range(job.multiplicity):
+            job(
                 work["execution_context"],
                 run_graph.nodes[node]["local_settings"],
                 local_cache,
             )
+
+
+def run_mock(work, run_graph, continuation):
+    assert not continuation
+    for node in execution_ordered(run_graph):
+        job = run_graph.nodes[node]["job"]
+        for run_idx in range(job.multiplicity):
+            job.mock_run(work["execution_context"])
 
 
 def run_qsub(work, run_graph, continuation, mvid=None):
@@ -54,8 +77,8 @@ def run_qsub(work, run_graph, continuation, mvid=None):
             q=main_queue,
             l=dict(h_rt=max_runtime, m_mem_free=memory, fthread=threads),
             P=parameters["project"],
-            j=True,
-            b=True,
+            j="y",
+            b="y",
         )
         holds = [grid_engine_job[parent]
                  for parent in run_graph.predecessors(node)]
@@ -64,4 +87,5 @@ def run_qsub(work, run_graph, continuation, mvid=None):
         if node.multiplicity > 1:
             template["t"] = f"1-{node.multiplicity}"  # task array
         command = ["/bin/bash", "--noprofile", "--norc", rooted_script, mvid, epi_environment]
-        qsub(template, command)
+        job_id = qsub(template, command)
+        grid_engine_job[node] = job_id

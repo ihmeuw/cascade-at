@@ -45,4 +45,5 @@ def test_mock_job():
     recipe_id = RecipeIdentifier(21, "estimate_location", "both")
     local_settings = SimpleNamespace()
     job = FitFixed(recipe_id, local_settings)
-    job.mock_run()
+    ec = make_execution_context()
+    job.mock_run(ec)

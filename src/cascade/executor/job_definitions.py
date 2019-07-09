@@ -18,14 +18,14 @@ CODELOG, MATHLOG = getLoggers(__name__)
 class GlobalPrepareData(Job):
     def __init__(self, recipe_id, local_settings):
         super().__init__("global_prepare", recipe_id, local_settings)
-        parent_location_id = local_settings.parent_location_id
+        global_location = 0
         self.inputs = dict()
         self.outputs = dict(
-            shared=ShelfFile("globaldata", parent_location_id, "both", required_keys=[
+            shared=ShelfFile("globaldata", global_location, "both", required_keys=[
                 "locations", "country_covariate_ids", "country_covariates",
                 "country_covariates_binary", "study_id_to_name", "integrands",
             ]),
-            data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+            data=PandasFile("globaldata.hdf", global_location, "both"),
         )
 
     def __call__(self, execution_context):
@@ -40,14 +40,14 @@ class GlobalPrepareData(Job):
 
 class FindSingleMAP(Job):
     """Run the fit without any pre-fit."""
-    def __init__(self, recipe_id, local_settings, neighbors):
+    def __init__(self, recipe_id, local_settings, recipe_graph_neighbors):
         super().__init__("find_single_maximum", recipe_id, local_settings)
-        parent_location_id = local_settings.parent_location_id
         self.inputs = dict(
-            input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+            input_data=PandasFile("globaldata.hdf", 0, "both"),
         )
+        parent_location_id = local_settings.parent_location_id
         estimation_parent = [
-            predecessor for predecessor in neighbors["predecessors"]
+            predecessor for predecessor in recipe_graph_neighbors["predecessors"]
             if predecessor.recipe == "estimate_location"
         ]
         if estimation_parent:
@@ -76,10 +76,10 @@ class FindFixedMAP(Job):
     """Do a "fit fixed" which will precede the "fit both"."""
     def __init__(self, recipe_id, local_settings, neighbors):
         super().__init__("find_maximum_fixed", recipe_id, local_settings)
-        parent_location_id = local_settings.parent_location_id
         self.inputs = dict(
-            input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+            input_data=PandasFile("globaldata.hdf", 0, "both"),
         )
+        parent_location_id = local_settings.parent_location_id
         estimation_parent = [
             predecessor for predecessor in neighbors["predecessors"]
             if predecessor.recipe == "estimate_location"
@@ -103,7 +103,7 @@ class FindBothMAP(Job):
         super().__init__("find_maximum_both", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
         self.inputs = dict(
-            input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+            input_data=PandasFile("globaldata.hdf", 0, "both"),
             db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
         )
         self.outputs = dict(
@@ -139,7 +139,7 @@ class Summarize(Job):
         parent_location_id = local_settings.parent_location_id
         draw_cnt = local_settings.number_of_fixed_effect_samples
         self.inputs = dict(
-            input_data=PandasFile("globaldata.hdf", parent_location_id, "both"),
+            input_data=PandasFile("globaldata.hdf", 0, "both"),
             db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
         )
         for draw_idx in range(draw_cnt):
@@ -271,10 +271,14 @@ def recipe_to_jobs(recipe_identifier, local_settings, neighbors):
 
 def job_graph_from_settings(locations, settings, args):
     recipe_graph = recipe_graph_from_settings(locations, settings, args)
+    add_job_list(recipe_graph)
+    return recipe_graph_to_job_graph(recipe_graph)
+
+
+def add_job_list(recipe_graph):
     for node in recipe_graph:
         predecessors = recipe_graph.predecessors(node)
         successors = recipe_graph.successors(node)
         neighbors = dict(predecessors=predecessors, successors=successors)
         jobs = recipe_to_jobs(node, recipe_graph.nodes[node]["local_settings"], neighbors)
         recipe_graph.nodes[node]["job_list"] = jobs
-    return recipe_graph_to_job_graph(recipe_graph)

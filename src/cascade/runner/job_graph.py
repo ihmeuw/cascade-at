@@ -103,6 +103,8 @@ class Job:
         self.name = name
         self.recipe = recipe_identifier
         self.local_settings = local_settings
+        self.inputs = dict()
+        self.outputs = dict()
         if name != "compute_draws_from_parent_fit":
             self.multiplicity = 1
         else:
@@ -125,8 +127,33 @@ class Job:
         """The thread is a thread of execution and an integer."""
         return 2
 
-    def mock_run(self):
-        pass
+    def mock_run(self, execution_context, check_inputs=True):
+        if check_inputs:
+            missing = self.input_missing(execution_context)
+            if missing:
+                CODELOG.info(f"missing inputs {missing} for {self}")
+                raise RuntimeError(missing)
+        for output in self.outputs.values():
+            output.mock(execution_context)
+
+    def input_missing(self, execution_context):
+        return self.entity_missing(execution_context, self.inputs)
+
+    def output_missing(self, execution_context):
+        return self.entity_missing(execution_context, self.outputs)
+
+    def entity_missing(self, execution_context, inputs_outputs):
+        not_ready = dict()
+        for name, entity in inputs_outputs.items():
+            validation = entity.validate(execution_context)
+            if validation is not None:
+                not_ready[name] = validation
+        return not_ready
+
+    def __repr__(self):
+        return "Job(" + ", ".join(str(x) for x in [
+            self.name, self.recipe
+        ]) + ")"
 
 
 def recipe_graph_to_job_graph(recipe_graph):
