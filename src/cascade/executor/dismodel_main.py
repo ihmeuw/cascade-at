@@ -12,6 +12,7 @@ from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
 from cascade.runner.entry import entry
+from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -133,34 +134,43 @@ class Application:
     def create_settings(self, args):
         # We need a sort-of-correct execution context when we first load
         # and then it gets refined after settings are loaded.
-        execution_context = make_execution_context(
-            gbd_round_id=6, num_processes=args.num_processes
-        )
+        execution_context = execution_context_without_settings(args)
         self.settings = load_settings(
             execution_context, args.meid, args.mvid, args.settings_file)
         self.locations = location_hierarchy(
             location_set_version_id=self.settings.location_set_version_id,
             gbd_round_id=self.settings.gbd_round_id
         )
-        configure_execution_context(execution_context, args, self.settings)
+        configure_execution_context_from_settings(
+            execution_context, self.settings
+        )
         self.execution_context = execution_context
 
     def load_settings(self, args):
         # The execution context isn't part of the settings, so it is
         # rebuilt here when settings are loaded.
-        execution_context = make_execution_context(
-            gbd_round_id=6, num_processes=args.num_processes
+        self.execution_context = execution_context_without_settings(args)
+        base = self.execution_context.model_base_directory(0)
+        setting_file = base / "settings.json"
+        settings_dict = json.load(setting_file.open("r"))
+        self.settings = json_settings_to_frozen_settings(settings_dict)
+        location_file = base / "locations.pickle"
+        self.locations = pickle.load(location_file.open("rb"))
+        CODELOG.info(f"Loading settings from {setting_file} and "
+                     f"locations from {location_file}")
+        configure_execution_context_from_settings(
+            self.execution_context, self.settings
         )
-        base = execution_context.model_base_directory(0)
-        self.settings = json.load(base / "settings.json")
-        self.locations = pickle.load((base / "locations.pickle").open("rb"))
-        configure_execution_context(execution_context, args, self.settings)
-        self.execution_context = execution_context
 
     def save_settings(self):
         base = self.execution_context.model_base_directory(0)
-        json.dump(self.settings, base / "settings.json", indent=4)
-        pickle.dump(self.locations, (base / "locations.pickle").open("wb"))
+        base.mkdir(exist_ok=True, parents=True)
+        setting_file = base / "settings.json"
+        json.dump(self.settings.to_dict(), setting_file.open("w"), indent=4)
+        location_file = base / "locations.pickle"
+        pickle.dump(self.locations, location_file.open("wb"))
+        CODELOG.info(f"Saving settings to {setting_file} "
+                     f"and locations to {location_file}")
 
     def graph_of_jobs(self, args):
         return job_graph_from_settings(self.locations, self.settings, args)
@@ -178,7 +188,10 @@ class Application:
         return sub_graph
 
 
-def configure_execution_context(execution_context, args, settings):
+def execution_context_without_settings(args):
+    execution_context = make_execution_context(
+        gbd_round_id=6
+    )
     if args.infrastructure:
         execution_context.parameters.organizational_mode = "infrastructure"
     else:
@@ -186,6 +199,21 @@ def configure_execution_context(execution_context, args, settings):
 
     execution_context.parameters.base_directory = args.base_directory
 
+    if args.meid:
+        execution_context.parameters.modelable_entity_id = args.meid
+    if args.mvid:
+        execution_context.parameters.model_version_id = args.mvid
+
+    return execution_context
+
+
+def configure_execution_context_from_settings(execution_context, settings):
+    """
+    This later configuration exists because the application is
+    started by telling it the model version ID but *not telling it the
+    modelable entity ID.* That modelable entity ID is used to decide
+    where files are on disk, so we need it early.
+    """
     for param in ["modelable_entity_id", "model_version_id"]:
         setattr(execution_context.parameters, param, getattr(settings.model, param))
 

@@ -9,7 +9,7 @@ from cascade.runner.entry import entry
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-class FakeApp:
+class FakeMVIDApp:
     def add_arguments(self, parser):
         parser.add_argument("--mvid", type=int)
         return parser
@@ -38,7 +38,7 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
     monkeypatch.setattr(cascade.runner.entry, "main", mock_main)
     mvid = "2745"
     args = ["--root-dir", str(tmp_path), "--mvid", mvid]
-    app = FakeApp()
+    app = FakeMVIDApp()
 
     entry(app, args)
 

@@ -86,6 +86,14 @@ class JobIdentifier(RecipeIdentifier):
     def __str__(self):
         return f"{self.location_id}_{self.recipe}_{self.sex}_{self.name}"
 
+    @property
+    def arguments(self):
+        """The command-line arguments that would select this job."""
+        return [str(x) for x in [
+            "--location-id", self.location_id, "--recipe", self.recipe,
+            "--sex", self.sex, "--name", self.name
+        ]]
+
 
 class Job:
     """
