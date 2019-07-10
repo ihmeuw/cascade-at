@@ -13,15 +13,15 @@ from cascade.runner.cascade_logging import logging_config
 
 def test_argparse_happy():
     parser = DMArgumentParser()
-    args = parser.parse_args(["-v", "importer"])
+    args = parser.parse_args(["-v"])
     assert args.verbose == 1
-    assert args.stage == "importer"
 
 
 def test_argparse_functions():
     parser = DMArgumentParser()
     args = parser.parse_args([])
-    assert args.stage is None
+    assert args.quiet == 0
+    assert not args.logmod
 
 
 def test_argparse_quiet():
@@ -29,7 +29,6 @@ def test_argparse_quiet():
     args = parser.parse_args(["-q"])
     assert args.verbose == 0
     assert args.quiet == 1
-    assert args.stage is None
 
 
 def test_argparse_fail():
@@ -52,7 +51,7 @@ def test_math_log(tmpdir):
     parser = DMArgumentParser()
     # The math log will ignore the -v here, which sets others to DEBUG level.
     args = parser.parse_args([
-        "-v", "--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+        "-v", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
     logging_config(args)
     mathlog = logging.getLogger("cascade.math.complicated")
     mathlog.debug("debugfi")
@@ -61,7 +60,8 @@ def test_math_log(tmpdir):
     mathlog.error("errorhum")
     close_all_handlers()
 
-    in_log = (tmp_dir / str(args.mvid) / "log.log").read_text().splitlines()
+    mvid = "mvid"  # because there is no mvid defined here, so it's a default.
+    in_log = (tmp_dir / mvid / "log.log").read_text().splitlines()
     print(f"math log is ========={in_log}==============")
     assert any("infofum" in in_line for in_line in in_log)
     assert any("warningfo" in in_line for in_line in in_log)
@@ -74,7 +74,7 @@ def test_code_log(tmpdir):
     previous_umask = os.umask(0o002)
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
     logging_config(args)
 
     codelog = logging.getLogger("cascade.whatever.complicated")
@@ -102,7 +102,7 @@ def test_reduced_code_log(tmpdir):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
     args = parser.parse_args(
-        ["-q", "--mvid", "2347", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+        ["-q", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
     logging_config(args)
 
     codelog = logging.getLogger("cascade.whatever.complicated")
@@ -123,7 +123,7 @@ def test_reduced_code_log(tmpdir):
 def test_math_log_fail_bad_dir(tmpdir, capsys):
     tmp_dir = Path(tmpdir)
     parser = DMArgumentParser()
-    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", "bogus", "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--epiviz-log", "bogus", "--code-log", str(tmp_dir)])
     logging_config(args)
     close_all_handlers()
 
@@ -131,22 +131,12 @@ def test_math_log_fail_bad_dir(tmpdir, capsys):
     assert "no epiviz log dir" in capsys.readouterr().err
 
 
-def test_math_log_fail_no_mvid(tmpdir, capsys):
-    tmp_dir = Path(tmpdir)
-    parser = DMArgumentParser()
-    args = parser.parse_args(["--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
-    logging_config(args)
-
-    logging.getLogger("cascade.whatever.complicated")
-    assert "no mvid" in capsys.readouterr().err
-
-
 def test_math_log_fail_subdir_fail(tmpdir, capsys):
     tmp_dir = Path(tmpdir)
     ez_log = tmp_dir / "ezlog"
     ez_log.mkdir(mode=stat.S_IWUSR)  # This should be a creative failure.
     parser = DMArgumentParser()
-    args = parser.parse_args(["--mvid", "2347", "--epiviz-log", str(ez_log), "--code-log", str(tmp_dir)])
+    args = parser.parse_args(["--epiviz-log", str(ez_log), "--code-log", str(tmp_dir)])
     logging_config(args)
 
     logging.getLogger("cascade.whatever.complicated")

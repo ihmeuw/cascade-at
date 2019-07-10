@@ -1,5 +1,6 @@
 import json
 import pickle
+from argparse import ArgumentParser
 from pathlib import Path
 from textwrap import fill
 
@@ -18,13 +19,33 @@ CODELOG, MATHLOG = getLoggers(__name__)
 class Application:
     """
     Responsible for management of settings and creation of job graphs.
-    """
-    def __init__(self):
-        self.locations = None
-        self.settings = None
-        self.execution_context = None
 
-    def add_arguments(self, parser):
+    All arguments have default None, which is the typical way to
+    instantiate this, unless it is under test. Using arguments here
+    makes it unnecessary to use ``create_settings`` or ``load_settings``.
+
+    Args:
+        locations (nx.DiGraph): Graph of locations.
+        settings (SimpleNamespace): Settings for the whole run.
+        execution_context (ExecutionContext): defines the environment.
+    """
+    def __init__(self, locations=None, settings=None, execution_context=None):
+        self.locations = locations
+        self.settings = settings
+        self.execution_context = execution_context
+
+    def add_arguments(self, parser=None):
+        """Add arguments to an argument parser. These arguments are relevant
+        to the application but not to how it is run.
+
+        Args:
+            parser (ArgumentParser): If not supplied, a parser is created.
+
+        Returns:
+            ArgumentParser: The one that is created, or the one passed in.
+        """
+        if parser is None:
+            parser = ArgumentParser()
         parser.add_argument(
             "--meid", type=int,
             help="Modelable entity ID. This identifies the cause of disease.",

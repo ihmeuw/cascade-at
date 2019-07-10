@@ -59,9 +59,6 @@ def entry(app, args=None):
         MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
 
     try:
-        if args.skip_cache:
-            args.no_upload = True
-
         use_local_odbc_ini()
         main(app, args)
     except SettingsError as e:

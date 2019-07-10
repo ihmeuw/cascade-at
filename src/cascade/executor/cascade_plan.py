@@ -293,7 +293,5 @@ def location_specific_settings(locations, settings, args, recipe_id):
     local_settings.run = _ParameterHierarchy(**dict(
         no_upload=args.no_upload,
         db_only=args.db_only,
-        num_processes=args.num_processes,
-        pdb=args.pdb,
     ))
     return local_settings

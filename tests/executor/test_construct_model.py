@@ -15,9 +15,9 @@ from cascade.executor.covariate_description import create_covariate_specificatio
 from cascade.executor.create_settings import (
     create_local_settings, create_settings, SettingsChoices
 )
-from cascade.executor.dismodel_main import parse_arguments
 from cascade.executor.estimate_location import modify_input_data
 from cascade.executor.construct_model import construct_model
+from cascade.executor.dismodel_main import Application
 from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.form import SmoothingPrior
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
@@ -92,7 +92,8 @@ def reference_db(base_settings):
 
 def make_local_settings(given_settings):
     choices = SettingsChoices(settings=given_settings)
-    args = parse_arguments(["z.db"])
+    app = Application()
+    args = app.add_arguments().parse_args()
     locations = location_hierarchy(gbd_round_id=6, location_set_version_id=429)
     settings = create_settings(choices, locations)
     c = recipe_graph_from_settings(locations, settings, args)

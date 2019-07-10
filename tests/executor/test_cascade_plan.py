@@ -4,51 +4,41 @@ from numpy.random import RandomState
 
 from cascade.core.form import Form, FormList, FloatField
 from cascade.executor.cascade_plan import (
-    make_model_options, recipe_graph_from_settings,
-)
+    make_model_options, )
 from cascade.executor.create_settings import create_settings
+from cascade.executor.dismodel_main import Application
 from cascade.executor.execution_context import make_execution_context
-from cascade.input_data.configuration.form import RandomEffectBound
-from cascade.input_data.db.configuration import load_settings
-from cascade.input_data.db.locations import location_hierarchy
 from cascade.executor.job_definitions import job_graph_from_settings
+from cascade.input_data.configuration.form import RandomEffectBound
 from cascade.runner.graph_execute import execution_ordered
 
 SUBJOBS_PER_LOCATION = 3
 
 
 def test_create_start_finish(ihme):
-    args = parse_arguments(["z.db"])
-    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
-    locations = location_hierarchy(6, location_set_version_id=429)
-    settings = load_settings(ec, None, 267845, None)
-    settings.model.split_sex = 3
-    settings.model.drill_location_start = 4
-    settings.model.drill_location_end = 6
-    recipe_graph = recipe_graph_from_settings(locations, settings, args)
-    assert len(recipe_graph) == 1 + 3
-    job_graph = job_graph_from_settings(locations, settings, args)
+    app = Application()
+    args = app.add_arguments().parse_args(["--mvid", "267845"])
+    app.settings.model.split_sex = 3
+    app.settings.model.drill_location_start = 4
+    app.settings.model.drill_location_end = 6
+    job_graph = app.graph_of_jobs(args)
     assert len(job_graph) == 1 + SUBJOBS_PER_LOCATION * 3
 
 
 def test_single_start_finish(ihme):
-    args = parse_arguments(["z.db"])
-    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
-    locations = location_hierarchy(6, location_set_version_id=429)
-    settings = load_settings(ec, None, 267845, None)
-    settings.model.split_sex = 3
-    settings.model.drill_location_start = 6
-    settings.model.drill_location_end = 6
-    job_graph = job_graph_from_settings(locations, settings, args)
+    app = Application()
+    args = app.add_arguments().parse_args(["--mvid", "267845"])
+    app.settings.model.split_sex = 3
+    app.settings.model.drill_location_start = 6
+    app.settings.model.drill_location_end = 6
+    job_graph = app.graph_of_jobs(args)
     assert len(job_graph) == 1 + SUBJOBS_PER_LOCATION
 
 
 def test_iterate_tasks(ihme):
-    args = parse_arguments(["z.db"])
-    ec = make_execution_context(parent_location_id=0, gbd_round_id=5)
-    locations = location_hierarchy(6, location_set_version_id=429)
-    settings = load_settings(ec, None, 267770, None)
-    job_graph = job_graph_from_settings(locations, settings, args)
+    app = Application()
+    args = app.add_arguments().parse_args(["--mvid", "267770"])
+    job_graph = app.graph_of_jobs(args)
     ordered = execution_ordered(job_graph)
     cnt = 0
     for idx, job_id in enumerate(ordered):
@@ -62,13 +52,17 @@ def test_iterate_tasks(ihme):
 
 
 def test_random_settings():
+    execution_context = make_execution_context(
+        gbd_round_id=6, num_processes=4
+    )
     rng = RandomState(342523)
-    args = parse_arguments(["z.db"])
     locations = nx.DiGraph()
     children = [4, 31, 64, 103, 137, 158, 166]
     locations.add_edges_from([(1, c) for c in children])
     for i in range(100):
         settings = create_settings(rng, locations)
+        app = Application(locations, settings, execution_context)
+        args = app.add_arguments().parse_args(["--mvid", "267770"])
         job_graph = job_graph_from_settings(locations, settings, args)
         for idx, job_id in enumerate(execution_ordered(job_graph)):
             job = job_graph.nodes[job_id]["job"]

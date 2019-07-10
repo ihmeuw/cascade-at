@@ -18,9 +18,8 @@ from textwrap import dedent
 import networkx as nx
 from numpy.random import RandomState
 
-from cascade.executor.cascade_plan import (
-    recipe_graph_from_settings, )
-from cascade.executor.dismodel_main import parse_arguments
+from cascade.executor.cascade_plan import recipe_graph_from_settings
+from cascade.executor.dismodel_main import Application
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 from cascade.runner.graph_execute import execution_ordered
@@ -348,7 +347,8 @@ def create_local_settings(rng=None, settings=None, locations=None):
     else:
         choices = rng
     # skip-cache says to use tier 2, not tier 3 so that we don't need CSMR there.
-    args = parse_arguments(["z.db", "--skip-cache"])
+    app = Application()
+    args = app.add_arguments().parse_args(["--skip-cache"])
     depth = 4
     locations = locations if locations else make_locations(depth)
     settings = create_settings(choices, locations)

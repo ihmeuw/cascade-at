@@ -1,15 +1,21 @@
 import logging
 from getpass import getuser
 
-import cascade.executor.dismodel_main
+import cascade.runner.entry
 from cascade.core import getLoggers
 from cascade.runner.application_config import application_config
-from cascade.executor.dismodel_main import entry, main, parse_arguments
+from cascade.runner.entry import entry
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def mock_main(args):
+class FakeApp:
+    def add_arguments(self, parser):
+        parser.add_argument("--mvid", type=int)
+        return parser
+
+
+def mock_main(app, args):
     CODELOG.debug("CODELOG debug")
     CODELOG.info("CODELOG info")
     MATHLOG.debug("MATHLOG debug")
@@ -29,11 +35,12 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
     math_dir = tmp_path / directories["epiviz-log-directory"]
     math_dir.mkdir(parents=True)
 
-    monkeypatch.setattr(cascade.executor.dismodel_main, "main", mock_main)
+    monkeypatch.setattr(cascade.runner.entry, "main", mock_main)
     mvid = "2745"
-    args = ["--root-dir", str(tmp_path), "entry_constructs_logs.db", "--mvid", mvid]
+    args = ["--root-dir", str(tmp_path), "--mvid", mvid]
+    app = FakeApp()
 
-    entry(args)
+    entry(app, args)
 
     # Close all of the loggers so that they flush to disk.
     for logger in [logging.root, logging.getLogger("cascade"), logging.getLogger("cascade.math")]:
@@ -55,39 +62,3 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
     print(f"math log {math_log}")
     math_lines = math_log.open().readlines()
     assert len(math_lines) > 0
-
-
-def test_main(monkeypatch, ihme):
-    monkeypatch.setattr(
-        cascade.executor.dismodel_main,
-        "prepare_data_for_estimate",
-        lambda *arg, **kwargs: None
-    )
-    monkeypatch.setattr(
-        cascade.executor.dismodel_main,
-        "construct_model_for_estimate_location",
-        lambda *arg, **kwargs: None
-    )
-    monkeypatch.setattr(
-        cascade.executor.dismodel_main,
-        "initial_guess_from_fit_fixed",
-        lambda *arg, **kwargs: None
-    )
-    monkeypatch.setattr(
-        cascade.executor.dismodel_main,
-        "compute_initial_fit",
-        lambda *arg, **kwargs: None
-    )
-    monkeypatch.setattr(
-        cascade.executor.dismodel_main,
-        "compute_draws_from_parent_fit",
-        lambda *arg, **kwargs: None
-    )
-    monkeypatch.setattr(
-        cascade.executor.dismodel_main,
-        "save_predictions",
-        lambda *arg, **kwargs: None
-    )
-
-    args = parse_arguments("z.db --mvid 267737".split())
-    main(args)
