@@ -6,7 +6,7 @@ from cascade.core.form import Form, FormList, FloatField
 from cascade.executor.cascade_plan import (
     make_model_options, )
 from cascade.executor.create_settings import create_settings
-from cascade.executor.dismodel_main import Application
+from cascade.executor.dismodel_main import DismodAT
 from cascade.executor.execution_context import make_execution_context
 from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.input_data.configuration.form import RandomEffectBound
@@ -16,7 +16,7 @@ SUBJOBS_PER_LOCATION = 3
 
 
 def test_create_start_finish(ihme):
-    app = Application()
+    app = DismodAT()
     args = app.add_arguments().parse_args(["--mvid", "267845"])
     app.settings.model.split_sex = 3
     app.settings.model.drill_location_start = 4
@@ -26,7 +26,7 @@ def test_create_start_finish(ihme):
 
 
 def test_single_start_finish(ihme):
-    app = Application()
+    app = DismodAT()
     args = app.add_arguments().parse_args(["--mvid", "267845"])
     app.settings.model.split_sex = 3
     app.settings.model.drill_location_start = 6
@@ -36,7 +36,7 @@ def test_single_start_finish(ihme):
 
 
 def test_iterate_tasks(ihme):
-    app = Application()
+    app = DismodAT()
     args = app.add_arguments().parse_args(["--mvid", "267770"])
     job_graph = app.graph_of_jobs(args)
     ordered = execution_ordered(job_graph)
@@ -61,7 +61,7 @@ def test_random_settings():
     locations.add_edges_from([(1, c) for c in children])
     for i in range(100):
         settings = create_settings(rng, locations)
-        app = Application(locations, settings, execution_context)
+        app = DismodAT(locations, settings, execution_context)
         args = app.add_arguments().parse_args(["--mvid", "267770"])
         job_graph = job_graph_from_settings(locations, settings, args)
         for idx, job_id in enumerate(execution_ordered(job_graph)):

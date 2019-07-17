@@ -2,10 +2,10 @@ from types import SimpleNamespace
 
 from cascade.executor.execution_context import make_execution_context
 from cascade.runner.data_passing import FileEntity
-from cascade.runner.job_graph import Job, RecipeIdentifier
+from cascade.runner.job_graph import CascadeJob, RecipeIdentifier
 
 
-class FitFixed(Job):
+class FitFixed(CascadeJob):
     def __init__(self, recipe_id, local_settings):
         super().__init__("fit_fixed", recipe_id, local_settings)
 

@@ -1,7 +1,7 @@
 import networkx as nx
 
+import gridengineapp
 from cascade.core import getLoggers
-
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -95,7 +95,7 @@ class JobIdentifier(RecipeIdentifier):
         ]]
 
 
-class Job:
+class CascadeJob(gridengineapp.Job):
     """
     Responsible for ensuring a thread of execution can complete.
     It handles:

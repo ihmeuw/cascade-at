@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from cascade.executor.dismodel_main import Application, execution_context_without_settings
+from cascade.executor.dismodel_main import DismodAT, execution_context_without_settings
 from cascade.runner.job_graph import JobIdentifier, RecipeIdentifier
 
 from numpy.random import RandomState
@@ -29,7 +29,7 @@ def assign_levels(locations):
 
 
 def test_add_arguments():
-    app = Application()
+    app = DismodAT()
     parser = ArgumentParser()
     parser = app.add_arguments(parser)
     args = parser.parse_args(["--mvid", "23942", "--infrastructure", "--db-only"])
@@ -41,7 +41,7 @@ def test_add_arguments():
 def test_args_parses_job_identifier():
     """The application defines arguments that correspond to the identifier."""
     ji = JobIdentifier(RecipeIdentifier(32, "estimate_location", "female"), "draws")
-    app = Application()
+    app = DismodAT()
     parser = ArgumentParser()
     parser = app.add_arguments(parser)
     arg_list = ["--mvid", "23942"] + ji.arguments
@@ -55,17 +55,17 @@ def test_args_parses_job_identifier():
 def test_application_save_settings(pyramid_locations):
     """The application can save settings and load them again."""
     settings = create_settings(RandomState(342234), pyramid_locations)
-    app = Application()
+    app = DismodAT()
     parser = app.add_arguments()
     args = parser.parse_args(
         ["--meid", "4242", "--mvid", "234243"]
     )
     ec = execution_context_without_settings(args)
-    app = Application(pyramid_locations, settings, ec)
+    app = DismodAT(pyramid_locations, settings, ec)
     app.save_settings()
     jobs = app.graph_of_jobs(args)
 
-    later_app = Application()
+    later_app = DismodAT()
     later_app.load_settings(args)
     assert len(later_app.locations) == len(app.locations)
 

@@ -17,7 +17,7 @@ from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-class Application:
+class DismodAT:
     """
     Responsible for management of settings and creation of job graphs.
 
@@ -219,5 +219,5 @@ def configure_execution_context_from_settings(execution_context, settings):
 
 
 if __name__ == "__main__":
-    app = Application()
+    app = DismodAT()
     entry(app)

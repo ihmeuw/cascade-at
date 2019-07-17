@@ -10,12 +10,12 @@ from cascade.executor.estimate_location import retrieve_data, modify_input_data,
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.runner.data_passing import ShelfFile, PandasFile, DbFile
-from cascade.runner.job_graph import Job, recipe_graph_to_job_graph
+from cascade.runner.job_graph import CascadeJob, recipe_graph_to_job_graph
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-class GlobalPrepareData(Job):
+class GlobalPrepareData(CascadeJob):
     def __init__(self, recipe_id, local_settings):
         super().__init__("global_prepare", recipe_id, local_settings)
         global_location = 0
@@ -38,7 +38,7 @@ class GlobalPrepareData(Job):
         pass
 
 
-class FindSingleMAP(Job):
+class FindSingleMAP(CascadeJob):
     """Run the fit without any pre-fit."""
     def __init__(self, recipe_id, local_settings, recipe_graph_neighbors):
         super().__init__("find_single_maximum", recipe_id, local_settings)
@@ -72,7 +72,7 @@ class FindSingleMAP(Job):
         pass
 
 
-class FindFixedMAP(Job):
+class FindFixedMAP(CascadeJob):
     """Do a "fit fixed" which will precede the "fit both"."""
     def __init__(self, recipe_id, local_settings, neighbors):
         super().__init__("find_maximum_fixed", recipe_id, local_settings)
@@ -97,7 +97,7 @@ class FindFixedMAP(Job):
         pass
 
 
-class FindBothMAP(Job):
+class FindBothMAP(CascadeJob):
     """Do a "fit both" assuming a "fit fixed" was done first."""
     def __init__(self, recipe_id, local_settings):
         super().__init__("find_maximum_both", recipe_id, local_settings)
@@ -114,7 +114,7 @@ class FindBothMAP(Job):
         pass
 
 
-class ConstructDraw(Job):
+class ConstructDraw(CascadeJob):
     """This one job has a task to do a fit for each draw."""
     def __init__(self, recipe_id, local_settings):
         super().__init__("draw", recipe_id, local_settings)
@@ -132,7 +132,7 @@ class ConstructDraw(Job):
         pass
 
 
-class Summarize(Job):
+class Summarize(CascadeJob):
     """Gather results of draws."""
     def __init__(self, recipe_id, local_settings, neighbors):
         super().__init__("summarize", recipe_id, local_settings)
@@ -153,7 +153,7 @@ class Summarize(Job):
         pass
 
 
-class EstimateLocationPrepareData(Job):
+class EstimateLocationPrepareData(CascadeJob):
     def __call__(self, execution_context):
         """
         Estimates rates for a single location in the location hierarchy.
@@ -179,7 +179,7 @@ class EstimateLocationPrepareData(Job):
         shared["prepared_input_data"] = modified_data
 
 
-class EstimateLocationConstructModel(Job):
+class EstimateLocationConstructModel(CascadeJob):
     def __call__(self, execution_context, local_settings, local_cache):
         covariate_multipliers = local_cache.get("covariate_multipliers:{local_settings.parent_location_id}")
         covariate_data_spec = local_cache.get("covariate_data_spec:{local_settings.parent_location_id}")
@@ -190,7 +190,7 @@ class EstimateLocationConstructModel(Job):
         local_cache.set("prepared_model:{local_settings.parent_location_id}", model)
 
 
-class EstimateLocationInitialGuess(Job):
+class EstimateLocationInitialGuess(CascadeJob):
     def __call__(self, execution_context, local_settings, local_cache):
         model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
         input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
@@ -199,7 +199,7 @@ class EstimateLocationInitialGuess(Job):
         local_cache.set("parent_initial_guess:{local_settings.parent_location_id}", fit_result.fit)
 
 
-class EstimateLocationInitialFit(Job):
+class EstimateLocationInitialFit(CascadeJob):
     def __call__(self, execution_context, local_settings, local_cache):
         model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
         input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
@@ -208,7 +208,7 @@ class EstimateLocationInitialFit(Job):
         local_cache.set("parent_fit:{local_settings.parent_location_id}", fit_result)
 
 
-class EstimateLocationComputeDraws(Job):
+class EstimateLocationComputeDraws(CascadeJob):
     def __call__(self, execution_context, local_settings, local_cache):
         model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
         fit_result = local_cache.get("parent_fit:{local_settings.parent_location_id}")
@@ -229,7 +229,7 @@ class EstimateLocationComputeDraws(Job):
             raise DismodATException("Fit failed for all samples")
 
 
-class EstimateLocationSavePredictions(Job):
+class EstimateLocationSavePredictions(CascadeJob):
     def __call__(self, execution_context, local_settings, local_cache):
         if not local_settings.run.no_upload:
             predictions = local_cache.get(f"fit-predictions:{local_settings.parent_location_id}")
