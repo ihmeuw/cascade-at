@@ -1,4 +1,5 @@
 import os
+from pprint import pformat
 
 import gridengineapp
 import networkx as nx
@@ -110,7 +111,9 @@ class CascadeJob(gridengineapp.Job):
     multiplicity is the number of tasks to start for this job.
     This corresponds to Grid Engine jobs and tasks.
     """
-    def __init__(self, name, recipe_identifier, local_settings):
+    def __init__(
+            self, name, recipe_identifier, local_settings, execution_context
+    ):
         super().__init__()
         self.name = name
         self.recipe = recipe_identifier
@@ -119,6 +122,7 @@ class CascadeJob(gridengineapp.Job):
             self.multiplicity = 1
         else:
             self.multiplicity = local_settings.number_of_fixed_effect_samples
+        self.execution_context = execution_context
 
     def __call__(self, *args, **kwargs):
         CODELOG.info(f"Running {self.job_identifier}")
@@ -128,53 +132,35 @@ class CascadeJob(gridengineapp.Job):
         return JobIdentifier(self.recipe, self.name)
 
     @property
-    def memory_resource(self):
-        """The memory is a float and declared in Gigabytes."""
-        return 16
-
-    @property
-    def thread_resource(self):
-        """The thread is a thread of execution and an integer."""
-        return 2
+    def resources(self):
+        res = dict(
+            memory_gigabytes=16,
+            threads=2,
+            run_time_minutes=60 * 23,
+        )
+        if self.multiplicity > 1:
+            res["task_cnt"] = self.multiplicity
+        return res
 
     def run(self):
         try:
-            self._run()
+            self.run_under_mathlog()
         except SettingsError as e:
             MATHLOG.error(str(e))
             CODELOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
             error_lines = list()
             for error_spot, human_spot, error_message in e.form_errors:
-                if args.settings_file is not None:
+                settings_file = self.local_settings.data_access.settings_file
+                if settings_file is not None:
                     error_location = error_spot
                 else:
                     error_location = human_spot
                 error_lines.append(f"\t{error_location}: {error_message}")
             MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
-            exit(1)
+            raise
 
-    def mock_run(self, execution_context, check_inputs=True):
-        if check_inputs:
-            missing = self.input_missing(execution_context)
-            if missing:
-                CODELOG.info(f"missing inputs {missing} for {self}")
-                raise RuntimeError(missing)
-        for output in self.outputs.values():
-            output.mock(execution_context)
-
-    def input_missing(self, execution_context):
-        return self.entity_missing(execution_context, self.inputs)
-
-    def output_missing(self, execution_context):
-        return self.entity_missing(execution_context, self.outputs)
-
-    def entity_missing(self, execution_context, inputs_outputs):
-        not_ready = dict()
-        for name, entity in inputs_outputs.items():
-            validation = entity.validate(execution_context)
-            if validation is not None:
-                not_ready[name] = validation
-        return not_ready
+    def run_under_mathlog(self):
+        super().run()
 
     def __repr__(self):
         return "Job(" + ", ".join(str(x) for x in [

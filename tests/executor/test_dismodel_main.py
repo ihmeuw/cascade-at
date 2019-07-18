@@ -63,11 +63,11 @@ def test_application_save_settings(pyramid_locations):
     ec = execution_context_without_settings(args)
     app = DismodAT(pyramid_locations, settings, ec)
     app.save_settings()
-    jobs = app.graph_of_jobs(args)
+    jobs = app.job_graph(args)
 
     later_app = DismodAT()
     later_app.load_settings(args)
     assert len(later_app.locations) == len(app.locations)
 
-    later_jobs = later_app.graph_of_jobs(args)
+    later_jobs = later_app.job_graph(args)
     assert len(later_jobs) == len(jobs)

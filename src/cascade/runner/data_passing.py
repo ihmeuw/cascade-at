@@ -1,15 +1,14 @@
-import shelve
 import sqlite3
 from pathlib import Path
 
-import pandas as pd
+import gridengineapp
 
 from cascade.core import getLoggers
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-class FileEntity:
+class FileEntity(gridengineapp.FileEntity):
     """Responsible for making a path that is writable for a file.
 
     Args:
@@ -19,41 +18,11 @@ class FileEntity:
         location_id (int): The location for which this file is written.
         sex (str): One of male, female, both.
     """
-    def __init__(self, relative_path, location_id, sex=None):
+    def __init__(self, execution_context, relative_path, location_id, sex=None):
         # If location_id isn't specified, it's the same location as the reader.
-        self.relative_path = Path(relative_path)
-        self.location_id = location_id
-        self.sex = sex
-
-    def path(self, execution_context):
-        """Return a full file path to the file, given the current context."""
-        base_directory = execution_context.model_base_directory(
-            self.location_id, self.sex)
-        full_path = base_directory / self.relative_path
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        return full_path
-
-    def validate(self, execution_context):
-        """Validate by checking file exists.
-
-        Returns:
-            None, on success, or a string on error.
-        """
-        path = self.path(execution_context)
-        if not path.exists():
-            return f"File {path} not found"
-
-    def mock(self, execution_context):
-        """Touch the file into existence."""
-        self.path(execution_context).open("w").close()
-
-    def remove(self, execution_context):
-        """Delete, unlink, remove the file. No error if it doesn't exist."""
-        path = self.path(execution_context)
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            pass  # OK if it didn't exist
+        base_directory = execution_context.model_base_directory(location_id, sex)
+        full_path = base_directory / Path(relative_path)
+        super().__init__(full_path)
 
 
 class DbFile(FileEntity):
@@ -68,11 +37,11 @@ class DbFile(FileEntity):
         sex (str): One of male, female, both.
         required_tables (Set[str]): A set of table names.
     """
-    def __init__(self, relative_path, location_id=None, sex=None, required_tables=None):
-        super().__init__(relative_path, location_id, sex)
+    def __init__(self, execution_context, relative_path, location_id=None, sex=None, required_tables=None):
+        super().__init__(execution_context, relative_path, location_id, sex)
         self._tables = set(required_tables) if required_tables else set()
 
-    def validate(self, execution_context):
+    def validate(self):
         """Validate by checking which tables exist because this establishes
         which steps have been run. Doesn't look inside the tables.
 
@@ -81,7 +50,7 @@ class DbFile(FileEntity):
         """
         if not self._tables:
             return
-        path = self.path(execution_context)
+        path = self.path
         if not path.exists():
             return f"File {path} not found"
         with sqlite3.connect(path) as conn:
@@ -91,26 +60,18 @@ class DbFile(FileEntity):
         if self._tables - tables:
             return f"found {tables}, expected {self._tables}"
 
-    def mock(self, execution_context):
+    def mock(self):
         """Creates a sqlite3 file with the given tables. They don't correspond
         to the columns that are actually expected."""
         if not self._tables:
-            self.path(execution_context).open("w").close()
-        path = self.path(execution_context)
-        with sqlite3.connect(path) as conn:
+            self.path.open("w").close()
+        with sqlite3.connect(self.path) as conn:
             for table in self._tables:
                 conn.execute(f"CREATE TABLE {table} (key text, value text)")
             conn.commit()
 
-    def remove(self, execution_context):
-        path = self.path(execution_context)
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            pass  # OK if it didn't exist
 
-
-class PandasFile(FileEntity):
+class PandasFile(gridengineapp.PandasFile):
     """Responsible for validating a Pandas file.
 
     Args:
@@ -123,45 +84,13 @@ class PandasFile(FileEntity):
             as specified by the Pandas ``key`` argument, to a list of columns
             that should be in that dataset.
     """
-    def __init__(self, relative_path, location_id=None, sex=None, required_frames=None):
-        super().__init__(relative_path, location_id, sex)
-        required_frames = required_frames if required_frames else dict()
-        self._columns = {key: set(cols) for (key, cols) in required_frames.items()}
-
-    def validate(self, execution_context):
-        """
-        Returns:
-            None, on success, or a string on error.
-        """
-        path = self.path(execution_context)
-        if not path.exists():
-            return f"File {path} not found"
-        errors = list()
-        for key, cols in self._columns.items():
-            try:
-                df = pd.read_hdf(path, key=key)
-                if cols != set(df.columns):
-                    errors.append(f"for {key} found {df.columns} expected {cols}.")
-            except KeyError as key:
-                errors.append(f"for {key} found nothing expected {cols}.")
-        return " ".join(errors) if errors else None
-
-    def mock(self, execution_context):
-        path = self.path(execution_context)
-        CODELOG.debug(f"Mocking Pandas dataframe {path}.")
-
-        if self._columns:
-            for key, cols in self._columns.items():
-                df = pd.DataFrame({c: [0] for c in cols})
-                df.to_hdf(path, key=key, mode="a", format="fixed")
-        else:
-            df = pd.DataFrame(dict(key=[1], value=[1]))
-            df.to_hdf(
-                path, key="data", mode="a", format="fixed",
-            )
+    def __init__(self, execution_context, relative_path, location_id=None, sex=None, required_frames=None):
+        base_directory = execution_context.model_base_directory(location_id, sex)
+        full_path = base_directory / Path(relative_path)
+        super().__init__(full_path, required_frames)
 
 
-class ShelfFile(FileEntity):
+class ShelfFile(gridengineapp.ShelfFile):
     """Responsible for validating a Python shelf file.
 
     Args:
@@ -172,37 +101,7 @@ class ShelfFile(FileEntity):
         sex (str): One of male, female, both.
         required_keys (Set[str]): String names of variables to find in the file.
     """
-    def __init__(self, relative_path, location_id=None, sex=None, required_keys=None):
-        super().__init__(relative_path, location_id, sex)
-        self._keys = set(required_keys) if required_keys else set()
-
-    def validate(self, execution_context):
-        """
-        Validates that there are variables named after the required keys.
-        Returns:
-            None, on success, or a string on error.
-        """
-        path = self.path(execution_context)
-        search_name = path.parent / (path.name + ".dat")
-        if not search_name.exists():
-            CODELOG.debug(f"Shelf path doesn't exist {path}")
-            return f"Shelf path doesn't exist {path}"
-        if self._keys:
-            with shelve.open(str(path)) as db:
-                in_file = set(db.keys())
-            if self._keys - in_file:
-                CODELOG.debug(f"Shelf keys not found {path}")
-                return f"Shelf keys not found {path} expected {self._keys} found {in_file}"
-
-    def mock(self, execution_context):
-        path = self.path(execution_context)
-        with shelve.open(str(path)) as db:
-            CODELOG.info(f"mocking shelf with keys {self._keys}")
-            for key in self._keys:
-                db[key] = "marker"
-
-    def remove(self, execution_context):
-        path = self.path(execution_context)
-        base = path.parent
-        for dbm_file in base.glob(f"{path.name}.*"):
-            dbm_file.unlink()
+    def __init__(self, execution_context, relative_path, location_id=None, sex=None, required_keys=None):
+        base_directory = execution_context.model_base_directory(location_id, sex)
+        full_path = base_directory / Path(relative_path)
+        super().__init__(full_path, required_keys)

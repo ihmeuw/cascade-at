@@ -5,15 +5,16 @@ from pathlib import Path
 from textwrap import fill
 
 import networkx as nx
+from gridengineapp import entry
 
 from cascade.core import getLoggers
+from cascade.core.db import use_local_odbc_ini
 from cascade.executor.execution_context import make_execution_context
 from cascade.executor.job_definitions import job_graph_from_settings
+from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
-from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 
-from cascade.core.db import use_local_odbc_ini
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -30,10 +31,18 @@ class DismodAT:
         settings (SimpleNamespace): Settings for the whole run.
         execution_context (ExecutionContext): defines the environment.
     """
-    def __init__(self, locations=None, settings=None, execution_context=None):
+    def __init__(
+            self,
+            locations=None,
+            settings=None,
+            execution_context=None,
+            args=None
+    ):
         self.locations = locations
         self.settings = settings
         self.execution_context = execution_context
+        self.args = args
+        self._job_graph = None
 
     def add_arguments(self, parser=None):
         """Add arguments to an argument parser. These arguments are relevant
@@ -131,14 +140,15 @@ class DismodAT:
         sub_graph.add_argument("--name", type=str, help="job within the recipe")
         return parser
 
+    @staticmethod
+    def job_id_to_arguments(job_id):
+        # Our job_id is a custom class that knows what its arguments are.
+        return job_id.arguments
+
     def initialize(self, args):
+        self.args = args
         use_local_odbc_ini()
-        if args.create_settings:
-            self.create_settings(args)
-        else:
-            self.load_settings(args)
-            if args.save_settings:
-                app.save_settings(args)
+        self.create_settings(args)
 
     def create_settings(self, args):
         # We need a sort-of-correct execution context when we first load
@@ -181,11 +191,14 @@ class DismodAT:
         CODELOG.info(f"Saving settings to {setting_file} "
                      f"and locations to {location_file}")
 
-    def graph_of_jobs(self, args):
-        return job_graph_from_settings(self.locations, self.settings, args)
+    def job_graph(self):
+        if self._job_graph is None:
+            self._job_graph = job_graph_from_settings(
+                self.locations, self.settings, self.args, self.execution_context)
+        return self._job_graph
 
-    def sub_graph_to_run(self, args):
-        job_graph = self.graph_of_jobs(args)
+    def job_identifiers(self, args):
+        job_graph = self.job_graph()
         nodes = job_graph.nodes
 
         for search in ["location_id", "recipe", "sex", "name"]:
@@ -195,6 +208,9 @@ class DismodAT:
         sub_graph = nx.subgraph(job_graph, nodes)
         sub_graph.graph["execution_context"] = self.execution_context
         return sub_graph
+
+    def job(self, identifier):
+        return self.job_graph().nodes[identifier]["job"]
 
 
 def execution_context_without_settings(args):
@@ -227,6 +243,10 @@ def configure_execution_context_from_settings(execution_context, settings):
         setattr(execution_context.parameters, param, getattr(settings.model, param))
 
 
-if __name__ == "__main__":
+def cascade_entry():
     app = DismodAT()
     entry(app)
+
+
+if __name__ == "__main__":
+    cascade_entry()
