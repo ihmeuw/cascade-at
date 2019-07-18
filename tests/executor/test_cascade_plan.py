@@ -10,7 +10,7 @@ from cascade.executor.dismodel_main import DismodAT
 from cascade.executor.execution_context import make_execution_context
 from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.input_data.configuration.form import RandomEffectBound
-from cascade.runner.graph_execute import execution_ordered
+from gridengineapp import execution_ordered
 
 SUBJOBS_PER_LOCATION = 3
 

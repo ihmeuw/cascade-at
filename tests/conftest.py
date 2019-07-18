@@ -4,10 +4,8 @@ import networkx as nx
 import pytest
 
 import cascade.core.db
-import cascade.runner.grid_process
 
 cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
-cascade.runner.grid_process.BLOCK_QCALLS = True
 
 
 @pytest.fixture
@@ -80,8 +78,6 @@ class ClusterFuncArg:
     def __init__(self, request):
         if not request.config.getoption("cluster"):
             pytest.skip(f"specify --cluster to run tests requiring the cluster")
-
-        cascade.runner.grid_process.BLOCK_QCALLS = False
 
 
 @pytest.fixture

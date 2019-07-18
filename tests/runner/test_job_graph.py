@@ -9,13 +9,13 @@ class FitFixed(CascadeJob):
     def __init__(self, recipe_id, local_settings):
         super().__init__("fit_fixed", recipe_id, local_settings)
 
-        self.inputs = dict(
+        self.inputs.update(dict(
             db_file=FileEntity("fixed.db", 23),
             parent_draws=FileEntity("posterior_predictions.csv", 23),
-        )
-        self.outputs = dict(
+        ))
+        self.outputs.update(dict(
             fit_fixed=FileEntity("fixed.db", 47)
-        )
+        ))
 
     def __call__(self, execution_context):
         raise RuntimeError(f"Don't call me.")

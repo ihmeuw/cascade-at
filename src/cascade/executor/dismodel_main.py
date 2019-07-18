@@ -11,9 +11,9 @@ from cascade.executor.execution_context import make_execution_context
 from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
-from cascade.runner.entry import entry
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 
+from cascade.core.db import use_local_odbc_ini
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
@@ -130,6 +130,15 @@ class DismodAT:
         sub_graph.add_argument("--recipe", type=str, help="name of the recipe")
         sub_graph.add_argument("--name", type=str, help="job within the recipe")
         return parser
+
+    def initialize(self, args):
+        use_local_odbc_ini()
+        if args.create_settings:
+            self.create_settings(args)
+        else:
+            self.load_settings(args)
+            if args.save_settings:
+                app.save_settings(args)
 
     def create_settings(self, args):
         # We need a sort-of-correct execution context when we first load

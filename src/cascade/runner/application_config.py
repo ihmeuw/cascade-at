@@ -1,29 +1,39 @@
+from configparser import ConfigParser
 from functools import lru_cache
+from os import linesep
 
-import pkg_resources
-import toml
+from pkg_resources import resource_string, iter_entry_points
+
+from cascade.core import getLoggers
+
+CODELOG, MATHLOG = getLoggers(__name__)
 
 
 @lru_cache(maxsize=1)
 def application_config():
-    """
-    Read application configuration, first from a local configuration file,
-    then from a configuration file that's specific to this installation.
-    We split the installations so that paths that are specific to the
-    Institute are kept local.
+    """Returns a configuration dictionary.
+    If something passes in an object of type ConfigParser,
+    then we use that.
 
-    The data files are in TOML because it's a predictable form of ini file.
+    Args:
+        alternate_configparser (ConfigParser.SectionProxy):
+            If this is passed in, then use this instead of
+            the internal config parser.
 
     Returns:
-        Dict[str,str]: A dictionary of settings.
+        ConfigParser.SectionProxy: This is a mapping type.
     """
-    base_data = pkg_resources.resource_string("cascade.executor", "data/config.toml")
-    parameters = toml.loads(base_data.decode())
-    try:
-        if pkg_resources.resource_exists("cascade.local_config", "config.toml"):
-            raw_data = pkg_resources.resource_string("cascade.local_config", "config.toml")
-            parameters.update(toml.loads(raw_data.decode()))
-    except ModuleNotFoundError:
-        pass  # This won't be installed unless it's an infrastructure install.
-    parameters.update(parameters)
-    return parameters
+    parser = ConfigParser()
+    bytes_data = resource_string("cascade.executor", "data/config.cfg")
+    parser.read_string(bytes_data.decode())
+    config_sources = list()
+    for entry_point in iter_entry_points("ihmeuw.config", "cascade"):
+        CODELOG.debug(f"Found configuration in distribution {entry_point.dist}")
+        config_sources.append(entry_point.dist)
+        parser.read_dict(entry_point.load()())
+    if len(config_sources) > 1:
+        MATHLOG.info(
+            f"More than one configuration, loaded in the order {linesep}"
+            f"{linesep.join(str(cs) for cs in config_sources)}"
+        )
+    return parser

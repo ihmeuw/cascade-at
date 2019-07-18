@@ -1,7 +1,10 @@
-import networkx as nx
+import os
 
 import gridengineapp
+import networkx as nx
+
 from cascade.core import getLoggers
+from cascade.input_data.configuration import SettingsError
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -108,11 +111,10 @@ class CascadeJob(gridengineapp.Job):
     This corresponds to Grid Engine jobs and tasks.
     """
     def __init__(self, name, recipe_identifier, local_settings):
+        super().__init__()
         self.name = name
         self.recipe = recipe_identifier
         self.local_settings = local_settings
-        self.inputs = dict()
-        self.outputs = dict()
         if name != "compute_draws_from_parent_fit":
             self.multiplicity = 1
         else:
@@ -134,6 +136,22 @@ class CascadeJob(gridengineapp.Job):
     def thread_resource(self):
         """The thread is a thread of execution and an integer."""
         return 2
+
+    def run(self):
+        try:
+            self._run()
+        except SettingsError as e:
+            MATHLOG.error(str(e))
+            CODELOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
+            error_lines = list()
+            for error_spot, human_spot, error_message in e.form_errors:
+                if args.settings_file is not None:
+                    error_location = error_spot
+                else:
+                    error_location = human_spot
+                error_lines.append(f"\t{error_location}: {error_message}")
+            MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
+            exit(1)
 
     def mock_run(self, execution_context, check_inputs=True):
         if check_inputs:

@@ -19,14 +19,13 @@ class GlobalPrepareData(CascadeJob):
     def __init__(self, recipe_id, local_settings):
         super().__init__("global_prepare", recipe_id, local_settings)
         global_location = 0
-        self.inputs = dict()
-        self.outputs = dict(
+        self.outputs.update(dict(
             shared=ShelfFile("globaldata", global_location, "both", required_keys=[
                 "locations", "country_covariate_ids", "country_covariates",
                 "country_covariates_binary", "study_id_to_name", "integrands",
             ]),
             data=PandasFile("globaldata.hdf", global_location, "both"),
-        )
+        ))
 
     def __call__(self, execution_context):
         """
@@ -42,9 +41,9 @@ class FindSingleMAP(CascadeJob):
     """Run the fit without any pre-fit."""
     def __init__(self, recipe_id, local_settings, recipe_graph_neighbors):
         super().__init__("find_single_maximum", recipe_id, local_settings)
-        self.inputs = dict(
+        self.inputs.update(dict(
             input_data=PandasFile("globaldata.hdf", 0, "both"),
-        )
+        ))
         parent_location_id = local_settings.parent_location_id
         estimation_parent = [
             predecessor for predecessor in recipe_graph_neighbors["predecessors"]
@@ -55,8 +54,8 @@ class FindSingleMAP(CascadeJob):
             grandparent_sex = estimation_parent[0].sex
             self.inputs["grandparent"] = PandasFile(
                 "summary.hdf", grandparent_location, grandparent_sex)
-        self.outputs = dict(
-            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
+        self.outputs["db_file"] = DbFile(
+            "fit.db", parent_location_id, recipe_id.sex
         )
 
     def __call__(self, execution_context):
@@ -76,9 +75,7 @@ class FindFixedMAP(CascadeJob):
     """Do a "fit fixed" which will precede the "fit both"."""
     def __init__(self, recipe_id, local_settings, neighbors):
         super().__init__("find_maximum_fixed", recipe_id, local_settings)
-        self.inputs = dict(
-            input_data=PandasFile("globaldata.hdf", 0, "both"),
-        )
+        self.inputs["input_data"] = PandasFile("globaldata.hdf", 0, "both")
         parent_location_id = local_settings.parent_location_id
         estimation_parent = [
             predecessor for predecessor in neighbors["predecessors"]
@@ -88,10 +85,9 @@ class FindFixedMAP(CascadeJob):
             grandparent_location = estimation_parent[0].location_id
             grandparent_sex = estimation_parent[0].sex
             self.inputs["grandparent"] = PandasFile(
-                "summary.hdf", grandparent_location, grandparent_sex)
-        self.outputs = dict(
-            db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
-        )
+                "summary.hdf", grandparent_location, grandparent_sex
+            )
+        self.outputs["db_file"] = DbFile("fit.db", parent_location_id, recipe_id.sex)
 
     def __call__(self, execution_context):
         pass
@@ -102,13 +98,13 @@ class FindBothMAP(CascadeJob):
     def __init__(self, recipe_id, local_settings):
         super().__init__("find_maximum_both", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
-        self.inputs = dict(
+        self.inputs.update(dict(
             input_data=PandasFile("globaldata.hdf", 0, "both"),
             db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
-        )
-        self.outputs = dict(
+        ))
+        self.outputs.update(dict(
             db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
-        )
+        ))
 
     def __call__(self, execution_context):
         pass
@@ -119,11 +115,10 @@ class ConstructDraw(CascadeJob):
     def __init__(self, recipe_id, local_settings):
         super().__init__("draw", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
-        self.inputs = dict(
+        self.inputs.update(dict(
             db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
-        )
+        ))
         draw_cnt = local_settings.number_of_fixed_effect_samples
-        self.outputs = dict()
         for draw_idx in range(draw_cnt):
             draw_file = DbFile(f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
             self.outputs[f"db_file{draw_idx}"] = draw_file
@@ -138,16 +133,16 @@ class Summarize(CascadeJob):
         super().__init__("summarize", recipe_id, local_settings)
         parent_location_id = local_settings.parent_location_id
         draw_cnt = local_settings.number_of_fixed_effect_samples
-        self.inputs = dict(
+        self.inputs.update(dict(
             input_data=PandasFile("globaldata.hdf", 0, "both"),
             db_file=DbFile("fit.db", parent_location_id, recipe_id.sex),
-        )
+        ))
         for draw_idx in range(draw_cnt):
             draw_file = DbFile(f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
             self.inputs[f"db_file{draw_idx}"] = draw_file
-        self.outputs = dict(
+        self.outputs.update(dict(
             summary=PandasFile("summary.hdf", parent_location_id, recipe_id.sex)
-        )
+        ))
 
     def __call__(self, execution_context):
         pass

@@ -3,7 +3,7 @@ from setuptools import setup, PEP420PackageFinder
 setup(
     name="cascade",
     packages=PEP420PackageFinder.find("src"),
-    package_data={"cascade.executor": ["data/*.toml"]},
+    package_data={"cascade.executor": ["data/*.cfg"]},
     package_dir={"": "src"},
     use_scm_version=True,
     setup_requires=["setuptools_scm"],
