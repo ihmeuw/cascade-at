@@ -7,9 +7,11 @@ setup(
     package_dir={"": "src"},
     use_scm_version=True,
     setup_requires=["setuptools_scm"],
-    install_requires=["numpy", "pandas", "scipy", "toml", "sqlalchemy", "networkx",
-                      "tables", "python-intervals", "rocketsonde @ git+https://github.com/ihmeuw/rocketsonde.git",
-                      "h5py"],
+    install_requires=[
+        "numpy", "pandas", "scipy", "toml", "sqlalchemy", "networkx",
+        "tables", "python-intervals", "rocketsonde @ git+https://github.com/ihmeuw/rocketsonde.git",
+        "gridengineapp @ git+https://github.com/ihmeuw/gridengineapp.git",
+        "h5py"],
     extras_require={
         "testing": ["hypothesis", "pytest", "pytest-mock"],
         "documentation": ["sphinx", "sphinx_rtd_theme", "sphinx-autobuild", "sphinxcontrib-napoleon"],
