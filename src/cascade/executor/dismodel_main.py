@@ -44,7 +44,8 @@ class DismodAT:
         self.args = args
         self._job_graph = None
 
-    def add_arguments(self, parser=None):
+    @staticmethod
+    def add_arguments(parser=None):
         """Add arguments to an argument parser. These arguments are relevant
         to the application but not to how it is run.
 

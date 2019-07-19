@@ -16,13 +16,13 @@ from pprint import pprint
 from textwrap import dedent
 
 import networkx as nx
+from gridengineapp import execution_ordered
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import recipe_graph_from_settings
 from cascade.executor.dismodel_main import DismodAT
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings
-
 
 BASE_CASE = {
     "model": {
@@ -347,14 +347,16 @@ def create_local_settings(rng=None, settings=None, locations=None):
     else:
         choices = rng
     # skip-cache says to use tier 2, not tier 3 so that we don't need CSMR there.
-    app = DismodAT()
-    args = app.add_arguments().parse_args(["--skip-cache"])
+    args = DismodAT.add_arguments().parse_args(["--skip-cache"])
     depth = 4
     locations = locations if locations else make_locations(depth)
     settings = create_settings(choices, locations)
+    print(f"location count {len(locations)}")
     recipe_graph = recipe_graph_from_settings(locations, settings, args)
+    print(f"recipe graph nodes={len(recipe_graph)}")
     # skip-cache also turns off the first, non-estimation, job.
-    jobs = recipe_graph.nodes
+    jobs = list(execution_ordered(recipe_graph))
+    assert len(jobs) > 0
     job_choice = choices.choice(list(range(len(jobs))), name="job_idx")
-    local_settings = recipe_graph.node[jobs[job_choice]]["local_settings"]
+    local_settings = recipe_graph.nodes[jobs[job_choice]]["local_settings"]
     return local_settings, locations
