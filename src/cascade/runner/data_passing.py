@@ -48,12 +48,12 @@ class DbFile(FileEntity):
         Returns:
             None, on success, or a string on error.
         """
+        super_message = super().validate()
+        if super_message is not None:
+            return super_message
         if not self._tables:
             return
-        path = self.path
-        if not path.exists():
-            return f"File {path} not found"
-        with sqlite3.connect(path) as conn:
+        with sqlite3.connect(self.path) as conn:
             result = conn.execute("select name from sqlite_master where type='table'")
             tables = {x[0] for x in result}
 

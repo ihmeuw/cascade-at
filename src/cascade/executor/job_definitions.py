@@ -46,7 +46,7 @@ class FindSingleMAP(CascadeJob):
             self.inputs["grandparent"] = PandasFile(
                 execution_context, "summary.hdf", grandparent_location, grandparent_sex)
         self.outputs["db_file"] = DbFile(
-            "fit.db", parent_location_id, recipe_id.sex
+            execution_context, "fit.db", parent_location_id, recipe_id.sex
         )
 
 
@@ -214,14 +214,25 @@ def recipe_to_jobs(recipe_identifier, local_settings, neighbors, execution_conte
     """
     sub_jobs = list()
     if recipe_identifier.recipe == "bundle_setup":
-        bundle_setup = GlobalPrepareData(recipe_identifier, local_settings, execution_context)
+        bundle_setup = GlobalPrepareData(
+            recipe_identifier, local_settings, execution_context
+        )
         sub_jobs.append(bundle_setup)
     elif recipe_identifier.recipe == "estimate_location":
         if local_settings.policies.fit_strategy == "fit_fixed_then_fit":
-            sub_jobs.append(FindFixedMAP(recipe_identifier, local_settings, neighbors, execution_context))
-            sub_jobs.append(FindBothMAP(recipe_identifier, local_settings, execution_context))
+            sub_jobs.append(
+                FindFixedMAP(
+                    recipe_identifier, local_settings, neighbors, execution_context
+                ))
+            sub_jobs.append(
+                FindBothMAP(
+                    recipe_identifier, local_settings, execution_context
+                ))
         else:
-            sub_jobs.append(FindSingleMAP(recipe_identifier, local_settings, neighbors, execution_context))
+            sub_jobs.append(
+                FindSingleMAP(
+                    recipe_identifier, local_settings, neighbors, execution_context
+                ))
         sub_jobs.extend([
             ConstructDraw(recipe_identifier, local_settings, execution_context),
             Summarize(recipe_identifier, local_settings, neighbors, execution_context),

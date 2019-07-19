@@ -48,11 +48,10 @@ def test_prepare_data(context):
     recipe_id = RecipeIdentifier(21, "bundle_setup", "both")
     local_settings = SimpleNamespace()
     local_settings.parent_location_id = 22
-    prepare = GlobalPrepareData(recipe_id, local_settings)
-    assert not prepare.input_missing(ec)
-    assert prepare.output_missing(ec) is not None
-    prepare.mock_run(ec)
-    assert not prepare.output_missing(ec)
+    prepare = GlobalPrepareData(recipe_id, local_settings, ec)
+    assert not prepare.done()
+    prepare.mock_run()
+    assert prepare.done()
 
 
 def test_global_estimate(context):
@@ -60,19 +59,18 @@ def test_global_estimate(context):
     recipe_id = RecipeIdentifier(1, "bundle_setup", "both")
     local_settings = SimpleNamespace()
     local_settings.parent_location_id = 1
-    prepare = GlobalPrepareData(recipe_id, local_settings)
+    prepare = GlobalPrepareData(recipe_id, local_settings, ec)
     global_recipe = RecipeIdentifier(1, "estimate_location", "both")
     neighbors = dict(
         predecessors=[recipe_id],
     )
-    single = FindSingleMAP(global_recipe, local_settings, neighbors)
-    assert single.input_missing(ec) is not None
-    prepare.mock_run(ec)
-    assert not single.input_missing(ec)
-
-    assert single.output_missing(ec) is not None
-    single.mock_run(ec)
-    assert not single.output_missing(ec)
+    single = FindSingleMAP(global_recipe, local_settings, neighbors, ec)
+    assert not single.done()
+    prepare.mock_run()
+    single.mock_run()
+    for outname, output in single.outputs.items():
+        print(f"{outname}:\n\t{output.path}\n\t{output.validate()}")
+    assert single.done()
 
 
 @pytest.mark.skip("find how to run_mock")
@@ -98,7 +96,7 @@ def test_recipe_level(context, pyramid_locations):
 
         recipe_graph.nodes[recipe_id]["local_settings"] = local_settings
 
-    add_job_list(recipe_graph)
+    add_job_list(recipe_graph, ec)
     job_graph = recipe_graph_to_job_graph(recipe_graph)
     work = dict(execution_context=ec)
     run_mock(work, job_graph, continuation=False)

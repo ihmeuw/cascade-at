@@ -18,27 +18,30 @@ SUBJOBS_PER_LOCATION = 3
 def test_create_start_finish(ihme):
     app = DismodAT()
     args = app.add_arguments().parse_args(["--mvid", "267845"])
+    app.initialize(args)
     app.settings.model.split_sex = 3
     app.settings.model.drill_location_start = 4
     app.settings.model.drill_location_end = 6
-    job_graph = app.job_graph(args)
+    job_graph = app.job_graph()
     assert len(job_graph) == 1 + SUBJOBS_PER_LOCATION * 3
 
 
 def test_single_start_finish(ihme):
     app = DismodAT()
     args = app.add_arguments().parse_args(["--mvid", "267845"])
+    app.initialize(args)
     app.settings.model.split_sex = 3
     app.settings.model.drill_location_start = 6
     app.settings.model.drill_location_end = 6
-    job_graph = app.job_graph(args)
+    job_graph = app.job_graph()
     assert len(job_graph) == 1 + SUBJOBS_PER_LOCATION
 
 
 def test_iterate_tasks(ihme):
     app = DismodAT()
     args = app.add_arguments().parse_args(["--mvid", "267770"])
-    job_graph = app.job_graph(args)
+    app.initialize(args)
+    job_graph = app.job_graph()
     ordered = execution_ordered(job_graph)
     cnt = 0
     for idx, job_id in enumerate(ordered):
@@ -63,7 +66,9 @@ def test_random_settings():
         settings = create_settings(rng, locations)
         app = DismodAT(locations, settings, execution_context)
         args = app.add_arguments().parse_args(["--mvid", "267770"])
-        job_graph = job_graph_from_settings(locations, settings, args)
+        job_graph = job_graph_from_settings(
+            locations, settings, args, execution_context
+        )
         for idx, job_id in enumerate(execution_ordered(job_graph)):
             job = job_graph.nodes[job_id]["job"]
             if idx > 0:

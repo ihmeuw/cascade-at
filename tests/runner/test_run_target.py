@@ -47,13 +47,15 @@ from cascade.executor.cascade_plan import (
     global_recipe_graph,
     drill_recipe_graph,
 )
-from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.executor.create_settings import create_settings
+from cascade.executor.execution_context import make_execution_context
+from cascade.executor.job_definitions import job_graph_from_settings
 
 """
 dmrun --mvid 2345234 --create-settings --save-settings --grid-engine
 dmrun --mvid 2345234 --location-id 1 --recipe bundle_setup
 """
+
 
 @pytest.mark.skip("target")
 def test_multiple_process_run():
@@ -181,8 +183,13 @@ def test_drill_recipe_graph(locations, basic_settings, build_args):
 def test_generate_job_graph(locations, basic_settings, build_args):
     """
     """
+    execution_context = make_execution_context(
+        gbd_round_id=6, num_processes=4
+    )
     basic_settings.model.drill = "global"
-    job_graph = job_graph_from_settings(locations, basic_settings, build_args)
+    job_graph = job_graph_from_settings(
+        locations, basic_settings, build_args, execution_context
+    )
     assert isinstance(job_graph, nx.DiGraph)
     assert nx.is_directed_acyclic_graph(job_graph)
     assert nx.is_connected(job_graph.to_undirected())

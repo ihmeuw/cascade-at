@@ -60,14 +60,15 @@ def test_application_save_settings(pyramid_locations):
     args = parser.parse_args(
         ["--meid", "4242", "--mvid", "234243"]
     )
+    print(f"args are {dir(args)}")
     ec = execution_context_without_settings(args)
-    app = DismodAT(pyramid_locations, settings, ec)
+    app = DismodAT(pyramid_locations, settings, ec, args)
     app.save_settings()
-    jobs = app.job_graph(args)
+    jobs = app.job_graph()
 
     later_app = DismodAT()
     later_app.load_settings(args)
     assert len(later_app.locations) == len(app.locations)
 
-    later_jobs = later_app.job_graph(args)
+    later_jobs = later_app.job_graph()
     assert len(later_jobs) == len(jobs)

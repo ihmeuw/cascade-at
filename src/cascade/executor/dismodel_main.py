@@ -168,6 +168,7 @@ class DismodAT:
     def load_settings(self, args):
         # The execution context isn't part of the settings, so it is
         # rebuilt here when settings are loaded.
+        self.args = args
         self.execution_context = execution_context_without_settings(args)
         base = self.execution_context.model_base_directory(0)
         setting_file = base / "settings.json"
