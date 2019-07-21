@@ -55,8 +55,8 @@ def children(db_file):
     option = db_file.option
     # The file may have either the parent_node_id or parent_name set,
     # and it might be "none" as a string, or "", or None.
-    parent_id = option[option.option_name == "parent_node_id"].option_value.item()
-    parent_name = option[option.option_name == "parent_node_name"].option_value.item()
+    parent_id = option[option.option_name == "parent_node_id"].option_value.iloc[0]
+    parent_name = option[option.option_name == "parent_node_name"].option_value.iloc[0]
     node = db_file.node
     try:
         parent_node_id = int(parent_id)

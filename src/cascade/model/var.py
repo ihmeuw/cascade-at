@@ -150,7 +150,7 @@ class Var(AgeTimeGrid):
         result = self._spline(age, time)
         # Result can be a numpy array, so undo that if input wasn't an array.
         if np.isscalar(age) and np.isscalar(time):
-            return result.item()
+            return result.item()  # Numpy array has item().
         else:
             return result
 

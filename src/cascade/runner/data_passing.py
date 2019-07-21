@@ -53,7 +53,7 @@ class DbFile(FileEntity):
             return super_message
         if not self._tables:
             return
-        with sqlite3.connect(self.path) as conn:
+        with sqlite3.connect(str(self.path)) as conn:
             result = conn.execute("select name from sqlite_master where type='table'")
             tables = {x[0] for x in result}
 
@@ -65,7 +65,7 @@ class DbFile(FileEntity):
         to the columns that are actually expected."""
         if not self._tables:
             self.path.open("w").close()
-        with sqlite3.connect(self.path) as conn:
+        with sqlite3.connect(str(self.path)) as conn:
             for table in self._tables:
                 conn.execute(f"CREATE TABLE {table} (key text, value text)")
             conn.commit()

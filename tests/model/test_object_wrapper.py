@@ -152,7 +152,7 @@ def test_locations_no_name():
         assert find_col in node_table.columns
     loc_df = session.locations
     for loc, node_id in [(1, 0), (2, 1), (3, 2), (4, 3)]:
-        assert loc_df[loc_df.location_id == loc].node_id.item() == node_id
+        assert loc_df[loc_df.location_id == loc].node_id.iloc[0] == node_id
 
     assert node_table.at[2, "node_name"] == "3"
 
