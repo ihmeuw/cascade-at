@@ -1,11 +1,10 @@
 import json
 import pickle
-from argparse import ArgumentParser
 from pathlib import Path
 from textwrap import fill
 
 import networkx as nx
-from gridengineapp import entry
+from gridengineapp import entry, GridParser
 
 from cascade.core import getLoggers
 from cascade.core.db import use_local_odbc_ini
@@ -14,6 +13,8 @@ from cascade.executor.job_definitions import job_graph_from_settings
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
+from cascade.runner.application_config import application_config
+from cascade.runner.cascade_logging import logging_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -56,7 +57,7 @@ class DismodAT:
             ArgumentParser: The one that is created, or the one passed in.
         """
         if parser is None:
-            parser = ArgumentParser()
+            parser = GridParser()
         parser.add_argument(
             "--meid", type=int,
             help="Modelable entity ID. This identifies the cause of disease.",
@@ -139,6 +140,36 @@ class DismodAT:
         sub_graph.add_argument("--sex", type=str, help="sex as male, female, both")
         sub_graph.add_argument("--recipe", type=str, help="name of the recipe")
         sub_graph.add_argument("--name", type=str, help="job within the recipe")
+
+        config = application_config()["DataLayout"]
+        root_dir = Path(config["root-directory"]).resolve()
+        code_log = config["code-log-directory"]
+        epiviz_log = config["epiviz-log-directory"]
+        log_parse = parser.add_argument_group(
+            "logs",
+            "Options that affect logging",
+        )
+        log_parse.add_argument(
+            "-v", "--verbose", action="count", default=0,
+            help="Increase verbosity of logging")
+        log_parse.add_argument(
+            "-q", "--quiet", action="count", default=0,
+            help="Decrease verbosity of logging")
+        log_parse.add_argument(
+            "--logmod", action="append", default=[],
+            help="Set logging to debug for submodule")
+        log_parse.add_argument(
+            "--modlevel", type=str, default="debug",
+            help="Log level for specified modules")
+        log_parse.add_argument(
+            "--epiviz-log", type=Path, default=epiviz_log,
+            help="Directory for EpiViz log")
+        log_parse.add_argument(
+            "--code-log", type=Path, default=code_log,
+            help="Directory for code log")
+        log_parse.add_argument(
+            "--root-dir", type=Path, default=root_dir,
+            help="Directory to use as root for logs.")
         return parser
 
     @staticmethod
@@ -149,6 +180,7 @@ class DismodAT:
     def initialize(self, args):
         self.args = args
         use_local_odbc_ini()
+        logging_config(args)
         self.create_settings(args)
 
     def create_settings(self, args):

@@ -1,39 +1,39 @@
 import getpass
 import logging
 import os
-from pathlib import Path
-import pkg_resources
-import pytest
 import stat
-import toml
+from pathlib import Path
 
-from cascade.runner.argument_parser import DMArgumentParser, ArgumentException
+import pytest
+from gridengineapp import ArgumentError
+
+from cascade.executor.dismodel_main import DismodAT
 from cascade.runner.cascade_logging import logging_config
 
 
 def test_argparse_happy():
-    parser = DMArgumentParser()
+    parser = DismodAT.add_arguments()
     args = parser.parse_args(["-v"])
     assert args.verbose == 1
 
 
 def test_argparse_functions():
-    parser = DMArgumentParser()
+    parser = DismodAT.add_arguments()
     args = parser.parse_args([])
     assert args.quiet == 0
     assert not args.logmod
 
 
 def test_argparse_quiet():
-    parser = DMArgumentParser()
+    parser = DismodAT.add_arguments()
     args = parser.parse_args(["-q"])
     assert args.verbose == 0
     assert args.quiet == 1
 
 
 def test_argparse_fail():
-    parser = DMArgumentParser()
-    with pytest.raises(ArgumentException):
+    parser = DismodAT.add_arguments()
+    with pytest.raises(ArgumentError, match="expected one argument"):
         parser.parse_args(["--hiya", "there", "--logmod"])
 
 
@@ -48,10 +48,13 @@ def close_all_handlers():
 
 def test_math_log(tmpdir):
     tmp_dir = Path(tmpdir)
-    parser = DMArgumentParser()
+    parser = DismodAT.add_arguments()
+    mvid = "32768"
     # The math log will ignore the -v here, which sets others to DEBUG level.
     args = parser.parse_args([
-        "-v", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+        "-v", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir),
+        "--mvid", mvid,  # Must have an mvid for math log to happen.
+    ])
     logging_config(args)
     mathlog = logging.getLogger("cascade.math.complicated")
     mathlog.debug("debugfi")
@@ -60,7 +63,6 @@ def test_math_log(tmpdir):
     mathlog.error("errorhum")
     close_all_handlers()
 
-    mvid = "mvid"  # because there is no mvid defined here, so it's a default.
     in_log = (tmp_dir / mvid / "log.log").read_text().splitlines()
     print(f"math log is ========={in_log}==============")
     assert any("infofum" in in_line for in_line in in_log)
@@ -73,8 +75,10 @@ def test_math_log(tmpdir):
 def test_code_log(tmpdir):
     previous_umask = os.umask(0o002)
     tmp_dir = Path(tmpdir)
-    parser = DMArgumentParser()
-    args = parser.parse_args(["--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
+    parser = DismodAT.add_arguments()
+    args = parser.parse_args([
+        "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir),
+    ])
     logging_config(args)
 
     codelog = logging.getLogger("cascade.whatever.complicated")
@@ -100,7 +104,7 @@ def test_code_log(tmpdir):
 
 def test_reduced_code_log(tmpdir):
     tmp_dir = Path(tmpdir)
-    parser = DMArgumentParser()
+    parser = DismodAT.add_arguments()
     args = parser.parse_args(
         ["-q", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
     logging_config(args)
@@ -122,8 +126,12 @@ def test_reduced_code_log(tmpdir):
 
 def test_math_log_fail_bad_dir(tmpdir, capsys):
     tmp_dir = Path(tmpdir)
-    parser = DMArgumentParser()
-    args = parser.parse_args(["--epiviz-log", "bogus", "--code-log", str(tmp_dir)])
+    parser = DismodAT.add_arguments()
+    mvid = "191009"
+    args = parser.parse_args([
+        "--epiviz-log", "bogus", "--code-log", str(tmp_dir),
+        "--mvid", mvid,  # must have an mvid
+    ])
     logging_config(args)
     close_all_handlers()
 
@@ -133,37 +141,15 @@ def test_math_log_fail_bad_dir(tmpdir, capsys):
 
 def test_math_log_fail_subdir_fail(tmpdir, capsys):
     tmp_dir = Path(tmpdir)
+    mvid = "191009"
     ez_log = tmp_dir / "ezlog"
     ez_log.mkdir(mode=stat.S_IWUSR)  # This should be a creative failure.
-    parser = DMArgumentParser()
-    args = parser.parse_args(["--epiviz-log", str(ez_log), "--code-log", str(tmp_dir)])
+    parser = DismodAT.add_arguments()
+    args = parser.parse_args([
+        "--epiviz-log", str(ez_log), "--code-log", str(tmp_dir),
+        "--mvid", mvid,  # must have an mvid
+    ])
     logging_config(args)
 
     logging.getLogger("cascade.whatever.complicated")
     assert "Could not make" in capsys.readouterr().err
-
-
-def test_parameter_file_proper_toml():
-    """Tells you what line of the TOML has an error"""
-    ll = pkg_resources.resource_string("cascade.executor", "data/parameters.toml").decode().split("\n")
-    for i in range(1, len(ll)):
-        try:
-            toml.loads("".join(ll[:i]))
-        except toml.TomlDecodeError:
-            assert False, f"failed on line {i}: {ll[i-1]}"
-
-
-def test_read_parameters():
-    """
-    Did you modify the parameters.toml file? This checks that your edits
-    didn't sabotage that file.
-    """
-    arguments = toml.loads(pkg_resources.resource_string("cascade.executor", "data/parameters.toml").decode())
-    assert isinstance(arguments, dict)
-    assert len(arguments) > 10
-    for name, arg in arguments.items():
-        assert "type" in arg, f"{name} has no type"
-        assert "help" in arg, f"{name} has no help"
-        assert "_" not in name  # dashes, not underscores
-        if "default" in arg:
-            assert type(arg["default"]).__name__ == arg["type"], f"{name} is wrong type"
