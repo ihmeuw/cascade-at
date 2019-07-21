@@ -11,3 +11,4 @@ Operations and Maintenance
    dismod_container
    dbsync
    meid_quota
+   application_config

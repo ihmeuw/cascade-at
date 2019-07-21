@@ -1,19 +1,16 @@
 import asyncio
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from numpy import nan
 from timeit import default_timer as timer
 from types import SimpleNamespace
 
 import pandas as pd
+from numpy import nan
 
 from cascade.core import getLoggers
 from cascade.core.db import db_queries, age_spans
 from cascade.dismod import DismodATException
-from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
-from cascade.executor.covariate_description import create_covariate_specifications
-from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.executor.session_options import make_options, make_minimum_meas_cv
 from cascade.input_data.configuration.construct_bundle import (
     normalized_bundle_from_database,
@@ -22,10 +19,9 @@ from cascade.input_data.configuration.construct_bundle import (
     strip_bundle_exclusions,
     dataframe_from_disk)
 from cascade.input_data.configuration.construct_country import check_binary_covariates
+from cascade.input_data.configuration.construct_country import convert_gbd_ids_to_dismod_values
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr, normalize_csmr
 from cascade.input_data.configuration.id_map import make_integrand_map
-from cascade.input_data.configuration.local_cache import LocalCache
-from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.country_covariates import country_covariate_set
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
@@ -33,89 +29,12 @@ from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 from cascade.model.session import Session
 from cascade.saver.save_prediction import save_predicted_value, uncertainty_from_prediction_draws
-from cascade.input_data.configuration.construct_country import convert_gbd_ids_to_dismod_values
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def prepare_data_for_estimate(execution_context, local_settings, local_cache):
-    """
-    Estimates rates for a single location in the location hierarchy.
-    This does multiple fits and predictions in order to estimate uncertainty.
-
-    Args:
-        execution_context: Describes environment for this process.
-        local_settings: A dictionary describing the work to do. This has
-            a location ID corresponding to the location for this fit.
-    """
-    covariate_multipliers, covariate_data_spec = create_covariate_specifications(
-        local_settings.settings.country_covariate, local_settings.settings.study_covariate
-    )
-    local_cache.set("covariate_multipliers:{local_settings.parent_location_id}", covariate_multipliers)
-    local_cache.set("covariate_data_spec:{local_settings.parent_location_id}", covariate_data_spec)
-    input_data = retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache)
-    columns_wrong = validate_input_data_types(input_data)
-    assert not columns_wrong, f"validation failed {columns_wrong}"
-    modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
-    local_cache.set("prepared_input_data:{local_settings.parent_location_id}", modified_data)
-
-
-def construct_model_for_estimate_location(local_settings, local_cache):
-    covariate_multipliers = local_cache.get("covariate_multipliers:{local_settings.parent_location_id}")
-    covariate_data_spec = local_cache.get("covariate_data_spec:{local_settings.parent_location_id}")
-    modified_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-    model = construct_model(modified_data, local_settings, covariate_multipliers,
-                            covariate_data_spec)
-    set_priors_from_parent_draws(model, modified_data.draws)
-    local_cache.set("prepared_model:{local_settings.parent_location_id}", model)
-
-
-def initial_guess_from_fit_fixed(execution_context, local_settings, local_cache):
-    model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
-    input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-    initial_guess = local_cache.get("parent_initial_guess:{local_settings.parent_location_id}")
-    fit_result = compute_parent_fit_fixed(execution_context, local_settings, input_data, model, initial_guess)
-    local_cache.set("parent_initial_guess:{local_settings.parent_location_id}", fit_result.fit)
-
-
-def compute_initial_fit(execution_context, local_settings, local_cache):
-    model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
-    input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-    initial_guess = local_cache.get("parent_initial_guess:{local_settings.parent_location_id}")
-    fit_result = compute_parent_fit(execution_context, local_settings, input_data, model, initial_guess)
-    local_cache.set("parent_fit:{local_settings.parent_location_id}", fit_result)
-
-
-def compute_draws_from_parent_fit(execution_context, local_settings, local_cache):
-    model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
-    fit_result = local_cache.get("parent_fit:{local_settings.parent_location_id}")
-    input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-    draws = make_draws(
-        execution_context,
-        model,
-        input_data,
-        fit_result.fit,
-        local_settings,
-        execution_context.parameters.num_processes
-    )
-    if draws:
-        draws, predictions = zip(*draws)
-        local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
-        local_cache.set(f"fit-predictions:{local_settings.parent_location_id}", predictions)
-    else:
-        raise DismodATException("Fit failed for all samples")
-
-
-def save_predictions(execution_context, local_settings, local_cache):
-    if not local_settings.run.no_upload:
-        predictions = local_cache.get(f"fit-predictions:{local_settings.parent_location_id}")
-        fit_result = local_cache.get("parent_fit:{local_settings.parent_location_id}")
-        save_outputs(fit_result, predictions, execution_context, local_settings)
-
-
-def retrieve_data(execution_context, local_settings, covariate_data_spec, local_cache=None):
+def retrieve_data(execution_context, local_settings, covariate_data_spec, grandparent_cache):
     """Gets data from the outside world."""
-    local_cache = local_cache if local_cache else LocalCache()
     data = SimpleNamespace()
     data_access = local_settings.data_access
     model_version_id = data_access.model_version_id
@@ -183,11 +102,11 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, local_
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
     # These are the draws as output of the parent location.
-    data.draws = local_cache.get(f"fit-draws:{local_settings.grandparent_location_id}")
+    data.draws = grandparent_cache.get("fit_draws")
 
     # The parent can also supply integrands as a kind of prior.
     # These will be shaped like input measurement data.
-    data.integrands = local_cache.get(f"fit-integrands:{local_settings.grandparent_location_id}")
+    data.integrands = grandparent_cache.get("fit_integrands")
 
     return data
 

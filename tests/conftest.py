@@ -1,9 +1,12 @@
+from getpass import getuser
+from pathlib import Path
 from uuid import UUID
 
 import networkx as nx
 import pytest
 
 import cascade.core.db
+from cascade.runner.application_config import application_config
 
 cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
 
@@ -43,9 +46,11 @@ def pytest_addoption(parser):
     group.addoption("--ihme", action="store_true",
                     help="run functions requiring access to central comp and Dismod-AT")
     group.addoption("--signals", action="store_true",
-                    help="run functions requiring access to central comp and Dismod-AT")
+                    help="tests using Unix signals can crash the Mac.")
     group.addoption("--dismod", action="store_true",
                     help="requires access to Dismod-AT command line")
+    group.addoption("--cluster", action="store_true",
+                    help="run functions requiring access to fair cluster")
 
 
 @pytest.fixture
@@ -62,6 +67,20 @@ class IhmeDbFuncArg:
             pytest.skip(f"specify --ihme to run tests requiring Central Comp databases")
 
         cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = False
+
+
+@pytest.fixture
+def cluster(request):
+    return ClusterFuncArg(request)
+
+
+class ClusterFuncArg:
+    """
+    Uses a pattern from https://pytest.readthedocs.io/en/2.0.3/example/attic.html
+    """
+    def __init__(self, request):
+        if not request.config.getoption("cluster"):
+            pytest.skip(f"specify --cluster to run tests requiring the cluster")
 
 
 @pytest.fixture
@@ -90,3 +109,21 @@ class DismodFuncArg:
     def __init__(self, request):
         if not (request.config.getoption("dismod") or request.config.getoption("ihme")):
             pytest.skip("specify --dismod or --ihme to run tests requiring Dismod")
+
+
+@pytest.fixture(scope="session")
+def shared_cluster_tmp(tmp_path_factory):
+    """This is a tmp_path that will be available from all cluster nodes
+    inside Grid Engine jobs."""
+    config = application_config()
+    if not config.has_section("gridengineapp"):
+        return None
+    cluster_tmp = application_config()["gridengineapp"]["cluster-tmp"]
+    tmp_path = Path(cluster_tmp.format(user=getuser())) / "tmp"
+    if Path(*tmp_path.parts[:2]).exists():
+        # the fixture still gets made, even if fair isn't chosen.
+        tmp_path.mkdir(parents=True, exist_ok=True)
+        tmp_path_factory._basetemp = tmp_path
+        return tmp_path_factory.mktemp("run")
+    else:
+        return None

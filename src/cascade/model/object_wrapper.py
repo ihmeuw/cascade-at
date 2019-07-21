@@ -122,9 +122,9 @@ class ObjectWrapper:
         node_id = self.get_option("parent_node_id")
         node_name = self.get_option("parent_node_name")
         if node_id is not None:
-            parent_location = location_df[location_df.node_id == node_id].location_id.item()
+            parent_location = location_df[location_df.node_id == node_id].location_id.iloc[0]
         elif node_name is not None:
-            parent_location = location_df[location_df.name == node_name].location_id.item()
+            parent_location = location_df[location_df.name == node_name].location_id.iloc[0]
         else:
             parent_location = None
         return parent_location
@@ -134,7 +134,7 @@ class ObjectWrapper:
         location_df = self.locations
         if location_df.empty:
             raise RuntimeError("Cannot set parent location until locations exist")
-        parent_node_id = location_df[location_df.location_id == value].node_id.item()
+        parent_node_id = location_df[location_df.location_id == value].node_id.iloc[0]
         self.set_option(
             parent_node_id=parent_node_id,
             parent_node_name=nan
@@ -201,7 +201,7 @@ class ObjectWrapper:
         option_df = self.dismod_file.option
         records = option_df[option_df.option_name == name]
         if len(records) == 1:
-            return records.option_value.item()
+            return records.option_value.iloc[0]
         else:
             raise KeyError(f"Option {name} not found in options")
 

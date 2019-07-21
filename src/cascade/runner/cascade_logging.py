@@ -6,7 +6,7 @@ import sys
 from getpass import getuser
 from secrets import token_urlsafe
 
-from cascade.executor.math_log import MathLogFormatter
+from cascade.runner.math_log import MathLogFormatter
 
 
 def logging_config(args):
@@ -35,7 +35,8 @@ def logging_config(args):
     logging.root.setLevel(level)
 
     code_log = _logging_configure_root_log(args.root_dir / args.code_log, level)
-    _logging_configure_mathlog(args.mvid, args.root_dir / args.epiviz_log)
+    mvid = args.mvid if hasattr(args, "mvid") else "mvid"
+    _logging_configure_mathlog(mvid, args.root_dir / args.epiviz_log)
     _logging_individual_modules(args.logmod, args.modlevel)
     if code_log:  # Tell the math log people where the code log is located.
         logging.getLogger("cascade.math").info(f"Code log is at {code_log}")

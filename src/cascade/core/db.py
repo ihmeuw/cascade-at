@@ -7,8 +7,9 @@ import importlib
 from contextlib import contextmanager
 from pathlib import Path
 
-from cascade.core.log import getLoggers
 from cascade.core import CascadeError
+from cascade.core.log import getLoggers
+from cascade.runner.application_config import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -18,7 +19,6 @@ Used to control access to the testing environment. You can't load this
 with from <module> import BLOCK_SHARED_FUNCTION_ACCESS. You have to
 modify the value as ``module_proxy.BLOCK_SHARED_FUNCTION_ACCESS``.
 """
-LOCAL_ODBC = Path("/ihme/code/dismod_at/share/local_odbc.ini")
 
 
 class DatabaseSandboxViolation(CascadeError):
@@ -70,10 +70,13 @@ def use_local_odbc_ini():
     """The password vault is an odbc.ini file that's on a drive that
     isn't accessible from all nodes, so copy it to a place it
     can be found and point the connection generation to it."""
-    have_default = Path("/home/j").exists() or Path("~/.odbc.ini").expanduser().exists()
-    if LOCAL_ODBC.exists() and not have_default:
-        CODELOG.info(f"Using odbc.ini at {LOCAL_ODBC}")
-        db_tools.config.DBConfig(odbc_filepath=str(LOCAL_ODBC))
+    path = application_config()["Database"]
+    local_odbc = Path(path["local-odbc"])
+    have_default = (Path(path["corporate-odbc"]).exists()
+                    or Path(path["personal-odbc"]).expanduser().exists())
+    if local_odbc.exists() and not have_default:
+        CODELOG.info(f"Using odbc.ini at {local_odbc}")
+        db_tools.config.DBConfig(odbc_filepath=str(local_odbc))
     else:
         CODELOG.debug(f"Using default odbc.ini")
 

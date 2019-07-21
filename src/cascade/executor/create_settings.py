@@ -1,16 +1,14 @@
 """
-Constructs random models.
+This is a fairly sophisticated generator of EpiViz-AT settings.
+It makes settings that are internally-consistent and possibly-stochastic.
+You decide how much to specify:
 
-rates 5
-random effects (child count)
-alpha (5*covariates)
-beta, gammma (13*covariates)
+ 1. You can choose parameters you would like to fix to particular values.
+ 2. Pass those parameters to the settings generator.
+ 3. The settings generator creates a random settings file starting from
+    the selections you chose.
 
-none or some of children, covariates, integrands
-
-grid at 1 point or >1 point for age or time
-priors present or absent on value, dage, dtime
-bounds upper/lower can differ between rates, res, and covariates.
+If you don't choose an initial set, then all the parameters are random.
 """
 from configparser import ConfigParser
 from copy import deepcopy
@@ -18,10 +16,11 @@ from pprint import pprint
 from textwrap import dedent
 
 import networkx as nx
+from gridengineapp import execution_ordered
 from numpy.random import RandomState
 
-from cascade.executor.cascade_plan import CascadePlan
-from cascade.executor.dismodel_main import parse_arguments
+from cascade.executor.cascade_plan import recipe_graph_from_settings
+from cascade.executor.dismodel_main import DismodAT
 from cascade.input_data.configuration import SettingsError
 from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 
@@ -94,7 +93,7 @@ BASE_CASE = {
     ],
     "tolerance": {
         "fixed": 1e-10
-    }
+    },
 }
 
 
@@ -326,6 +325,7 @@ class SettingsChoices:
         else:
             assert self.rng, f"Unexpected setting chosen {name} {choices}"
             self.random.append((name, choices))
+            assert len(choices) > 0
             return self.rng.choice(choices, p=p)
 
 
@@ -347,14 +347,16 @@ def create_local_settings(rng=None, settings=None, locations=None):
     else:
         choices = rng
     # skip-cache says to use tier 2, not tier 3 so that we don't need CSMR there.
-    args = parse_arguments(["z.db", "--skip-cache"])
+    args = DismodAT.add_arguments().parse_args(["--skip-cache"])
     depth = 4
     locations = locations if locations else make_locations(depth)
     settings = create_settings(choices, locations)
-    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
+    print(f"location count {len(locations)}")
+    recipe_graph = recipe_graph_from_settings(locations, settings, args)
+    print(f"recipe graph nodes={len(recipe_graph)}")
     # skip-cache also turns off the first, non-estimation, job.
-    j = list(c.cascade_jobs)[0:]
-    job_choice = choices.choice(list(range(len(j))), name="job_idx")
-    job_kind, job_args = c.cascade_job(j[job_choice])
-    assert job_kind.startswith("estimate_location:")
-    return job_args, locations
+    jobs = list(execution_ordered(recipe_graph))
+    assert len(jobs) > 0
+    job_choice = choices.choice(list(range(len(jobs))), name="job_idx")
+    local_settings = recipe_graph.nodes[jobs[job_choice]]["local_settings"]
+    return local_settings, locations

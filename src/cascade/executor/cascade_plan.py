@@ -1,15 +1,18 @@
 """
-Specification for a whole cascade.
+Specification for what parameters are used at what location within
+the Cascade.
 """
+from types import SimpleNamespace
+
 import networkx as nx
 
 from cascade.core import getLoggers
 from cascade.core.parameters import ParameterProperty, _ParameterHierarchy
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.builder import policies_from_settings
-from cascade.input_data.db.locations import (
-    location_id_from_start_and_finish
-)
+from cascade.input_data.configuration.sex import SEX_ID_TO_NAME, SEX_NAME_TO_ID
+from cascade.input_data.db.locations import location_id_from_start_and_finish
+from cascade.runner.job_graph import RecipeIdentifier
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -91,176 +94,204 @@ def add_bound_random_to_location_properties(re_bound_location, locations):
             locations.node[locations.graph["root"]]["bound_random"] = value
 
 
-class CascadePlan:
+def recipe_graph_from_settings(locations, settings, args):
     """
-    Clients are the EpiViz-AT runner and an interactive user for configuration.
-    Collaborators are tools to build a DismodFile object and process its output.
-    Responsible for strategies
+    This defines the full set of recipes that are the model.
+    These may be a subset of all locations,
+    and we may execute a subset of these.
 
-     * to build a model, and
-     * to bootstrap the next model.
+    Args:
+        locations (nx.DiGraph): A graph of locations in a hierarchy.
+        settings (Configuration): The EpiViz-AT Form (in form.py)
+        args (Namespace|SimpleNamespace): Parsed arguments.
 
-    This knows the hierarchy of Dismod-AT models that must be fit,
-    simulated, predicted, and aggregated. Each model in the hierarchy
-    has a unique identifier of the form ``(location_id, index)`` where
-    the index would be 0 for the initial fit and increment for each
-    simulation, for instance.
-
-    Each location is at a level in the hierarchy. Most of the specification
-    depends on the level of the location within the hierarchy.
+    Returns:
+        nx.DiGraph: Each node is a RecipeIdentifier. Edges denote dependency
+        on a previous transform. The graph has a key called "root" that
+        tells you the first node.
     """
+    if not settings.model.is_field_unset("drill") and settings.model.drill == "drill":
+        recipe_graph = drill_recipe_graph(locations, settings, args)
+    else:
+        recipe_graph = global_recipe_graph(locations, settings, args)
 
-    def __init__(self, settings):
-        """
-        There are two kinds of clients, EpiViz-AT and interactive users.
-        EpiViz-AT uses its settings to parameterize this class. Both
-        clients rely on default policies.
-        """
-        self._locations = None
-        self._task_graph = None
-        self._settings = settings
-        self._args = None
+    for recipe_identifier in recipe_graph.nodes:
+        local_settings = location_specific_settings(locations, settings, args, recipe_identifier)
+        recipe_graph.nodes[recipe_identifier]["local_settings"] = local_settings
 
-    @property
-    def cascade_jobs(self):
-        return nx.lexicographical_topological_sort(self._task_graph)
+    return recipe_graph
 
-    def cascade_job(self, cascade_job_id):
-        """Given settings and an identifier for this job, return a local
-        version of settings that describes this particular job.
 
-        Adds ``settings.model.parent_location_id``,
-        ``settings.model.grandparent_location_id``,
-        and ``settings.model.children``.
-        There is a grandparent location only if there is a grandparent task,
-        so a drill starting halfway will not have a grandparent location.
-        There are child locations for the last task though.
-        """
-        parent_location_id = self._location_of_cascade_job(cascade_job_id)
-        predecessors = list(self._locations.predecessors(parent_location_id))
-        if predecessors:
-            grandparent_location_id = predecessors[0]
+def drill_recipe_graph(locations, settings, args):
+    if not settings.model.is_field_unset("drill_location_start"):
+        drill_start = settings.model.drill_location_start
+    else:
+        drill_start = None
+    if not settings.model.is_field_unset("drill_location_end"):
+        drill_end = settings.model.drill_location_end
+    else:
+        raise InputDataError(f"Set to drill but drill location end not set")
+    try:
+        drill = location_id_from_start_and_finish(locations, drill_start, drill_end)
+    except ValueError as ve:
+        raise InputDataError(f"Location parameter is wrong in settings.") from ve
+    MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
+    drill = list(drill)
+    drill_sex = SEX_ID_TO_NAME[settings.model.drill_sex]
+    if args.skip_cache:
+        setup_task = []
+    else:
+        setup_task = [RecipeIdentifier(drill[0], "bundle_setup", drill_sex)]
+    recipes = setup_task + [
+        RecipeIdentifier(drill_location, "estimate_location", drill_sex)
+        for drill_location in drill
+    ]
+    recipe_pairs = list(zip(recipes[:-1], recipes[1:]))
+    recipe_graph = nx.DiGraph(root=recipes[0])
+    recipe_graph.add_nodes_from(recipes)
+    recipe_graph.add_edges_from(recipe_pairs)
+    # Add a custom graph attribute to record the tree root.
+    recipe_graph.graph["root"] = recipes[0]
+    return recipe_graph
+
+
+def global_recipe_graph(locations, settings, args):
+    """
+    Constructs the graph of recipes.
+
+    Args:
+        locations (nx.DiGraph): Root node in the data, and each node
+            has a level.
+        settings: The global settings object.
+        args (Namespace|SimpleNamespace): Command-line arguments.
+
+    Returns:
+        nx.DiGraph: Each node is a RecipeIdentifier.
+    """
+    assert "root" in locations.graph
+    if settings.model.split_sex == "most_detailed":
+        split_sex = max([locations.nodes[nl]["level"] for nl in locations.nodes])
+    else:
+        split_sex = int(settings.model.split_sex)
+    global_node = RecipeIdentifier(locations.graph["root"], "estimate_location", "both")
+    recipe_graph = nx.DiGraph(root=global_node)
+    # Start with bundle setup
+    if not args.skip_cache:
+        bundle_setup = RecipeIdentifier(locations.graph["root"], "bundle_setup", "both")
+        recipe_graph.graph["root"] = bundle_setup
+        recipe_graph.add_edge(bundle_setup, global_node)
+    else:
+        recipe_graph.graph["root"] = global_node
+
+    global_recipe_graph_add_estimations(locations, recipe_graph, split_sex)
+
+    return recipe_graph
+
+
+def global_recipe_graph_add_estimations(locations, recipe_graph, split_sex):
+    """There are estimations for every location and for both sexes below
+    the level where we split sex. This modifies the recipe graph in place."""
+    # Follow location hierarchy, splitting into male and female below a level.
+    for start, finish in locations.edges:
+        if "level" not in locations.nodes[finish]:
+            raise RuntimeError(
+                "Expect location graph nodes to have a level property")
+        finish_level = locations.nodes[finish]["level"]
+        if finish_level == split_sex:
+            for finish_sex in ["male", "female"]:
+                recipe_graph.add_edge(
+                    RecipeIdentifier(start, "estimate_location", "both"),
+                    RecipeIdentifier(finish, "estimate_location", finish_sex),
+                )
+        elif finish_level > split_sex:
+            for same_sex in ["male", "female"]:
+                recipe_graph.add_edge(
+                    RecipeIdentifier(start, "estimate_location", same_sex),
+                    RecipeIdentifier(finish, "estimate_location", same_sex),
+                )
         else:
-            grandparent_location_id = None
+            recipe_graph.add_edge(
+                RecipeIdentifier(start, "estimate_location", "both"),
+                RecipeIdentifier(finish, "estimate_location", "both"),
+            )
 
-        parent_location_id = self._location_of_cascade_job(cascade_job_id)
-        if self._settings.model.is_field_unset("drill_sex"):
-            # An unset drill sex gets all data.
-            sexes = [1, 2, 3]
-        else:
-            # Setting to male or female pulls in "both."
-            sexes = [self._settings.model.drill_sex, 3]
 
-        policies = policies_from_settings(self._settings)
-        model_options = make_model_options(self._locations, parent_location_id, self._settings)
-        if self._args.num_samples:
-            sample_cnt = self._args.num_samples
-        else:
-            sample_cnt = policies["number_of_fixed_effect_samples"]
+def location_specific_settings(locations, settings, args, recipe_id):
+    """
+    This takes a modeler's description of how the model should be set up,
+    as described in settings and command-line arguments, and translates
+    it into what choices apply to this particular recipe. Modelers discuss
+    plans in terms of what rules apply to which level of the Cascade,
+    so this works in those terms, not in terms of individual tasks
+    within a recipe.
 
-        local_settings = EstimationParameters(
-            settings=self._settings,
-            policies=policies,
-            children=list(sorted(self._locations.successors(parent_location_id))),
-            parent_location_id=parent_location_id,
-            grandparent_location_id=grandparent_location_id,
-            # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].
-            sexes=sexes,
-            number_of_fixed_effect_samples=sample_cnt,
-            model_options=model_options,
-        )
-        local_settings.data_access = _ParameterHierarchy(**dict(
-            gbd_round_id=policies["gbd_round_id"],
-            decomp_step=policies["decomp_step"],
-            modelable_entity_id=self._settings.model.modelable_entity_id,
-            model_version_id=self._settings.model.model_version_id,
-            settings_file=self._args.settings_file,
-            bundle_file=self._args.bundle_file,
-            bundle_id=self._settings.model.bundle_id,
-            bundle_study_covariates_file=self._args.bundle_study_covariates_file,
-            tier=2 if self._args.skip_cache else 3,
-            age_group_set_id=policies["age_group_set_id"],
-            with_hiv=policies["with_hiv"],
-            cod_version=self._settings.csmr_cod_output_version_id,
-            location_set_version_id=self._settings.location_set_version_id,
-            add_csmr_cause=self._settings.model.add_csmr_cause,
-        ))
-        local_settings.run = _ParameterHierarchy(**dict(
-            no_upload=self._args.no_upload,
-            db_only=self._args.db_only,
-            num_processes=self._args.num_processes,
-            pdb=self._args.pdb,
-        ))
-        return self._job_kind(cascade_job_id), local_settings
+    Adds ``settings.model.parent_location_id``,
+    ``settings.model.grandparent_location_id``,
+    and ``settings.model.children``.
+    There is a grandparent location only if there is a grandparent recipe,
+    so a drill starting halfway will not have a grandparent location.
+    There are child locations for the last task though.
 
-    @classmethod
-    def from_epiviz_configuration(cls, locations, settings, args):
-        """
+    Args:
+        locations (nx.DiGraph): Location hierarchy
+        settings: Settings from EpiViz-AT
+        args (Namespace|SimpleNamespace): Command-line arguments
+        recipe_id (RecipeIdentifier): Identifies what happens at
+            this location.
 
-        Args:
-            locations (nx.Graph): A graph of locations in a hierarchy.
-            settings (Configuration): The EpiViz-AT Form (in form.py)
-            args (argparse.Namespace): Parsed arguments.
+    Returns:
+        Settings for this job.
+    """
+    parent_location_id = recipe_id.location_id
+    predecessors = list(locations.predecessors(parent_location_id))
+    if predecessors:
+        grandparent_location_id = predecessors[0]
+    else:
+        grandparent_location_id = None
 
-        """
-        plan = cls(settings)
-        plan._locations = locations
-        plan._args = args
-        if not settings.model.is_field_unset("drill") and settings.model.drill == "drill":
-            if not settings.model.is_field_unset("drill_location_start"):
-                drill_start = settings.model.drill_location_start
-            else:
-                drill_start = None
-            if not settings.model.is_field_unset("drill_location_end"):
-                drill_end = settings.model.drill_location_end
-            else:
-                raise InputDataError(f"Set to drill but drill location end not set")
-            try:
-                drill = location_id_from_start_and_finish(plan._locations, drill_start, drill_end)
-            except ValueError as ve:
-                raise InputDataError(f"Location parameter is wrong in settings.") from ve
-        else:
-            MATHLOG.error(f"Must be set to 'drill'")
-            raise InputDataError(f"Must be set to 'drill'")
-        MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
-        drill = list(drill)
-        if args.skip_cache:
-            setup_task = []
-        else:
-            setup_task = [(drill[0], "bundle_setup")]
+    if settings.model.is_field_unset("drill_sex"):
+        # An unset drill sex gets all data.
+        sexes = list(SEX_ID_TO_NAME.keys())
+    else:
+        # Setting to male or female pulls in "both."
+        sexes = [settings.model.drill_sex, SEX_NAME_TO_ID["both"]]
 
-        substeps = [
-            "prepare_data",
-            "construct_model",
-        ]
-        if settings.policies.fit_strategy == "fit_fixed_then_fit":
-            substeps.append("initial_guess_from_fit_fixed")
-        substeps.extend([
-            "compute_initial_fit",
-            "compute_draws_from_parent_fit",
-            "save_predictions"
-        ])
+    policies = policies_from_settings(settings)
+    model_options = make_model_options(locations, parent_location_id, settings)
+    if args.num_samples:
+        sample_cnt = args.num_samples
+    else:
+        sample_cnt = policies["number_of_fixed_effect_samples"]
 
-        tasks = setup_task + [
-            (drill_location, ("estimate_location", substep))
-            for drill_location in drill
-            for substep in substeps
-        ]
-        task_pairs = list(zip(tasks[:-1], tasks[1:]))
-        plan._task_graph = nx.DiGraph()
-        plan._task_graph.add_nodes_from(tasks)
-        plan._task_graph.add_edges_from(task_pairs)
-        # Add a custom graph attribute to record the tree root.
-        plan._task_graph.graph["root"] = tasks[0]
-        return plan
-
-    def _job_kind(self, cascade_job_id):
-        if cascade_job_id[1] == "bundle_setup":
-            return "bundle_setup"
-        elif cascade_job_id[1][0] == "estimate_location":
-            return f"estimate_location:{cascade_job_id[1][1]}"
-        else:
-            raise ValueError(f"Unknown job kind: {cascade_job_id[1]}")
-
-    def _location_of_cascade_job(self, cascade_job_id):
-        return cascade_job_id[0]
+    local_settings = EstimationParameters(
+        settings=settings,
+        policies=SimpleNamespace(**policies),
+        children=list(sorted(locations.successors(parent_location_id))),
+        parent_location_id=parent_location_id,
+        grandparent_location_id=grandparent_location_id,
+        # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].
+        sexes=sexes,
+        number_of_fixed_effect_samples=sample_cnt,
+        model_options=model_options,
+    )
+    local_settings.data_access = _ParameterHierarchy(**dict(
+        gbd_round_id=policies["gbd_round_id"],
+        decomp_step=policies["decomp_step"],
+        modelable_entity_id=settings.model.modelable_entity_id,
+        model_version_id=settings.model.model_version_id,
+        settings_file=args.settings_file,
+        bundle_file=args.bundle_file,
+        bundle_id=settings.model.bundle_id,
+        bundle_study_covariates_file=args.bundle_study_covariates_file,
+        tier=2 if args.skip_cache else 3,
+        age_group_set_id=policies["age_group_set_id"],
+        with_hiv=policies["with_hiv"],
+        cod_version=settings.csmr_cod_output_version_id,
+        location_set_version_id=settings.location_set_version_id,
+        add_csmr_cause=settings.model.add_csmr_cause,
+    ))
+    local_settings.run = _ParameterHierarchy(**dict(
+        no_upload=args.no_upload,
+        db_only=args.db_only,
+    ))
+    return local_settings

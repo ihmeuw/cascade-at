@@ -59,11 +59,13 @@ def over_json_do(timing, retime, generate):
 
 def entry():
     parser = ArgumentParser()
-    parser.add_argument("--timing", type=Path, default=Path("timing"),
-                        help="Read json files from this diretory",
+    parser.add_argument(
+        "--timing", type=Path, default=Path("timing"),
+        help="Read json files from this diretory",
     )
-    parser.add_argument("--retime", type=Path, default=Path("retime"),
-                        help="Put new files in this directory",
+    parser.add_argument(
+        "--retime", type=Path, default=Path("retime"),
+        help="Put new files in this directory",
     )
     args = parser.parse_args()
     over_json_do(args.timing, args.retime, reread_metrics)

@@ -2,26 +2,25 @@ import pickle
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 import numpy as np
+import pytest
+from gridengineapp import execution_ordered
 from numpy import isclose, inf
 from numpy.random import RandomState
 
-from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.construct_model import construct_model
 from cascade.executor.construct_model import matching_knots
 from cascade.executor.covariate_description import create_covariate_specifications
 from cascade.executor.create_settings import (
     create_local_settings, create_settings, SettingsChoices
 )
-from cascade.executor.dismodel_main import parse_arguments
-from cascade.executor.estimate_location import (
-    modify_input_data, construct_model
-)
+from cascade.executor.dismodel_main import DismodAT
+from cascade.executor.estimate_location import modify_input_data
+from cascade.executor.execution_context import make_execution_context
 from cascade.executor.session_options import make_options
 from cascade.input_data.configuration.form import SmoothingPrior
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.model.session import Session
-from cascade.executor.execution_context import make_execution_context
 from cascade.testing_utilities.compare_dismod_db import (
     CompareDatabases, pull_covariate, pull_covariate_multiplier
 )
@@ -90,16 +89,27 @@ def reference_db(base_settings):
 
 
 def make_local_settings(given_settings):
+    """
+    Uses a custom settings generator.
+    Skips downloading settings. Instead constructs an application,
+    giving it the custom settings. Then gets a graph from that application.
+    Then chooses a graph member that does estimation.
+    """
+    ec = make_execution_context()
     choices = SettingsChoices(settings=given_settings)
-    args = parse_arguments(["z.db"])
     locations = location_hierarchy(gbd_round_id=6, location_set_version_id=429)
     settings = create_settings(choices, locations)
-    c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-    j = list(c.cascade_jobs)[1:]
-    job_choice = choices.choice(list(range(len(j))), name="job_idx")
-    job_kind, job_args = c.cascade_job(j[job_choice])
-    assert job_kind.startswith("estimate_location:")
-    return job_args, locations
+
+    args = DismodAT.add_arguments().parse_args([])
+    app = DismodAT(locations, settings, ec, args)
+    task_graph = app.job_graph()
+
+    j = list(execution_ordered(task_graph))[1:]
+    estimators = [jest for jest in j
+                  if jest.recipe == "estimate_location"]
+    job_choice = choices.choice(list(range(len(estimators))), name="job_idx")
+    job = app.job(estimators[job_choice])
+    return job.local_settings, locations
 
 
 def make_a_db(local_settings, locations, filename):

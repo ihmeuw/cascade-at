@@ -180,7 +180,7 @@ autodoc_default_flags = []
 
 # Can't mock numpy because it causes a LooseVersion error.
 autodoc_mock_imports = [
-    "pandas", "scipy", "toml", "sqlalchemy", "networkx",
+    "pandas", "scipy", "sqlalchemy", "networkx",
     "tables", "intervals", "rocketsonde"]
 
 

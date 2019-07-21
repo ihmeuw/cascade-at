@@ -18,6 +18,7 @@ and design documents gathered during development.
    inputs_outputs
    hdf_design
    design_ev_main
+   running
    covariate_design
    parameters
    timing_metrics

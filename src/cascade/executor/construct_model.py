@@ -40,7 +40,7 @@ def construct_model(data, local_settings, covariate_multipliers, covariate_data_
 
     Args:
         data: An object with both ``age_specific_death_rate`` and ``locations``.
-        local_settings: A settings object from `CascadePlan`.
+        local_settings: A settings object from ``cascade_plan``.
         covariate_multipliers (List[EpiVizCovariateMultiplier]): descriptions of
             covariate multipliers.
         covariate_data_spec (List[EpiVizCovariate]): the covariates themselves.

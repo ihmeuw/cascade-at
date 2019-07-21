@@ -2,16 +2,19 @@ from itertools import product
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 from numpy import inf
 from numpy.random import RandomState
 
 import cascade.executor.priors_from_draws
-from cascade.executor.cascade_plan import CascadePlan
+from cascade.executor.cascade_plan import (
+    recipe_graph_from_settings, location_specific_settings
+)
 from cascade.executor.construct_model import construct_model
 from cascade.executor.create_settings import create_settings, make_locations
-from cascade.executor.dismodel_main import parse_arguments
 from cascade.model.priors import Uniform, Gaussian
 from cascade.model.smooth_grid import SmoothGrid
+from gridengineapp import execution_ordered
 
 
 def jitter(vars, rng):
@@ -25,6 +28,7 @@ def jitter_one_grid(var, rng):
         var[age, time] = (1 + 0.1 * (rng.uniform() - 0.5)) * var[age, time]
 
 
+@pytest.mark.skip("for the main rewrite")
 def test_priors_from_draws_fair(monkeypatch):
     """Stochastic draw construction."""
     # The goal is to check that the logic of which grids are applied is correct.
@@ -44,19 +48,18 @@ def test_priors_from_draws_fair(monkeypatch):
         locations = make_locations(3)
         settings = create_settings(rng, locations)
         settings.model.constrain_omega = 0
-        c = CascadePlan.from_epiviz_configuration(locations, settings, args)
-        j = list(c.cascade_jobs)
+        recipe_graph = recipe_graph_from_settings(locations, settings, args)
         draws = None
         parent_model_has_random_effects = False
 
-        for job in j:
-            job_kind, job_args = c.cascade_job(job)
-            if job_kind != "estimate_location":
+        for recipe_id in execution_ordered(recipe_graph):
+            if recipe_id.recipe != "estimate_location":
                 continue
+            local_settings = location_specific_settings(locations, settings, args, recipe_id)
 
             data = SimpleNamespace()
             data.locations = locations
-            model = construct_model(data, job_args, [], [])
+            model = construct_model(data, local_settings, [], [])
 
             # We aren't asking whether the values are correct but whether
             # the logic paths work.

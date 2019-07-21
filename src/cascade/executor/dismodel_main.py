@@ -1,45 +1,261 @@
-"""
-Entry point for running a the work of a single location in an EpiViz-AT cascade.
-"""
-import os
-from bdb import BdbQuit
-from datetime import timedelta
-import faulthandler
+import json
+import pickle
 from pathlib import Path
-from pprint import pformat
-from timeit import default_timer
+from textwrap import fill
 
-from cascade.core import getLoggers, __version__
+import networkx as nx
+from gridengineapp import entry, GridParser
+
+from cascade.core import getLoggers
 from cascade.core.db import use_local_odbc_ini
-from cascade.executor.argument_parser import DMArgumentParser
-from cascade.executor.cascade_logging import logging_config
-from cascade.executor.cascade_plan import CascadePlan
-from cascade.executor.estimate_location import (
-    prepare_data_for_estimate, construct_model_for_estimate_location,
-    initial_guess_from_fit_fixed, compute_initial_fit, compute_draws_from_parent_fit,
-    save_predictions,
-)
-from cascade.executor.setup_tier import setup_tier_data
-from cascade.input_data.configuration import SettingsError
-from cascade.input_data.configuration.local_cache import LocalCache
+from cascade.executor.execution_context import make_execution_context
+from cascade.executor.job_definitions import job_graph_from_settings
+from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 from cascade.input_data.db.configuration import load_settings
 from cascade.input_data.db.locations import location_hierarchy
-from cascade.executor.execution_context import make_execution_context
+from cascade.runner.application_config import application_config
+from cascade.runner.cascade_logging import logging_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def generate_plan(execution_context, args):
-    """Creates a plan for the whole hierarchy, of which this job will be one."""
-    settings = load_settings(execution_context, args.meid, args.mvid, args.settings_file)
-    locations = location_hierarchy(
-        location_set_version_id=settings.location_set_version_id,
-        gbd_round_id=settings.gbd_round_id
+class DismodAT:
+    """
+    Responsible for management of settings and creation of job graphs.
+
+    All arguments have default None, which is the typical way to
+    instantiate this, unless it is under test. Using arguments here
+    makes it unnecessary to use ``create_settings`` or ``load_settings``.
+
+    Args:
+        locations (nx.DiGraph): Graph of locations.
+        settings (SimpleNamespace): Settings for the whole run.
+        execution_context (ExecutionContext): defines the environment.
+    """
+    def __init__(
+            self,
+            locations=None,
+            settings=None,
+            execution_context=None,
+            args=None
+    ):
+        self.locations = locations
+        self.settings = settings
+        self.execution_context = execution_context
+        self.args = args
+        self._job_graph = None
+
+    @staticmethod
+    def add_arguments(parser=None):
+        """Add arguments to an argument parser. These arguments are relevant
+        to the application but not to how it is run.
+
+        Args:
+            parser (ArgumentParser): If not supplied, a parser is created.
+
+        Returns:
+            ArgumentParser: The one that is created, or the one passed in.
+        """
+        if parser is None:
+            parser = GridParser()
+        parser.add_argument(
+            "--meid", type=int,
+            help="Modelable entity ID. This identifies the cause of disease.",
+        )
+        parser.add_argument(
+            "--mvid", type=int,
+            help=("Model version ID. There are multiple model versions for "
+                  "each model entity"),
+        )
+        context_parser = parser.add_argument_group(
+            "context",
+            "Settings to change the process directories and environment."
+        )
+        context_parser.add_argument(
+            "--infrastructure", action="store_true",
+            help=fill("Whether we are running as infrastructure component. "
+                      "Controls whether this tries to store files in the "
+                      "base directory or whether it works in the"
+                      "current directory."),
+        )
+        context_parser.add_argument(
+            "--base-directory", type=Path, default=".",
+            help="Directory in which to find and store files.",
+        )
+
+        pdb_parser = parser.add_argument_group(
+            "debug",
+            "These affect how this executes, for debugging."
+        )
+        pdb_parser.add_argument(
+            "--no-upload", action="store_true",
+            help=fill("This turns off all writing to databases, so that a run "
+                      "will not affect outputs"),
+        )
+        pdb_parser.add_argument(
+            "--db-only", action="store_true",
+            help=fill("Run until it creates a Dismod-AT db file, and then quit. "
+                      "This may make less sense when talking about a large "
+                      "graph of computations."),
+        )
+
+        data_parser = parser.add_argument_group(
+            "data",
+            "Parsers to change what data is used for input."
+        )
+        data_parser.add_argument(
+            "--settings-file", type=Path,
+            help="Read settings from this file.",
+        )
+        data_parser.add_argument(
+            "-b", "--bundle-file", type=Path,
+            help=fill("The bundle normally comes from the databases but this "
+                      "lets you specify a particular file as input. If this "
+                      "isn't given, it will look for the bundle in the db or "
+                      "in a known input directory."),
+        )
+        data_parser.add_argument(
+            "-s", "--bundle-study-covariates-file", type=Path,
+            help=fill("Read the study covariates from a separate file. "
+                      "If this is not specified, then they are read from "
+                      "either the databases or from the known file location."),
+        )
+
+        graph_parser = parser.add_argument_group(
+            "graph",
+            "Changes to the graph of work that is done."
+        )
+        graph_parser.add_argument(
+            "--skip-cache", action="store_true",
+            help=fill("Don't save bundle data to tier 3. Instead, read "
+                      "it directly from tier 2."),
+        )
+        graph_parser.add_argument("--num-samples", type=int, help="Override number of samples.")
+
+        sub_graph = parser.add_argument_group(
+            "sub_graph",
+            "These arguments select a subset of nodes to run."
+        )
+        sub_graph.add_argument("--location-id", type=int, help="location ID for this work")
+        sub_graph.add_argument("--sex", type=str, help="sex as male, female, both")
+        sub_graph.add_argument("--recipe", type=str, help="name of the recipe")
+        sub_graph.add_argument("--name", type=str, help="job within the recipe")
+
+        config = application_config()["DataLayout"]
+        root_dir = Path(config["root-directory"]).resolve()
+        code_log = config["code-log-directory"]
+        epiviz_log = config["epiviz-log-directory"]
+        log_parse = parser.add_argument_group(
+            "logs",
+            "Options that affect logging",
+        )
+        log_parse.add_argument(
+            "-v", "--verbose", action="count", default=0,
+            help="Increase verbosity of logging")
+        log_parse.add_argument(
+            "-q", "--quiet", action="count", default=0,
+            help="Decrease verbosity of logging")
+        log_parse.add_argument(
+            "--logmod", action="append", default=[],
+            help="Set logging to debug for submodule")
+        log_parse.add_argument(
+            "--modlevel", type=str, default="debug",
+            help="Log level for specified modules")
+        log_parse.add_argument(
+            "--epiviz-log", type=Path, default=epiviz_log,
+            help="Directory for EpiViz log")
+        log_parse.add_argument(
+            "--code-log", type=Path, default=code_log,
+            help="Directory for code log")
+        log_parse.add_argument(
+            "--root-dir", type=Path, default=root_dir,
+            help="Directory to use as root for logs.")
+        return parser
+
+    @staticmethod
+    def job_id_to_arguments(job_id):
+        # Our job_id is a custom class that knows what its arguments are.
+        return job_id.arguments
+
+    def initialize(self, args):
+        self.args = args
+        use_local_odbc_ini()
+        logging_config(args)
+        self.create_settings(args)
+
+    def create_settings(self, args):
+        # We need a sort-of-correct execution context when we first load
+        # and then it gets refined after settings are loaded.
+        execution_context = execution_context_without_settings(args)
+        # If the application was created with settings and locations,
+        # then keep them.
+        if self.settings is None:
+            self.settings = load_settings(
+                execution_context, args.meid, args.mvid, args.settings_file
+            )
+        if self.locations is None:
+            self.locations = location_hierarchy(
+                location_set_version_id=self.settings.location_set_version_id,
+                gbd_round_id=self.settings.gbd_round_id
+            )
+        configure_execution_context_from_settings(
+            execution_context, self.settings
+        )
+        self.execution_context = execution_context
+
+    def load_settings(self, args):
+        # The execution context isn't part of the settings, so it is
+        # rebuilt here when settings are loaded.
+        self.args = args
+        self.execution_context = execution_context_without_settings(args)
+        base = self.execution_context.model_base_directory(0)
+        setting_file = base / "settings.json"
+        settings_dict = json.load(setting_file.open("r"))
+        self.settings = json_settings_to_frozen_settings(settings_dict)
+        location_file = base / "locations.pickle"
+        self.locations = pickle.load(location_file.open("rb"))
+        CODELOG.info(f"Loading settings from {setting_file} and "
+                     f"locations from {location_file}")
+        configure_execution_context_from_settings(
+            self.execution_context, self.settings
+        )
+
+    def save_settings(self):
+        base = self.execution_context.model_base_directory(0)
+        base.mkdir(exist_ok=True, parents=True)
+        setting_file = base / "settings.json"
+        json.dump(self.settings.to_dict(), setting_file.open("w"), indent=4)
+        location_file = base / "locations.pickle"
+        pickle.dump(self.locations, location_file.open("wb"))
+        CODELOG.info(f"Saving settings to {setting_file} "
+                     f"and locations to {location_file}")
+
+    def job_graph(self):
+        if self._job_graph is None:
+            self._job_graph = job_graph_from_settings(
+                self.locations, self.settings, self.args, self.execution_context)
+        return self._job_graph
+
+    def job_identifiers(self, args):
+        job_graph = self.job_graph()
+        nodes = job_graph.nodes
+
+        for search in ["location_id", "recipe", "sex", "name"]:
+            if search in args:
+                nodes = [n for n in nodes if getattr(n, search) == getattr(args, search)]
+
+        sub_graph = nx.subgraph(job_graph, nodes)
+        sub_graph.graph["execution_context"] = self.execution_context
+        return sub_graph
+
+    def job(self, identifier):
+        return self.job_graph().nodes[identifier]["job"]
+
+
+def execution_context_without_settings(args):
+    execution_context = make_execution_context(
+        gbd_round_id=6
     )
-    return CascadePlan.from_epiviz_configuration(locations, settings, args)
-
-
-def configure_execution_context(execution_context, args, local_settings):
     if args.infrastructure:
         execution_context.parameters.organizational_mode = "infrastructure"
     else:
@@ -47,106 +263,29 @@ def configure_execution_context(execution_context, args, local_settings):
 
     execution_context.parameters.base_directory = args.base_directory
 
+    if args.meid:
+        execution_context.parameters.modelable_entity_id = args.meid
+    if args.mvid:
+        execution_context.parameters.model_version_id = args.mvid
+
+    return execution_context
+
+
+def configure_execution_context_from_settings(execution_context, settings):
+    """
+    This later configuration exists because the application is
+    started by telling it the model version ID but *not telling it the
+    modelable entity ID.* That modelable entity ID is used to decide
+    where files are on disk, so we need it early.
+    """
     for param in ["modelable_entity_id", "model_version_id"]:
-        setattr(execution_context.parameters, param, getattr(local_settings.data_access, param))
+        setattr(execution_context.parameters, param, getattr(settings.model, param))
 
 
-def main(args):
-    start_time = default_timer()
-    execution_context = make_execution_context(gbd_round_id=6, num_processes=args.num_processes)
-    plan = generate_plan(execution_context, args)
-
-    local_cache = LocalCache(maxsize=200)
-    for cascade_task_identifier in plan.cascade_jobs:
-        cascade_job, this_location_work = plan.cascade_job(cascade_task_identifier)
-        configure_execution_context(execution_context, args, this_location_work)
-
-        if cascade_job == "bundle_setup":
-            # Move bundle to next tier
-            setup_tier_data(execution_context, this_location_work.data_access, this_location_work.parent_location_id)
-        elif cascade_job == "estimate_location:prepare_data":
-            prepare_data_for_estimate(execution_context, this_location_work, local_cache)
-        elif cascade_job == "estimate_location:construct_model":
-            construct_model_for_estimate_location(this_location_work, local_cache)
-        elif cascade_job == "estimate_location:initial_guess_from_fit_fixed":
-            initial_guess_from_fit_fixed(execution_context, this_location_work, local_cache)
-        elif cascade_job == "estimate_location:compute_initial_fit":
-            compute_initial_fit(execution_context, this_location_work, local_cache)
-        elif cascade_job == "estimate_location:compute_draws_from_parent_fit":
-            compute_draws_from_parent_fit(execution_context, this_location_work, local_cache)
-        elif cascade_job == "estimate_location:save_predictions":
-            save_predictions(execution_context, this_location_work, local_cache)
-        else:
-            assert f"Unknown job type, {cascade_job}"
-
-    elapsed_time = timedelta(seconds=default_timer() - start_time)
-    MATHLOG.debug(f"Completed successfully in {elapsed_time}")
-
-
-def entry(args=None):
-    """Allow passing args for testing."""
-    readable_by_all = 0o0002
-    os.umask(readable_by_all)
-    faulthandler.enable()
-
-    args = parse_arguments(args)
-    logging_config(args)
-
-    MATHLOG.debug(f"Cascade version {__version__}.")
-    if "JOB_ID" in os.environ:
-        MATHLOG.info(f"Job id is {os.environ['JOB_ID']} on cluster {os.environ.get('SGE_CLUSTER_NAME', '')}")
-
-    try:
-        if args.skip_cache:
-            args.no_upload = True
-
-        use_local_odbc_ini()
-        main(args)
-    except SettingsError as e:
-        MATHLOG.error(str(e))
-        CODELOG.error(f"Form data:{os.linesep}{pformat(e.form_data)}")
-        error_lines = list()
-        for error_spot, human_spot, error_message in e.form_errors:
-            if args.settings_file is not None:
-                error_location = error_spot
-            else:
-                error_location = human_spot
-            error_lines.append(f"\t{error_location}: {error_message}")
-        MATHLOG.error(f"Form validation errors:{os.linesep}{os.linesep.join(error_lines)}")
-        exit(1)
-    except BdbQuit:
-        pass
-    except Exception:
-        if args.pdb:
-            import pdb
-            import traceback
-
-            traceback.print_exc()
-            pdb.post_mortem()
-        else:
-            MATHLOG.exception(f"Uncaught exception in {os.path.basename(__file__)}")
-            raise
-
-
-def parse_arguments(args):
-    parser = DMArgumentParser("Run DismodAT from Epiviz")
-    parser.add_argument("db_file_path", type=Path, default="z.db")
-    parser.add_argument("--settings-file", type=Path)
-    parser.add_argument("--infrastructure", action="store_true",
-                        help="Whether we are running as infrastructure component")
-    parser.add_argument("--base-directory", type=Path, default=".",
-                        help="Directory in which to find and store files.")
-    parser.add_argument("--no-upload", action="store_true")
-    parser.add_argument("--db-only", action="store_true")
-    parser.add_argument("-b", "--bundle-file", type=Path)
-    parser.add_argument("-s", "--bundle-study-covariates-file", type=Path)
-    parser.add_argument("--skip-cache", action="store_true")
-    parser.add_argument("--num-processes", type=int, default=4,
-                        help="How many subprocesses to start.")
-    parser.add_argument("--num-samples", type=int, help="Override number of samples.")
-    parser.add_argument("--pdb", action="store_true")
-    return parser.parse_args(args)
+def cascade_entry():
+    app = DismodAT()
+    entry(app)
 
 
 if __name__ == "__main__":
-    entry()
+    cascade_entry()
