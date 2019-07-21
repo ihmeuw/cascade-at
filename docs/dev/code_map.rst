@@ -168,11 +168,6 @@ and where the 7800 lines of code in the source are allocated.
 
  7. The Application (Executor)
 
-    * Logging - Split into log for modelers and operations, highlighted for web page,
-      with defined uses for debug, info, warn, and error. (153 lines)
-
-    * Parse arguments (46 LOC)
-
     * Parse 109 different kinds of parameters from EpiViz (300 LOC).
 
     * Define global hierarchy separate from other work (179 LOC).
@@ -189,12 +184,24 @@ and where the 7800 lines of code in the source are allocated.
 
       * Pass data down to the next piece.
 
- 8. Storage support
+ 8. Runner
+
+    * Interfaces with the
+      `Grid Engine App <https://github.com/ihmeuw/gridengineapp>`_
+      repository in order to make the Cascade runnable on the cluster
+      and on local machines.
+
+    * Logging - Split into log for modelers and operations, highlighted for web page,
+      with defined uses for debug, info, warn, and error. (153 lines)
+
+    * Parse arguments
+
+ 9. Storage support
 
     * File format for concatenating results from locations into HDF that can
       be read by Python and R. 195 LOC
 
- 9. Separate command-line tools for modelers and operations.
+ 10. Separate command-line tools for modelers and operations.
 
     * Get parameters from IHME db to view them (40 LOC)
 
@@ -206,7 +213,7 @@ and where the 7800 lines of code in the source are allocated.
 
     * IPython helpers to make data (in stats section): (191 LOC)
 
- 10. Testing - 5500 LOC total
+ 11. Testing - 5500 LOC total
 
     * Creating fake EpiViz calls: 276 LOC
 
