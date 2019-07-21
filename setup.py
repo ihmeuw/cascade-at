@@ -11,7 +11,6 @@ setup(
         "numpy",
         "pandas",
         "scipy",
-        "toml",
         "sqlalchemy",
         "networkx",
         "tables",

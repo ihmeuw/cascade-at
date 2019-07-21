@@ -36,11 +36,12 @@ the stages, requested by using "--mock-stage". They will also
 use a stub for settings, because we care about only one or two
 parameters from the settings.
 """
-from subprocess import run
+from secrets import token_hex
 from types import SimpleNamespace
 
 import networkx as nx
 import pytest
+from gridengineapp import entry
 from numpy.random import RandomState
 
 from cascade.executor.cascade_plan import (
@@ -48,53 +49,90 @@ from cascade.executor.cascade_plan import (
     drill_recipe_graph,
 )
 from cascade.executor.create_settings import create_settings
+from cascade.executor.dismodel_main import DismodAT
 from cascade.executor.execution_context import make_execution_context
 from cascade.executor.job_definitions import job_graph_from_settings
 
-"""
-dmrun --mvid 2345234 --create-settings --save-settings --grid-engine
-dmrun --mvid 2345234 --location-id 1 --recipe bundle_setup
-"""
+
+def assign_levels(locations):
+    current = [0]
+    successors = list()
+    level_idx = 0
+    while current:
+        for node in current:
+            locations.node[node]["level"] = level_idx
+            successors.extend(list(locations.successors(node)))
+        current, successors = successors, list()
+        level_idx += 1
 
 
-@pytest.mark.skip("target")
-def test_multiple_process_run():
-    command = "dmrun --mvid 2342 --multiprocess --mock-stage"
-    products = all_output(command[1:])
-    run(command)
-    assert products.exist()
+@pytest.fixture
+def sample_app():
+    locations = nx.balanced_tree(3, 2, create_using=nx.DiGraph)
+    locations.graph["root"] = 0
+    assign_levels(locations)
+
+    settings = create_settings(RandomState(342234), locations)
+    app = DismodAT(locations, settings)
+    return app
 
 
-@pytest.mark.skip("target")
-def test_grid_engine_run():
-    command = "dmrun {mvid} --mock-stage"
-    products = all_output(command[1:])
-    run(command)
-    assert products.exist()
+def test_run_as_functions(sample_app):
+    """Run global application as a function."""
+    mvid = sample_app.settings.model.model_version_id
+    arg_list = [
+        "--mvid", str(mvid),
+        "--mock-job",
+    ]
+    entry(sample_app, arg_list)
 
 
-@pytest.mark.skip("target")
-def test_single_process_run():
-    command = "dmrun {mvid} --single-process --mock-stage"
-    products = all_output(command[1:])
-    run(command)
-    assert products.exist()
+def test_run_as_processes(sample_app):
+    """Run global application as processes"""
+    mvid = sample_app.settings.model.model_version_id
+    arg_list = [
+        "--mock-job",
+        "--mvid", str(mvid),
+        "--memory-limit", "4",
+    ]
+    entry(sample_app, arg_list)
 
 
-@pytest.mark.skip("target")
-def test_single_location_run():
-    command = "dmrun {mvid} --location 102 --single-process --mock-stage"
-    products = all_output(command[1:])
-    run(command)
-    assert products.exist()
+def test_run_as_parallel(sample_app, shared_cluster_tmp, cluster):
+    """Run global application as processes"""
+    mvid = sample_app.settings.model.model_version_id
+    unique = token_hex(3)
+    arg_list = [
+        "--mock-job",
+        "--mvid", str(mvid),
+        "--grid-engine",
+        "--base-directory", str(shared_cluster_tmp / "run_as_parallel"),
+        "--run-id", unique,
+    ]
+    entry(sample_app, arg_list)
 
 
-@pytest.mark.skip("target")
-def test_single_location_fit_stage_run():
-    command = "dmrun {mvid} --location 102 --fit --single-process --mock-stage"
-    products = all_output(command[1:])
-    run(command)
-    assert products.exist()
+def test_single_location_run(sample_app):
+    """Run global application as a function."""
+    mvid = sample_app.settings.model.model_version_id
+    arg_list = [
+        "--mock-job",
+        "--mvid", str(mvid),
+        "--location-id", str(4),
+    ]
+    entry(sample_app, arg_list)
+
+
+def test_single_location_just_fit(sample_app):
+    """Run global application as a function."""
+    mvid = sample_app.settings.model.model_version_id
+    arg_list = [
+        "--mvid", str(mvid),
+        "--location-id", str(4),
+        "--recipe", "fit",
+        "--name", "fit",
+    ]
+    entry(sample_app, arg_list)
 
 
 def add_level_to_graph(digraph, root=None):

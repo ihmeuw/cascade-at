@@ -187,12 +187,17 @@ class DismodAT:
         # We need a sort-of-correct execution context when we first load
         # and then it gets refined after settings are loaded.
         execution_context = execution_context_without_settings(args)
-        self.settings = load_settings(
-            execution_context, args.meid, args.mvid, args.settings_file)
-        self.locations = location_hierarchy(
-            location_set_version_id=self.settings.location_set_version_id,
-            gbd_round_id=self.settings.gbd_round_id
-        )
+        # If the application was created with settings and locations,
+        # then keep them.
+        if self.settings is None:
+            self.settings = load_settings(
+                execution_context, args.meid, args.mvid, args.settings_file
+            )
+        if self.locations is None:
+            self.locations = location_hierarchy(
+                location_set_version_id=self.settings.location_set_version_id,
+                gbd_round_id=self.settings.gbd_round_id
+            )
         configure_execution_context_from_settings(
             execution_context, self.settings
         )

@@ -1,11 +1,12 @@
 from argparse import ArgumentParser
+
+import networkx as nx
+import pytest
+from numpy.random import RandomState
+
+from cascade.executor.create_settings import create_settings
 from cascade.executor.dismodel_main import DismodAT, execution_context_without_settings
 from cascade.runner.job_graph import JobIdentifier, RecipeIdentifier
-
-from numpy.random import RandomState
-from cascade.executor.create_settings import create_settings
-import pytest
-import networkx as nx
 
 
 @pytest.fixture
