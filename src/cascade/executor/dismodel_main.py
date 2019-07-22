@@ -234,18 +234,27 @@ class DismodAT:
         if self._job_graph is None:
             self._job_graph = job_graph_from_settings(
                 self.locations, self.settings, self.args, self.execution_context)
+            CODELOG.info(f"Job graph has {len(self._job_graph)} nodes.")
         return self._job_graph
 
     def job_identifiers(self, args):
         job_graph = self.job_graph()
         nodes = job_graph.nodes
 
+        used_queries = list()
         for search in ["location_id", "recipe", "sex", "name"]:
-            if search in args:
+            if search in args and getattr(args, search) is not None:
                 nodes = [n for n in nodes if getattr(n, search) == getattr(args, search)]
+                used_queries.append(f"{search}={getattr(args, search)}")
+
+        if len(nodes) == 0:
+            message = f"Job chose no nodes using search {used_queries} from {list(job_graph.nodes)}"
+            CODELOG.error(message)
+            raise RuntimeError(message)
 
         sub_graph = nx.subgraph(job_graph, nodes)
         sub_graph.graph["execution_context"] = self.execution_context
+        CODELOG.info(f"Execution graph has {len(sub_graph)} nodes.")
         return sub_graph
 
     def job(self, identifier):

@@ -56,14 +56,15 @@ def _gbd_process_version_id_from_cod_version(cod_version):
 
 
 def get_csmr_data(
-        execution_context, location_and_children, cause_id, cod_version, gbd_round_id, decomp_step):
+        execution_context, location_set_id, cause_id, cod_version, gbd_round_id, decomp_step):
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
     process_version_id = _gbd_process_version_id_from_cod_version(cod_version)
 
     csmr = db_queries.get_outputs(
         topic="cause",
-        location_id=location_and_children,
+        location_id="all",
+        location_set_id=location_set_id,
         cause_id=cause_id,
         metric_id=METRIC_IDS["per_capita_rate"],
         year_id="all",

@@ -11,7 +11,7 @@ from cascade.input_data.db.mortality import get_frozen_cause_specific_mortality_
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def get_raw_csmr(execution_context, data_access, parent_id, age_spans):
+def get_raw_csmr(execution_context, data_access, location_set_id, age_spans):
     """Gets CSMR that has age_lower, age_upper, but no further processing."""
     assert isinstance(age_spans, pd.DataFrame)
 
@@ -21,10 +21,9 @@ def get_raw_csmr(execution_context, data_access, parent_id, age_spans):
             execution_context, data_access.model_version_id)
     else:
         CODELOG.debug(f"Getting CSMR directly")
-        location_and_children = location_and_children_from_settings(data_access, parent_id)
         raw_csmr = get_csmr_data(
             execution_context,
-            location_and_children,
+            location_set_id,
             data_access.add_csmr_cause,
             data_access.cod_version,
             data_access.gbd_round_id,

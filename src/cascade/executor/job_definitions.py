@@ -1,4 +1,8 @@
+from contextlib import closing
+from inspect import getmembers
 import shelve
+
+import pandas as pd
 
 from cascade.core import getLoggers
 from cascade.dismod import DismodATException
@@ -15,17 +19,58 @@ from cascade.runner.job_graph import CascadeJob, recipe_graph_to_job_graph
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
+def is_pandas(maybe_df):
+    return isinstance(maybe_df, (pd.DataFrame, pd.Series))
+
+
+def save_global_data_to_hdf(path, global_data):
+    dataframes = {name: df for (name, df) in getmembers(global_data, is_pandas)}
+
+    not_written = set(global_data.__dict__) - set(dataframes)
+    if not_written:
+        CODELOG.info(f"The following members of global data were not written {not_written}.")
+        CODELOG.info(f"The following members of global data were written {dataframes.keys()}.")
+    else:
+        CODELOG.info(f"All global data is dataframes.")
+
+    CODELOG.info(f"HDFStore path {path}")
+    with closing(pd.HDFStore(str(path), "w", complevel=9, complib="zlib")) as store:
+        for name, df in dataframes.items():
+            store.put(name, df, format="fixed", columns=True, dropna=False)
+
+    return not_written
+
+
 class GlobalPrepareData(CascadeJob):
     def __init__(self, recipe_id, local_settings, execution_context):
         super().__init__("global_prepare", recipe_id, local_settings, execution_context)
         global_location = 0
         self.outputs.update(dict(
-            shared=ShelfFile(execution_context, "globaldata", global_location, "both", required_keys=[
-                "locations", "country_covariate_ids", "country_covariates",
-                "country_covariates_binary", "study_id_to_name", "integrands",
+            shared=ShelfFile(execution_context, "globalvars", global_location, "both", required_keys=[
+                "covariate_multipliers", "covariate_data_spec",
             ]),
             data=PandasFile(execution_context, "globaldata.hdf", global_location, "both"),
         ))
+
+    def run_under_mathlog(self):
+        local_settings = self.local_settings
+        execution_context = self.execution_context
+        covariate_multipliers, covariate_data_spec = create_covariate_specifications(
+            local_settings.settings.country_covariate, local_settings.settings.study_covariate
+        )
+
+        input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
+        columns_wrong = validate_input_data_types(input_data)
+        assert not columns_wrong, f"validation failed {columns_wrong}"
+        modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
+        not_written = save_global_data_to_hdf(self.outputs["data"].path, modified_data)
+
+        with shelve.open(str(self.outputs["shared"].path)) as shared:
+            shared["covariate_multipliers"] = covariate_multipliers
+            shared["covariate_data_spec"] = covariate_data_spec
+
+            for name in not_written:
+                shared[name] = getattr(modified_data, name)
 
 
 class FindSingleMAP(CascadeJob):

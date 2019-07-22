@@ -33,7 +33,7 @@ from cascade.saver.save_prediction import save_predicted_value, uncertainty_from
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def retrieve_data(execution_context, local_settings, covariate_data_spec, grandparent_cache):
+def retrieve_data(execution_context, local_settings, covariate_data_spec):
     """Gets data from the outside world."""
     data = SimpleNamespace()
     data_access = local_settings.data_access
@@ -60,12 +60,11 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, grandp
             execution_context, data_access.bundle_id, mvid, tier=data_access.tier)
 
     country_covariate_ids = {spec.covariate_id for spec in covariate_data_spec if spec.study_country == "country"}
-    # Raw country covariate data.
-    parent_and_children = local_settings.children + [local_settings.parent_location_id]
+    # Raw country covariate data. Must be subset for children.
     covariates_by_age_id = country_covariate_set(
         country_covariate_ids,
         demographics=dict(age_group_ids="all", year_ids="all", sex_ids="all",
-                          location_ids=parent_and_children),
+                          location_ids=list(data.locations.nodes)),
         gbd_round_id=data_access.gbd_round_id,
         decomp_step=data_access.decomp_step,
     )
@@ -83,30 +82,27 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec, grandp
         age_group_set_id=data_access.age_group_set_id,
         gbd_round_id=data_access.gbd_round_id
     )
+    # Returns a dictionary of demographic IDs.
     data.years_df = db_queries.get_demographics(
         gbd_team="epi", gbd_round_id=data_access.gbd_round_id)["year_id"]
 
-    include_birth_prevalence = local_settings.settings.model.birth_prev
-    data.average_integrand_cases = \
-        make_average_integrand_cases_from_gbd(
-            data.ages_df, data.years_df, local_settings.sexes,
-            local_settings.children, include_birth_prevalence)
     # This comes in yearly from 1950 to 2018
+    # Must be subset for children.
     data.age_specific_death_rate = asdr_as_fit_input(
-        parent_and_children, local_settings.sexes,
-        data_access.gbd_round_id, data_access.decomp_step, data.ages_df, with_hiv=data_access.with_hiv)
-
+        data_access.location_set_version_id,
+        local_settings.sexes,
+        data_access.gbd_round_id,
+        data_access.decomp_step,
+        data.ages_df,
+        with_hiv=data_access.with_hiv
+    )
+    node = next(iter(data.locations.nodes))
+    location_set_id = data.locations.nodes[node]["location_set_id"]
     data.cause_specific_mortality_rate = get_raw_csmr(
-        execution_context, local_settings.data_access, local_settings.parent_location_id, all_age_spans)
+        execution_context, local_settings.data_access, location_set_id, all_age_spans)
 
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
-    # These are the draws as output of the parent location.
-    data.draws = grandparent_cache.get("fit_draws")
-
-    # The parent can also supply integrands as a kind of prior.
-    # These will be shaped like input measurement data.
-    data.integrands = grandparent_cache.get("fit_integrands")
 
     return data
 
@@ -151,10 +147,33 @@ def modify_input_data(input_data, local_settings, covariate_data_spec):
     MATHLOG.info(f"Ignoring data_eta_by_integrand")
 
     input_data.locations_df = location_hierarchy_to_dataframe(input_data.locations)
-    add_covariate_data_to_observations_and_avgints(input_data, local_settings, covariate_data_spec)
-    input_data.observations = input_data.observations.drop(columns=["sex_id", "seq"])
-    set_sex_reference(covariate_data_spec, local_settings)
     return input_data
+
+
+def one_location_data_from_global_data(global_data, local_settings):
+    # subset asdr
+    # subset csmr
+    add_covariate_data_to_observations_and_avgints(global_data, local_settings, global_data.covariate_data_spec)
+    global_data.observations = global_data.observations.drop(columns=["sex_id", "seq"])
+    set_sex_reference(global_data.covariate_data_spec, local_settings)
+
+    # These are the draws as output of the parent location. Called draws.
+    global_data.draws = None
+
+    # The parent can also supply integrands as a kind of prior.
+    # These will be shaped like input measurement data. Called fit-integrands.
+    global_data.integrands = None
+
+    include_birth_prevalence = local_settings.settings.model.birth_prev
+    global_data.average_integrand_cases = \
+        make_average_integrand_cases_from_gbd(
+            global_data.ages_df,
+            global_data.years_df,
+            local_settings.sexes,
+            local_settings.children,
+            include_birth_prevalence
+        )
+    return global_data
 
 
 def set_sex_reference(covariate_data_spec, local_settings):

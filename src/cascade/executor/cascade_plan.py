@@ -141,7 +141,7 @@ def drill_recipe_graph(locations, settings, args):
     if args.skip_cache:
         setup_task = []
     else:
-        setup_task = [RecipeIdentifier(drill[0], "bundle_setup", drill_sex)]
+        setup_task = [RecipeIdentifier(0, "bundle_setup", drill_sex)]
     recipes = setup_task + [
         RecipeIdentifier(drill_location, "estimate_location", drill_sex)
         for drill_location in drill
@@ -177,7 +177,7 @@ def global_recipe_graph(locations, settings, args):
     recipe_graph = nx.DiGraph(root=global_node)
     # Start with bundle setup
     if not args.skip_cache:
-        bundle_setup = RecipeIdentifier(locations.graph["root"], "bundle_setup", "both")
+        bundle_setup = RecipeIdentifier(0, "bundle_setup", "both")
         recipe_graph.graph["root"] = bundle_setup
         recipe_graph.add_edge(bundle_setup, global_node)
     else:
@@ -243,7 +243,15 @@ def location_specific_settings(locations, settings, args, recipe_id):
         Settings for this job.
     """
     parent_location_id = recipe_id.location_id
-    predecessors = list(locations.predecessors(parent_location_id))
+
+    if parent_location_id != 0:
+        predecessors = list(locations.predecessors(parent_location_id))
+        successors = list(sorted(locations.successors(parent_location_id)))
+        model_options = make_model_options(locations, parent_location_id, settings)
+    else:
+        predecessors = None
+        successors = None
+        model_options = None
     if predecessors:
         grandparent_location_id = predecessors[0]
     else:
@@ -257,7 +265,6 @@ def location_specific_settings(locations, settings, args, recipe_id):
         sexes = [settings.model.drill_sex, SEX_NAME_TO_ID["both"]]
 
     policies = policies_from_settings(settings)
-    model_options = make_model_options(locations, parent_location_id, settings)
     if args.num_samples:
         sample_cnt = args.num_samples
     else:
@@ -266,7 +273,7 @@ def location_specific_settings(locations, settings, args, recipe_id):
     local_settings = EstimationParameters(
         settings=settings,
         policies=SimpleNamespace(**policies),
-        children=list(sorted(locations.successors(parent_location_id))),
+        children=successors,
         parent_location_id=parent_location_id,
         grandparent_location_id=grandparent_location_id,
         # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].
