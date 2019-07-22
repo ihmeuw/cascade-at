@@ -1,16 +1,20 @@
+import shelve
 from contextlib import closing
 from inspect import getmembers
-import shelve
+from shutil import copyfile
+from types import SimpleNamespace
 
 import pandas as pd
 
 from cascade.core import getLoggers
-from cascade.dismod import DismodATException
 from cascade.executor.cascade_plan import recipe_graph_from_settings
 from cascade.executor.construct_model import construct_model
 from cascade.executor.covariate_description import create_covariate_specifications
-from cascade.executor.estimate_location import retrieve_data, modify_input_data, compute_parent_fit_fixed, \
-    compute_parent_fit, make_draws, save_outputs
+from cascade.executor.estimate_location import (
+    retrieve_data, modify_input_data, compute_parent_fit_fixed,
+    compute_parent_fit, gather_simulations_and_fit, save_outputs,
+    one_location_data_from_global_data,
+)
 from cascade.executor.priors_from_draws import set_priors_from_parent_draws
 from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.runner.data_passing import ShelfFile, PandasFile, DbFile
@@ -41,6 +45,19 @@ def save_global_data_to_hdf(path, global_data):
     return not_written
 
 
+def read_global_for_location(global_vars_path, global_data_path):
+    global_data = SimpleNamespace
+    with closing(pd.HDFStore(str(global_data_path), "r")) as retrieve:
+        for df_name in retrieve.keys():
+            setattr(global_data, df_name, retrieve.get(df_name))
+
+    with shelve.open(global_vars_path, "r") as shelf:
+        for key in shelf.keys():
+            setattr(global_data, key, shelf[key])
+
+    return global_data
+
+
 class GlobalPrepareData(CascadeJob):
     def __init__(self, recipe_id, local_settings, execution_context):
         super().__init__("global_prepare", recipe_id, local_settings, execution_context)
@@ -62,7 +79,7 @@ class GlobalPrepareData(CascadeJob):
         input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
         columns_wrong = validate_input_data_types(input_data)
         assert not columns_wrong, f"validation failed {columns_wrong}"
-        modified_data = modify_input_data(input_data, local_settings, covariate_data_spec)
+        modified_data = modify_input_data(input_data, local_settings)
         not_written = save_global_data_to_hdf(self.outputs["data"].path, modified_data)
 
         with shelve.open(str(self.outputs["shared"].path)) as shared:
@@ -99,7 +116,13 @@ class FindFixedMAP(CascadeJob):
     """Do a "fit fixed" which will precede the "fit both"."""
     def __init__(self, recipe_id, local_settings, neighbors, execution_context):
         super().__init__("find_maximum_fixed", recipe_id, local_settings, execution_context)
-        self.inputs["input_data"] = PandasFile(execution_context, "globaldata.hdf", 0, "both")
+        global_location = 0
+        self.inputs.update(dict(
+            global_shared=ShelfFile(execution_context, "globalvars", global_location, "both", required_keys=[
+                "covariate_multipliers", "covariate_data_spec",
+            ]),
+            global_data=PandasFile(execution_context, "globaldata.hdf", global_location, "both"),
+        ))
         parent_location_id = local_settings.parent_location_id
         estimation_parent = [
             predecessor for predecessor in neighbors["predecessors"]
@@ -113,6 +136,27 @@ class FindFixedMAP(CascadeJob):
             )
         self.outputs["db_file"] = DbFile(execution_context, "fit.db", parent_location_id, recipe_id.sex)
 
+    def run_under_mathlog(self):
+        global_data = read_global_for_location(
+            self.inputs["global_shared"].path,
+            self.inputs["global_data"].path,
+        )
+        modified_data = one_location_data_from_global_data(global_data, self.local_settings)
+        model = construct_model(
+            modified_data,
+            self.local_settings,
+            modified_data.covariate_multipliers,
+            modified_data.covariate_data_spec
+        )
+        set_priors_from_parent_draws(model, modified_data.draws)
+        compute_parent_fit_fixed(
+            self.execution_context,
+            self.outputs["db_file"].path,
+            self.local_settings,
+            modified_data,
+            model,
+        )
+
 
 class FindBothMAP(CascadeJob):
     """Do a "fit both" assuming a "fit fixed" was done first."""
@@ -120,12 +164,18 @@ class FindBothMAP(CascadeJob):
         super().__init__("find_maximum_both", recipe_id, local_settings, execution_context)
         parent_location_id = local_settings.parent_location_id
         self.inputs.update(dict(
-            input_data=PandasFile(execution_context, "globaldata.hdf", 0, "both"),
             db_file=DbFile(execution_context, "fit.db", parent_location_id, recipe_id.sex),
         ))
         self.outputs.update(dict(
             db_file=DbFile(execution_context, "fit.db", parent_location_id, recipe_id.sex),
         ))
+
+    def run_under_mathlog(self):
+        compute_parent_fit(
+            self.execution_context,
+            self.inputs["db_file"].path,
+            self.local_settings,
+        )
 
 
 class ConstructDraw(CascadeJob):
@@ -136,10 +186,22 @@ class ConstructDraw(CascadeJob):
         self.inputs.update(dict(
             db_file=DbFile(execution_context, "fit.db", parent_location_id, recipe_id.sex),
         ))
-        draw_cnt = local_settings.number_of_fixed_effect_samples
-        for draw_idx in range(draw_cnt):
-            draw_file = DbFile(execution_context, f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
-            self.outputs[f"db_file{draw_idx}"] = draw_file
+        if self.task_id is not None:
+            draw_idx = self.task_id
+            self.outputs[f"db_file{draw_idx}"] = DbFile(
+                execution_context, f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
+        else:
+            draw_cnt = local_settings.number_of_fixed_effect_samples
+            for draw_idx in range(1, 1 + draw_cnt):
+                draw_file = DbFile(execution_context, f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
+                self.outputs[f"draw_file{draw_idx}"] = draw_file
+
+    def clone_task(self, task_id):
+        return super().clone_task(task_id)
+
+    def run_under_mathlog(self):
+        draw_db = self.outputs[f"draw_file{self.task_id}"].path
+        copyfile(self.inputs["db_file"].path, draw_db)
 
 
 class Summarize(CascadeJob):
@@ -149,99 +211,26 @@ class Summarize(CascadeJob):
         parent_location_id = local_settings.parent_location_id
         draw_cnt = local_settings.number_of_fixed_effect_samples
         self.inputs.update(dict(
-            input_data=PandasFile(execution_context, "globaldata.hdf", 0, "both"),
             db_file=DbFile(execution_context, "fit.db", parent_location_id, recipe_id.sex),
         ))
         for draw_idx in range(draw_cnt):
             draw_file = DbFile(execution_context, f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
-            self.inputs[f"db_file{draw_idx}"] = draw_file
+            self.inputs[f"draw_file{draw_idx}"] = draw_file
         self.outputs.update(dict(
             summary=PandasFile(execution_context, "summary.hdf", parent_location_id, recipe_id.sex)
         ))
 
-
-class EstimateLocationPrepareData(CascadeJob):
-    def __call__(self, execution_context):
-        """
-        Estimates rates for a single location in the location hierarchy.
-        This does multiple fits and predictions in order to estimate uncertainty.
-
-        Args:
-            execution_context: Describes environment for this process.
-            local_settings: A dictionary describing the work to do. This has
-                a location ID corresponding to the location for this fit.
-        """
-        local_settings = self.local_settings
-        covariate_multipliers, covariate_data_spec = create_covariate_specifications(
-            local_settings.settings.country_covariate, local_settings.settings.study_covariate
+    def run_under_mathlog(self):
+        fit_result, predictions = gather_simulations_and_fit(
+            self.inputs["db_file"].path,
+            [self.inputs[draw].path for draw in self.inputs if draw.startswith("draw")]
         )
-        shared = shelve.open(str(self.outputs["shared"].path(execution_context)))
-        shared["covariate_multipliers"] = covariate_multipliers
-        shared["covariate_data_spec"] = covariate_data_spec
-        input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
-        columns_wrong = validate_input_data_types(input_data)
-        assert not columns_wrong, f"validation failed {columns_wrong}"
-        grandparent = shelve.open(str(self.inputs["grandparent_shared"].path(execution_context)))
-        modified_data = modify_input_data(input_data, local_settings, covariate_data_spec, grandparent)
-        shared["prepared_input_data"] = modified_data
-
-
-class EstimateLocationConstructModel(CascadeJob):
-    def __call__(self, execution_context, local_settings, local_cache):
-        covariate_multipliers = local_cache.get("covariate_multipliers:{local_settings.parent_location_id}")
-        covariate_data_spec = local_cache.get("covariate_data_spec:{local_settings.parent_location_id}")
-        modified_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-        model = construct_model(modified_data, local_settings, covariate_multipliers,
-                                covariate_data_spec)
-        set_priors_from_parent_draws(model, modified_data.draws)
-        local_cache.set("prepared_model:{local_settings.parent_location_id}", model)
-
-
-class EstimateLocationInitialGuess(CascadeJob):
-    def __call__(self, execution_context, local_settings, local_cache):
-        model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
-        input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-        initial_guess = local_cache.get("parent_initial_guess:{local_settings.parent_location_id}")
-        fit_result = compute_parent_fit_fixed(execution_context, local_settings, input_data, model, initial_guess)
-        local_cache.set("parent_initial_guess:{local_settings.parent_location_id}", fit_result.fit)
-
-
-class EstimateLocationInitialFit(CascadeJob):
-    def __call__(self, execution_context, local_settings, local_cache):
-        model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
-        input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-        initial_guess = local_cache.get("parent_initial_guess:{local_settings.parent_location_id}")
-        fit_result = compute_parent_fit(execution_context, local_settings, input_data, model, initial_guess)
-        local_cache.set("parent_fit:{local_settings.parent_location_id}", fit_result)
-
-
-class EstimateLocationComputeDraws(CascadeJob):
-    def __call__(self, execution_context, local_settings, local_cache):
-        model = local_cache.get("prepared_model:{local_settings.parent_location_id}")
-        fit_result = local_cache.get("parent_fit:{local_settings.parent_location_id}")
-        input_data = local_cache.get("prepared_input_data:{local_settings.parent_location_id}")
-        draws = make_draws(
-            execution_context,
-            model,
-            input_data,
-            fit_result.fit,
-            local_settings,
-            execution_context.parameters.num_processes
+        save_outputs(
+            fit_result,
+            predictions,
+            self.execution_context,
+            self.local_settings,
         )
-        if draws:
-            draws, predictions = zip(*draws)
-            local_cache.set(f"fit-draws:{local_settings.parent_location_id}", draws)
-            local_cache.set(f"fit-predictions:{local_settings.parent_location_id}", predictions)
-        else:
-            raise DismodATException("Fit failed for all samples")
-
-
-class EstimateLocationSavePredictions(CascadeJob):
-    def __call__(self, execution_context, local_settings, local_cache):
-        if not local_settings.run.no_upload:
-            predictions = local_cache.get(f"fit-predictions:{local_settings.parent_location_id}")
-            fit_result = local_cache.get("parent_fit:{local_settings.parent_location_id}")
-            save_outputs(fit_result, predictions, execution_context, local_settings)
 
 
 def recipe_to_jobs(recipe_identifier, local_settings, neighbors, execution_context):

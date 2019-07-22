@@ -86,7 +86,7 @@ def asdr_as_fit_input(location_set_version_id, sexes, gbd_round_id, decomp_step,
     Args:
         location_set_version_id (int): Location set version for which
             to retrieve the data. This is all locations.
-        sexes (int): 1, 2, 3, or 4. Sex_id.
+        sexes (List[int]): 1, 2, 3, or 4. Sex_id.
         gbd_round_id (int): GBD round identifies consistent data sets.
         ages_df (pd.DataFrame): Age_id to age mapping.
         with_hiv (bool): whether to include HIV deaths in mortality.
@@ -94,7 +94,7 @@ def asdr_as_fit_input(location_set_version_id, sexes, gbd_round_id, decomp_step,
     Returns:
         pd.DataFrame: Columns are ``integrand``, ``hold_out``, ``density``,
         ``eta``, ``nu``, ``time_lower``, ``time_upper``, ``age_lower``,
-        ``age_upper``, and ``location``.
+        ``age_upper``, and ``location``, ``sex_id``.
     """
 
     asdr = get_asdr_global(gbd_round_id, decomp_step, location_set_version_id, with_hiv)
@@ -121,7 +121,7 @@ def asdr_by_sex(asdr, ages, sexes):
         nu=nan,
     )
     trimmed = rest.drop(columns=["age_group_id", "upper", "lower"])
-    return trimmed.query("sex_id in @sexes").drop(columns=["sex_id"])
+    return trimmed.query("sex_id in @sexes")
 
 
 def _upload_asdr_data_to_tier_3(gbd_round_id, cursor, model_version_id, asdr_data):

@@ -1,6 +1,4 @@
-import asyncio
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from timeit import default_timer as timer
 from types import SimpleNamespace
 
@@ -9,7 +7,6 @@ from numpy import nan
 
 from cascade.core import getLoggers
 from cascade.core.db import db_queries, age_spans
-from cascade.dismod import DismodATException
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
 from cascade.executor.session_options import make_options, make_minimum_meas_cv
 from cascade.input_data.configuration.construct_bundle import (
@@ -26,8 +23,8 @@ from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.country_covariates import country_covariate_set
 from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
 from cascade.input_data.db.study_covariates import get_study_covariates
+from cascade.model import ObjectWrapper
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
-from cascade.model.session import Session
 from cascade.saver.save_prediction import save_predicted_value, uncertainty_from_prediction_draws
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -88,14 +85,16 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
 
     # This comes in yearly from 1950 to 2018
     # Must be subset for children.
+    all_sexes = [1, 2, 3]
     data.age_specific_death_rate = asdr_as_fit_input(
         data_access.location_set_version_id,
-        local_settings.sexes,
+        all_sexes,
         data_access.gbd_round_id,
         data_access.decomp_step,
         data.ages_df,
         with_hiv=data_access.with_hiv
     )
+    # All locations should have the same location set ID, so use one of those.
     node = next(iter(data.locations.nodes))
     location_set_id = data.locations.nodes[node]["location_set_id"]
     data.cause_specific_mortality_rate = get_raw_csmr(
@@ -107,7 +106,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
     return data
 
 
-def modify_input_data(input_data, local_settings, covariate_data_spec):
+def modify_input_data(input_data, local_settings):
     """Transforms data to input for model."""
     ev_settings = local_settings.settings
     # These are suitable for input to the fit.
@@ -197,7 +196,7 @@ def set_sex_reference(covariate_data_spec, local_settings):
         sex_covariate[0].max_difference = max_difference
 
 
-def compute_parent_fit_fixed(execution_context, local_settings, input_data, model, initial_guess=None):
+def compute_parent_fit_fixed(execution_context, db_path, local_settings, input_data, model):
     """
 
     Args:
@@ -208,140 +207,67 @@ def compute_parent_fit_fixed(execution_context, local_settings, input_data, mode
     Returns:
         The fit.
     """
-    base_path = execution_context.db_path(local_settings.parent_location_id)
-    base_path.mkdir(parents=True, exist_ok=True)
-    session = Session(
-        locations=input_data.locations_df,
-        parent_location=model.location_id,
-        filename=base_path / "fit.db",
-    )
-    session.set_option(**make_options(local_settings.settings, local_settings.model_options))
     begin = timer()
-    fit_result = session.fit(model, input_data.observations, initial_guess=initial_guess)
-    CODELOG.info(f"fit fixed {timer() - begin}")
-    if not fit_result.success:
-        raise DismodATException("Fit fixed failed")
-    return fit_result
-
-
-def compute_parent_fit(execution_context, local_settings, input_data, model, initial_guess=None):
-    """
-
-    Args:
-        execution_context:
-        input_data: These include observations and initial guess.
-        model (Model): A complete Model object.
-
-    Returns:
-        The fit.
-    """
-    base_path = execution_context.db_path(local_settings.parent_location_id)
-    base_path.mkdir(parents=True, exist_ok=True)
-    session = Session(
-        locations=input_data.locations_df,
-        parent_location=model.location_id,
-        filename=base_path / "fit.db",
-    )
-    session.set_option(**make_options(local_settings.settings, local_settings.model_options))
-    begin = timer()
-    # This should just call init.
+    dismod_objects = ObjectWrapper(str(db_path))
+    dismod_objects.locations = input_data.locations_df
+    dismod_objects.parent_location_id = model.location_id
+    dismod_objects.model = model
+    dismod_objects.set_option(**make_options(local_settings.settings, local_settings.model_options))
+    for integrand_name, value in make_minimum_meas_cv(local_settings.settings).items():
+        dismod_objects.set_minimum_meas_cv(integrand_name, value)
     if not local_settings.run.db_only:
-        fit_result = session.fit(model, input_data.observations, initial_guess=initial_guess)
-        CODELOG.info(f"fit {timer() - begin}")
-        if not fit_result.success:
-            raise DismodATException("Fit failed")
-        return fit_result
-    else:
-        session.setup_model_for_fit(model, input_data.observations)
-        return None
+        dismod_objects.run_dismod("init")
+        stdout, stderr, _metrics = dismod_objects.run_dismod(["fit", "fixed"])
+        CODELOG.debug(stdout)
+        CODELOG.debug(stderr)
+    CODELOG.info(f"fit fixed {timer() - begin}")
+
+
+def compute_parent_fit(execution_context, db_path, local_settings):
+    """
+
+    Args:
+        execution_context:
+        input_data: These include observations and initial guess.
+        model (Model): A complete Model object.
+
+    Returns:
+        The fit.
+    """
+    begin = timer()
+    dismod_objects = ObjectWrapper(str(db_path))
+    dismod_objects.set_option(**make_options(local_settings.settings, local_settings.model_options))
+    fit_var = dismod_objects.fit_var
+    dismod_objects.start_var = fit_var
+    dismod_objects.scale_var = fit_var
+
+    if not local_settings.run.db_only:
+        stdout, stderr, _metrics = dismod_objects.run_dismod(["fit", "both"])
+        CODELOG.debug(stdout)
+        CODELOG.debug(stderr)
+    CODELOG.info(f"fit fixed {timer() - begin}")
+
+    dismod_objects.avgint = None  # Need to make an avgint table.
+    dismod_objects.truth_var = dismod_objects.fit_var
+    dismod_objects.run_dismod(["predict", "truth_var"])
+
+    draw_cnt = local_settings.number_of_fixed_effect_samples
+    dismod_objects.run_dismod(["simulate", str(draw_cnt)])
+
+
+def gather_simulations_and_fit(fit_path, simulation_paths):
+    return None, None
 
 
 def save_outputs(computed_fit, predictions, execution_context, local_settings):
     predictions = uncertainty_from_prediction_draws(predictions)
-
     save_predicted_value(execution_context, predictions, "fit")
 
 
-def _fit_and_predict_fixed_effect_sample(sim_model, sim_data, fit_file, locations,
-                                         parent_location, covariates, average_integrand_cases,
-                                         local_settings, draw_idx):
-    sim_session = Session(
-        locations=locations,
-        parent_location=parent_location,
-        filename=fit_file
-    )
-    sim_session.set_option(**make_options(local_settings.settings, local_settings.model_options))
-    sim_session.set_minimum_meas_cv(**make_minimum_meas_cv(local_settings.settings))
-    begin = timer()
-    sim_fit_result = sim_session.fit(sim_model, sim_data)
-    CODELOG.info(f"fit {timer() - begin} success {sim_fit_result.success}")
-
-    CODELOG.debug(f"sim fit {draw_idx} success")
-    predicted, _ = sim_session.predict(
-        sim_fit_result.fit,
-        average_integrand_cases.drop("sex_id", "columns"),
-        parent_location,
-        covariates=covariates
-    )
-    return (sim_fit_result.fit, predicted)
-    # XXX make the Session close or be a contextmanager.
-
-
-async def _async_make_draws(base_path, input_data, model, local_settings, simulate_result, num_processes):
-    jobs = list()
-
-    if num_processes == 1:
-        executor = ThreadPoolExecutor
-    else:
-        executor = ProcessPoolExecutor
-
-    loop = asyncio.get_event_loop()
-    with executor(num_processes) as pool:
-        for draw_idx in range(simulate_result.count):
-            fit_file = f"simulate{draw_idx}.db"
-            sim_model, sim_data = simulate_result.simulation(draw_idx)
-            jobs.append(loop.run_in_executor(
-                pool,
-                _fit_and_predict_fixed_effect_sample,
-                sim_model,
-                sim_data,
-                base_path / fit_file,
-                input_data.locations_df,
-                model.location_id,
-                model.covariates,
-                input_data.average_integrand_cases,
-                local_settings,
-                draw_idx
-            ))
-
-        results = await asyncio.gather(*jobs)
-    return [r for r in results if r is not None]
-
-
-def make_draws(execution_context, model, input_data, max_fit, local_settings, num_processes):
-    base_path = execution_context.db_path(local_settings.parent_location_id)
-    MATHLOG.info(f"DB files for {local_settings.parent_location_id} in {base_path}.")
-    base_path.mkdir(parents=True, exist_ok=True)
-    draw_cnt = local_settings.number_of_fixed_effect_samples
-    session = Session(
-        locations=input_data.locations_df,
-        parent_location=model.location_id,
-        filename=base_path / "simulate.db"
-    )
-    session.set_option(**make_options(local_settings.settings, local_settings.model_options))
-    session.set_minimum_meas_cv(**make_minimum_meas_cv(local_settings.settings))
-    simulate_result = session.simulate(model, input_data.observations, max_fit, draw_cnt)
-
-    loop = asyncio.get_event_loop()
-    draws = loop.run_until_complete(
-        _async_make_draws(
-            base_path,
-            input_data,
-            model,
-            local_settings,
-            simulate_result,
-            num_processes,
-        )
-    )
-
-    return draws
+def fit_and_predict_fixed_effect_sample(db_path, draw_idx):
+    dismod_objects = ObjectWrapper(str(db_path))
+    # -1 because we are using 1-based draw index and Dismod-AT is zero-based.
+    dismod_objects.run_dismod(["fit", str(draw_idx - 1)])
+    dismod_objects.avgint = None  # Need to make an avgint table.
+    dismod_objects.truth_var = dismod_objects.fit_var
+    dismod_objects.run_dismod(["predict"])
