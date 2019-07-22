@@ -186,6 +186,7 @@ class ConstructDraw(CascadeJob):
         self.inputs.update(dict(
             db_file=DbFile(execution_context, "fit.db", parent_location_id, recipe_id.sex),
         ))
+        # self.task_id will be defined for a task created from a job.
         if self.task_id is not None:
             draw_idx = self.task_id
             self.outputs[f"db_file{draw_idx}"] = DbFile(
@@ -195,9 +196,6 @@ class ConstructDraw(CascadeJob):
             for draw_idx in range(1, 1 + draw_cnt):
                 draw_file = DbFile(execution_context, f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
                 self.outputs[f"draw_file{draw_idx}"] = draw_file
-
-    def clone_task(self, task_id):
-        return super().clone_task(task_id)
 
     def run_under_mathlog(self):
         draw_db = self.outputs[f"draw_file{self.task_id}"].path
