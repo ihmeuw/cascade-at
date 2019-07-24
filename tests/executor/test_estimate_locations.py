@@ -42,7 +42,7 @@ def test_retrieve_data(ihme, draw, tmp_path):
     arg_list = [
         "--no-upload", "--db-only",
         "--base-directory", str(tmp_path),
-        "--location", "0",
+        "--location", "0", "--skip-cache",
         "--recipe", "bundle_setup",  # We are asking for one particular recipe.
     ]
     entry(app, arg_list)
@@ -59,3 +59,45 @@ def test_retrieve_data(ihme, draw, tmp_path):
     base = tmp_path / meid / mvid / "0" / loc / sex
     assert (base / "globaldata.hdf").exists()
     assert len(list(base.glob("globalvars*"))) > 0
+
+
+@pytest.mark.parametrize("draw", list(range(1)))
+def test_run_global(ihme, draw, tmp_path):
+    ec = make_execution_context()
+    rng = RandomState(524287 + 131071 * draw)
+    locs = location_hierarchy(6, 429)
+
+    choices = SettingsChoices(rng, None)
+    settings = create_settings(choices, locs)
+
+    app = DismodAT(locs, settings, ec)
+    # skip-cache says to use Tier 2 data.
+    arg_list = [
+        "--no-upload", "--db-only", "-v",
+        "--base-directory", str(tmp_path),
+        "--location", "0", "--skip-cache",
+        "--recipe", "bundle_setup",  # We are asking for one particular recipe.
+    ]
+    entry(app, arg_list)
+
+    print(f"Retrieved data, now running.")
+    arg_list = [
+        "--verbose-app", "-v",
+        "--no-upload", "--db-only",
+        "--base-directory", str(tmp_path),
+        "--location", "32",
+        "--recipe", "estimate_location",  # We are asking for one particular recipe.
+    ]
+    entry(app, arg_list)
+
+    for dirpath, dirnames, filenames in walk(tmp_path):
+        if filenames:
+            print(f"{dirpath}:")
+            print(f"\t{filenames}")
+
+    meid = "23514"
+    mvid = "267890"
+    loc = "1"
+    sex = "both"
+    base = tmp_path / meid / mvid / "0" / loc / sex
+    assert (base / "fit.db").exists()

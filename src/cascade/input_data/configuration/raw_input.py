@@ -10,6 +10,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 EXPECTED_TYPES = dict(
     age_specific_death_rate=[
         ('location', dtype('int64')),
+        ('sex_id', dtype('int64')),
         ('age_lower', dtype('float64')),
         ('age_upper', dtype('float64')),
         ('time_lower', dtype('float64')),

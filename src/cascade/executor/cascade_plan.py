@@ -138,10 +138,7 @@ def drill_recipe_graph(locations, settings, args):
     MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
     drill = list(drill)
     drill_sex = SEX_ID_TO_NAME[settings.model.drill_sex]
-    if args.skip_cache:
-        setup_task = []
-    else:
-        setup_task = [RecipeIdentifier(0, "bundle_setup", drill_sex)]
+    setup_task = [RecipeIdentifier(0, "bundle_setup", drill_sex)]
     recipes = setup_task + [
         RecipeIdentifier(drill_location, "estimate_location", drill_sex)
         for drill_location in drill
@@ -176,12 +173,9 @@ def global_recipe_graph(locations, settings, args):
     global_node = RecipeIdentifier(locations.graph["root"], "estimate_location", "both")
     recipe_graph = nx.DiGraph(root=global_node)
     # Start with bundle setup
-    if not args.skip_cache:
-        bundle_setup = RecipeIdentifier(0, "bundle_setup", "both")
-        recipe_graph.graph["root"] = bundle_setup
-        recipe_graph.add_edge(bundle_setup, global_node)
-    else:
-        recipe_graph.graph["root"] = global_node
+    bundle_setup = RecipeIdentifier(0, "bundle_setup", "both")
+    recipe_graph.graph["root"] = bundle_setup
+    recipe_graph.add_edge(bundle_setup, global_node)
 
     global_recipe_graph_add_estimations(locations, recipe_graph, split_sex)
 

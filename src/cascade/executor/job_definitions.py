@@ -46,12 +46,12 @@ def save_global_data_to_hdf(path, global_data):
 
 
 def read_global_for_location(global_vars_path, global_data_path):
-    global_data = SimpleNamespace
+    global_data = SimpleNamespace()
     with closing(pd.HDFStore(str(global_data_path), "r")) as retrieve:
         for df_name in retrieve.keys():
-            setattr(global_data, df_name, retrieve.get(df_name))
+            setattr(global_data, df_name.split("/")[-1], retrieve.get(df_name))
 
-    with shelve.open(global_vars_path, "r") as shelf:
+    with shelve.open(str(global_vars_path), "r") as shelf:
         for key in shelf.keys():
             setattr(global_data, key, shelf[key])
 
@@ -94,8 +94,12 @@ class FindSingleMAP(CascadeJob):
     """Run the fit without any pre-fit."""
     def __init__(self, recipe_id, local_settings, recipe_graph_neighbors, execution_context):
         super().__init__("find_single_maximum", recipe_id, local_settings, execution_context)
+        global_location = 0
         self.inputs.update(dict(
-            input_data=PandasFile(execution_context, "globaldata.hdf", 0, "both"),
+            global_shared=ShelfFile(execution_context, "globalvars", global_location, "both", required_keys=[
+                "covariate_multipliers", "covariate_data_spec",
+            ]),
+            global_data=PandasFile(execution_context, "globaldata.hdf", global_location, "both"),
         ))
         parent_location_id = local_settings.parent_location_id
         estimation_parent = [
@@ -109,6 +113,27 @@ class FindSingleMAP(CascadeJob):
                 execution_context, "summary.hdf", grandparent_location, grandparent_sex)
         self.outputs["db_file"] = DbFile(
             execution_context, "fit.db", parent_location_id, recipe_id.sex
+        )
+
+    def run_under_mathlog(self):
+        global_data = read_global_for_location(
+            self.inputs["global_shared"].path,
+            self.inputs["global_data"].path,
+        )
+        modified_data = one_location_data_from_global_data(global_data, self.local_settings)
+        model = construct_model(
+            modified_data,
+            self.local_settings,
+            modified_data.covariate_multipliers,
+            modified_data.covariate_data_spec
+        )
+        set_priors_from_parent_draws(model, modified_data.draws)
+        compute_parent_fit_fixed(
+            self.execution_context,
+            self.outputs["db_file"].path,
+            self.local_settings,
+            modified_data,
+            model,
         )
 
 
@@ -186,19 +211,33 @@ class ConstructDraw(CascadeJob):
         self.inputs.update(dict(
             db_file=DbFile(execution_context, "fit.db", parent_location_id, recipe_id.sex),
         ))
+        self.multiplicity = local_settings.number_of_fixed_effect_samples
+
+    @property
+    def outputs(self):
         # self.task_id will be defined for a task created from a job.
+        parent_location_id = self.local_settings.parent_location_id
+        ec = self.execution_context
+        out_files = dict()
         if self.task_id is not None:
             draw_idx = self.task_id
-            self.outputs[f"db_file{draw_idx}"] = DbFile(
-                execution_context, f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
+            out_files[f"draw_file{draw_idx}"] = DbFile(
+                ec, f"draw{draw_idx}.db", parent_location_id, self.recipe.sex)
         else:
-            draw_cnt = local_settings.number_of_fixed_effect_samples
+            draw_cnt = self.local_settings.number_of_fixed_effect_samples
             for draw_idx in range(1, 1 + draw_cnt):
-                draw_file = DbFile(execution_context, f"draw{draw_idx}.db", parent_location_id, recipe_id.sex)
-                self.outputs[f"draw_file{draw_idx}"] = draw_file
+                draw_file = DbFile(ec, f"draw{draw_idx}.db", parent_location_id, self.recipe.sex)
+                out_files[f"draw_file{draw_idx}"] = draw_file
+        return out_files
 
     def run_under_mathlog(self):
-        draw_db = self.outputs[f"draw_file{self.task_id}"].path
+        try:
+            draw_db = self.outputs[f"draw_file{self.task_id}"].path
+        except KeyError:
+            raise RuntimeError(
+                f"Draws missing output draw_file{self.task_id} "
+                f"in outputs {self.outputs.keys()}."
+            )
         copyfile(self.inputs["db_file"].path, draw_db)
 
 

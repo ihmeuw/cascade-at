@@ -48,6 +48,7 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
             bundle_id=local_settings.data_access.bundle_id,
             tier=local_settings.data_access.tier
         )
+    CODELOG.debug(f"Bundle length {len(data.bundle)} ")
     # Study covariates will have columns {"bundle_id", "seq", "study_covariate_id"}.
     if data_access.bundle_study_covariates_file:
         data.sparse_covariate_data = dataframe_from_disk(data_access.bundle_study_covariates_file)
