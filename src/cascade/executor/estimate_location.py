@@ -151,6 +151,15 @@ def modify_input_data(input_data, local_settings):
 
 
 def one_location_data_from_global_data(global_data, local_settings):
+    include_birth_prevalence = local_settings.settings.model.birth_prev
+    global_data.average_integrand_cases = \
+        make_average_integrand_cases_from_gbd(
+            global_data.ages_df,
+            global_data.years_df,
+            local_settings.sexes,
+            local_settings.children,
+            include_birth_prevalence
+        )
     # subset asdr
     # subset csmr
     add_covariate_data_to_observations_and_avgints(global_data, local_settings, global_data.covariate_data_spec)
@@ -163,16 +172,6 @@ def one_location_data_from_global_data(global_data, local_settings):
     # The parent can also supply integrands as a kind of prior.
     # These will be shaped like input measurement data. Called fit-integrands.
     global_data.integrands = None
-
-    include_birth_prevalence = local_settings.settings.model.birth_prev
-    global_data.average_integrand_cases = \
-        make_average_integrand_cases_from_gbd(
-            global_data.ages_df,
-            global_data.years_df,
-            local_settings.sexes,
-            local_settings.children,
-            include_birth_prevalence
-        )
     return global_data
 
 
