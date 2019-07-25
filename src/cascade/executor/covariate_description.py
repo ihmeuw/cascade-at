@@ -28,7 +28,11 @@ class EpiVizCovariate:
     def name(self):
         """The name for this covariate in the final data."""
         if self.untransformed_covariate_name is None:
-            raise RuntimeError(f"The name for this covariate hasn't been set yet {self.covariate_id}")
+            raise RuntimeError(
+                f"The name for this covariate hasn't been set yet "
+                f"id={self.covariate_id}, {self.study_country}, "
+                f"transform={self.transformation_id}."
+            )
         transform_name = COVARIATE_TRANSFORMS[self.transformation_id].__name__
         if transform_name != "identity":
             return f"{self.untransformed_covariate_name}_{transform_name}"
