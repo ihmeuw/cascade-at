@@ -1,4 +1,7 @@
+import pickle
+import shutil
 from os import walk
+from pathlib import Path
 
 import pytest
 from gridengineapp import entry
@@ -8,6 +11,7 @@ from cascade.executor.create_settings import SettingsChoices, create_settings
 from cascade.executor.dismodel_main import DismodAT
 from cascade.executor.execution_context import make_execution_context
 from cascade.input_data.db.locations import location_hierarchy
+from cascade.input_data.db.configuration import json_settings_to_frozen_settings
 
 
 @pytest.mark.parametrize("meid,mvid", [
@@ -61,24 +65,72 @@ def test_retrieve_data(ihme, draw, tmp_path):
     assert len(list(base.glob("globalvars*"))) > 0
 
 
+@pytest.fixture
+def globaldir(request, tmp_path):
+    """This is a cached store of the results of bundle setup because
+    bundle setup is so slow downloading from the database.
+
+    Does this look like a pain in the butt? Yes. But it's sometimes five
+    minutes, and this sets us up to test any part of the hierarchy.
+    Use ``pytest --clear-cache`` to erase this entry and re-download.
+    """
+    base_path = request.config.cache.get("run_global/globaldir", None)
+    if isinstance(base_path, str):
+        base_path = Path(base_path)
+    if base_path is None or not (base_path / "globaldata.hdf").exists():
+        ec = make_execution_context()
+        draw = 12
+        rng = RandomState(524287 + 131071 * draw)
+        locs = location_hierarchy(6, 429)
+
+        choices = SettingsChoices(rng, None)
+        settings = create_settings(choices, locs)
+
+        app = DismodAT(locs, settings, ec)
+        # skip-cache says to use Tier 2 data.
+        arg_list = [
+            "--no-upload", "--db-only", "-v",
+            "--base-directory", str(tmp_path),
+            "--location", "0", "--skip-cache",
+            "--recipe", "bundle_setup",  # We are asking for one particular recipe.
+        ]
+        entry(app, arg_list)
+        meid = "23514"
+        mvid = "267890"
+        loc = "0"
+        sex = "both"
+        base = tmp_path / meid / mvid / "0" / loc / sex
+        global_data = base / "globaldata.hdf"
+        assert global_data.exists()
+        # Convert settings to a dict b/c they don't serialize perfectly.
+        pickle.dump(settings.to_dict(), (base / "settings.pickle").open("wb"))
+        request.config.cache.set("run_global/globaldir", str(base))
+    else:
+        # Why copy settings? Because they have specific locations and options.
+        raw_settings = pickle.load((base_path / "settings.pickle").open("rb"))
+        # This is the step that deserializes and validates, the important part.
+        settings = json_settings_to_frozen_settings(raw_settings)
+    return settings, base_path
+
+
 @pytest.mark.parametrize("draw", list(range(1)))
-def test_run_global(ihme, draw, tmp_path):
+def test_run_global(ihme, draw, tmp_path, globaldir):
+    settings, global_data = globaldir
     ec = make_execution_context()
-    rng = RandomState(524287 + 131071 * draw)
     locs = location_hierarchy(6, 429)
-
-    choices = SettingsChoices(rng, None)
-    settings = create_settings(choices, locs)
-
     app = DismodAT(locs, settings, ec)
-    # skip-cache says to use Tier 2 data.
-    arg_list = [
-        "--no-upload", "--db-only", "-v",
-        "--base-directory", str(tmp_path),
-        "--location", "0", "--skip-cache",
-        "--recipe", "bundle_setup",  # We are asking for one particular recipe.
-    ]
-    entry(app, arg_list)
+    # We copy a previously-computed directory into the correct location
+    # in tmp_path because it takes so long to download the data that
+    # testing is a bear.
+    meid = "23514"
+    mvid = "267890"
+    loc = "0"
+    sex = "both"
+    base = tmp_path / meid / mvid / "0" / loc / sex
+    try:
+        shutil.copytree(global_data, base)
+    except FileExistsError:
+        assert (base / "globaldata.hdf").exists()
 
     print(f"Retrieved data, now running.")
     arg_list = [

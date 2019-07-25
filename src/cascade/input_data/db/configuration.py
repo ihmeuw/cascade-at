@@ -98,6 +98,9 @@ def json_settings_to_frozen_settings(raw_settings, mvid=None):
     Args:
         raw_settings (dict): Dict of dicts, representing the JSON settings.
         mvid (int,optional): Model version ID to put into the settings.
+
+    Returns:
+        Configuration: Represents validated settings.
     """
     if "model_version_id" not in raw_settings["model"] or not raw_settings["model"]["model_version_id"]:
         raw_settings["model"]["model_version_id"] = mvid

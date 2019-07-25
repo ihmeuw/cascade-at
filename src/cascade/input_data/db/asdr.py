@@ -55,6 +55,7 @@ def get_asdr_global(gbd_round_id, decomp_step, location_set_version_id, with_hiv
     """
     return get_asdr_formatted(dict(
         location_set_version_id=location_set_version_id,
+        location_id="all",
         year_id=-1,
         gbd_round_id=gbd_round_id,
         decomp_step=decomp_step,

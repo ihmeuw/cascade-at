@@ -115,7 +115,14 @@ def constrain_omega(default_age_time, asdr, ev_settings, model, parent_location_
         parent_location_id (int): parent location
         children (List[int]): Child location ids.
     """
-    omega = rectangular_data_to_var(asdr[asdr.location == parent_location_id])
+    parent_asdr = asdr[asdr.location == parent_location_id]
+    if len(parent_asdr) == 0:
+        raise RuntimeError(
+            f"Age-specific death rate has no values for this location "
+            f"({parent_location_id}). It has locations "
+            f"{', '.join(str(x) for x in asdr.location.unique())}."
+        )
+    omega = rectangular_data_to_var(parent_asdr)
     model.rate["omega"] = constraint_from_rectangular_data(omega, default_age_time)
     asdr_locations = set(asdr.location.unique().tolist())
     children_without_asdr = set(children) - set(asdr_locations)

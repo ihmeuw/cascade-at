@@ -58,6 +58,7 @@ def _gbd_process_version_id_from_cod_version(cod_version):
 def get_csmr_data(
         execution_context, location_set_id, cause_id, cod_version, gbd_round_id, decomp_step
 ):
+    """Retrieve CSMR for all locations in a location set."""
     return get_csmr_base(
         execution_context,
         cause_id,
@@ -71,6 +72,7 @@ def get_csmr_data(
 def get_csmr_location(
         execution_context, location_id, cause_id, cod_version, gbd_round_id, decomp_step
 ):
+    """Retrieve CSMR just for one location."""
     return get_csmr_base(
         execution_context,
         cause_id,
@@ -82,7 +84,9 @@ def get_csmr_location(
 
 
 def get_csmr_base(
-        execution_context, cause_id, cod_version, gbd_round_id, decomp_step, extra_args):
+        execution_context, cause_id, cod_version, gbd_round_id, decomp_step, extra_args
+):
+    """Gets CSMR with minor formatting, limiting it to desired columns."""
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
     process_version_id = _gbd_process_version_id_from_cod_version(cod_version)
