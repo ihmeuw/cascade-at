@@ -6,6 +6,10 @@ have consistency and a single choke point for that access.
 import importlib
 from contextlib import contextmanager
 from pathlib import Path
+from random import randint
+from time import sleep
+
+import sqlalchemy
 
 from cascade.core import CascadeError
 from cascade.core.log import getLoggers
@@ -112,3 +116,45 @@ def connection(execution_context=None, database=None):
     yield connection
     connection.commit()
     connection.close()
+
+
+def repeat_request(query_function):
+    """This retries the given function if the function fails with one of
+    a known set of exceptions. If it's any other exception, then it re-raises
+    that exception.
+
+    Use as::
+
+        from cascade.core.db import db_queries, query_function
+        query_function(db_queries.get_demographics)(gbd_team="epi",
+                       gbd_round_id=6)
+
+    """
+    def repeat(*args, **kwargs):
+        if hasattr(query_function, "__name__"):
+            name = query_function.__name__
+        else:
+            name = str(query_function)
+
+        could_work_eventually = True
+        while could_work_eventually:
+            try:
+                result = query_function(*args, **kwargs)
+            except sqlalchemy.exc.OperationalError as op_err:
+                if "Lost connection" in str(op_err):
+                    CODELOG.warning(f"Query {name} failed with err {op_err}. Retrying.")
+                else:
+                    CODELOG.warning(f"Query {name} failed with err {op_err}. Not retrying.")
+                    raise
+            except Exception as err:
+                CODELOG.warning(
+                    f"Query {name} failed with err {err}. Quitting. "
+                    "If this exception looks recoverable, then add it to the list "
+                    "of recoverable exceptions"
+                )
+                raise
+            else:
+                return result
+            sleep(randint(1, 10))
+
+    return repeat

@@ -160,7 +160,6 @@ def one_location_data_from_global_data(global_data, local_settings):
             local_settings.children,
             include_birth_prevalence
         )
-    # subset asdr
     # subset csmr
     add_covariate_data_to_observations_and_avgints(global_data, local_settings, global_data.covariate_data_spec)
     global_data.observations = global_data.observations.drop(columns=["sex_id", "seq"])

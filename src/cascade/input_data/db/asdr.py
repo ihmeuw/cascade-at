@@ -3,7 +3,7 @@ all-cause mortality rate, by age."""
 import pandas as pd
 from numpy import nan
 
-from cascade.core.db import cursor, db_queries
+from cascade.core.db import cursor, db_queries, repeat_request
 from cascade.core.log import getLoggers
 from cascade.input_data.db import AGE_GROUP_SET_ID
 from cascade.stats.estimation import bounds_to_stdev
@@ -37,7 +37,7 @@ def get_asdr_formatted(choices_dict):
         age_group_id=demo_dict["age_group_id"],
         sex_id=demo_dict["sex_id"],
     ))
-    asdr = db_queries.get_envelope(**choices_dict)
+    asdr = repeat_request(db_queries.get_envelope)(**choices_dict)
 
     nulls = asdr["mean"].isnull().sum()
     if nulls > 0:
@@ -53,6 +53,7 @@ def get_asdr_global(gbd_round_id, decomp_step, location_set_version_id, with_hiv
     This is :math:`{}_nm_x`, the mortality rate. This gets rates, not counts.
     This gets data for all locations, specified by location set.
     """
+    CODELOG.debug(f"get_asdr_global: round {gbd_round_id} decomp {decomp_step}")
     return get_asdr_formatted(dict(
         location_set_version_id=location_set_version_id,
         location_id="all",
@@ -69,6 +70,8 @@ def get_asdr_data(gbd_round_id, decomp_step, location_and_children, with_hiv):
     This is :math:`{}_nm_x`, the mortality rate. This gets rates, not counts.
     Gets data only for locations specified.
     """
+    CODELOG.debug(f"get_asdr_data round {gbd_round_id} decomp {decomp_step} "
+                  f"for locations {location_and_children}")
     return get_asdr_formatted(dict(
         location_id=location_and_children,
         year_id=-1,
@@ -107,6 +110,7 @@ def asdr_by_sex(asdr, ages, sexes):
     """Incoming age-specific death rate has ``age_id`` and upper and lower
     bounds. This translates those into age-ranges, time-ranges, and standard
     deviations."""
+    CODELOG.debug(f"asdr_by_sex for sexes {sexes}")
     without_weight = ages.drop(columns=["age_group_weight_value"])
     as_up_low = without_weight.rename({"age_group_years_start": "age_lower", "age_group_years_end": "age_upper"},
                                       axis="columns")

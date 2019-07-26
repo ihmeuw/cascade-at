@@ -100,8 +100,8 @@ def globaldir(request, tmp_path):
             base = tmp_path / meid / mvid / "0" / loc / sex
             global_data = base / "globaldata.hdf"
             assert global_data.exists()
-            # Convert settings to a dict b/c they don't serialize perfectly.
             request.config.cache.set(f"run_global/globaldir{draw}", str(base))
+            base_path = base
         return settings, base_path
     return by_draw
 
