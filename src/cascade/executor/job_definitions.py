@@ -59,6 +59,11 @@ def read_global_for_location(global_vars_path, global_data_path):
 
 
 class GlobalPrepareData(CascadeJob):
+    """
+    This job reads settings and downloads all data that will be needed by
+    every later location in the Cascade. The goal is to do all database
+    queries here and store the results in a single directory.
+    """
     def __init__(self, recipe_id, local_settings, execution_context):
         super().__init__("global_prepare", recipe_id, local_settings, execution_context)
         global_location = 0
@@ -91,7 +96,11 @@ class GlobalPrepareData(CascadeJob):
 
 
 class FindSingleMAP(CascadeJob):
-    """Run the fit without any pre-fit."""
+    """
+    This job does an estimation for a single location.
+    It takes parent data and does a single fit without preceding that
+    with a "fit fixed" in order to estimate the starting fit.
+    """
     def __init__(self, recipe_id, local_settings, recipe_graph_neighbors, execution_context):
         super().__init__("find_single_maximum", recipe_id, local_settings, execution_context)
         global_location = 0
@@ -138,7 +147,11 @@ class FindSingleMAP(CascadeJob):
 
 
 class FindFixedMAP(CascadeJob):
-    """Do a "fit fixed" which will precede the "fit both"."""
+    """
+    Do a "fit fixed" which will precede the "fit both".
+    The "fit fixed" is much faster than fit both. It is used to find an
+    initial guess to use for scaling the later fit with random effects.
+    """
     def __init__(self, recipe_id, local_settings, neighbors, execution_context):
         super().__init__("find_maximum_fixed", recipe_id, local_settings, execution_context)
         global_location = 0

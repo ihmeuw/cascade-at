@@ -85,8 +85,8 @@ The study covariates file must have the following columns: seq (must match the i
 
 .. option:: --skip-cache
 
-    Download all data from the databases, instead of going to tier 3, which
-    is a version stored in order to ensure repeatable runs. This flag
+    Download all data directly from the databases, instead of going to tier 3,
+    which is a version stored in order to ensure repeatable runs. This flag
     also turns off creation of a tier 3 copy of data.
 
 .. option:: --num-processes NUM_PROCESSES

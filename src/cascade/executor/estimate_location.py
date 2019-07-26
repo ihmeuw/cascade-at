@@ -151,7 +151,21 @@ def modify_input_data(input_data, local_settings):
 
 
 def one_location_data_from_global_data(global_data, local_settings):
+    """
+    Responsible for localizing global data to this location and its children.
+    The global data has been saved, for all locations, earlier. This
+    looks at settings and subselects that data.
+
+    Args:
+        global_data (SimpleNamespace): A bag of data.
+        local_settings (SimpleNamespace): Settings that have been build
+            for this location.
+
+    Returns:
+        SimpleNamespace: The same object, but data is modified.
+    """
     include_birth_prevalence = local_settings.settings.model.birth_prev
+    # Make avgints here b/c they are wrote and not worth saving.
     global_data.average_integrand_cases = \
         make_average_integrand_cases_from_gbd(
             global_data.ages_df,
@@ -160,7 +174,6 @@ def one_location_data_from_global_data(global_data, local_settings):
             local_settings.children,
             include_birth_prevalence
         )
-    # subset csmr
     add_covariate_data_to_observations_and_avgints(global_data, local_settings, global_data.covariate_data_spec)
     global_data.observations = global_data.observations.drop(columns=["sex_id", "seq"])
     set_sex_reference(global_data.covariate_data_spec, local_settings)
