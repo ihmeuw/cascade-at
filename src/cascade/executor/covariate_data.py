@@ -46,8 +46,6 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
     Returns:
         None: Everything is added to observations and avgints.
     """
-    assign_epiviz_covariate_names(data, epiviz_covariates)
-
     add_study_covariate_to_observations_and_avgints(data)
     add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates)
 

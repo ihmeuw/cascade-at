@@ -344,6 +344,7 @@ def add_job_list(recipe_graph, execution_context):
     # graph to run. It's important for testing.
     included_locations = {
         recipe_id.location_id for recipe_id in recipe_graph.nodes
+        if recipe_id.location_id != 0
     }
     for node in recipe_graph:
         predecessors = recipe_graph.predecessors(node)

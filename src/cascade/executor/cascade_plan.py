@@ -2,6 +2,7 @@
 Specification for what parameters are used at what location within
 the Cascade.
 """
+from os import linesep
 from types import SimpleNamespace
 
 import networkx as nx
@@ -12,6 +13,7 @@ from cascade.input_data import InputDataError
 from cascade.input_data.configuration.builder import policies_from_settings
 from cascade.input_data.configuration.sex import SEX_ID_TO_NAME, SEX_NAME_TO_ID
 from cascade.input_data.db.locations import location_id_from_start_and_finish
+from cascade.runner.application_config import application_config
 from cascade.runner.job_graph import RecipeIdentifier
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -118,6 +120,11 @@ def recipe_graph_from_settings(locations, settings, args):
     for recipe_identifier in recipe_graph.nodes:
         local_settings = location_specific_settings(locations, settings, args, recipe_identifier)
         recipe_graph.nodes[recipe_identifier]["local_settings"] = local_settings
+
+    if len(recipe_graph) < application_config()["NonModel"].getint("small-graph-nodes"):
+        debug_lines = [str(node) for node in nx.topological_sort(recipe_graph)]
+        debug_str = f"{linesep}\t".join(debug_lines)
+        CODELOG.debug(f"Recipes in order{linesep}\t{debug_str}")
 
     return recipe_graph
 

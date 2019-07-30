@@ -6,6 +6,8 @@ from numpy import nan
 from cascade.core.db import cursor, db_queries, repeat_request
 from cascade.core.log import getLoggers
 from cascade.input_data.db import AGE_GROUP_SET_ID
+from cascade.input_data.db.data_iterator import grouped_by_count
+from cascade.runner.application_config import application_config
 from cascade.stats.estimation import bounds_to_stdev
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -73,7 +75,7 @@ def get_asdr_data(gbd_round_id, decomp_step, location_and_children, with_hiv):
     CODELOG.debug(f"get_asdr_data round {gbd_round_id} decomp {decomp_step} "
                   f"for locations {location_and_children}")
     return get_asdr_formatted(dict(
-        location_id=location_and_children,
+        location_id=list(location_and_children),
         year_id=-1,
         gbd_round_id=gbd_round_id,
         decomp_step=decomp_step,
@@ -94,8 +96,8 @@ def asdr_as_fit_input(
         location_set_version_id (int): Location set version for which
             to retrieve the data. This is all locations.
         included_locations (List[int]): The locations in this run.
-            If the locations we need are less than 10, then retrieve data
-            only for those locations.
+            If the locations we need are less than ``small-location-count``,
+            then retrieve data only for those locations.
         sexes (List[int]): 1, 2, 3, or 4. Sex_id.
         gbd_round_id (int): GBD round identifies consistent data sets.
         ages_df (pd.DataFrame): Age_id to age mapping.
@@ -106,14 +108,24 @@ def asdr_as_fit_input(
         ``eta``, ``nu``, ``time_lower``, ``time_upper``, ``age_lower``,
         ``age_upper``, and ``location``, ``sex_id``.
     """
-    if included_locations is not None and len(included_locations) < 10:
-        CODELOG.debug(f"asdr_as_fit_input Retrieving ASDR for {len(included_locations)}.")
-        asdr = get_asdr_data(gbd_round_id, decomp_step, location_set_version_id, with_hiv)
+    parameters = application_config()["NonModel"]
+    # Why not download all every time? It's really slow for testing.
+    small_number_locations = parameters.getint("small-location-count")
+    if included_locations is not None and len(included_locations) < small_number_locations:
+        # Call db_queries multiple times because it uses the SQL in set()
+        # syntax, which fails when the set is large.
+        locations_per_query = parameters.getint("locations-per-query")
+        multiple_asdr = list()
+        for location_bunch in grouped_by_count(included_locations, locations_per_query):
+            piece = get_asdr_data(gbd_round_id, decomp_step, location_bunch, with_hiv)
+            multiple_asdr.append(piece)
+        asdr = pd.concat(multiple_asdr, axis=0, ignore_index=True, sort=False)
+        CODELOG.debug(f"asdr_as_fit_input Retrieving {len(asdr)} ASDR for {included_locations}.")
     else:
-        CODELOG.debug(
-            f"asdr_as_fit_input Retrieving ASDR for "
-            f"location_set_version_id {location_set_version_id}.")
         asdr = get_asdr_global(gbd_round_id, decomp_step, location_set_version_id, with_hiv)
+        CODELOG.debug(
+            f"asdr_as_fit_input Retrieving {len(asdr)} ASDR for "
+            f"location_set_version_id {location_set_version_id}.")
     assert not (set(asdr.age_group_id.unique()) - set(ages_df.age_group_id.values))
     return asdr_by_sex(asdr, ages_df, sexes)
 
