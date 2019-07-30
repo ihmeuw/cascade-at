@@ -7,7 +7,11 @@ from cascade.input_data.configuration.builder import COVARIATE_TRANSFORMS
 
 @total_ordering
 class EpiVizCovariate:
-    """This specifies covariate data from settings."""
+    """This specifies covariate data from settings.
+    It is separate from the cascade.model.Covariate, which is a Dismod-AT
+    covariate. EpiViz-AT distinguishes study and country covariates and
+    encodes them into the Dismod-AT covariate names.
+    """
     def __init__(self, study_country, covariate_id, transformation_id):
         self.study_country = study_country
         self.covariate_id = covariate_id

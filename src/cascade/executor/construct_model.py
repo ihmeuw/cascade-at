@@ -143,6 +143,8 @@ def constrain_omega(default_age_time, asdr, ev_settings, model, parent_location_
             single_sex_asdr = asdr[asdr.sex_id == keep]
         else:
             raise AssertionError(f"ASDR had sexes {sexes_present}.")
+    else:
+        single_sex_asdr = asdr
 
     parent_asdr = single_sex_asdr[single_sex_asdr.location == parent_location_id]
     if len(parent_asdr) == 0:

@@ -7,6 +7,7 @@ from numpy import nan
 
 from cascade.core import getLoggers
 from cascade.core.db import db_queries, age_spans
+from cascade.executor.covariate_data import assign_epiviz_covariate_names
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
 from cascade.executor.session_options import make_options, make_minimum_meas_cv
 from cascade.input_data.configuration.construct_bundle import (
@@ -30,7 +31,7 @@ from cascade.saver.save_prediction import save_predicted_value, uncertainty_from
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def retrieve_data(execution_context, local_settings, covariate_data_spec):
+def retrieve_data(execution_context, local_settings, included_locations, covariate_data_spec):
     """Gets data from the outside world."""
     data = SimpleNamespace()
     data_access = local_settings.data_access
@@ -57,7 +58,16 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
         data.sparse_covariate_data = get_study_covariates(
             execution_context, data_access.bundle_id, mvid, tier=data_access.tier)
 
-    country_covariate_ids = {spec.covariate_id for spec in covariate_data_spec if spec.study_country == "country"}
+    country_covariate_ids = {
+        spec.covariate_id for spec in covariate_data_spec
+        if spec.study_country == "country"
+    }
+    data.study_id_to_name, data.country_id_to_name = find_covariate_names(
+        execution_context, covariate_data_spec)
+    assign_epiviz_covariate_names(
+        data.study_id_to_name, data.country_id_to_name, covariate_data_spec
+    )
+
     # Raw country covariate data. Must be subset for children.
     covariates_by_age_id = country_covariate_set(
         country_covariate_ids,
@@ -89,20 +99,16 @@ def retrieve_data(execution_context, local_settings, covariate_data_spec):
     all_sexes = [1, 2, 3]
     data.age_specific_death_rate = asdr_as_fit_input(
         data_access.location_set_version_id,
+        included_locations,
         all_sexes,
         data_access.gbd_round_id,
         data_access.decomp_step,
         data.ages_df,
         with_hiv=data_access.with_hiv
     )
-    # All locations should have the same location set ID, so use one of those.
-    node = next(iter(data.locations.nodes))
-    location_set_id = data.locations.nodes[node]["location_set_id"]
     data.cause_specific_mortality_rate = get_raw_csmr(
-        execution_context, local_settings.data_access, location_set_id, all_age_spans)
-
-    data.study_id_to_name, data.country_id_to_name = find_covariate_names(
-        execution_context, covariate_data_spec)
+        execution_context, local_settings.data_access,
+        included_locations, all_age_spans)
 
     return data
 

@@ -4,14 +4,15 @@ from cascade.core import getLoggers
 from cascade.input_data.configuration.construct_country import (
     convert_gbd_ids_to_dismod_values
 )
-from cascade.input_data.db.csmr import get_csmr_data
+from cascade.input_data.db.csmr import get_csmr_data, get_csmr_location
 from cascade.input_data.db.locations import location_hierarchy, get_descendants
 from cascade.input_data.db.mortality import get_frozen_cause_specific_mortality_data
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def get_raw_csmr(execution_context, data_access, location_set_id, age_spans):
+def get_raw_csmr(execution_context, data_access,
+                 included_locations, age_spans):
     """Gets CSMR that has age_lower, age_upper, but no further processing."""
     assert isinstance(age_spans, pd.DataFrame)
 
@@ -20,15 +21,27 @@ def get_raw_csmr(execution_context, data_access, location_set_id, age_spans):
         raw_csmr = get_frozen_cause_specific_mortality_data(
             execution_context, data_access.model_version_id)
     else:
-        CODELOG.debug(f"Getting CSMR directly")
-        raw_csmr = get_csmr_data(
-            execution_context,
-            location_set_id,
-            data_access.add_csmr_cause,
-            data_access.cod_version,
-            data_access.gbd_round_id,
-            data_access.decomp_step,
-        )
+        if included_locations is not None and len(included_locations) < 10:
+            CODELOG.debug(f"CSMR retrieval for {included_locations}.")
+            raw_csmr = get_csmr_location(
+                execution_context,
+                included_locations,
+                data_access.add_csmr_cause,
+                data_access.cod_version,
+                data_access.gbd_round_id,
+                data_access.decomp_step,
+            )
+        else:
+            CODELOG.debug(
+                f"CSMR retrieval for location_set_id {data_access.location_set_id}.")
+            raw_csmr = get_csmr_data(
+                execution_context,
+                data_access.location_set_id,
+                data_access.add_csmr_cause,
+                data_access.cod_version,
+                data_access.gbd_round_id,
+                data_access.decomp_step,
+            )
     return convert_gbd_ids_to_dismod_values(raw_csmr, age_spans)
 
 

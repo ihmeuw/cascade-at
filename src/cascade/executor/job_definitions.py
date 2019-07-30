@@ -64,8 +64,9 @@ class GlobalPrepareData(CascadeJob):
     every later location in the Cascade. The goal is to do all database
     queries here and store the results in a single directory.
     """
-    def __init__(self, recipe_id, local_settings, execution_context):
+    def __init__(self, recipe_id, local_settings, included_locations, execution_context):
         super().__init__("global_prepare", recipe_id, local_settings, execution_context)
+        self.included_locations = included_locations
         global_location = 0
         self.outputs.update(dict(
             shared=ShelfFile(execution_context, "globalvars", global_location, "both", required_keys=[
@@ -81,7 +82,7 @@ class GlobalPrepareData(CascadeJob):
             local_settings.settings.country_covariate, local_settings.settings.study_covariate
         )
 
-        input_data = retrieve_data(execution_context, local_settings, covariate_data_spec)
+        input_data = retrieve_data(execution_context, local_settings, self.included_locations, covariate_data_spec)
         columns_wrong = validate_input_data_types(input_data)
         assert not columns_wrong, f"validation failed {columns_wrong}"
         modified_data = modify_input_data(input_data, local_settings)
@@ -283,7 +284,9 @@ class Summarize(CascadeJob):
         )
 
 
-def recipe_to_jobs(recipe_identifier, local_settings, neighbors, execution_context):
+def recipe_to_jobs(
+        recipe_identifier, local_settings, neighbors, included_locations, execution_context
+):
     """Given a recipe, return a list of jobs that must be done in order.
 
     Args:
@@ -291,6 +294,9 @@ def recipe_to_jobs(recipe_identifier, local_settings, neighbors, execution_conte
             what a modeler thinks of as one estimation.
         local_settings (Namespace|SimpleNamespace): These are settings that
             have been localized to apply to a particular location.
+        neighbors (List[RecipeIdentifier]): Nodes that precede this node.
+        included_locations(List[RecipeIdentifier]): All nodes in the graph.
+        execution_context: Information about the environment.
 
     Returns:
         List[Job]: A list of jobs to run in order. Could make it a graph,
@@ -299,7 +305,7 @@ def recipe_to_jobs(recipe_identifier, local_settings, neighbors, execution_conte
     sub_jobs = list()
     if recipe_identifier.recipe == "bundle_setup":
         bundle_setup = GlobalPrepareData(
-            recipe_identifier, local_settings, execution_context
+            recipe_identifier, local_settings, included_locations, execution_context
         )
         sub_jobs.append(bundle_setup)
     elif recipe_identifier.recipe == "estimate_location":
@@ -333,11 +339,21 @@ def job_graph_from_settings(locations, settings, args, execution_context):
 
 
 def add_job_list(recipe_graph, execution_context):
+    # Why ask the graph what locations are included? Because we want to allow
+    # someone running from the command-line to choose a subset of the
+    # graph to run. It's important for testing.
+    included_locations = {
+        recipe_id.location_id for recipe_id in recipe_graph.nodes
+    }
     for node in recipe_graph:
         predecessors = recipe_graph.predecessors(node)
         successors = recipe_graph.successors(node)
         neighbors = dict(predecessors=predecessors, successors=successors)
         jobs = recipe_to_jobs(
-            node, recipe_graph.nodes[node]["local_settings"], neighbors, execution_context
+            node,
+            recipe_graph.nodes[node]["local_settings"],
+            neighbors,
+            included_locations,
+            execution_context,
         )
         recipe_graph.nodes[node]["job_list"] = jobs

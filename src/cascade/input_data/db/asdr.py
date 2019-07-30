@@ -82,7 +82,10 @@ def get_asdr_data(gbd_round_id, decomp_step, location_and_children, with_hiv):
     ))
 
 
-def asdr_as_fit_input(location_set_version_id, sexes, gbd_round_id, decomp_step, ages_df, with_hiv):
+def asdr_as_fit_input(
+        location_set_version_id, included_locations, sexes, gbd_round_id,
+        decomp_step, ages_df, with_hiv
+):
     r"""Gets age-specific death rate (ASDR) from database and formats as
     input data. This is :math:`{}_nm_x`, the mortality rate by age group.
     Returns rates, not counts.
@@ -90,6 +93,9 @@ def asdr_as_fit_input(location_set_version_id, sexes, gbd_round_id, decomp_step,
     Args:
         location_set_version_id (int): Location set version for which
             to retrieve the data. This is all locations.
+        included_locations (List[int]): The locations in this run.
+            If the locations we need are less than 10, then retrieve data
+            only for those locations.
         sexes (List[int]): 1, 2, 3, or 4. Sex_id.
         gbd_round_id (int): GBD round identifies consistent data sets.
         ages_df (pd.DataFrame): Age_id to age mapping.
@@ -100,8 +106,14 @@ def asdr_as_fit_input(location_set_version_id, sexes, gbd_round_id, decomp_step,
         ``eta``, ``nu``, ``time_lower``, ``time_upper``, ``age_lower``,
         ``age_upper``, and ``location``, ``sex_id``.
     """
-
-    asdr = get_asdr_global(gbd_round_id, decomp_step, location_set_version_id, with_hiv)
+    if included_locations is not None and len(included_locations) < 10:
+        CODELOG.debug(f"asdr_as_fit_input Retrieving ASDR for {len(included_locations)}.")
+        asdr = get_asdr_data(gbd_round_id, decomp_step, location_set_version_id, with_hiv)
+    else:
+        CODELOG.debug(
+            f"asdr_as_fit_input Retrieving ASDR for "
+            f"location_set_version_id {location_set_version_id}.")
+        asdr = get_asdr_global(gbd_round_id, decomp_step, location_set_version_id, with_hiv)
     assert not (set(asdr.age_group_id.unique()) - set(ages_df.age_group_id.values))
     return asdr_by_sex(asdr, ages_df, sexes)
 

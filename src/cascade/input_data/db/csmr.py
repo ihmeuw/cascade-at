@@ -72,7 +72,7 @@ def get_csmr_data(
 def get_csmr_location(
         execution_context, location_id, cause_id, cod_version, gbd_round_id, decomp_step
 ):
-    """Retrieve CSMR just for one location."""
+    """Retrieve CSMR for one location or for a list of locations."""
     return get_csmr_base(
         execution_context,
         cause_id,
