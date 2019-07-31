@@ -218,7 +218,11 @@ class FindBothMAP(CascadeJob):
 
 
 class ConstructDraw(CascadeJob):
-    """This one job has a task to do a fit for each draw."""
+    """
+    This one job has a task to do a fit for each draw.
+    It's a task array. If there are 30 draws, then this task array reduces
+    the cluster queue size by a factor of 10, from 32 to 3.
+    """
     def __init__(self, recipe_id, local_settings, execution_context):
         super().__init__("draw", recipe_id, local_settings, execution_context)
         parent_location_id = local_settings.parent_location_id
@@ -253,6 +257,13 @@ class ConstructDraw(CascadeJob):
                 f"in outputs {self.outputs.keys()}."
             )
         copyfile(self.inputs["db_file"].path, draw_db)
+        zero_based_dismod_simulation_idx = self.task_id - 1
+        compute_parent_fit(
+            self.execution_context,
+            draw_db,
+            self.local_settings,
+            simulate_idx=zero_based_dismod_simulation_idx,
+        )
 
 
 class Summarize(CascadeJob):
@@ -281,6 +292,7 @@ class Summarize(CascadeJob):
             predictions,
             self.execution_context,
             self.local_settings,
+            self.outputs["summary"].path,
         )
 
 

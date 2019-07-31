@@ -249,13 +249,14 @@ def compute_parent_fit_fixed(execution_context, db_path, local_settings, input_d
     CODELOG.info(f"fit fixed {timer() - begin}")
 
 
-def compute_parent_fit(execution_context, db_path, local_settings):
+def compute_parent_fit(execution_context, db_path, local_settings, simulate_idx=None):
     """
 
     Args:
         execution_context:
         input_data: These include observations and initial guess.
         model (Model): A complete Model object.
+        simulate_idx (int): Which simulation to fit.
 
     Returns:
         The fit.
@@ -269,7 +270,10 @@ def compute_parent_fit(execution_context, db_path, local_settings):
 
     if not local_settings.run.db_only:
         dismod_objects.run_dismod("init")
-        stdout, stderr, _metrics = dismod_objects.run_dismod(["fit", "both"])
+        command = ["fit", "both"]
+        if simulate_idx is not None:
+            command += [simulate_idx]
+        stdout, stderr, _metrics = dismod_objects.run_dismod(command)
         CODELOG.debug(stdout)
         CODELOG.debug(stderr)
     else:
@@ -286,12 +290,26 @@ def compute_parent_fit(execution_context, db_path, local_settings):
 
 
 def gather_simulations_and_fit(fit_path, simulation_paths):
-    return None, None
+    predictions = list()
+    for draw_path in simulation_paths:
+        draw_objects = ObjectWrapper(str(draw_path))
+        predicted, not_predicted = draw_objects.predict
+        predictions.append(predicted)
+        draw_objects.close()
+
+    fit_objects = ObjectWrapper(str(fit_path))
+    pred_fit, not_pred_fit = fit_objects.predict
+    fit_objects.close()
+    return pred_fit, predictions
 
 
-def save_outputs(computed_fit, predictions, execution_context, local_settings):
-    predictions = uncertainty_from_prediction_draws(predictions)
-    save_predicted_value(execution_context, predictions, "fit")
+def save_outputs(
+        computed_fit, predictions, execution_context, local_settings, summary_path
+):
+    predictions = uncertainty_from_prediction_draws(computed_fit, predictions)
+    save_predicted_value(
+        execution_context, predictions, "fit", summary_path, local_settings.run.no_upload
+    )
 
 
 def fit_and_predict_fixed_effect_sample(db_path, draw_idx):

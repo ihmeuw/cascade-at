@@ -10,7 +10,19 @@ from cascade.core.db import ezfuncs
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def uncertainty_from_prediction_draws(predictions):
+def uncertainty_from_prediction_draws(computed_fit, predictions):
+    """
+    Calculate uncertainty from the predictions table contents from several fits.
+
+    Args:
+        computed_fit (pd.DataFrame): The prediction for the maximum a-priori
+            fit. This should be used for the mean.
+        predictions (List[pd.DataFrame]): The predictions table taken from
+            the DismodObjects version of the db_file.
+
+    Returns:
+        pd.DataFrame: Predictions with quantiles.
+    """
     predictions = pd.concat(predictions)
     CODELOG.debug(f"predictions columns {predictions.columns}")
     columns_to_remove = (
@@ -62,7 +74,9 @@ def _predicted_to_uploadable_format(execution_context, predicted):
     return predicted
 
 
-def save_predicted_value(execution_context, predicted, fit_or_final):
+def save_predicted_value(
+        execution_context, predicted, fit_or_final, summary_path, no_upload=False
+):
     if fit_or_final == "fit":
         table = "model_estimate_fit"
     elif fit_or_final == "final":
@@ -74,10 +88,18 @@ def save_predicted_value(execution_context, predicted, fit_or_final):
 
     predicted = predicted.assign(model_version_id=execution_context.parameters.model_version_id)
 
-    engine = ezfuncs.get_engine(execution_context.parameters.database)
-    CODELOG.debug(f"Saving {len(table)} records to {table} on db "
-                  f"{execution_context.parameters.database}.")
+    if not no_upload:
+        engine = ezfuncs.get_engine(execution_context.parameters.database)
+        CODELOG.debug(f"Saving {len(table)} records to {table} on db "
+                      f"{execution_context.parameters.database}.")
+        try:
+            predicted.to_sql(table, engine, if_exists="append", index=False)
+        except Exception as exc:
+            raise RuntimeError(f"Could not save predictions") from exc
+    else:
+        MATHLOG.info(f"Skipping upload because no_upload requested.")
+
     try:
-        predicted.to_sql(table, engine, if_exists="append", index=False)
-    except Exception as exc:
-        raise RuntimeError(f"Could not save predictions") from exc
+        predicted.to_hdf(summary_path, key=fit_or_final, mode="a", format="fixed")
+    except OSError as ose:
+        MATHLOG.error(f"Could not write fit to path {summary_path} error {ose}")
