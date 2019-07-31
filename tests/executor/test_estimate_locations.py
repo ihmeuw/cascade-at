@@ -143,7 +143,7 @@ def test_run_global(ihme, draw, tmp_path, globaldir):
 
     meid = "23514"
     mvid = "267890"
-    loc = "1"
-    sex = "both"
+    loc = "32"
+    sex = "female"
     base = tmp_path / meid / mvid / "0" / loc / sex
     assert (base / "fit.db").exists()
