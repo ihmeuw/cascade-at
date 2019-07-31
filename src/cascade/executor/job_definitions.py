@@ -287,7 +287,9 @@ class Summarize(CascadeJob):
 def recipe_to_jobs(
         recipe_identifier, local_settings, neighbors, included_locations, execution_context
 ):
-    """Given a recipe, return a list of jobs that must be done in order.
+    """Given a recipe, return a list of jobs that must be done. The jobs
+    are sequential, so they are returned as a list that should be run
+    in the order given.
 
     Args:
         recipe_identifier (RecipeIdentifier): A data struct that specifies

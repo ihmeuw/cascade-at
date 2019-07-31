@@ -135,6 +135,7 @@ def test_run_global(ihme, draw, tmp_path, globaldir):
     ]
     entry(app, arg_list)
 
+    # For debugging, prints all files that were just made under tmp_path.
     for dirpath, dirnames, filenames in walk(tmp_path):
         if filenames:
             print(f"{dirpath}:")

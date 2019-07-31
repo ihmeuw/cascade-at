@@ -95,8 +95,8 @@ class DismodAT:
         pdb_parser.add_argument(
             "--db-only", action="store_true",
             help=fill("Run until it creates a Dismod-AT db file, and then quit. "
-                      "This may make less sense when talking about a large "
-                      "graph of computations."),
+                      "If one recipe runs with --db-only then the next "
+                      "recipe will fail."),
         )
 
         data_parser = parser.add_argument_group(

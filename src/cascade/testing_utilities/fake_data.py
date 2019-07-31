@@ -12,8 +12,9 @@ from cascade.executor.covariate_data import find_covariate_names
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr
 from cascade.input_data.configuration.raw_input import validate_input_data_types
 from cascade.input_data.db.asdr import asdr_as_fit_input
-from cascade.input_data.db.locations import get_descendants
-from cascade.input_data.db.locations import location_hierarchy
+from cascade.input_data.db.locations import (
+    get_descendants, all_locations_with_these_parents, location_hierarchy
+)
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -106,7 +107,10 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
             data.ages_df, data.years_df, local_settings.sexes,
             local_settings.children, include_birth_prevalence)
 
-    locations_for_asdr = [local_settings.parent_location_id] + children
+    parent_and_children = [local_settings.parent_location_id] + children
+    locations_for_asdr = all_locations_with_these_parents(
+        data.locations, parent_and_children
+    )
     all_ages = age_spans.get_age_spans()
     data.cause_specific_mortality_rate = get_raw_csmr(
         execution_context, local_settings.data_access, locations_for_asdr, all_ages)
