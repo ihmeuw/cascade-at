@@ -15,13 +15,24 @@ def rectangular_data_to_var(gridded_data):
     """Using this very regular data, where every age and time is present,
     construct an initial guess as a Var object. Very regular means that there
     is a complete set of ages-cross-times."""
-    initial_ages = np.sort(np.unique(0.5 * (gridded_data.age_lower + gridded_data.age_upper)))
-    initial_times = np.sort(np.unique(0.5 * (gridded_data.time_lower + gridded_data.time_upper)))
+    try:
+        initial_ages = np.sort(
+            np.unique(0.5 * (gridded_data.age_lower + gridded_data.age_upper))
+        )
+        initial_times = np.sort(
+            np.unique(0.5 * (gridded_data.time_lower + gridded_data.time_upper))
+        )
+    except AttributeError:
+        CODELOG.error(f"Data to make a var has columns {gridded_data.columns}")
+        raise RuntimeError(
+            f"Wrong columns in rectangular_data_to_var {gridded_data.columns}")
 
     guess = Var(ages=initial_ages, times=initial_times)
     for age, time in guess.age_time():
         found = gridded_data.query(
-            "(age_lower <= @age) & (@age <= age_upper) & (time_lower <= @time) & (@time <= time_upper)")
+            "(age_lower <= @age) & (@age <= age_upper) & "
+            "(time_lower <= @time) & (@time <= time_upper)"
+        )
         assert len(found) == 1, f"found {found}"
         guess[age, time] = float(found.iloc[0]["mean"])
     return guess
@@ -81,10 +92,10 @@ def construct_model(data, local_settings, covariate_multipliers, covariate_data_
     if children and len(children) > 1:
         construct_model_random_effects(default_age_time, single_age_time, ev_settings, model)
     construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model)
+    asdr = data.age_specific_death_rate
     if ev_settings.model.constrain_omega:
         constrain_omega(
-            default_age_time, data.age_specific_death_rate,
-            ev_settings, model, parent_location_id, children
+            default_age_time, asdr, ev_settings, model, parent_location_id, children
         )
 
     return model
@@ -115,9 +126,37 @@ def constrain_omega(default_age_time, asdr, ev_settings, model, parent_location_
         parent_location_id (int): parent location
         children (List[int]): Child location ids.
     """
-    omega = rectangular_data_to_var(asdr[asdr.location == parent_location_id])
+    CODELOG.debug(
+        f"Constrain omega, asdr columns {asdr.columns} "
+        f"parent loc {parent_location_id} child locs {children}.")
+    sexes_present = set(asdr.sex_id.unique())
+    if len(sexes_present) > 1:
+        if sexes_present == {1, 2}:
+            # XXX use population weighting
+            axes = ["time_lower", "time_upper", "age_lower", "age_upper", "location"]
+            gridded_data = asdr[axes + ["mean"]]
+            single_sex_asdr = gridded_data.groupby(axes).mean().reset_index()
+        elif sexes_present == {1, 2, 3}:
+            single_sex_asdr = asdr[asdr.sex_id == 3]
+        elif 3 in sexes_present:
+            keep = (sexes_present - {3}).pop()
+            single_sex_asdr = asdr[asdr.sex_id == keep]
+        else:
+            raise AssertionError(f"ASDR had sexes {sexes_present}.")
+    else:
+        single_sex_asdr = asdr
+
+    parent_asdr = single_sex_asdr[single_sex_asdr.location == parent_location_id]
+    if len(parent_asdr) == 0:
+        raise RuntimeError(
+            f"Age-specific death rate has no values for this location "
+            f"({parent_location_id}). It has locations "
+            f"{', '.join(str(x) for x in single_sex_asdr.location.unique())}."
+        )
+
+    omega = rectangular_data_to_var(parent_asdr)
     model.rate["omega"] = constraint_from_rectangular_data(omega, default_age_time)
-    asdr_locations = set(asdr.location.unique().tolist())
+    asdr_locations = set(single_sex_asdr.location.unique().tolist())
     children_without_asdr = set(children) - set(asdr_locations)
     if children_without_asdr:
         MATHLOG.warning(f"Children of {parent_location_id} missing ASDR {children_without_asdr} "
@@ -125,7 +164,7 @@ def constrain_omega(default_age_time, asdr, ev_settings, model, parent_location_
         return
 
     for child in children:
-        child_asdr = asdr[asdr.location == child]
+        child_asdr = single_sex_asdr[single_sex_asdr.location == child]
         assert len(child_asdr) > 0
         child_rate = rectangular_data_to_var(child_asdr)
 

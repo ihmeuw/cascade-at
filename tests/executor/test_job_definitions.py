@@ -48,7 +48,8 @@ def test_prepare_data(context):
     recipe_id = RecipeIdentifier(21, "bundle_setup", "both")
     local_settings = SimpleNamespace()
     local_settings.parent_location_id = 22
-    prepare = GlobalPrepareData(recipe_id, local_settings, ec)
+    included_locations = None
+    prepare = GlobalPrepareData(recipe_id, local_settings, included_locations, ec)
     assert not prepare.done()
     prepare.mock_run()
     assert prepare.done()
@@ -59,7 +60,8 @@ def test_global_estimate(context):
     recipe_id = RecipeIdentifier(1, "bundle_setup", "both")
     local_settings = SimpleNamespace()
     local_settings.parent_location_id = 1
-    prepare = GlobalPrepareData(recipe_id, local_settings, ec)
+    included_locations = None
+    prepare = GlobalPrepareData(recipe_id, local_settings, included_locations, ec)
     global_recipe = RecipeIdentifier(1, "estimate_location", "both")
     neighbors = dict(
         predecessors=[recipe_id],

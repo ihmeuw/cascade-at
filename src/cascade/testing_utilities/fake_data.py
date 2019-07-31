@@ -7,6 +7,7 @@ from numpy.random import RandomState
 from cascade.core import getLoggers
 from cascade.core.db import age_spans
 from cascade.core.db import db_queries
+from cascade.executor.covariate_data import assign_epiviz_covariate_names
 from cascade.executor.covariate_data import find_covariate_names
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr
 from cascade.input_data.configuration.raw_input import validate_input_data_types
@@ -105,14 +106,24 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
             data.ages_df, data.years_df, local_settings.sexes,
             local_settings.children, include_birth_prevalence)
 
+    locations_for_asdr = [local_settings.parent_location_id] + children
     all_ages = age_spans.get_age_spans()
     data.cause_specific_mortality_rate = get_raw_csmr(
-        execution_context, local_settings.data_access, local_settings.parent_location_id, all_ages)
+        execution_context, local_settings.data_access, locations_for_asdr, all_ages)
     data.age_specific_death_rate = asdr_as_fit_input(
-        local_settings.parent_location_id, local_settings.sexes,
-        data_access.gbd_round_id, data_access.decomp_step, data.ages_df, with_hiv=data_access.with_hiv)
+        data_access.location_set_version_id,
+        locations_for_asdr,
+        local_settings.sexes,
+        data_access.gbd_round_id,
+        data_access.decomp_step,
+        data.ages_df,
+        with_hiv=data_access.with_hiv
+    )
     data.study_id_to_name, data.country_id_to_name = find_covariate_names(
         execution_context, covariate_data_spec)
+    assign_epiviz_covariate_names(
+        data.study_id_to_name, data.country_id_to_name, covariate_data_spec
+    )
 
     # These are the draws as output of the parent location.
     data.draws = None

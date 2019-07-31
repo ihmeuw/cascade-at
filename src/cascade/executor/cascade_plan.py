@@ -2,6 +2,7 @@
 Specification for what parameters are used at what location within
 the Cascade.
 """
+from os import linesep
 from types import SimpleNamespace
 
 import networkx as nx
@@ -12,6 +13,7 @@ from cascade.input_data import InputDataError
 from cascade.input_data.configuration.builder import policies_from_settings
 from cascade.input_data.configuration.sex import SEX_ID_TO_NAME, SEX_NAME_TO_ID
 from cascade.input_data.db.locations import location_id_from_start_and_finish
+from cascade.runner.application_config import application_config
 from cascade.runner.job_graph import RecipeIdentifier
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -119,6 +121,11 @@ def recipe_graph_from_settings(locations, settings, args):
         local_settings = location_specific_settings(locations, settings, args, recipe_identifier)
         recipe_graph.nodes[recipe_identifier]["local_settings"] = local_settings
 
+    if len(recipe_graph) < application_config()["NonModel"].getint("small-graph-nodes"):
+        debug_lines = [str(node) for node in nx.topological_sort(recipe_graph)]
+        debug_str = f"{linesep}\t".join(debug_lines)
+        CODELOG.debug(f"Recipes in order{linesep}\t{debug_str}")
+
     return recipe_graph
 
 
@@ -138,10 +145,7 @@ def drill_recipe_graph(locations, settings, args):
     MATHLOG.info(f"drill nodes {', '.join(str(d) for d in drill)}")
     drill = list(drill)
     drill_sex = SEX_ID_TO_NAME[settings.model.drill_sex]
-    if args.skip_cache:
-        setup_task = []
-    else:
-        setup_task = [RecipeIdentifier(drill[0], "bundle_setup", drill_sex)]
+    setup_task = [RecipeIdentifier(0, "bundle_setup", drill_sex)]
     recipes = setup_task + [
         RecipeIdentifier(drill_location, "estimate_location", drill_sex)
         for drill_location in drill
@@ -176,12 +180,9 @@ def global_recipe_graph(locations, settings, args):
     global_node = RecipeIdentifier(locations.graph["root"], "estimate_location", "both")
     recipe_graph = nx.DiGraph(root=global_node)
     # Start with bundle setup
-    if not args.skip_cache:
-        bundle_setup = RecipeIdentifier(locations.graph["root"], "bundle_setup", "both")
-        recipe_graph.graph["root"] = bundle_setup
-        recipe_graph.add_edge(bundle_setup, global_node)
-    else:
-        recipe_graph.graph["root"] = global_node
+    bundle_setup = RecipeIdentifier(0, "bundle_setup", "both")
+    recipe_graph.graph["root"] = bundle_setup
+    recipe_graph.add_edge(bundle_setup, global_node)
 
     global_recipe_graph_add_estimations(locations, recipe_graph, split_sex)
 
@@ -243,7 +244,15 @@ def location_specific_settings(locations, settings, args, recipe_id):
         Settings for this job.
     """
     parent_location_id = recipe_id.location_id
-    predecessors = list(locations.predecessors(parent_location_id))
+
+    if parent_location_id != 0:
+        predecessors = list(locations.predecessors(parent_location_id))
+        successors = list(sorted(locations.successors(parent_location_id)))
+        model_options = make_model_options(locations, parent_location_id, settings)
+    else:
+        predecessors = None
+        successors = None
+        model_options = None
     if predecessors:
         grandparent_location_id = predecessors[0]
     else:
@@ -257,7 +266,6 @@ def location_specific_settings(locations, settings, args, recipe_id):
         sexes = [settings.model.drill_sex, SEX_NAME_TO_ID["both"]]
 
     policies = policies_from_settings(settings)
-    model_options = make_model_options(locations, parent_location_id, settings)
     if args.num_samples:
         sample_cnt = args.num_samples
     else:
@@ -266,7 +274,7 @@ def location_specific_settings(locations, settings, args, recipe_id):
     local_settings = EstimationParameters(
         settings=settings,
         policies=SimpleNamespace(**policies),
-        children=list(sorted(locations.successors(parent_location_id))),
+        children=successors,
         parent_location_id=parent_location_id,
         grandparent_location_id=grandparent_location_id,
         # This is a list of [1], [3], [1,3], [2,3], [1,2,3], not [1,2].

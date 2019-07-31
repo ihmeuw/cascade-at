@@ -46,16 +46,22 @@ def add_covariate_data_to_observations_and_avgints(data, local_settings, epiviz_
     Returns:
         None: Everything is added to observations and avgints.
     """
+    add_study_covariate_to_observations_and_avgints(data)
+    add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates)
+
+
+def assign_epiviz_covariate_names(study_id_to_name, country_id_to_name, epiviz_covariates):
     # Assign all of the names. Study covariates aren't ever transformed.
     for name_covariate in epiviz_covariates:
         if name_covariate.study_country == "study":
-            short = data.study_id_to_name[name_covariate.covariate_id]
+            short = study_id_to_name.get(name_covariate.covariate_id, None)
         else:
-            short = data.country_id_to_name[name_covariate.covariate_id]
+            short = country_id_to_name.get(name_covariate.covariate_id, None)
+        if short is None:
+            raise RuntimeError(
+                f"Covariate {name_covariate} is not found in id-to-name mapping."
+            )
         name_covariate.untransformed_covariate_name = short
-
-    add_study_covariate_to_observations_and_avgints(data)
-    add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates)
 
 
 def add_country_covariate_to_observations_and_avgints(data, local_settings, epiviz_covariates):

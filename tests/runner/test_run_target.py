@@ -196,17 +196,6 @@ def test_global_recipe_most_detailed(locations, basic_settings, build_args):
     assert len(global_graph) == setup + both + other
 
 
-def test_global_recipe_skip_cache(locations, basic_settings, build_args):
-    build_args.skip_cache = True
-    global_graph = global_recipe_graph(locations, basic_settings, build_args)
-    location_height = nx.dag_longest_path_length(locations)
-    assert nx.dag_longest_path_length(global_graph) == location_height
-    both = sum(3**n for n in range(4))
-    split = int(basic_settings.model.split_sex)
-    other = sum(3**n for n in range(split, 4))
-    assert len(global_graph) == both + other
-
-
 def test_drill_recipe_graph(locations, basic_settings, build_args):
     basic_settings.model.drill_location_start = 0
     basic_settings.model.drill_location_end = 9

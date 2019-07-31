@@ -7,7 +7,11 @@ from cascade.input_data.configuration.builder import COVARIATE_TRANSFORMS
 
 @total_ordering
 class EpiVizCovariate:
-    """This specifies covariate data from settings."""
+    """This specifies covariate data from settings.
+    It is separate from the cascade.model.Covariate, which is a Dismod-AT
+    covariate. EpiViz-AT distinguishes study and country covariates and
+    encodes them into the Dismod-AT covariate names.
+    """
     def __init__(self, study_country, covariate_id, transformation_id):
         self.study_country = study_country
         self.covariate_id = covariate_id
@@ -28,7 +32,11 @@ class EpiVizCovariate:
     def name(self):
         """The name for this covariate in the final data."""
         if self.untransformed_covariate_name is None:
-            raise RuntimeError(f"The name for this covariate hasn't been set yet {self.covariate_id}")
+            raise RuntimeError(
+                f"The name for this covariate hasn't been set yet "
+                f"id={self.covariate_id}, {self.study_country}, "
+                f"transform={self.transformation_id}."
+            )
         transform_name = COVARIATE_TRANSFORMS[self.transformation_id].__name__
         if transform_name != "identity":
             return f"{self.untransformed_covariate_name}_{transform_name}"

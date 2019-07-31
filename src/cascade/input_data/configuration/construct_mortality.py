@@ -4,32 +4,55 @@ from cascade.core import getLoggers
 from cascade.input_data.configuration.construct_country import (
     convert_gbd_ids_to_dismod_values
 )
-from cascade.input_data.db.csmr import get_csmr_data
+from cascade.input_data.db.csmr import get_csmr_data, get_csmr_location
+from cascade.input_data.db.data_iterator import grouped_by_count
 from cascade.input_data.db.locations import location_hierarchy, get_descendants
 from cascade.input_data.db.mortality import get_frozen_cause_specific_mortality_data
+from cascade.runner.application_config import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def get_raw_csmr(execution_context, data_access, parent_id, age_spans):
+def get_raw_csmr(execution_context, data_access,
+                 included_locations, age_spans):
     """Gets CSMR that has age_lower, age_upper, but no further processing."""
     assert isinstance(age_spans, pd.DataFrame)
+    parameters = application_config()["NonModel"]
 
     if data_access.tier == 3:
         CODELOG.debug(f"Getting CSMR from tier 3")
         raw_csmr = get_frozen_cause_specific_mortality_data(
             execution_context, data_access.model_version_id)
     else:
-        CODELOG.debug(f"Getting CSMR directly")
-        location_and_children = location_and_children_from_settings(data_access, parent_id)
-        raw_csmr = get_csmr_data(
-            execution_context,
-            location_and_children,
-            data_access.add_csmr_cause,
-            data_access.cod_version,
-            data_access.gbd_round_id,
-            data_access.decomp_step,
-        )
+        small_number_locations = parameters.getint("small-location-count")
+        if included_locations is not None and len(included_locations) < small_number_locations:
+            CODELOG.debug(f"CSMR retrieval for {included_locations}.")
+            # Call db_queries multiple times because it uses the SQL in set()
+            # syntax, which fails when the set is large.
+            locations_per_query = parameters.getint("locations-per-query")
+            multiple_csmr = list()
+            for location_bunch in grouped_by_count(included_locations, locations_per_query):
+                piece = get_csmr_location(
+                    execution_context,
+                    location_bunch,
+                    data_access.add_csmr_cause,
+                    data_access.cod_version,
+                    data_access.gbd_round_id,
+                    data_access.decomp_step,
+                )
+                multiple_csmr.append(piece)
+            raw_csmr = pd.concat(multiple_csmr, axis=0, ignore_index=True, sort=False)
+        else:
+            CODELOG.debug(
+                f"CSMR retrieval for location_set_id {data_access.location_set_id}.")
+            raw_csmr = get_csmr_data(
+                execution_context,
+                data_access.location_set_id,
+                data_access.add_csmr_cause,
+                data_access.cod_version,
+                data_access.gbd_round_id,
+                data_access.decomp_step,
+            )
     return convert_gbd_ids_to_dismod_values(raw_csmr, age_spans)
 
 

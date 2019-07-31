@@ -56,14 +56,43 @@ def _gbd_process_version_id_from_cod_version(cod_version):
 
 
 def get_csmr_data(
-        execution_context, location_and_children, cause_id, cod_version, gbd_round_id, decomp_step):
+        execution_context, location_set_id, cause_id, cod_version, gbd_round_id, decomp_step
+):
+    """Retrieve CSMR for all locations in a location set."""
+    return get_csmr_base(
+        execution_context,
+        cause_id,
+        cod_version,
+        gbd_round_id,
+        decomp_step,
+        dict(location_set_id=location_set_id, location_id="all"),
+    )
+
+
+def get_csmr_location(
+        execution_context, location_id, cause_id, cod_version, gbd_round_id, decomp_step
+):
+    """Retrieve CSMR for one location or for a list of locations."""
+    return get_csmr_base(
+        execution_context,
+        cause_id,
+        cod_version,
+        gbd_round_id,
+        decomp_step,
+        dict(location_id=location_id),
+    )
+
+
+def get_csmr_base(
+        execution_context, cause_id, cod_version, gbd_round_id, decomp_step, extra_args
+):
+    """Gets CSMR with minor formatting, limiting it to desired columns."""
     keep_cols = ["year_id", "location_id", "sex_id", "age_group_id", "val", "lower", "upper"]
 
     process_version_id = _gbd_process_version_id_from_cod_version(cod_version)
 
     csmr = db_queries.get_outputs(
         topic="cause",
-        location_id=location_and_children,
         cause_id=cause_id,
         metric_id=METRIC_IDS["per_capita_rate"],
         year_id="all",
@@ -73,10 +102,10 @@ def get_csmr_data(
         gbd_round_id=gbd_round_id,
         decomp_step=decomp_step,
         process_version_id=process_version_id,
+        **extra_args,
     )[keep_cols]
 
     csmr = csmr[csmr["val"].notnull()]
-
     csmr = csmr.rename(columns={"val": "mean"})
 
     return csmr
