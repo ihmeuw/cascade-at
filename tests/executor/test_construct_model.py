@@ -120,8 +120,11 @@ def make_a_db(local_settings, locations, filename):
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
     ec = make_execution_context()
+    print("About to retrieve fake data")
     input_data = retrieve_fake_data(ec, local_settings, covariate_data_spec)
+    print("About to modify input data")
     modified_data = modify_input_data(input_data, local_settings)
+    print("About to construct model")
     model = construct_model(modified_data, local_settings, covariate_multipliers, covariate_data_spec)
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)

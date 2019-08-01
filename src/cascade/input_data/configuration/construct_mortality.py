@@ -18,7 +18,6 @@ def get_raw_csmr(execution_context, data_access,
     """Gets CSMR that has age_lower, age_upper, but no further processing."""
     assert isinstance(age_spans, pd.DataFrame)
     parameters = application_config()["NonModel"]
-
     if data_access.tier == 3:
         CODELOG.debug(f"Getting CSMR from tier 3")
         raw_csmr = get_frozen_cause_specific_mortality_data(
