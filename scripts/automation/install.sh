@@ -102,7 +102,7 @@ ENV=${ENVDIR}/${ENVNAME}
 echo "${ENV}"
 
 # Create the virtual environment for the project code and required packages
-
+# Use system-site-packages so that we inherit the Conda-specific packages.
 "${PYTHON_MINICONDA}/bin/python" -m venv --system-site-packages "${ENV}"
 
 source "${ENV}/bin/activate"
@@ -123,7 +123,7 @@ fi
 # Install the virtual environment to be the "current" if the tests pass.
 # Run testing without writing *.pyc to the __pycache__.
 PYTHONDONTWRITEBYTECODE=1
-(cd "${CASCADE_DEVELOP_DIR}/tests" && python -m pytest -p no:cacheprovider --ihme)
+(cd "${CASCADE_DEVELOP_DIR}/tests" && python -m pytest -p no:cacheprovider --ihme --cluster)
 
 if [[ "$?" -eq "0" ]]; then
     for softlink in prod dev current fair
@@ -150,6 +150,7 @@ fi
 echo "The physical path of the DISMOD_AT executable is ${DISMOD_AT_PATH}."
 
 # Generate pyc files for everything before freezing code for other users.
+# If you don't do this, every invocation must byte-compile code again.
 python -m compileall "${ENV}"
 # Ensure umask is correct for all files touched so another person
 # can install and maintain code.
