@@ -3,7 +3,7 @@ import pytest
 
 from cascade.input_data.db.locations import (
     get_descendants, location_id_from_location_and_level, location_hierarchy,
-    location_id_from_start_and_finish
+    location_id_from_start_and_finish, all_locations_with_these_parents
 )
 
 
@@ -60,6 +60,21 @@ def sample_locations():
     G.add_edges_from([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6), (6, 7)])
     assert len(G.nodes) == 8
     return G
+
+
+@pytest.mark.parametrize("parents,expected", [
+    ([0], [0, 1, 2]),
+    ([0, 1], [0, 1, 2, 3, 4]),
+    ([2], [2, 5, 6]),
+    ([2, 5], [2, 5, 6]),
+    ([2, 6], [2, 5, 6, 7]),
+    ([6], [6, 7]),
+    ([7], [7]),
+])
+def test_all_with_parents__happy(sample_locations, parents, expected):
+    result = all_locations_with_these_parents(sample_locations, parents)
+    result.sort()
+    assert result == expected
 
 
 def test_get_descendants__all_descendants(sample_locations):

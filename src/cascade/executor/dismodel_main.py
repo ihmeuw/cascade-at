@@ -95,8 +95,8 @@ class DismodAT:
         pdb_parser.add_argument(
             "--db-only", action="store_true",
             help=fill("Run until it creates a Dismod-AT db file, and then quit. "
-                      "This may make less sense when talking about a large "
-                      "graph of computations."),
+                      "If one recipe runs with --db-only then the next "
+                      "recipe will fail."),
         )
 
         data_parser = parser.add_argument_group(
@@ -288,7 +288,9 @@ def configure_execution_context_from_settings(execution_context, settings):
     where files are on disk, so we need it early.
     """
     for param in ["modelable_entity_id", "model_version_id"]:
-        setattr(execution_context.parameters, param, getattr(settings.model, param))
+        if hasattr(settings, "model") and hasattr(settings.model, param):
+            setattr(execution_context.parameters, param,
+                    getattr(settings.model, param))
 
 
 def cascade_entry():

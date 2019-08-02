@@ -67,7 +67,8 @@ definition of a "container" by `C4 Model <http://c4model.com/>`_.
 
 * Development installation on local machines.
 
-* Web service to give fast feedback to EpiViz-AT about settings consistency.
+* Web service to give fast feedback to EpiViz-AT about settings consistency:
+  `Cascade Validation Service <https://github.com/ihmeuw/cascade_validation_service>`_.
 
 * IPython notebook use on local machines, for model exploration.
 

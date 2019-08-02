@@ -120,8 +120,11 @@ def make_a_db(local_settings, locations, filename):
         local_settings.settings.country_covariate, local_settings.settings.study_covariate
     )
     ec = make_execution_context()
+    print("About to retrieve fake data")
     input_data = retrieve_fake_data(ec, local_settings, covariate_data_spec)
+    print("About to modify input data")
     modified_data = modify_input_data(input_data, local_settings)
+    print("About to construct model")
     model = construct_model(modified_data, local_settings, covariate_multipliers, covariate_data_spec)
     session = Session(location_hierarchy_to_dataframe(locations),
                       parent_location=1, filename=filename)
@@ -207,7 +210,7 @@ def test_same_settings(ihme, tmp_path, base_settings, reference_db):
 
 @pytest.mark.parametrize("setstr,val,opt", [
     ("settings.policies.meas_std_effect", "add_std_scale_all", "meas_noise_effect"),
-    ("settings.model.zero_sum_random", "iota omega chi".split(), "zero_sum_random"),
+    ("settings.model.zero_sum_random", "iota chi".split(), "zero_sum_random"),
     ("settings.model.ode_step_size", 0.5, "ode_step_size"),
     ("settings.model.additional_ode_steps", [2.7, 3.4], "age_avg_split"),
     ("settings.model.random_seed", 2342987, "random_seed"),

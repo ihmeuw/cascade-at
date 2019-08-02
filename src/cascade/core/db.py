@@ -119,7 +119,8 @@ def connection(execution_context=None, database=None):
 
 
 def repeat_request(query_function):
-    """This retries the given function if the function fails with one of
+    """
+    This retries the given function if the function fails with one of
     a known set of exceptions. If it's any other exception, then it re-raises
     that exception.
 
@@ -129,6 +130,8 @@ def repeat_request(query_function):
         query_function(db_queries.get_demographics)(gbd_team="epi",
                        gbd_round_id=6)
 
+    Using this function means you would rather the program retry forever
+    than that it fail when a database is down.
     """
     def repeat(*args, **kwargs):
         if hasattr(query_function, "__name__"):
@@ -155,6 +158,8 @@ def repeat_request(query_function):
                 raise
             else:
                 return result
-            sleep(randint(1, 10))
+            # Long sleep times because we want this to work eventually and not
+            # overload the database. These failures should be rare.
+            sleep(randint(60, 600))
 
     return repeat

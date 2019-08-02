@@ -54,10 +54,19 @@ Each system is described here:
 
 In addition to this diagram above, there are other tools
 required for management of bundles by modelers, as part
-of using the Cascade. There is a command-line interface
-to the Cascade, used by both modelers and operations
-staff. There is also a runtime that runs jobs, not on
-the cluster, but on a local machine.
+of using the Cascade.
+
+ * There is a command-line interface
+   to the Cascade, used by both modelers and operations
+   staff. This is in the cluster's code directory, under
+   ``dismod_at/bin``. Inside that directory is a custom
+   version of the Elmo repository that we hacked to work
+   for our data.
+
+ * A `Cascade Validation Service <https://github.com/ihmeuw/cascade_validation_service>`_
+   is a web service that responds to requests from the EpiViz-AT
+   user interface to validate the settings before submitting
+   the cluster job. That web service is written but not deployed.
 
 
 Container Diagram
@@ -157,3 +166,65 @@ should be treated as a separate component.
 
  * **Core** - Tools to handle parameters, processes,
    and logging, used by all other components.
+
+
+The Executor Component
+----------------------
+
+This looks at dependencies within the ``cascade.executor`` component.
+
+There are four separate applications in this component.
+
+ 1. ``dismodel``, which is the main application,
+    with an entry point in ``dismodel_main.py``.
+
+ 2. ``dmres2csv``, which retrieves residuals from a db file,
+    in ``model_residuals_main.py``.
+
+ 3. ``dmr2csv``, which retrieves results from a db file,
+    in ``model_results_main.py``.
+
+ 4. ``dmgetsettings``, which downloads settings from the Epi
+    database to a file, which ``dismodel`` can then read,
+    in ``epiviz_json.py``.
+
+If we look just at the ``dismodel`` application, the relationship
+among the modules is shown below.
+
+.. image:: executor_dependencies.png
+   :scale: 30%
+
+To summarize the relationships,
+
+ 1. ``dismodel_main`` is the application, written for the
+    Gridengineapp framework.
+
+ 2. It uses an ``execution_context`` to describe whether it
+    is running on a local computer or within a cluster.
+
+ 3. The application creates a job graph, where both the
+    graph and all of the job objects are defined in
+    the ``job_definitions``.
+
+ 4. Each job is configured using a settings decided in
+    ``cascade_plan``. The idea is that any decision phrased
+    as "at this level of the hierarchy, do X, and at other levels,
+    do Y" gets translated
+    by the Cascade Plan into "this job, given what we know about
+    it, will do X."
+
+ 5. Most of the work to retrieve data, fit, and summarize,
+    is in ``estimate_locations.`` These functions mostly
+    collaborate with the ``cascade.model`` component,
+    but they have a few helpers in executors.
+
+ 6. The construction of covariates has two helpers, ``covariate_description``
+    to define what the covariates are, and
+    ``covariate_data`` to do interpolation of covariates.
+
+ 7. ``session_options`` sets options for Dismod-AT's options
+    table.
+
+ 8. ``priors_from_draws`` is a separate module that reads the
+    results of a location's estimation and makes data for child
+    estimations to use as input as a kind of bootstrapping.

@@ -16,7 +16,7 @@ def test_make_execution_context():
     (4321, 267737, "./4321/267737/1/120"),
     (None, 267737, "./mvid/267737/1/120"),
 ])
-def test_execution_context_file_interface(tmp_path, meid, mvid, expected):
+def test_execution_context_file_interface(meid, mvid, expected):
     ec = ExecutionContext()
     ec.parameters = {"database": "dismod-at-dev"}
     ec.parameters.base_directory = "."
@@ -33,7 +33,7 @@ def test_execution_context_file_interface(tmp_path, meid, mvid, expected):
     (4321, 267737, "mytmp/120"),
     (None, 267737, "mytmp/120"),
 ])
-def test_execution_context_local_file_interface(tmp_path, meid, mvid, expected):
+def test_execution_context_local_file_interface(meid, mvid, expected):
     ec = ExecutionContext()
     ec.parameters = {"database": "dismod-at-dev"}
     ec.parameters.base_directory = "./mytmp"

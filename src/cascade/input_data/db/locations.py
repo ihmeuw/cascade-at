@@ -99,6 +99,18 @@ def get_descendants(locations, location_id, children_only=False, include_parent=
     return list(nodes)
 
 
+def all_locations_with_these_parents(all_locations, subset_of_locations):
+    """
+    Given a subset of locations, find all children. So if
+    the US is a location and WA is a location, include all other states
+    and all counties in WA.
+    """
+    total = set(subset_of_locations)
+    for find_children in subset_of_locations:
+        total |= set(all_locations.successors(find_children))
+    return list(total)
+
+
 def location_id_from_start_and_finish(locations, start, finish):
     """ Find the set of locations from a parent to a child.
 

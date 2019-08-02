@@ -29,7 +29,6 @@ setup(
             ["dismodel=cascade.executor.dismodel_main:cascade_entry"],
             ["dmchat=cascade.executor.chatter:chatter"],
             ["dmdummy=cascade.executor.chatter:dismod_dummy"],
-            ["dmcsv2db=cascade.executor.no_covariate_main:entry"],
             ["dmres2csv=cascade.executor.model_residuals_main:entry"],
             ["dmsr2csv=cascade.executor.model_results_main:entry"],
             ["dmgetsettings=cascade.executor.epiviz_json:entry"],

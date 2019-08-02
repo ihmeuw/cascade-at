@@ -22,7 +22,9 @@ from cascade.input_data.configuration.construct_mortality import get_raw_csmr, n
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.asdr import asdr_as_fit_input
 from cascade.input_data.db.country_covariates import country_covariate_set
-from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
+from cascade.input_data.db.locations import (
+    location_hierarchy, location_hierarchy_to_dataframe, all_locations_with_these_parents
+)
 from cascade.input_data.db.study_covariates import get_study_covariates
 from cascade.model import ObjectWrapper
 from cascade.model.integrands import make_average_integrand_cases_from_gbd
@@ -96,10 +98,13 @@ def retrieve_data(execution_context, local_settings, included_locations, covaria
 
     # This comes in yearly from 1950 to 2018
     # Must be subset for children.
+    mortality_locations = all_locations_with_these_parents(
+        data.locations, included_locations
+    )
     all_sexes = [1, 2, 3]
     data.age_specific_death_rate = asdr_as_fit_input(
         data_access.location_set_version_id,
-        included_locations,
+        mortality_locations,
         all_sexes,
         data_access.gbd_round_id,
         data_access.decomp_step,
@@ -108,7 +113,7 @@ def retrieve_data(execution_context, local_settings, included_locations, covaria
     )
     data.cause_specific_mortality_rate = get_raw_csmr(
         execution_context, local_settings.data_access,
-        included_locations, all_age_spans)
+        mortality_locations, all_age_spans)
 
     return data
 
@@ -238,16 +243,20 @@ def compute_parent_fit_fixed(execution_context, db_path, local_settings, input_d
         stdout, stderr, _metrics = dismod_objects.run_dismod(["fit", "fixed"])
         CODELOG.debug(stdout)
         CODELOG.debug(stderr)
+    else:
+        dismod_objects.run_dismod("init")
+        MATHLOG.info(f"Ran with db_only so not running dismod fit fixed on {db_path}.")
     CODELOG.info(f"fit fixed {timer() - begin}")
 
 
-def compute_parent_fit(execution_context, db_path, local_settings):
+def compute_parent_fit(execution_context, db_path, local_settings, simulate_idx=None):
     """
 
     Args:
         execution_context:
         input_data: These include observations and initial guess.
         model (Model): A complete Model object.
+        simulate_idx (int): Which simulation to fit.
 
     Returns:
         The fit.
@@ -260,9 +269,16 @@ def compute_parent_fit(execution_context, db_path, local_settings):
     dismod_objects.scale_var = fit_var
 
     if not local_settings.run.db_only:
-        stdout, stderr, _metrics = dismod_objects.run_dismod(["fit", "both"])
+        dismod_objects.run_dismod("init")
+        command = ["fit", "both"]
+        if simulate_idx is not None:
+            command += [simulate_idx]
+        stdout, stderr, _metrics = dismod_objects.run_dismod(command)
         CODELOG.debug(stdout)
         CODELOG.debug(stderr)
+    else:
+        dismod_objects.run_dismod("init")
+        MATHLOG.info(f"Ran with db_only so not running dismod fit both on {db_path}.")
     CODELOG.info(f"fit fixed {timer() - begin}")
 
     dismod_objects.avgint = None  # Need to make an avgint table.
@@ -274,12 +290,26 @@ def compute_parent_fit(execution_context, db_path, local_settings):
 
 
 def gather_simulations_and_fit(fit_path, simulation_paths):
-    return None, None
+    predictions = list()
+    for draw_path in simulation_paths:
+        draw_objects = ObjectWrapper(str(draw_path))
+        predicted, not_predicted = draw_objects.predict
+        predictions.append(predicted)
+        draw_objects.close()
+
+    fit_objects = ObjectWrapper(str(fit_path))
+    pred_fit, not_pred_fit = fit_objects.predict
+    fit_objects.close()
+    return pred_fit, predictions
 
 
-def save_outputs(computed_fit, predictions, execution_context, local_settings):
-    predictions = uncertainty_from_prediction_draws(predictions)
-    save_predicted_value(execution_context, predictions, "fit")
+def save_outputs(
+        computed_fit, predictions, execution_context, local_settings, summary_path
+):
+    predictions = uncertainty_from_prediction_draws(computed_fit, predictions)
+    save_predicted_value(
+        execution_context, predictions, "fit", summary_path, local_settings.run.no_upload
+    )
 
 
 def fit_and_predict_fixed_effect_sample(db_path, draw_idx):

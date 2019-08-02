@@ -135,6 +135,7 @@ def test_run_global(ihme, draw, tmp_path, globaldir):
     ]
     entry(app, arg_list)
 
+    # For debugging, prints all files that were just made under tmp_path.
     for dirpath, dirnames, filenames in walk(tmp_path):
         if filenames:
             print(f"{dirpath}:")
@@ -142,7 +143,7 @@ def test_run_global(ihme, draw, tmp_path, globaldir):
 
     meid = "23514"
     mvid = "267890"
-    loc = "1"
-    sex = "both"
+    loc = "32"
+    sex = "female"
     base = tmp_path / meid / mvid / "0" / loc / sex
     assert (base / "fit.db").exists()

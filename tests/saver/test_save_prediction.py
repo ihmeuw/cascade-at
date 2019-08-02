@@ -41,7 +41,9 @@ def test_uncertainty_from_prediction_draws():
         )
         draws.append(new_df)
 
+    computed_fit = pd.DataFrame()
     with_uncertainty = uncertainty_from_prediction_draws(
+        computed_fit,
         [
             draw[
                 [
