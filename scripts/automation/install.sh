@@ -19,8 +19,8 @@ usage() {
 EOF
 }
 
-if [ $# -gt 0 ]; then
-    if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+if [[ $# -gt 0 ]]; then
+    if [[ "$1" = "--help" ]] || [[ "$1" = "-h" ]]; then
         usage
         exit 0
     fi
@@ -30,14 +30,14 @@ fi
 # Check that the user qlogin into a node, not just login to dev or prod 
 
 which mysql_config 2>/dev/null
-if [ "$?" -ne "0" ]; then
+if [[ "$?" -ne "0" ]]; then
     echo Cannot find mysql_config. Are you working from cluster-dev or cluster-prod?
     echo Run this from a node.
 fi
    
 # Check that PYTHONPATH is not set
 
-if [ ! -z "${PYTHONPATH}" ]; then
+if [[ ! -z "${PYTHONPATH}" ]]; then
     echo PYTHONPATH is set. Unsetting. PYTHONPATH overrides virtual
     echo environment when using source activate.
     unset PYTHONPATH
@@ -62,7 +62,7 @@ CASCADE_DEVELOP_DIR=${CASCADE_HOME}/clone_for_install
 
 GITHUB="https://github.com/ihmeuw/cascade.git"
 
-if [ -e "${CASCADE_DEVELOP_DIR}" ]; then
+if [[ -e "${CASCADE_DEVELOP_DIR}" ]]; then
     git -C "${CASCADE_DEVELOP_DIR}" pull
 else
     git clone "${GITHUB}" "${CASCADE_DEVELOP_DIR}"    
@@ -70,7 +70,7 @@ fi
 
 # Create a tag for today
 git tag -a "${TAG}" -m "${TAGMESSAGE}"
-if [ "$?" -ne "0" ]
+if [[ "$?" -ne "0" ]]
 then
   # The tag existed, so do it again.
   git tag -d "${TAG}"
@@ -78,7 +78,7 @@ then
 fi
 
 git push origin "${TAG}"
-if [ "$?" -ne "0" ]
+if [[ "$?" -ne "0" ]]
 then
   # The tag existed on the remote repository
   git push --delete origin "${TAG}"
@@ -92,14 +92,14 @@ mkdir -p "${ENVDIR}"
 
 COUNTER=0
 ENVNAME=`date +%Y%m%d`
-while [ -e "${ENVDIR}/${ENVNAME}" ]
+while [[ -e "${ENVDIR}/${ENVNAME}" ]]
 do
     COUNTER=$((COUNTER + 1))
     ENVNAME=`date +%Y%m%d`-${COUNTER}
 done
 
 ENV=${ENVDIR}/${ENVNAME}
-echo $ENV
+echo "${ENV}"
 
 # Create the virtual environment for the project code and required packages
 
@@ -109,9 +109,15 @@ source "${ENV}/bin/activate"
 pip install --upgrade pip
 cd "${CASCADE_DEVELOP_DIR}"
 pip install .[ihme_databases,documentation,testing]
-if [ "$?" -ne "0" ]; then
+if [[ "$?" -ne "0" ]]; then
     echo pip failed to install cascade. Exiting.
     exit 7
+fi
+
+pip install git+ssh://git@stash.ihme.washington.edu:7999/~adolgert/cascade_config.git
+if [[ "$?" -ne "0" ]]; then
+    echo pip failed to install cascade_config. Exiting.
+    exit 8
 fi
 
 # Install the virtual environment to be the "current" if the tests pass.
@@ -119,7 +125,7 @@ fi
 PYTHONDONTWRITEBYTECODE=1
 (cd "${CASCADE_DEVELOP_DIR}/tests" && python -m pytest -p no:cacheprovider --ihme)
 
-if [ "$?" -eq "0" ]; then
+if [[ "$?" -eq "0" ]]; then
     for softlink in prod dev current fair
     do
         rm -f "${ENVDIR}/${softlink}"; ln -sf "${ENV}" "${ENVDIR}/${softlink}"
@@ -137,7 +143,7 @@ fi
 # /share/singularity-images/dismod_at/current.img
 
 DISMOD_AT_PATH=`readlink -f /share/singularity-images/dismod/current.img`
-if ! [ -f "${DISMOD_AT_PATH}" ] ; then
+if ! [[ -f "${DISMOD_AT_PATH}" ]] ; then
     echo "ERROR: the DISMOD_AT_PATH is invalid!"
     exit 1
 fi
