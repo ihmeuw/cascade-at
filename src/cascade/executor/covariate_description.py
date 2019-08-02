@@ -105,7 +105,9 @@ def kind_and_id(covariate_setting):
     for kind in ["study", "country"]:
         if hasattr(covariate_setting, f"{kind}_covariate_id"):
             return kind, getattr(covariate_setting, f"{kind}_covariate_id")
-    assert f"Covariate should be either study or country {covariate_setting}"
+    raise AssertionError(
+        f"Covariate should be either study or country {covariate_setting}"
+    )
 
 
 def create_covariate_specifications(study, country):

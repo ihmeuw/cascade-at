@@ -99,14 +99,15 @@ class MiniForm(Form):
 def test_model_options(loc, expected):
     locations = nx.DiGraph()
     locations.add_edges_from([(1, 2), (1, 3), (2, 4), (4, 5), (5, 6)])
-    children = [2, 3]
-    locations.add_edges_from([(1, c) for c in children])
-    reb = RandomEffectBound(dict(location=2, value=0.4))
-    assert not reb.is_field_unset("location")
-    assert not reb.is_field_unset("value")
-    reb = RandomEffectBound(dict(location=2))
-    assert not reb.is_field_unset("location")
-    assert reb.is_field_unset("value")
+
+    reb1 = RandomEffectBound(dict(location=2, value=0.4))
+    assert not reb1.is_field_unset("location")
+    assert not reb1.is_field_unset("value")
+
+    reb2 = RandomEffectBound(dict(location=2))
+    assert not reb2.is_field_unset("location")
+    assert reb2.is_field_unset("value")
+
     bound_form = MiniForm(dict(
         model=dict(bound_random=0.7),  # This will be the default value.
     ))

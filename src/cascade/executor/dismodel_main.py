@@ -288,7 +288,9 @@ def configure_execution_context_from_settings(execution_context, settings):
     where files are on disk, so we need it early.
     """
     for param in ["modelable_entity_id", "model_version_id"]:
-        setattr(execution_context.parameters, param, getattr(settings.model, param))
+        if hasattr(settings, "model") and hasattr(settings.model, param):
+            setattr(execution_context.parameters, param,
+                    getattr(settings.model, param))
 
 
 def cascade_entry():

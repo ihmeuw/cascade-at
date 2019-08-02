@@ -154,8 +154,6 @@ def drill_recipe_graph(locations, settings, args):
     recipe_graph = nx.DiGraph(root=recipes[0])
     recipe_graph.add_nodes_from(recipes)
     recipe_graph.add_edges_from(recipe_pairs)
-    # Add a custom graph attribute to record the tree root.
-    recipe_graph.graph["root"] = recipes[0]
     return recipe_graph
 
 

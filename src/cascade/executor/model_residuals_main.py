@@ -1,14 +1,14 @@
 """This module makes Dismod AT model residuals available in a file.
 """
-from argparse import ArgumentParser
 import logging
 import os
-from pathlib import Path
 import sys
+from argparse import ArgumentParser
+from pathlib import Path
 
 from cascade.core.log import getLoggers
 from cascade.dismod.db.wrapper import DismodFile, get_engine
-
+from cascade.saver.model_output import write_model_results
 
 CODELOG = getLoggers(__name__)
 
@@ -33,13 +33,6 @@ def _get_residuals(dm_file):
     fds_residuals = dm_file.fit_data_subset
 
     return fv_residuals, fds_residuals
-
-
-def _write_model_residuals(residuals, residuals_type, model_version_id, output_dir):
-    """ Writes the model_results dataframe as a csv file to the output dir.
-    """
-    file_name = Path(output_dir) / f"{residuals_type.lower()}_{model_version_id}.csv"
-    residuals.to_csv(file_name, index=False)
 
 
 def entry():
@@ -76,8 +69,8 @@ def entry():
 
         fv_residuals, fds_residuals = _get_residuals(dm_file)
 
-        _write_model_residuals(fv_residuals, "resids_fv", model_version_id, args.output_dir)
-        _write_model_residuals(fds_residuals, "resids_fds", model_version_id, args.output_dir)
+        write_model_results(fv_residuals, model_version_id, "resids_fv", args.output_dir)
+        write_model_results(fds_residuals, model_version_id, "resids_fds", args.output_dir)
 
     except Exception as e:
         print(e)

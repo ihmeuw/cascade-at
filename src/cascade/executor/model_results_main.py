@@ -2,17 +2,16 @@
 This module aids in comparing results from Dismod AT and Dismod ODE.
 """
 
-from argparse import ArgumentParser
-from itertools import product
 import logging
 import os
-from pathlib import Path
 import sys
+from argparse import ArgumentParser
+from itertools import product
 
 import pandas as pd
 
 from cascade.core.db import connection
-
+from cascade.saver.model_output import write_model_results
 
 CODELOG = logging.getLogger(__name__)
 
@@ -104,13 +103,6 @@ def _get_model_results(model_version_id, db, table):
             raise ValueError(msg)
 
 
-def _write_model_results(model_results, model_version_id, model_type, output_dir):
-    """ Writes the model_results dataframe as a csv file to the output dir.
-    """
-    file_name = Path(output_dir) / f"{model_type.lower()}_{model_version_id}.csv"
-    model_results.to_csv(file_name, index=False)
-
-
 def entry():
     """This is the entry that setuptools turns into an installed program.
 
@@ -145,7 +137,7 @@ def entry():
     try:
 
         at_results = _get_model_results(args.at_mvid, args.at_db, args.at_table)
-        _write_model_results(at_results, args.at_mvid, "AT", args.output_dir)
+        write_model_results(at_results, args.at_mvid, "AT", args.output_dir)
 
     except ValueError as ve:
         print(ve)
@@ -153,7 +145,7 @@ def entry():
     try:
 
         ode_results = _get_model_results(args.ode_mvid, args.ode_db, args.ode_table)
-        _write_model_results(ode_results, args.ode_mvid, "ODE", args.output_dir)
+        write_model_results(ode_results, args.ode_mvid, "ODE", args.output_dir)
 
     except ValueError as ve:
         print(ve)

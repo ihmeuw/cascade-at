@@ -105,7 +105,7 @@ class Dummy(Field):
 
 
 class OptionField(SimpleTypeField):
-    """ A field which will only accept values form a predefined set.
+    """ A field which will only accept values from a predefined set.
 
     Args:
         options (list): The list of options to choose from
