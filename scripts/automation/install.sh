@@ -114,7 +114,7 @@ if [[ "$?" -ne "0" ]]; then
     exit 7
 fi
 
-pip install git+ssh://git@stash.ihme.washington.edu:7999/~adolgert/cascade_config.git
+pip install git+ssh://git@stash.ihme.washington.edu:7999/dis/cascade_config.git
 if [[ "$?" -ne "0" ]]; then
     echo pip failed to install cascade_config. Exiting.
     exit 8
