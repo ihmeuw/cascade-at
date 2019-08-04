@@ -9,6 +9,15 @@ estimation for the world. Precedent for this comes from before the
 Dismod ii work [Barendregt2003]_, back to [ClaytonKaldor1987]_.
 
 
+.. _global-model-draft:
+
+Draft Description
+-----------------
+
+A draft description of the global model is in a PDF called the
+:download:`Global Illness Death Model <./Global_Illness_Death_Model.pdf>`.
+
+
 Setting Priors
 --------------
 

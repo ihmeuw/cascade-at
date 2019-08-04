@@ -8,11 +8,12 @@ and design documents gathered during development.
 .. toctree::
    :maxdepth: 2
 
+   getstarted
+   architecture
+   code_map
    testing
    logging
    documentation
-   architecture
-   code_map
    dismod_at_shape
    versioning
    design_sketches
