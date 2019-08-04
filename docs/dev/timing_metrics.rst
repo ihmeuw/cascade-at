@@ -35,7 +35,9 @@ relevant files are
 
  * ``main_success_scenario.py`` - This is a main that runs Dismod-AT
    any one of thousands of ways. Each way to run is indexed by a single
-   number for replay.
+   number for replay. *This file doesn't constrain omega, and it should,
+   because constraining omega changes the runtime behavior of Dismod-AT
+   significantly.*
 
  * ``main_success.sh`` - A shell file for Grid Engine to run the
    main success scenario many times.
