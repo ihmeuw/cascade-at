@@ -96,7 +96,7 @@ class GlobalPrepareData(CascadeJob):
                 shared[name] = getattr(modified_data, name)
 
 
-class FindSingleMAP(CascadeJob):
+class FitSingleMAP(CascadeJob):
     """
     This job does an estimation for a single location.
     It takes parent data and does a single fit without preceding that
@@ -147,7 +147,7 @@ class FindSingleMAP(CascadeJob):
         )
 
 
-class FindFixedMAP(CascadeJob):
+class FitFixedMAP(CascadeJob):
     """
     Do a "fit fixed" which will precede the "fit both".
     The "fit fixed" is much faster than fit both. It is used to find an
@@ -197,7 +197,7 @@ class FindFixedMAP(CascadeJob):
         )
 
 
-class FindBothMAP(CascadeJob):
+class FitBothMAP(CascadeJob):
     """Do a "fit both" assuming a "fit fixed" was done first."""
     def __init__(self, recipe_id, local_settings, execution_context):
         super().__init__("find_maximum_both", recipe_id, local_settings, execution_context)
@@ -325,16 +325,16 @@ def recipe_to_jobs(
     elif recipe_identifier.recipe == "estimate_location":
         if local_settings.policies.fit_strategy == "fit_fixed_then_fit":
             sub_jobs.append(
-                FindFixedMAP(
+                FitFixedMAP(
                     recipe_identifier, local_settings, neighbors, execution_context
                 ))
             sub_jobs.append(
-                FindBothMAP(
+                FitBothMAP(
                     recipe_identifier, local_settings, execution_context
                 ))
         else:
             sub_jobs.append(
-                FindSingleMAP(
+                FitSingleMAP(
                     recipe_identifier, local_settings, neighbors, execution_context
                 ))
         sub_jobs.extend([

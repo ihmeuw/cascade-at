@@ -8,7 +8,7 @@ from cascade.executor.cascade_plan import global_recipe_graph
 from cascade.executor.create_settings import create_settings
 from cascade.executor.execution_context import make_execution_context
 from cascade.executor.job_definitions import (
-    GlobalPrepareData, FindSingleMAP, add_job_list
+    GlobalPrepareData, FitSingleMAP, add_job_list
 )
 from cascade.runner.job_graph import RecipeIdentifier, recipe_graph_to_job_graph
 
@@ -66,7 +66,7 @@ def test_global_estimate(context):
     neighbors = dict(
         predecessors=[recipe_id],
     )
-    single = FindSingleMAP(global_recipe, local_settings, neighbors, ec)
+    single = FitSingleMAP(global_recipe, local_settings, neighbors, ec)
     assert not single.done()
     prepare.mock_run()
     single.mock_run()
