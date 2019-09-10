@@ -169,9 +169,7 @@ def uninformative_grid_from_var(var, strictly_positive):
     """
     smooth_grid = SmoothGrid(var.ages, var.times)
     if strictly_positive:
-        smooth_grid.value.grid.loc[:, ["density", "mean", "lower", "upper"]] = [
-            "uniform", 1e-2, 1e-9, 5
-        ]
+        smooth_grid.value.grid.loc[:, ["density", "mean", "lower"]] = ["uniform", 1e-10, 1e-100]
     else:
         smooth_grid.value.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -inf, inf, 0]
     smooth_grid.dage.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -inf, inf, 0]
