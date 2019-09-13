@@ -141,7 +141,7 @@ def write_var(hdf_group, var, name):
 
     for scale_idx, kind in enumerate(["age", "time"]):
         dimension = write_dimension(hdf_group, kind, [ages, times][scale_idx])
-        ds.dims.create_scale(dimension, kind)
+        dimension.make_scale(kind)
         ds.dims[scale_idx].attach_scale(dimension)
 
     ds.attrs["cascade_type"] = "Var"
@@ -192,7 +192,7 @@ def write_smooth_grid(hdf_group, smooth_grid, name):
     )
     for scale_idx, kind in enumerate(scales.keys()):
         dimension = write_dimension(hdf_group, kind, scales[kind])
-        ds.dims.create_scale(dimension, kind)
+        dimension.make_scale(kind)
         ds.dims[scale_idx].attach_scale(dimension)
 
     ds.attrs["cascade_type"] = "SmoothGrid"
