@@ -1,4 +1,3 @@
-import os
 import logging
 from subprocess import run
 
@@ -41,8 +40,7 @@ def test_run_with_logging__bad_executable():
 def test_add_gross_timing():
     command = "ls ."
     command, tmp_file = add_gross_timing(command)
-    time_cmds = os.popen('which time').readlines() + os.popen('which gtime').readlines()
-    assert any([command == [_.strip()] + ["-vo", str(tmp_file), "ls", "."] for _ in time_cmds])
+    assert command == ["/usr/bin/time", "-vo", str(tmp_file), "ls", "."]
 
 
 def test_try_gross_timing():

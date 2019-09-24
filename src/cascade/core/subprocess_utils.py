@@ -1,4 +1,3 @@
-import os
 import asyncio
 import re
 import subprocess
@@ -117,17 +116,14 @@ def processor_type():
 @lru_cache(maxsize=1)
 def this_machine_has_newer_time_command():
     """Check whether the timer could work. Do this once.
-    Some systems have older copies of /usr/bin/time that don't have -v.
-    On some systems (e.g., OS X) the newer command is gtime."""
-    time_cmds = os.popen('which time').readlines() + os.popen('which gtime').readlines()
-    for timer in time_cmds:
-        timer = Path(timer.strip())
-        if timer.exists():
-            time_line = [str(timer), "-vo"]
-            result = run(time_line + ["/dev/null", "/bin/ls"],
-                         stdout=DEVNULL, stderr=DEVNULL)
-            if result.returncode == 0:
-                return time_line
+    Some systems have older copies of /usr/bin/time that don't have -v."""
+    timer = Path("/usr/bin/time")
+    time_line = [str(timer), "-vo"]
+    if timer.exists():
+        result = run(time_line + ["/dev/null", "/bin/ls"],
+                     stdout=DEVNULL, stderr=DEVNULL)
+        if result.returncode == 0:
+            return time_line
     return None
 
 
