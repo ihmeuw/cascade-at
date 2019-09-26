@@ -17,7 +17,7 @@ SUBJOBS_PER_LOCATION = 3
 
 def test_create_start_finish(ihme):
     app = DismodAT()
-    args = app.add_arguments().parse_args(["--mvid", "267845"])
+    args = app.add_arguments().parse_args(["--mvid", "264734"])
     app.initialize(args)
     app.settings.model.split_sex = 3
     app.settings.model.drill_location_start = 4
@@ -28,7 +28,7 @@ def test_create_start_finish(ihme):
 
 def test_single_start_finish(ihme):
     app = DismodAT()
-    args = app.add_arguments().parse_args(["--mvid", "267845"])
+    args = app.add_arguments().parse_args(["--mvid", "264734"])
     app.initialize(args)
     app.settings.model.split_sex = 3
     app.settings.model.drill_location_start = 6
@@ -39,7 +39,7 @@ def test_single_start_finish(ihme):
 
 def test_iterate_tasks(ihme):
     app = DismodAT()
-    args = app.add_arguments().parse_args(["--mvid", "267770"])
+    args = app.add_arguments().parse_args(["--mvid", "264734"])
     app.initialize(args)
     job_graph = app.job_graph()
     ordered = execution_ordered(job_graph)
