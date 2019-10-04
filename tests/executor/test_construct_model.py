@@ -40,7 +40,7 @@ def base_settings():
     pini = False
 
     emr = 0
-    constrain_omega = 1
+    constrain_omega = 0
     iota.at_specific = 0
     iota.min = 0.0001
     iota.age_cnt = 2
