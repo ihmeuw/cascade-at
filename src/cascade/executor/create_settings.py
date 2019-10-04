@@ -34,12 +34,12 @@ BASE_CASE = {
         "minimum_meas_cv": 0.1,
         "rate_case": "iota_pos_rho_pos",
         "data_density": "gaussian",
-        "constrain_omega": 1,
+        "constrain_omega": 0,
         "fix_cov": 1,
         "split_sex": 1,
-        "modelable_entity_id": 23514,
-        "bundle_id": 4325,
-        "model_version_id": 267890,
+        "modelable_entity_id": 2005,
+        "bundle_id": 173,
+        "model_version_id": 264749,
         "add_calc_emr": 1,
         "drill": "drill",
         "drill_sex": 2,
@@ -181,12 +181,13 @@ def add_covariates(case, study_id, country_id, nonzero_rates, rng):
     for ckind, covariates in [("study", study_id), ("country", country_id)]:
         scovariates = list()
         for make_cov in covariates:
-            include = rng.choice([False, True], p=[0.7, 0.3], name=f"{ckind}.{make_cov}")
+            include = rng.choice([False, True], p=[0.0, 1.0], name=f"{ckind}.{make_cov}")
             if include:
                 scovariates.append(
                     covariate(ckind, make_cov, nonzero_rates, rng, name=f"{ckind}.{make_cov}"))
         if scovariates:
             case[f"{ckind}_covariate"] = scovariates
+    return case
 
 
 def create_settings(choices, locations=None):
@@ -245,13 +246,13 @@ def create_settings(choices, locations=None):
 
     rate_specifies_re_by_location = which_random_effects(nonzero_rates, rate, rng)
 
-    add_chosen_random_effects(case, location_root, locations, rate_specifies_re_by_location, rng)
+    case = add_chosen_random_effects(case, location_root, locations, rate_specifies_re_by_location, rng)
 
     study_covariates = [0, 11, 1604]
     country_covariates = [156, 1998]
-    add_covariates(case, study_covariates, country_covariates, nonzero_rates, rng)
+    case = add_covariates(case, study_covariates, country_covariates, nonzero_rates, rng)
     try:
-        config = json_settings_to_frozen_settings(case, 267890)
+        config = json_settings_to_frozen_settings(case, 264749)
     except SettingsError:
         pprint(case, indent=2)
         raise
@@ -271,6 +272,7 @@ def add_chosen_random_effects(case, location_root, locations, rate_specifies_re_
     # Only add to dict if there are some?
     if random_effects:
         case["random_effect"] = random_effects
+    return case
 
 
 def which_random_effects(nonzero_rates, rate, rng):
