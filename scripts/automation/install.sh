@@ -139,10 +139,9 @@ fi
 # Validate the dismod_at binary file name and executable attribute:
 # Note: we have been using two different locations 
 # for the dismod_at singularity image
-# /share/singularity-images/dismod/current.img
-# /share/singularity-images/dismod_at/current.img
+# /share/singularity-images/mscm/current.img
 
-DISMOD_AT_PATH=`readlink -f /share/singularity-images/dismod/current.img`
+DISMOD_AT_PATH=`readlink -f /share/singularity-images/mscm/current.img`
 if ! [[ -f "${DISMOD_AT_PATH}" ]] ; then
     echo "ERROR: the DISMOD_AT_PATH is invalid!"
     exit 1
