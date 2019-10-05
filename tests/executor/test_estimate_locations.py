@@ -54,8 +54,8 @@ def test_retrieve_data(ihme, draw, tmp_path):
             print(f"{dirpath}:")
             print(f"\t{filenames}")
 
-    meid = "23514"
-    mvid = "267890"
+    meid = "2005"
+    mvid = "264749"
     loc = "0"
     sex = "both"
     base = tmp_path / meid / mvid / "0" / loc / sex
@@ -93,8 +93,8 @@ def globaldir(request, tmp_path):
                 "--recipe", "bundle_setup",  # We are asking for one particular recipe.
             ]
             entry(app, arg_list)
-            meid = "23514"
-            mvid = "267890"
+            meid = "2005"
+            mvid = "264749"
             loc = "0"
             sex = "both"
             base = tmp_path / meid / mvid / "0" / loc / sex
@@ -115,8 +115,8 @@ def test_run_global(ihme, draw, tmp_path, globaldir):
     # We copy a previously-computed directory into the correct location
     # in tmp_path because it takes so long to download the data that
     # testing is a bear.
-    meid = "23514"
-    mvid = "267890"
+    meid = "2005"
+    mvid = "264749"
     loc = "0"
     sex = "both"
     base = tmp_path / meid / mvid / "0" / loc / sex
@@ -141,8 +141,8 @@ def test_run_global(ihme, draw, tmp_path, globaldir):
             print(f"{dirpath}:")
             print(f"\t{filenames}")
 
-    meid = "23514"
-    mvid = "267890"
+    meid = "2005"
+    mvid = "264749"
     loc = "32"
     sex = "female"
     base = tmp_path / meid / mvid / "0" / loc / sex

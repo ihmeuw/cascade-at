@@ -20,15 +20,20 @@ def test_get_model_results_inputs_ok(ihme):
     at_model_version_id = 265844
     db = "dismod-at-dev"
     table = "fit"
-    at_results = _get_model_results(at_model_version_id, db, table)
 
-    assert set(at_results.columns) == set(results_columns)
+    # Right now there are no results uploaded to the database,
+    # so this should fail with a ValueError from cascade.executor.model_results_main
+    with pytest.raises(ValueError):
+        at_results = _get_model_results(at_model_version_id, db, table)
 
-    at_row_index_8 = pd.Series([265844, 1990, 90, 1, 2, 16, 0.161961, 0.161961, 0.161961])
-    at_row_index_8.index = at_results.columns
+    # TODO: Re-instate this test after we have results uploaded to the at databases.
+    # assert set(at_results.columns) == set(results_columns)
 
-    pd.testing.assert_series_equal(at_results.iloc[8], at_row_index_8,
-                                   check_exact=False, check_names=False)
+    # at_row_index_8 = pd.Series([265844, 1990, 90, 1, 2, 16, 0.161961, 0.161961, 0.161961])
+    # at_row_index_8.index = at_results.columns
+
+    # pd.testing.assert_series_equal(at_results.iloc[8], at_row_index_8,
+    #                                check_exact=False, check_names=False)
 
 
 def test_get_model_results_bad_model_version_id_for_db_and_table(ihme):
@@ -51,6 +56,9 @@ def test_get_model_results_bad_model_version_id_all_locations(ihme):
         _get_model_results(model_version_id, db, table)
 
 
+# TODO: Re-instate this test after we upload something with the model version 265844.
+#  Right now there are no results for at.
+@pytest.mark.skip
 def test_get_model_results__multiple_finds(ihme):
     """Expect an exception if no db and table are given and the mvid is found in multiple locations"""
 

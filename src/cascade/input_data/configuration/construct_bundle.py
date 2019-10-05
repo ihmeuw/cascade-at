@@ -20,7 +20,7 @@ def _normalize_measures(data):
     data = data.copy()
     gbd_measure_id_to_integrand = make_integrand_map()
     if any(data.measure_id == 6):
-        MATHLOG.warn(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
+        MATHLOG.warning(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
 
     if any(data.measure_id == 17):
         MATHLOG.info(
