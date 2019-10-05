@@ -1,7 +1,6 @@
 from collections import defaultdict
 
 import pandas as pd
-import pytest
 from numpy import nan, isnan
 
 from cascade.input_data.configuration.construct_bundle import (
@@ -9,7 +8,7 @@ from cascade.input_data.configuration.construct_bundle import (
 )
 from cascade.executor.execution_context import make_execution_context
 
-@pytest.mark.skip
+
 def test_bundle_to_observations__global_eta():
     df = pd.DataFrame(
         {
@@ -42,8 +41,6 @@ def test_bundle_to_observations__global_eta():
 
 
 def test_bundle_from_database(ihme):
-    import pdb
-    pdb.set_trace()
     ec = make_execution_context()
     bundle = normalized_bundle_from_database(ec, 264749)
     assert bundle is not None
