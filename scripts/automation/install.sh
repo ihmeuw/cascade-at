@@ -2,7 +2,6 @@
 set -x
 umask 0002
 TAG=$(date +'v%y.%m.%d')
-TAGMESSAGE="$2"
 
 # Installs the develop branch of Cascade from github into a virtual environment in
 # /ihme/code/dismod_at/env
@@ -23,6 +22,11 @@ if [[ $# -gt 0 ]]; then
     if [[ "$1" = "--help" ]] || [[ "$1" = "-h" ]]; then
         usage
         exit 0
+    else
+        TAGMESSAGE="$1"
+        BASETEMP="$2"
+        echo "The tag message is $1"
+        echo "The base directory for pytest will be $2"
     fi
 fi
 
@@ -123,7 +127,7 @@ fi
 # Install the virtual environment to be the "current" if the tests pass.
 # Run testing without writing *.pyc to the __pycache__.
 PYTHONDONTWRITEBYTECODE=1
-(cd "${CASCADE_DEVELOP_DIR}/tests" && python -m pytest -p no:cacheprovider --ihme --cluster)
+(cd "${CASCADE_DEVELOP_DIR}/tests" && python -m pytest --ihme --cluster --basetemp=${BASETEMP})
 
 if [[ "$?" -eq "0" ]]; then
     for softlink in prod dev current fair
