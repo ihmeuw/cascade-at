@@ -15,26 +15,19 @@ def rectangular_data_to_var(gridded_data):
     """Using this very regular data, where every age and time is present,
     construct an initial guess as a Var object. Very regular means that there
     is a complete set of ages-cross-times."""
+    gridded_data = gridded_data.copy()
     try:
-        initial_ages = np.sort(
-            np.unique(0.5 * (gridded_data.age_lower + gridded_data.age_upper))
-        )
-        initial_times = np.sort(
-            np.unique(0.5 * (gridded_data.time_lower + gridded_data.time_upper))
-        )
+        gridded_data['age'] = gridded_data[['age_lower', 'age_upper']].mean(axis=1)
+        gridded_data['time'] = gridded_data[['time_lower', 'time_upper']].mean(axis=1)
     except AttributeError:
         CODELOG.error(f"Data to make a var has columns {gridded_data.columns}")
         raise RuntimeError(
             f"Wrong columns in rectangular_data_to_var {gridded_data.columns}")
-
-    guess = Var(ages=initial_ages, times=initial_times)
-    for age, time in guess.age_time():
-        found = gridded_data.query(
-            "(age_lower <= @age) & (@age <= age_upper) & "
-            "(time_lower <= @time) & (@time <= time_upper)"
-        )
-        assert len(found) == 1, f"found {found}"
-        guess[age, time] = float(found.iloc[0]["mean"])
+    gridded_data = gridded_data.sort_values(by = ['age', 'time'])
+    guess = Var(ages=sorted(gridded_data['age'].unique()), times=sorted(gridded_data['time'].unique()))
+    assert guess.variable_count() == len(gridded_data), \
+        "Number of age/time points exceed number of unique age/time points"
+    guess[:, :] = gridded_data['mean'].values.reshape((-1, 1))
     return guess
 
 
