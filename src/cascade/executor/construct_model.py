@@ -23,7 +23,7 @@ def rectangular_data_to_var(gridded_data):
         CODELOG.error(f"Data to make a var has columns {gridded_data.columns}")
         raise RuntimeError(
             f"Wrong columns in rectangular_data_to_var {gridded_data.columns}")
-    gridded_data = gridded_data.sort_values(by = ['age', 'time'])
+    gridded_data = gridded_data.sort_values(by=['age', 'time'])
     guess = Var(ages=sorted(gridded_data['age'].unique()), times=sorted(gridded_data['time'].unique()))
     assert guess.variable_count() == len(gridded_data), \
         "Number of age/time points exceed number of unique age/time points"
