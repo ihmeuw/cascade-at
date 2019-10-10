@@ -37,8 +37,11 @@ def ess_to_stdev(mean, ess, proportion=False):
     Takes an array of values (like mean), and
     effective sample size (ess) and transforms it
     to standard error assuming that the sample
-    size is Poisson distributed. If you pass
-    a proportion rather than a rate it will
+    size is Poisson distributed. (Unless you pass a small
+    sample, in that case will interpolate between
+    Binomial and Poisson SE).
+
+    If you pass a proportion rather than a rate it will
     calculate the Wilson's Score Interval instead.
 
     Args:
@@ -109,16 +112,18 @@ def stdev_from_bundle_data(bundle_df):
     Returns:
 
     """
+    import pdb
+    pdb.set_trace()
     df = bundle_df.copy()
-    standard_error = df.standard_error.values.copy()
+    standard_error = df['standard_error'].copy()
 
-    has_se = ~df.standard_error.values.isnull() & df.standard_error.values > 0
+    has_se = ~df['standard_error'].isnull() & df['standard_error'] > 0
     MATHLOG.info(f"{sum(has_se)} rows have standard error.")
-    has_ui = ~df.lower.values.isnull() & ~df.upper.values.isnull()
+    has_ui = ~df['lower'].isnull() & ~df['upper'].isnull()
     MATHLOG.info(f"{sum(has_ui)} rows have uncertainty.")
-    has_ess = ~df.effective_sample_size.values.isnull() & df.effective_sample_size.values > 0
+    has_ess = ~df['effective_sample_size'].isnull() & df['effective_sample_size'] > 0
     MATHLOG.info(f"{sum(has_ess)} rows have effective sample size.")
-    has_ss = ~df.sample_size.values.isnull() & df.sample_size.values > 0
+    has_ss = ~df['sample_size'].isnull() & df['sample_size'] > 0
     MATHLOG.info(f"{sum(has_ss)} rows have sample size.")
 
     if sum(has_se | has_ui | has_ess | has_ss) < len(df):
@@ -132,11 +137,11 @@ def stdev_from_bundle_data(bundle_df):
     MATHLOG.info(f"{sum(replace_se_with_ess)} rows will have their standard error filled by effective sample size.")
 
     # Replace effective sample size with sample size
-    df[replace_ess_with_ss, 'effective_sample_size'] = df[replace_ess_with_ss, 'sample_size']
+    df.loc[replace_ess_with_ss, 'effective_sample_size'] = df.loc[replace_ess_with_ss, 'sample_size']
 
     # Calculate standard deviation different ways (also
-    stdev_from_bounds = bounds_to_stdev(lower=df.lower, upper=df.upper)
-    stdev_from_es = ess_to_stdev(mean=df.mean, ess=df.effective_sample_size)
+    stdev_from_bounds = bounds_to_stdev(lower=df['lower'], upper=df['upper'])
+    stdev_from_es = ess_to_stdev(mean=df['mean'], ess=df['effective_sample_size'])
 
     # Use boolean arrays representing the pecking order to replacing standard error
     standard_error[replace_se_with_ui] = stdev_from_bounds[replace_se_with_ui]
