@@ -32,6 +32,20 @@ def meas_bounds_to_stdev(df):
     return df.drop(["meas_lower", "meas_upper"], axis=1)
 
 
+def wilson_interval(prop, ess):
+    """
+    Calculate Wilson Score Interval
+    Args:
+        prop: proportion
+        ess: effective sample size
+
+    Returns:
+
+    """
+    z = stats.norm.ppf(q=0.975)
+    return np.sqrt(prop * (1 - prop) / ess + z**2 / (4 * ess**2))
+
+
 def ess_to_stdev(mean, ess, proportion=False):
     """
     Takes an array of values (like mean), and
@@ -52,12 +66,11 @@ def ess_to_stdev(mean, ess, proportion=False):
     Returns:
 
     """
-    count = mean * ess
     if proportion:
         # Calculate the Wilson's Score Interval
-        z = stats.norm.ppf(quantile=0.975)
-        std = np.sqrt(mean * (1 - mean) / ess + z**2 / (4 * ess**2))
+        std = wilson_interval(prop=mean, ess=ess)
     else:
+        count = mean * ess
         # Standard deviation for binomial with measure zero is approximately:
         std_0 = 1.0 / ess
 
@@ -91,7 +104,29 @@ def bounds_to_stdev(lower, upper):
     Returns:
         pd.Series: The standard deviation for that CI.
     """
-    return (upper - lower) / (2 * 1.96)
+    return (upper - lower) / (2 * stats.norm.ppf(q=0.975))
+
+
+def check_bundle_uncertainty_columns(df):
+    """
+    Checks for the validity of bundle columns
+    representing uncertainty. Returns 4
+    boolean pd.Series that represent
+    where to index to replace values.
+    """
+    has_se = ~df['standard_error'].isnull() & df['standard_error'] > 0
+    MATHLOG.info(f"{sum(has_se)} rows have standard error.")
+    has_ui = ~df['lower'].isnull() & ~df['upper'].isnull()
+    MATHLOG.info(f"{sum(has_ui)} rows have uncertainty.")
+    has_ess = ~df['effective_sample_size'].isnull() & df['effective_sample_size'] > 0
+    MATHLOG.info(f"{sum(has_ess)} rows have effective sample size.")
+    has_ss = ~df['sample_size'].isnull() & df['sample_size'] > 0
+    MATHLOG.info(f"{sum(has_ss)} rows have sample size.")
+
+    if sum(has_se | has_ui | has_ess | has_ss) < len(df):
+        raise ValueError("Some rows have no valid uncertainty.")
+
+    return has_se, has_ui, has_ess, has_ss
 
 
 def stdev_from_bundle_data(bundle_df):
@@ -112,22 +147,10 @@ def stdev_from_bundle_data(bundle_df):
     Returns:
 
     """
-    import pdb
-    pdb.set_trace()
     df = bundle_df.copy()
     standard_error = df['standard_error'].copy()
 
-    has_se = ~df['standard_error'].isnull() & df['standard_error'] > 0
-    MATHLOG.info(f"{sum(has_se)} rows have standard error.")
-    has_ui = ~df['lower'].isnull() & ~df['upper'].isnull()
-    MATHLOG.info(f"{sum(has_ui)} rows have uncertainty.")
-    has_ess = ~df['effective_sample_size'].isnull() & df['effective_sample_size'] > 0
-    MATHLOG.info(f"{sum(has_ess)} rows have effective sample size.")
-    has_ss = ~df['sample_size'].isnull() & df['sample_size'] > 0
-    MATHLOG.info(f"{sum(has_ss)} rows have sample size.")
-
-    if sum(has_se | has_ui | has_ess | has_ss) < len(df):
-        raise ValueError("Some rows have no valid uncertainty.")
+    has_se, has_ui, has_ess, has_ss = check_bundle_uncertainty_columns(df)
 
     replace_ess_with_ss = ~has_ess & has_ss
     MATHLOG.info(f"{sum(replace_ess_with_ss)} rows will have their effective sample size filled by sample size.")
