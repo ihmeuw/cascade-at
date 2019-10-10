@@ -2,6 +2,7 @@ from cascade.dismod.constants import DensityEnum
 from cascade.core import getLoggers
 
 import numpy as np
+from scipy import stats
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -31,44 +32,44 @@ def meas_bounds_to_stdev(df):
     return df.drop(["meas_lower", "meas_upper"], axis=1)
 
 
-def es_to_stdev(mean_value, es):
+def ess_to_stdev(mean, ess, proportion=False):
     """
     Takes an array of values (like mean), and
-    effective sample size (es) and transforms it
+    effective sample size (ess) and transforms it
     to standard error assuming that the sample
-    size is Poisson distributed.
+    size is Poisson distributed. If you pass
+    a proportion rather than a rate it will
+    calculate the Wilson's Score Interval instead.
 
     Args:
-        mean_value:
-        es:
+        mean: pd.Series
+        ess: pd.Series
+        proportion: (bool) whether or not the measure is a proportion
 
     Returns:
 
     """
-    mean = mean_value.copy()
-    sample_size = es.copy()
-    count = mean * sample_size
+    count = mean * ess
+    if proportion:
+        # Calculate the Wilson's Score Interval
+        z = stats.norm.ppf(quantile=0.975)
+        std = np.sqrt(mean * (1 - mean) / ess + z**2 / (4 * ess**2))
+    else:
+        # Standard deviation for binomial with measure zero is approximately:
+        std_0 = 1.0 / ess
 
-    # TODO: May want to include Wilson's interval
-    #  calculation instead. Only difficulty is that
-    #  we need to know the "param_type" associated
-    #  with the quantity, i.e. proportion or rate.
+        # When counts are >= 5, use standard deviation assuming that the
+        # count is Poisson.
+        # Note that when count = 5, mean is 5 / sample size.
+        under_5 = count < 5
+        std_5 = np.sqrt(5.0 / ess**2)
 
-    # Standard deviation for binomial with measure zero is approximately:
-    std_0 = 1.0 / sample_size
+        std = np.sqrt(mean / ess)
 
-    # When counts are >= 5, use standard deviation assuming that the
-    # count is Poisson.
-    # Note that when count = 5, mean is 5 / sample size.
-    under_5 = count < 5
-    std_5 = np.sqrt(5.0 / sample_size**2)
-
-    std = np.sqrt(mean / sample_size)
-
-    # For counts < 5, linearly interpolate between std_0 and std_5,
-    # replacing the regular standard deviation.
-    std[under_5] = ((5.0 - count[under_5]) * std_0[under_5] +
-                    count[under_5] * std_5[under_5]) / 5.0
+        # For counts < 5, linearly interpolate between std_0 and std_5,
+        # replacing the regular standard deviation.
+        std[under_5] = ((5.0 - count[under_5]) * std_0[under_5] +
+                        count[under_5] * std_5[under_5]) / 5.0
     return std
 
 
@@ -115,31 +116,31 @@ def stdev_from_bundle_data(bundle_df):
     MATHLOG.info(f"{sum(has_se)} rows have standard error.")
     has_ui = ~df.lower.values.isnull() & ~df.upper.values.isnull()
     MATHLOG.info(f"{sum(has_ui)} rows have uncertainty.")
-    has_es = ~df.effective_sample_size.values.isnull() & df.effective_sample_size.values > 0
-    MATHLOG.info(f"{sum(has_es)} rows have effective sample size.")
+    has_ess = ~df.effective_sample_size.values.isnull() & df.effective_sample_size.values > 0
+    MATHLOG.info(f"{sum(has_ess)} rows have effective sample size.")
     has_ss = ~df.sample_size.values.isnull() & df.sample_size.values > 0
     MATHLOG.info(f"{sum(has_ss)} rows have sample size.")
 
-    if sum(has_se | has_ui | has_es | has_ss) < len(df):
+    if sum(has_se | has_ui | has_ess | has_ss) < len(df):
         raise ValueError("Some rows have no valid uncertainty.")
 
-    replace_es_with_ss = ~has_es & has_ss
-    MATHLOG.info(f"{sum(replace_es_with_ss)} rows will have their effective sample size filled by sample size.")
+    replace_ess_with_ss = ~has_ess & has_ss
+    MATHLOG.info(f"{sum(replace_ess_with_ss)} rows will have their effective sample size filled by sample size.")
     replace_se_with_ui = ~has_se & has_ui
     MATHLOG.info(f"{sum(replace_se_with_ui)} rows will have their standard error filled by uncertainty intervals.")
-    replace_se_with_es = ~has_se & ~has_ui
-    MATHLOG.info(f"{sum(replace_se_with_es)} rows will have their standard error filled by effective sample size.")
+    replace_se_with_ess = ~has_se & ~has_ui
+    MATHLOG.info(f"{sum(replace_se_with_ess)} rows will have their standard error filled by effective sample size.")
 
     # Replace effective sample size with sample size
-    df[replace_es_with_ss, 'effective_sample_size'] = df[replace_es_with_ss, 'sample_size']
+    df[replace_ess_with_ss, 'effective_sample_size'] = df[replace_ess_with_ss, 'sample_size']
 
     # Calculate standard deviation different ways (also
-    stdev_from_bounds = bounds_to_stdev(lower=df.lower.values, upper=df.upper.values)
-    stdev_from_es = es_to_stdev(mean_value=df.mean.values, es=df.effective_sample_size.values)
+    stdev_from_bounds = bounds_to_stdev(lower=df.lower, upper=df.upper)
+    stdev_from_es = ess_to_stdev(mean=df.mean, ess=df.effective_sample_size)
 
     # Use boolean arrays representing the pecking order to replacing standard error
     standard_error[replace_se_with_ui] = stdev_from_bounds[replace_se_with_ui]
-    standard_error[replace_se_with_es] = stdev_from_es[replace_se_with_es]
+    standard_error[replace_se_with_ess] = stdev_from_es[replace_se_with_ess]
 
     # Do a final check on standard error
     if (standard_error <= 0 | standard_error.isnull()).any():
