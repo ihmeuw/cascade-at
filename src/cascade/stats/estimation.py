@@ -114,13 +114,13 @@ def check_bundle_uncertainty_columns(df):
     boolean pd.Series that represent
     where to index to replace values.
     """
-    has_se = ~df['standard_error'].isnull() & df['standard_error'] > 0
+    has_se = (~df['standard_error'].isnull()) & (df['standard_error'] > 0)
     MATHLOG.info(f"{sum(has_se)} rows have standard error.")
-    has_ui = ~df['lower'].isnull() & ~df['upper'].isnull()
+    has_ui = (~df['lower'].isnull()) & (~df['upper'].isnull())
     MATHLOG.info(f"{sum(has_ui)} rows have uncertainty.")
-    has_ess = ~df['effective_sample_size'].isnull() & df['effective_sample_size'] > 0
+    has_ess = (~df['effective_sample_size'].isnull()) & (df['effective_sample_size'] > 0)
     MATHLOG.info(f"{sum(has_ess)} rows have effective sample size.")
-    has_ss = ~df['sample_size'].isnull() & df['sample_size'] > 0
+    has_ss = (~df['sample_size'].isnull()) & (df['sample_size'] > 0)
     MATHLOG.info(f"{sum(has_ss)} rows have sample size.")
 
     if sum(has_se | has_ui | has_ess | has_ss) < len(df):

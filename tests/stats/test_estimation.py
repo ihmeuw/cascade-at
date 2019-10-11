@@ -35,7 +35,8 @@ def test_ess_to_stdev():
     assert np.isclose(stdev, np.array([0.07472136, 0.20000000]), atol=1e-6).all()
 
 
-def test_check_bundle_uncertainty_cols():
+@pytest.fixture
+def simple_df():
     df = pd.DataFrame([(a, b, c, d, e)
                        for a in [0.1]
                        for b in [0.1, np.nan]
@@ -44,11 +45,15 @@ def test_check_bundle_uncertainty_cols():
                        for e in [0.1, 0, np.nan]])
     df.columns = ['standard_error', 'lower', 'upper',
                   'effective_sample_size', 'sample_size']
-    has_se, has_ui, has_ess, has_ss = check_bundle_uncertainty_columns(df)
+    return df
+
+
+def test_check_bundle_uncertainty_cols(simple_df):
+    has_se, has_ui, has_ess, has_ss = check_bundle_uncertainty_columns(simple_df)
 
     assert has_se.all()
-    assert has_ui[:int(len(df)/4)].all()
-    assert ~has_ui[int(len(df)/4):].all()
+    assert has_ui[:int(len(simple_df)/4)].all()
+    assert ~has_ui[int(len(simple_df)/4):].all()
     assert (has_ess == np.tile(
         np.concatenate([
             np.repeat([True], repeats=3), np.repeat([False], repeats=6),
@@ -61,12 +66,19 @@ def test_check_bundle_uncertainty_cols():
     )).all()
 
 
+def test_check_bundle_uncertainty_cols_error(simple_df):
+    df = simple_df.copy()
+    df['standard_error'] = -1
+    with pytest.raises(ValueError):
+        check_bundle_uncertainty_columns(df)
+
+
 @pytest.fixture
 def df():
     return pd.DataFrame({
         'mean': np.repeat([0.5], repeats=5),
         'standard_error': [0.1, 0.0, np.nan, 0.4, 0.2],
-        'lower': [0.001, 0.000, 0.001, 0.004, 0.001],
+        'lower': [0.001, np.nan, 0.001, 0.004, 0.001],
         'upper': [0.8, 0.6, 0.9, 0.7, 0.6],
         'effective_sample_size': [80, 100, 100, 80, 100],
         'sample_size': [150, 200, 200, 150, 200]
