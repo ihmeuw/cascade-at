@@ -7,9 +7,9 @@ from cascade.core.context import ExecutionContext
 
 def test_make_execution_context():
     ec = ExecutionContext()
-    ec.parameters = {"database": "dismod-at-dev", "bundle_database": "epi"}
-    assert ec.parameters.database == "dismod-at-dev"
-    assert hasattr(ec.parameters, "database")
+    ec.parameters = {"model_database": "dismod-at-dev", "input_database": "epi"}
+    assert ec.parameters.model_database == "dismod-at-dev"
+    assert hasattr(ec.parameters, "model_database")
 
 
 @pytest.mark.parametrize("meid,mvid,expected", [
@@ -18,7 +18,7 @@ def test_make_execution_context():
 ])
 def test_execution_context_file_interface(meid, mvid, expected):
     ec = ExecutionContext()
-    ec.parameters = {"database": "dismod-at-dev"}
+    ec.parameters = {"model_database": "dismod-at-dev"}
     ec.parameters.base_directory = "."
     ec.parameters.organizational_mode = "infrastructure"
     assert ec.parameters.base_directory == "."
@@ -35,7 +35,7 @@ def test_execution_context_file_interface(meid, mvid, expected):
 ])
 def test_execution_context_local_file_interface(meid, mvid, expected):
     ec = ExecutionContext()
-    ec.parameters = {"database": "dismod-at-dev"}
+    ec.parameters = {"model_database": "dismod-at-dev"}
     ec.parameters.base_directory = "./mytmp"
     ec.parameters.organizational_mode = "local"
     ec.parameters.modelable_entity_id = meid
