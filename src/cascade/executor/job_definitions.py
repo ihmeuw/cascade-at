@@ -317,7 +317,7 @@ def recipe_to_jobs(
         but that's unnecessary.
     """
     sub_jobs = list()
-    if recipe_identifier.recipe == "bundle_setup":
+    if recipe_identifier.recipe == "crosswalk_version_setup":
         bundle_setup = GlobalPrepareData(
             recipe_identifier, local_settings, included_locations, execution_context
         )

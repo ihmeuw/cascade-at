@@ -1,7 +1,7 @@
 """
 Study covariates have a sparse representation in the database, which means
 that, for each covariate_id, the database stores a list of seq numbers to which
-that covariate applies. A seq number uniquely identifies the bundle record
+that covariate applies. A seq number uniquely identifies the crosswalk version record
 for which that covariate is nonzero.
 
 There is one case where a nonzero covariate is not 1. That is the "delta"

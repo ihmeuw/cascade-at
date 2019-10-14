@@ -10,12 +10,10 @@ from cascade.core.db import db_queries, age_spans
 from cascade.executor.covariate_data import assign_epiviz_covariate_names
 from cascade.executor.covariate_data import find_covariate_names, add_covariate_data_to_observations_and_avgints
 from cascade.executor.session_options import make_options, make_minimum_meas_cv
-from cascade.input_data.configuration.construct_bundle import (
-    normalized_bundle_from_database,
-    normalized_bundle_from_disk,
-    bundle_to_observations,
-    strip_bundle_exclusions,
-    dataframe_from_disk)
+from cascade.input_data.configuration.construct_crosswalk_version import (
+    normalized_crosswalk_version_from_database,
+    crosswalk_version_to_observations,
+    strip_crosswalk_version_exclusions)
 from cascade.input_data.configuration.construct_country import check_binary_covariates
 from cascade.input_data.configuration.construct_country import convert_gbd_ids_to_dismod_values
 from cascade.input_data.configuration.construct_mortality import get_raw_csmr, normalize_csmr
@@ -42,23 +40,16 @@ def retrieve_data(execution_context, local_settings, included_locations, covaria
     data.locations = location_hierarchy(
         data_access.gbd_round_id, location_set_version_id=data_access.location_set_version_id)
 
-    if data_access.bundle_file:
-        data.bundle = normalized_bundle_from_disk(data_access.bundle_file)
-    else:
-        data.bundle = normalized_bundle_from_database(
-            execution_context,
-            model_version_id,
-            bundle_id=local_settings.data_access.bundle_id,
-            tier=local_settings.data_access.tier
-        )
-    CODELOG.debug(f"Bundle length {len(data.bundle)} ")
+    data.crosswalk_version = normalized_crosswalk_version_from_database(
+        execution_context,
+        model_version_id,
+        crosswalk_version_id=local_settings.data_access.crosswalk_version_id
+    )
+    CODELOG.debug(f"Bundle length {len(data.crosswalk_version)} ")
     # Study covariates will have columns {"bundle_id", "seq", "study_covariate_id"}.
-    if data_access.bundle_study_covariates_file:
-        data.sparse_covariate_data = dataframe_from_disk(data_access.bundle_study_covariates_file)
-    else:
-        mvid = data_access.model_version_id
-        data.sparse_covariate_data = get_study_covariates(
-            execution_context, data_access.bundle_id, mvid, tier=data_access.tier)
+    mvid = data_access.model_version_id
+    data.sparse_covariate_data = get_study_covariates(
+        execution_context, data_access.crosswalk_version_id, mvid, tier=data_access.tier)
 
     country_covariate_ids = {
         spec.covariate_id for spec in covariate_data_spec
@@ -138,17 +129,17 @@ def modify_input_data(input_data, local_settings):
         density[id_to_integrand[set_density.integrand_measure_id]] = set_density.value
 
     csmr = normalize_csmr(input_data.cause_specific_mortality_rate, local_settings.sexes)
-    CODELOG.debug(f"bundle cols {input_data.bundle.columns}\ncsmr cols {csmr.columns}")
-    assert not set(csmr.columns) - set(input_data.bundle.columns)
-    bundle_with_added = pd.concat([input_data.bundle, csmr], sort=False)
-    bundle_without_excluded = strip_bundle_exclusions(bundle_with_added, ev_settings)
+    CODELOG.debug(f"crosswalk version cols {input_data.crosswalk_version.columns}\ncsmr cols {csmr.columns}")
+    assert not set(csmr.columns) - set(input_data.crosswalk_version.columns)
+    crosswalk_version_with_added = pd.concat([input_data.crosswalk_version, csmr], sort=False)
+    crosswalk_version_without_excluded = strip_crosswalk_version_exclusions(crosswalk_version_with_added, ev_settings)
     nu = defaultdict(lambda: nan)
     nu["students"] = local_settings.settings.students_dof.data
     nu["log_students"] = local_settings.settings.log_students_dof.data
 
     # These observations still have a seq column.
-    input_data.observations = bundle_to_observations(
-        bundle_without_excluded,
+    input_data.observations = crosswalk_version_to_observations(
+        crosswalk_version_without_excluded,
         local_settings.parent_location_id,
         data_eta,
         density,

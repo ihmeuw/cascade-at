@@ -7,7 +7,7 @@ from numpy import nan
 from cascade.core import getLoggers
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
-from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
+from cascade.input_data.db.crosswalk_version import _get_crosswalk_version_id, _get_crosswalk_version
 from cascade.stats.estimation import bounds_to_stdev
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -33,23 +33,23 @@ def _normalize_measures(data):
         data["measure"] = data.measure_id.apply(lambda k: gbd_measure_id_to_integrand[k].name)
     except KeyError as ke:
         raise RuntimeError(
-            f"The bundle data uses measure {str(ke)} which doesn't map "
+            f"The crosswalk version data uses measure {str(ke)} which doesn't map "
             f"to an integrand. The map is {gbd_measure_id_to_integrand}."
         )
     return data
 
 
-def strip_bundle_exclusions(bundle, ev_settings):
-    """Remove measures from bundle as requested in EpiViz-AT settings.
+def strip_crosswalk_version_exclusions(crosswalk_version, ev_settings):
+    """Remove measures from crosswalk version as requested in EpiViz-AT settings.
 
     Args:
-        bundle (pd.DataFrame): This bundle has the ``measure`` column with
+        crosswalk_version (pd.DataFrame): This crosswalk version has the ``measure`` column with
             each measure as a string name.
         ev_settings: From the settings form, for
             ``model.exclude_data_for_param``.
 
     Returns:
-        A bundle with the same or fewer rows and the same number of columns.
+        A crosswalk version with the same or fewer rows and the same number of columns.
     """
     if not ev_settings.model.is_field_unset("exclude_data_for_param"):
         integrand_map = make_integrand_map()
@@ -63,15 +63,15 @@ def strip_bundle_exclusions(bundle, ev_settings):
     # else don't add relrisk to excluded measures
 
     if measures_to_exclude:
-        mask = bundle.measure.isin(measures_to_exclude)
+        mask = crosswalk_version.measure.isin(measures_to_exclude)
         if mask.sum() > 0:
-            bundle.loc[mask, "hold_out"] = 1
+            crosswalk_version.loc[mask, "hold_out"] = 1
             MATHLOG.info(
                 f"Filtering {mask.sum()} rows of of data where the measure has been excluded. "
                 f"Measures marked for exclusion: {measures_to_exclude}. "
-                f"{len(bundle)} rows remaining."
+                f"{len(crosswalk_version)} rows remaining."
             )
-    return bundle
+    return crosswalk_version
 
 
 def _normalize_sex(data):
@@ -85,8 +85,8 @@ def _normalize_sex(data):
     return data
 
 
-def _normalize_bundle_data(data):
-    """Normalize bundle columns, strip extra columns and index on `seq`.
+def _normalize_crosswalk_version(data):
+    """Normalize crosswalk version columns, strip extra columns and index on `seq`.
     Change measures to string names. Add sex as string names.
     Assign ``hold_out`` column.
     """
@@ -101,13 +101,13 @@ def _normalize_bundle_data(data):
                                       "year_start": "time_lower", "year_end": "time_upper"})
 
 
-def bundle_to_observations(bundle_df, parent_location_id, data_eta, density, nu):
+def crosswalk_version_to_observations(crosswalk_version, parent_location_id, data_eta, density, nu):
     """
-    Convert bundle into an internal format. It removes the sex column and changes
+    Convert crosswalk version into an internal format. It removes the sex column and changes
     location to node. It also adjusts for the demographic specification.
 
     Args:
-        bundle_df (pd.DataFrame): Measurement data.
+        crosswalk_version (pd.DataFrame): Measurement data.
         parent_location_id (int): Parent location
 
         data_eta (Dict[str,float]): Default value for eta parameter on distributions as
@@ -118,84 +118,64 @@ def bundle_to_observations(bundle_df, parent_location_id, data_eta, density, nu)
 
     Returns:
         pd.DataFrame: Includes ``sex_id`` and which indicates
-            that these particular observations are from the bundle as
+            that these particular observations are from the crosswalk version as
             opposed to ones we add separately. It also keeps the `seq` column
-            which aligns bundle data with covariates.
+            which aligns crosswalk version data with covariates.
     """
-    if "location_id" in bundle_df.columns:
-        location_id = bundle_df["location_id"]
+    if "location_id" in crosswalk_version.columns:
+        location_id = crosswalk_version["location_id"]
     else:
-        location_id = np.full(len(bundle_df), parent_location_id, dtype=np.int)
+        location_id = np.full(len(crosswalk_version), parent_location_id, dtype=np.int)
     data_eta = data_eta if data_eta else defaultdict(lambda: nan)
     density = density if density else defaultdict(lambda: "gaussian")
 
-    # assume using demographic notation because this bundle uses it.
+    # assume using demographic notation because this crosswalk version uses it.
     demographic_interval_specification = 0
-    MATHLOG.info(f"Does this bundle assume demographic notation? {demographic_interval_specification}. "
+    MATHLOG.info(f"Does this crosswalk version assume demographic notation? {demographic_interval_specification}. "
                  f"A 1 means that 1 year is added to both end ages and end times. A 0 means nothing is added.")
 
     weight_method = "constant"
-    MATHLOG.info(f"The set of weights for this bundle is {weight_method}.")
+    MATHLOG.info(f"The set of weights for this crosswalk version is {weight_method}.")
     return pd.DataFrame(
         {
-            "integrand": bundle_df["measure"],
+            "integrand": crosswalk_version["measure"],
             "location": location_id,
             # Using getitem instead of get because defaultdict.get returns None
             # when the item is missing.
-            "density": bundle_df["measure"].apply(density.__getitem__),
-            "eta": bundle_df["measure"].apply(data_eta.__getitem__),
-            "nu": bundle_df["measure"].apply(nu.__getitem__),
-            "age_lower": bundle_df["age_lower"],
-            "age_upper": bundle_df["age_upper"] + demographic_interval_specification,
-            # The years should be floats in the bundle.
-            "time_lower": bundle_df["time_lower"].astype(np.float),
-            "time_upper": bundle_df["time_upper"].astype(np.float) + demographic_interval_specification,
-            "mean": bundle_df["mean"],
-            "std": bounds_to_stdev(bundle_df.lower, bundle_df.upper),
-            "sex_id": bundle_df["sex_id"],
-            "name": bundle_df["seq"].astype(str),
-            "seq": bundle_df["seq"],  # Keep this until study covariates are added.
-            "hold_out": bundle_df["hold_out"],
+            "density": crosswalk_version["measure"].apply(density.__getitem__),
+            "eta": crosswalk_version["measure"].apply(data_eta.__getitem__),
+            "nu": crosswalk_version["measure"].apply(nu.__getitem__),
+            "age_lower": crosswalk_version["age_lower"],
+            "age_upper": crosswalk_version["age_upper"] + demographic_interval_specification,
+            # The years should be floats in the crosswalk version.
+            "time_lower": crosswalk_version["time_lower"].astype(np.float),
+            "time_upper": crosswalk_version["time_upper"].astype(np.float) + demographic_interval_specification,
+            "mean": crosswalk_version["mean"],
+            "std": bounds_to_stdev(crosswalk_version.lower, crosswalk_version.upper),
+            "sex_id": crosswalk_version["sex_id"],
+            "name": crosswalk_version["seq"].astype(str),
+            "seq": crosswalk_version["seq"],  # Keep this until study covariates are added.
+            "hold_out": crosswalk_version["hold_out"],
         }
     )
 
 
-def normalized_bundle_from_database(execution_context, model_version_id, bundle_id=None, tier=3):
-    """Get bundle data with associated study covariate labels.
+def normalized_crosswalk_version_from_database(execution_context, model_version_id, crosswalk_version_id=None):
+    """Get crosswalk version with associated study covariate labels.
 
     Args:
         execution_context (ExecutionContext): The context within which to make the query
-        bundle_id (int): Bundle to load. Defaults to the bundle associated with the context
-        tier (int): Tier to load data from. Defaults to 3 (frozen data) but will also accept 2 (scratch space)
+        model_version_id (int): The model version ID to get the crosswalk version ID from
+        crosswalk_version_id (int): Crosswalk version to load.
+            Defaults to the crosswalk version associated with the context
 
     Returns:
-        bundle data, where the bundle data is a pd.DataFrame.
+        crosswalk data, where the crosswalk data is a pd.DataFrame.
     """
-    if bundle_id is None:
-        bundle_id = _get_bundle_id(execution_context, model_version_id)
+    if crosswalk_version_id is None:
+        crosswalk_version_id = _get_crosswalk_version_id(execution_context, model_version_id)
 
-    bundle = _get_bundle_data(execution_context, model_version_id, bundle_id, tier=tier)
-    bundle = _normalize_bundle_data(bundle)
+    crosswalk_version = _get_crosswalk_version(model_version_id, crosswalk_version_id)
+    crosswalk_version = _normalize_crosswalk_version(crosswalk_version)
 
-    return bundle
-
-
-def normalized_bundle_from_disk(path):
-    """Load a bundle off disk. It is assumed to be in the same format that Dismod-ODE
-    used and we do a bit of adjusting to get it into the same format as our normalized
-    from database bundles.
-    """
-    bundle = dataframe_from_disk(path)
-    bundle = bundle.rename(columns={"measure": "measure_id"})
-    return _normalize_measures(bundle)
-
-
-def dataframe_from_disk(path):
-    """ Load the file at `path` as a pandas dataframe.
-    """
-    if any(path.endswith(extension) for extension in [".hdf", ".h5", ".hdf5", ".he5"]):
-        return pd.read_hdf(path)
-    elif path.endswith(".csv"):
-        return pd.read_csv(path)
-    else:
-        raise ValueError(f"Unknown file format for bundle: {path}")
+    return crosswalk_version

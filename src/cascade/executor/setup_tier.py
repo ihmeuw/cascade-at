@@ -1,7 +1,7 @@
 from cascade.core import getLoggers
 from cascade.input_data.configuration.construct_mortality import location_and_children_from_settings
 from cascade.input_data.db.asdr import load_asdr_to_t3
-from cascade.input_data.db.bundle import freeze_bundle
+from cascade.input_data.db.crosswalk_version import freeze_bundle
 from cascade.input_data.db.csmr import load_csmr_to_t3
 
 CODELOG, MATHLOG = getLoggers(__name__)
