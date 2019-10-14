@@ -4,7 +4,7 @@ databases directly should live outside the db package and use the functions here
 form.
 """
 
-from elmo import get_crosswalk_version
+import elmo
 
 from cascade.core.db import cursor
 from cascade.input_data import InputDataError
@@ -42,13 +42,13 @@ def _get_crosswalk_version(crosswalk_version_id, exclude_outliers=True):
     Returns:
         Crosswalk Version data, retrieved from a crosswalk version.
     """
-    cv = get_crosswalk_version(crosswalk_version_id=crosswalk_version_id)
+    crosswalk_version = elmo.get_crosswalk_version(crosswalk_version_id=crosswalk_version_id)
     if exclude_outliers:
-        cv = cv.loc[cv.is_outlier != 1].copy()
-    cv = map_variables_to_id(cv, variables=['sex', 'measure'])
-    cv = cv.loc[~cv.input_type.isin(['parent', 'group_review'])].copy()
+        crosswalk_version = crosswalk_version.loc[crosswalk_version.is_outlier != 1].copy()
+    crosswalk_version = map_variables_to_id(crosswalk_version, variables=['sex', 'measure'])
+    crosswalk_version = crosswalk_version.loc[~crosswalk_version.input_type.isin(['parent', 'group_review'])].copy()
 
-    MATHLOG.debug(f"Downloaded {len(cv)} lines of crosswalk_version_id {crosswalk_version_id}")
+    MATHLOG.debug(f"Downloaded {len(crosswalk_version)} lines of crosswalk_version_id {crosswalk_version_id}")
     if exclude_outliers:
         # The modelers input the group_review flag as group_review=0 but then elmo transforms it to
         # input_type = 'group_review' which is what we actually filter on above, along with getting
@@ -57,7 +57,7 @@ def _get_crosswalk_version(crosswalk_version_id, exclude_outliers=True):
     else:
         MATHLOG.debug("This excludes rows marked as group_review and parent")
 
-    return cv
+    return crosswalk_version
 
 
 
