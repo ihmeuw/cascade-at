@@ -57,6 +57,3 @@ def _get_crosswalk_version(crosswalk_version_id, exclude_outliers=True):
         MATHLOG.debug("This excludes rows marked as group_review and parent")
 
     return crosswalk_version
-
-
-
