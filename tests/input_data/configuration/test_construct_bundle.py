@@ -3,13 +3,13 @@ from collections import defaultdict
 import pandas as pd
 from numpy import nan, isnan
 
-from cascade.input_data.configuration.construct_bundle import (
-    bundle_to_observations, normalized_bundle_from_database
+from cascade.input_data.configuration.construct_crosswalk_version import (
+    crosswalk_version_to_observations, normalized_crosswalk_version_from_database
 )
 from cascade.executor.execution_context import make_execution_context
 
 
-def test_bundle_to_observations__global_eta():
+def test_crosswalk_version_to_observations__global_eta():
     df = pd.DataFrame(
         {
             "location_id": 90,
@@ -31,19 +31,19 @@ def test_bundle_to_observations__global_eta():
     eta = dict(Tincidence=nan)
     density = dict(Tincidence="gaussian")
     nu = defaultdict(lambda: 5.0)
-    observations = bundle_to_observations(df, 90, eta, density, nu)
+    observations = crosswalk_version_to_observations(df, 90, eta, density, nu)
     assert isnan(observations.eta[0])
 
     eta = dict(Tincidence=1e-2)
     density = dict(Tincidence="gaussian")
-    observations = bundle_to_observations(df, 90, eta, density, nu)
+    observations = crosswalk_version_to_observations(df, 90, eta, density, nu)
     assert observations.eta[0] == 1e-2
 
 
 def test_bundle_from_database(ihme):
     ec = make_execution_context()
-    bundle = normalized_bundle_from_database(ec, 264749)
-    assert bundle is not None
+    crosswalk_version = normalized_crosswalk_version_from_database(ec, 264749)
+    assert crosswalk_version is not None
     parent_location_id = 90
     eta = defaultdict(lambda: 5e-3)
     eta["Tincidence"] = 1e-2
@@ -53,8 +53,10 @@ def test_bundle_from_database(ihme):
     density["Tincidence"] = "laplace"
     density["mtexcess"] = "log_students"
     nu = defaultdict(lambda: 5.0)
-    observations = bundle_to_observations(bundle, parent_location_id, eta, density, nu)
-    assert len(observations) == len(bundle)
+    observations = crosswalk_version_to_observations(
+        crosswalk_version, parent_location_id, eta, density, nu
+    )
+    assert len(observations) == len(crosswalk_version)
 
     etas = observations.eta.unique()
     assert len(etas) == 3

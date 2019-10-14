@@ -46,7 +46,7 @@ def test_iterate_tasks(ihme):
     cnt = 0
     for idx, job_id in enumerate(ordered):
         if idx == 0:
-            assert job_id.recipe == "bundle_setup"
+            assert job_id.recipe == "crosswalk_version_setup"
         if idx > 1:
             assert job_id.location_id > 0
             assert job_id.recipe == "estimate_location"
@@ -74,7 +74,7 @@ def test_random_settings():
             if idx > 0:
                 assert job_id.recipe == "estimate_location"
             else:
-                assert job_id.recipe == "bundle_setup"
+                assert job_id.recipe == "crosswalk_version_setup"
             assert job.local_settings is not None
 
 

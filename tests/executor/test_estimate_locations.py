@@ -45,7 +45,7 @@ def test_retrieve_data(ihme, draw, tmp_path):
         "--no-upload", "--db-only",
         "--base-directory", str(tmp_path),
         "--location", "0", "--skip-cache",
-        "--recipe", "bundle_setup",  # We are asking for one particular recipe.
+        "--recipe", "crosswalk_version_setup",  # We are asking for one particular recipe.
     ]
     entry(app, arg_list)
 
@@ -65,8 +65,8 @@ def test_retrieve_data(ihme, draw, tmp_path):
 
 @pytest.fixture
 def globaldir(request, tmp_path):
-    """This is a cached store of the results of bundle setup because
-    bundle setup is so slow downloading from the database.
+    """This is a cached store of the results of crosswalk version setup because
+    crosswalk version setup is so slow downloading from the database.
 
     Does this look like a pain in the butt? Yes. But it's sometimes five
     minutes, and this sets us up to test any part of the hierarchy.
@@ -90,7 +90,7 @@ def globaldir(request, tmp_path):
                 "--no-upload", "--db-only", "-v",
                 "--base-directory", str(tmp_path),
                 "--location", "0", "--skip-cache",
-                "--recipe", "bundle_setup",  # We are asking for one particular recipe.
+                "--recipe", "crosswalk_version_setup",  # We are asking for one particular recipe.
             ]
             entry(app, arg_list)
             meid = "2005"
