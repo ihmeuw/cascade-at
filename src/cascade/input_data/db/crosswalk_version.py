@@ -4,12 +4,11 @@ databases directly should live outside the db package and use the functions here
 form.
 """
 
-import elmo
-
+from cascade.core.db import elmo
 from cascade.core.db import cursor
 from cascade.input_data import InputDataError
 from cascade.core.log import getLoggers
-from cascade.input_data.db.id_maps import map_variables_to_id
+from cascade.input_data.configuration.id_map import map_variables_to_id
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
