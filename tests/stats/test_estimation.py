@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from cascade.stats.estimation import meas_bounds_to_stdev, ess_to_stdev
+from cascade.stats.estimation import meas_bounds_to_stdev, ess_to_stdev, stdev_from_bundle_data
 from cascade.stats.estimation import wilson_interval, check_bundle_uncertainty_columns
 
 
@@ -76,14 +76,17 @@ def test_check_bundle_uncertainty_cols_error(simple_df):
 @pytest.fixture
 def df():
     return pd.DataFrame({
-        'mean': np.repeat([0.5], repeats=5),
-        'standard_error': [0.1, 0.0, np.nan, 0.4, 0.2],
-        'lower': [0.001, np.nan, 0.001, 0.004, 0.001],
-        'upper': [0.8, 0.6, 0.9, 0.7, 0.6],
-        'effective_sample_size': [80, 100, 100, 80, 100],
-        'sample_size': [150, 200, 200, 150, 200]
+        'mean': np.repeat([0.5], repeats=7),
+        'standard_error':           [0.1,   0.0,    np.nan, np.nan, np.nan, 0.1,    0.1],
+        'lower':                    [0.001, np.nan, 0.001,  np.nan, 0.001,  0.001,  0.001],
+        'upper':                    [0.8,   0.6,    0.9,    0.7,    np.nan, np.nan, 0.6],
+        'effective_sample_size':    [0,     np.nan, 100,    np.nan, 9,      10,     np.nan],
+        'sample_size':              [150,   200,    200,    150,    50,     100,    100]
     })
 
 
 def test_stdev_from_bundle_data(df):
-    pass
+    standard_error = stdev_from_bundle_data(df)
+    assert (np.isclose(standard_error, np.array([0.1, 0.05, 0.22934,
+                                                 0.05773503, 0.2347179, 0.1, 0.1]), atol=1e-5)).all()
+
