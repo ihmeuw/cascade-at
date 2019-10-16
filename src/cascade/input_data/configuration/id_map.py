@@ -1,10 +1,21 @@
 from functools import lru_cache
 
-from cascade.core.db import db_queries
+from cascade.core.db import db_queries, cursor
 from cascade.dismod.constants import IntegrandEnum
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
+
+
+def get_measure_ids(execution_context):
+    """
+    Gets the measure associated with the measure_name from
+    the shared database.
+    """
+    query = "SELECT measure_id, measure, measure_name FROM shared.measure"
+    with cursor(execution_context) as c:
+        c.execute(query)
+    return c
 
 
 INTEGRAND_ENCODED = """
@@ -62,24 +73,6 @@ We do it this way to make it as easy as possible to check.
 This maps Incidence to Tincidence because the decision to forbid it
 happens when decoding the data, not here.
 """
-
-
-def map_variables_to_id(df, variables):
-    """
-    Maps a data frame with a variable specified in df
-    and gets the associated table to get the ID.
-    Args:
-        df (pd.DataFrame):
-        variables (list of str):
-
-    Returns:
-        A data frame with ID columns appended
-        to the original df
-    """
-    for v in variables:
-        id_map = db_queries.get_ids(table=v)
-        df = df.merge(id_map, on=v, how='left')
-    return df
 
 
 @lru_cache(maxsize=1)
