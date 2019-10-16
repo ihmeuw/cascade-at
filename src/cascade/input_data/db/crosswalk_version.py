@@ -46,7 +46,7 @@ def _get_crosswalk_version(crosswalk_version_id, execution_context, exclude_outl
         crosswalk_version = crosswalk_version.loc[crosswalk_version.is_outlier != 1].copy()
 
     # TODO: Put in a feature request for elmo to return IDs rather than names
-    #  check this help ticket: HELP-19389 -- when this is complete we will not need the next 4 lines
+    #  check this help ticket: CCOMP-83 -- when this is complete we will not need the next 4 lines
     sex_ids = db_queries.get_ids(table='sex')
     measure_ids = get_measure_ids(execution_context=execution_context)
     crosswalk_version = crosswalk_version.merge(sex_ids, on=['sex'])
