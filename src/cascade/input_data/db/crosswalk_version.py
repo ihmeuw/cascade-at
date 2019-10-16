@@ -34,7 +34,7 @@ def _get_crosswalk_version_id(execution_context, model_version_id):
         return crosswalk_version_ids[0][0]
 
 
-def _get_crosswalk_version(crosswalk_version_id, execution_context, exclude_outliers=True):
+def _get_crosswalk_version(crosswalk_version_id, exclude_outliers=True):
     """
     Downloads crosswalk version data specified by the crosswalk_version_id.
 
@@ -48,7 +48,7 @@ def _get_crosswalk_version(crosswalk_version_id, execution_context, exclude_outl
     # TODO: Put in a feature request for elmo to return IDs rather than names
     #  check this help ticket: CCOMP-83 -- when this is complete we will not need the next 4 lines
     sex_ids = db_queries.get_ids(table='sex')
-    measure_ids = get_measure_ids(execution_context=execution_context)
+    measure_ids = get_measure_ids(database='epi')
     crosswalk_version = crosswalk_version.merge(sex_ids, on=['sex'])
     crosswalk_version = crosswalk_version.merge(measure_ids, on=['measure'])
 

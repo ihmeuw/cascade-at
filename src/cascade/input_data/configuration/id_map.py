@@ -1,21 +1,22 @@
 from functools import lru_cache
+import pandas as pd
 
-from cascade.core.db import db_queries, cursor
+from cascade.core.db import connection
 from cascade.dismod.constants import IntegrandEnum
 
 from cascade.core.log import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def get_measure_ids(execution_context):
+def get_measure_ids(database='epi'):
     """
     Gets the measure associated with the measure_name from
-    the shared database.
+    the shared database in the epi host.
     """
     query = "SELECT measure_id, measure, measure_name FROM shared.measure"
-    with cursor(execution_context) as c:
-        c.execute(query)
-    return c
+    with connection(database=database) as c:
+        df = pd.read_sql(query, c)
+    return df
 
 
 INTEGRAND_ENCODED = """

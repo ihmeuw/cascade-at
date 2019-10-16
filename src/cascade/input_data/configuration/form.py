@@ -209,6 +209,7 @@ class Model(Form):
     title = StrField(nullable=True, display="Title")
     description = StrField(nullable=True, display="Description")
     bundle_id = IntField(nullable=True, display="Data bundle")
+    crosswalk_version_id = IntField(nullable=True, display="Data crosswalk version")
     drill = OptionField(["cascade", "drill"], display="Drill")
     drill_location = IntField(display="Drill location", nullable=True)
     drill_location_start = IntField(display="Drill location start", nullable=True)
