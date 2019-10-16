@@ -4,11 +4,11 @@ databases directly should live outside the db package and use the functions here
 form.
 """
 
-from cascade.core.db import elmo
+from cascade.core.db import elmo, db_queries
 from cascade.core.db import cursor
 from cascade.input_data import InputDataError
 from cascade.core.log import getLoggers
-from cascade.input_data.configuration.id_map import map_variables_to_id
+from cascade.input_data.configuration.id_map import get_measure_ids
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -34,7 +34,7 @@ def _get_crosswalk_version_id(execution_context, model_version_id):
         return crosswalk_version_ids[0][0]
 
 
-def _get_crosswalk_version(crosswalk_version_id, exclude_outliers=True):
+def _get_crosswalk_version(crosswalk_version_id, execution_context, exclude_outliers=True):
     """
     Downloads crosswalk version data specified by the crosswalk_version_id.
 
@@ -44,7 +44,14 @@ def _get_crosswalk_version(crosswalk_version_id, exclude_outliers=True):
     crosswalk_version = elmo.get_crosswalk_version(crosswalk_version_id=crosswalk_version_id)
     if exclude_outliers:
         crosswalk_version = crosswalk_version.loc[crosswalk_version.is_outlier != 1].copy()
-    crosswalk_version = map_variables_to_id(crosswalk_version, variables=['sex', 'measure'])
+
+    # TODO: Put in a feature request for elmo to return IDs rather than names
+    #  check this help ticket: HELP-19389 -- when this is complete we will not need the next 4 lines
+    sex_ids = db_queries.get_ids(table='sex')
+    measure_ids = get_measure_ids(execution_context=execution_context)
+    crosswalk_version = crosswalk_version.merge(sex_ids, on=['sex'])
+    crosswalk_version = crosswalk_version.merge(measure_ids, on=['measure'])
+
     crosswalk_version = crosswalk_version.loc[~crosswalk_version.input_type.isin(['parent', 'group_review'])].copy()
 
     MATHLOG.debug(f"Downloaded {len(crosswalk_version)} lines of crosswalk_version_id {crosswalk_version_id}")
