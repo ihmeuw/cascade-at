@@ -156,7 +156,7 @@ def load_csmr_to_t3(execution_context, data_access, location_and_children):
     model_version_id = data_access.model_version_id
     cod_version = data_access.cod_version
 
-    database = execution_context.parameters.model_database
+    database = execution_context.parameters.database
     locations_with_data_in_t3 = _csmr_in_t3(execution_context, model_version_id)
     csmr_not_in_t3 = set(location_and_children) - set(locations_with_data_in_t3)
     if csmr_not_in_t3:
