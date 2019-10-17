@@ -32,7 +32,7 @@ def test_get_bundle_id__no_bundle(mock_execution_context, mock_database_access):
             mock_execution_context,
             mock_execution_context.parameters.model_version_id
         )
-    assert "No crosswalk_version_ids" in str(excinfo.value)
+    assert "No crosswalk_version_id" in str(excinfo.value)
 
 
 def test_get_bundle_id__multiple_bundles(mock_execution_context, mock_database_access):
