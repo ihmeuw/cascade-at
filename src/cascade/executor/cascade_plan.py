@@ -288,6 +288,7 @@ def location_specific_settings(locations, settings, args, recipe_id):
         settings_file=args.settings_file,
         bundle_file=args.bundle_file,
         bundle_id=settings.model.bundle_id,
+        crosswalk_version_id=settings.model.crosswalk_version_id,
         bundle_study_covariates_file=args.bundle_study_covariates_file,
         tier=2 if args.skip_cache else 3,
         age_group_set_id=policies["age_group_set_id"],

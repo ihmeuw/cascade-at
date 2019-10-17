@@ -40,9 +40,9 @@ def test_crosswalk_version_to_observations__global_eta():
     assert observations.eta[0] == 1e-2
 
 
-def test_bundle_from_database(ihme):
+def test_crosswalk_version_from_database(ihme):
     ec = make_execution_context()
-    crosswalk_version = normalized_crosswalk_version_from_database(ec, 264749)
+    crosswalk_version = normalized_crosswalk_version_from_database(ec, 12437)
     assert crosswalk_version is not None
     parent_location_id = 90
     eta = defaultdict(lambda: 5e-3)
