@@ -8,7 +8,7 @@ from cascade.core import getLoggers
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
-from cascade.stats.estimation import bounds_to_stdev
+from cascade.stats.estimation import stdev_from_bundle_data
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -95,7 +95,7 @@ def _normalize_bundle_data(data):
 
     cols = ["seq", "measure", "mean", "sex_id", "hold_out",
             "age_start", "age_end", "year_start", "year_end", "location_id",
-            "lower", "upper"]
+            "standard_error", "lower", "upper", "sample_size", "effective_sample_size"]
 
     return data[cols].rename(columns={"age_start": "age_lower", "age_end": "age_upper",
                                       "year_start": "time_lower", "year_end": "time_upper"})
@@ -151,7 +151,7 @@ def bundle_to_observations(bundle_df, parent_location_id, data_eta, density, nu)
             "time_lower": bundle_df["time_lower"].astype(np.float),
             "time_upper": bundle_df["time_upper"].astype(np.float) + demographic_interval_specification,
             "mean": bundle_df["mean"],
-            "std": bounds_to_stdev(bundle_df.lower, bundle_df.upper),
+            "std": stdev_from_bundle_data(bundle_df),
             "sex_id": bundle_df["sex_id"],
             "name": bundle_df["seq"].astype(str),
             "seq": bundle_df["seq"],  # Keep this until study covariates are added.
