@@ -45,7 +45,7 @@ def assign_levels(locations):
 
 def test_prepare_data(context):
     ec = context["ec"]
-    recipe_id = RecipeIdentifier(21, "bundle_setup", "both")
+    recipe_id = RecipeIdentifier(21, "crosswalk_version_setup", "both")
     local_settings = SimpleNamespace()
     local_settings.parent_location_id = 22
     included_locations = None
@@ -57,7 +57,7 @@ def test_prepare_data(context):
 
 def test_global_estimate(context):
     ec = context["ec"]
-    recipe_id = RecipeIdentifier(1, "bundle_setup", "both")
+    recipe_id = RecipeIdentifier(1, "crosswalk_version_setup", "both")
     local_settings = SimpleNamespace()
     local_settings.parent_location_id = 1
     included_locations = None

@@ -318,10 +318,10 @@ def recipe_to_jobs(
     """
     sub_jobs = list()
     if recipe_identifier.recipe == "crosswalk_version_setup":
-        bundle_setup = GlobalPrepareData(
+        crosswalk_version_setup = GlobalPrepareData(
             recipe_identifier, local_settings, included_locations, execution_context
         )
-        sub_jobs.append(bundle_setup)
+        sub_jobs.append(crosswalk_version_setup)
     elif recipe_identifier.recipe == "estimate_location":
         if local_settings.policies.fit_strategy == "fit_fixed_then_fit":
             sub_jobs.append(

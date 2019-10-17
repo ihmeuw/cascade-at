@@ -175,7 +175,7 @@ def normalized_crosswalk_version_from_database(execution_context, model_version_
     if crosswalk_version_id is None:
         crosswalk_version_id = _get_crosswalk_version_id(execution_context, model_version_id)
 
-    crosswalk_version = _get_crosswalk_version(model_version_id, crosswalk_version_id)
-    crosswalk_version = _normalize_crosswalk_version(crosswalk_version)
+    crosswalk_version = _get_crosswalk_version(crosswalk_version_id=crosswalk_version_id)
+    crosswalk_version = _normalize_crosswalk_version(data=crosswalk_version)
 
     return crosswalk_version

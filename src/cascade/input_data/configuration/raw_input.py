@@ -38,7 +38,7 @@ EXPECTED_TYPES = dict(
         ('location', dtype('int64')),
         ('sex_id', dtype('int64')),
     ],
-    bundle=[
+    crosswalk_version=[
         ('seq', dtype('int64')),
         ('measure', dtype('O')),
         ('sex_id', dtype('int64')),
