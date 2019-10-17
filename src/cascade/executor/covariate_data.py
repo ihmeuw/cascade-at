@@ -69,7 +69,29 @@ def add_country_covariate_to_observations_and_avgints(data, local_settings, epiv
     country_specs = {ccov for ccov in epiviz_covariates if ccov.study_country == "country"}
     for covariate_id in {evc.covariate_id for evc in country_specs}:
         ccov_ranges_df = data.country_covariates[covariate_id]
-        reference = reference_value_for_covariate_mean_all_values(ccov_ranges_df)
+
+        parent_ccov_ranges = ccov_ranges_df[ccov_ranges_df.location_id.isin([local_settings.parent_location_id])]
+        if not parent_ccov_ranges.empty:
+            CODELOG.warning ("****** FIXME -- The parent had ccov values -- population weight these *********")
+            reference = reference_value_for_covariate_mean_all_values(parent_ccov_ranges)
+        else:
+            __patch__ = True
+            if __patch__:
+                # FIXME -- Below is a temporary patch -- all locations should have covariate references
+                CODELOG.error(f"Country covariates for location {local_settings.parent_location_id} were missing.")
+                child_ccov_ranges = ccov_ranges_df[ccov_ranges_df.location_id.isin(local_settings.children)]
+                if not child_ccov_ranges.empty:
+                    missing = set(local_settings.children) - set(child_ccov_ranges.location_id)
+                    if missing:
+                        CODELOG.error(f"Country covariates for child locations {sorted(missing)} were missing.")
+                    else:
+                        CODELOG.warning ("****** FIXME -- The children had ccov values -- population weight these *********")
+                        reference = reference_value_for_covariate_mean_all_values(child_ccov_ranges)
+                else:
+                    msg = (f"FIXME -- covariate reference is missing for parent {local_settings.parent_location_id} and children {local_settings.children}\n"
+                           "         and the code was doing the wrong thing by averaging everything for the world")
+                    raise Exception(msg)
+
         for df_name in ["observations", "average_integrand_cases"]:
             measurement = getattr(data, df_name)
             if measurement is not None:
@@ -83,6 +105,8 @@ def add_country_covariate_to_observations_and_avgints(data, local_settings, epiv
                         **{transformed.name: settings_transform(observations_column)})
                 setattr(data, df_name, measurement)
             # else nothing to add to the data.
+    country_columns = [data.country_id_to_name[evc.covariate_id] for evc in country_specs]
+    MATHLOG.info(f"Country covariates added: {country_columns}")
 
 
 def add_study_covariate_to_observations_and_avgints(data):
