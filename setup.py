@@ -12,7 +12,7 @@ setup(
         "pandas==0.25.1",
         "scipy",
         "sqlalchemy",
-        "networkx",
+        "networkx==2.3",
         "tables==3.5.2",
         "python-intervals",
         "rocketsonde @ git+https://github.com/ihmeuw/rocketsonde.git",

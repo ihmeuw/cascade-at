@@ -8,7 +8,7 @@ from cascade.core import getLoggers
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.crosswalk_version import _get_crosswalk_version_id, _get_crosswalk_version
-from cascade.stats.estimation import bounds_to_stdev
+from cascade.stats.estimation import stdev_from_crosswalk_version
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -95,7 +95,7 @@ def _normalize_crosswalk_version(data):
 
     cols = ["seq", "measure", "mean", "sex_id", "hold_out",
             "age_start", "age_end", "year_start", "year_end", "location_id",
-            "lower", "upper"]
+            "standard_error", "lower", "upper", "sample_size", "effective_sample_size"]
 
     return data[cols].rename(columns={"age_start": "age_lower", "age_end": "age_upper",
                                       "year_start": "time_lower", "year_end": "time_upper"})
@@ -151,7 +151,7 @@ def crosswalk_version_to_observations(crosswalk_version, parent_location_id, dat
             "time_lower": crosswalk_version["time_lower"].astype(np.float),
             "time_upper": crosswalk_version["time_upper"].astype(np.float) + demographic_interval_specification,
             "mean": crosswalk_version["mean"],
-            "std": bounds_to_stdev(crosswalk_version.lower, crosswalk_version.upper),
+            "std": stdev_from_crosswalk_version(crosswalk_version),
             "sex_id": crosswalk_version["sex_id"],
             "name": crosswalk_version["seq"].astype(str),
             "seq": crosswalk_version["seq"],  # Keep this until study covariates are added.
