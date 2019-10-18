@@ -7,6 +7,7 @@ from cascade.input_data.configuration.construct_country import (
 from cascade.input_data.db.csmr import get_csmr_data
 from cascade.input_data.db.locations import location_hierarchy, get_descendants
 from cascade.input_data.db.mortality import get_frozen_cause_specific_mortality_data
+from cascade.runner.application_config import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
