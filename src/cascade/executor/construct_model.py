@@ -69,7 +69,8 @@ def construct_model(data, local_settings, covariate_multipliers, covariate_data_
     single_time = [default_age_time["time"][len(default_age_time["time"]) // 2]]
     single_age_time = (single_age, single_time)
 
-    nonzero_rates = list(set([smooth.rate for smooth in ev_settings.rate if 0 < smooth.default.value.prior_object.upper]))
+    nonzero_rates = list(set([smooth.rate for smooth in ev_settings.rate if
+                              0 < smooth.default.value.prior_object.upper]))
 
     children = list(data.locations.successors(parent_location_id))
     model = Model(
