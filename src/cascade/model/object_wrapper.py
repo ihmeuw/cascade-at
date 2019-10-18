@@ -47,7 +47,7 @@ class ObjectWrapper:
     within those tables into higher-level objects that are then
     easier to reason about.
     """
-    def __init__(self, filename):
+    def __init__(self, filename, unlink = False):
         """
         Args:
             filename (Path|str|None): Path to filename or None if this
@@ -58,7 +58,13 @@ class ObjectWrapper:
             self._filename = Path(filename)
         else:
             self._filename = filename
+            
+        if unlink:
+            if self._filename.exists():
+                self._filename.unlink()
+                CODELOG.info(f"object_wrapper seems to incrementally add add (e.g., to the log) of DB files that exist -- deleting {self._filename.absolute()}.")
         self.dismod_file = DismodFile()
+        CODELOG.info(f"creating database file {self._filename.absolute()}.")
         self.dismod_file.engine = get_engine(self._filename)
         self.ensure_dismod_file_has_default_tables()
 
@@ -409,7 +415,7 @@ class ObjectWrapper:
         if isinstance(command, str):
             command = command.split()
         self.flush()
-        CODELOG.debug(f"Running Dismod-AT {command}")
+        CODELOG.info(f"Running Dismod-AT {command}")
         str_command = [str(word) for word in command]
         include_dismod = ["dmdismod", str(self.db_filename)] + str_command
         timed_command, timing_out_file = add_gross_timing(include_dismod)
