@@ -85,11 +85,13 @@ def add_country_covariate_to_observations_and_avgints(data, local_settings, epiv
                     if missing:
                         CODELOG.error(f"Country covariates for child locations {sorted(missing)} were missing.")
                     else:
-                        CODELOG.warning("****** FIXME -- The children had ccov values -- population weight these *********")
+                        CODELOG.warning(("****** FIXME -- The children had ccov values"
+                                         "-- population weight these *********"))
                         reference = reference_value_for_covariate_mean_all_values(child_ccov_ranges)
                 else:
-                    msg = (f"FIXME -- covariate reference is missing for parent {local_settings.parent_location_id} and children {local_settings.children}\n"
-                           "         and the code was doing the wrong thing by averaging everything for the world")
+                    msg = (f"FIXME -- covariate reference is missing for parent {local_settings.parent_location_id}"
+                           f"and children {local_settings.children}\n"
+                           f"         and the code was doing the wrong thing by averaging everything for the world")
                     raise Exception(msg)
 
         for df_name in ["observations", "average_integrand_cases"]:
