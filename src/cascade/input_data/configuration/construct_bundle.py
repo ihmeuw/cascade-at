@@ -198,4 +198,4 @@ def dataframe_from_disk(path):
     elif path.endswith(".csv"):
         return pd.read_csv(path)
     else:
-        raise ValueError(f"Unknown file format for bundle: {path}")
+        raise ValueError(f"Unknown file format for bundle: {path.absolute()}")
