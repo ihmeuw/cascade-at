@@ -12,8 +12,7 @@ Input Data
   rate (CSMR). It also contains location sets, age groups, year ids, and
   sex id definitions.
 
-   * Crosswalk version - As many data points as we have for the world,
-   pre-processed to ensure study-definition consistency
+   * Crosswalk version - As many data points as we have for the world, pre-processed to ensure study-definition consistency
    * Covariates - Number of covariates times number of nonzero entries for this crosswalk version.
    * ASDR - Yearly from 1950-present on 23 age groups = 1564 values.
    * CSMR - Yearly from 1950-present on 23 age groups = 1564 values.

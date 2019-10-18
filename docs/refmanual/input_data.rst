@@ -6,7 +6,7 @@ Input Data Functionality
 .. automodule:: cascade.input_data.db.asdr
     :members:
 
-.. automodule:: cascade.input_data.db.bundle
+.. automodule:: cascade.input_data.db.crosswalk_version
     :members:
 
 .. automodule:: cascade.input_data.db.country_covariates
@@ -28,7 +28,7 @@ Input Data Functionality
 .. automodule:: cascade.input_data.configuration.construct_country
     :members:
 
-.. automodule:: cascade.input_data.configuration.construct_bundle
+.. automodule:: cascade.input_data.configuration.construct_crosswalk_version
     :members:
 
 .. automodule:: cascade.input_data.configuration.builder
