@@ -6,8 +6,6 @@ from numpy import nan
 from cascade.core.db import cursor, db_queries, repeat_request
 from cascade.core.log import getLoggers
 from cascade.input_data.db import AGE_GROUP_SET_ID
-from cascade.input_data.db.data_iterator import grouped_by_count
-from cascade.runner.application_config import application_config
 from cascade.stats.estimation import bounds_to_stdev
 
 CODELOG, MATHLOG = getLoggers(__name__)

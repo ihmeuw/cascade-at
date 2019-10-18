@@ -4,11 +4,9 @@ from cascade.core import getLoggers
 from cascade.input_data.configuration.construct_country import (
     convert_gbd_ids_to_dismod_values
 )
-from cascade.input_data.db.csmr import get_csmr_data, get_csmr_location
-from cascade.input_data.db.data_iterator import grouped_by_count
+from cascade.input_data.db.csmr import get_csmr_data
 from cascade.input_data.db.locations import location_hierarchy, get_descendants
 from cascade.input_data.db.mortality import get_frozen_cause_specific_mortality_data
-from cascade.runner.application_config import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
