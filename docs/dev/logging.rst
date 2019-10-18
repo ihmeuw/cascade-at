@@ -117,7 +117,7 @@ the modeler the ones they can fix.
 *  Model configuration
 
    *  settings don't meet needs and can be changed.
-   *  bundle values don't make sense in some way.
+   *  crosswalk version values don't make sense in some way.
 
 *  IHME Data, maybe modelers know these.
 

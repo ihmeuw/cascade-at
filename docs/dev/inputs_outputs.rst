@@ -6,15 +6,15 @@ Inputs and Outputs
 Inputs
 ------
 
-Tier 3 Data
-  The input data is *partially* recorded in the tier 3 storage, which contains
-  the bundle, covariates, age-specific death rate (ASDR), and cause-specific mortality
-  rate (CSMR). Not in the tier 3 data are location sets, age groups, year ids, or
-  sex id definitions. Derived or imputed data, such as excess mortality rate (EMR)
-  isn't stored there, either.
+Input Data
+  The input data contains the crosswalk version, covariates,
+  age-specific death rate (ASDR), and cause-specific mortality
+  rate (CSMR). It also contains location sets, age groups, year ids, and
+  sex id definitions.
 
-   * Bundle - As many data points as we have for the world.
-   * Covariates - Number of covariates times number of nonzero entries for this bundle.
+   * Crosswalk version - As many data points as we have for the world,
+   pre-processed to ensure study-definition consistency
+   * Covariates - Number of covariates times number of nonzero entries for this crosswalk version.
    * ASDR - Yearly from 1950-present on 23 age groups = 1564 values.
    * CSMR - Yearly from 1950-present on 23 age groups = 1564 values.
 

@@ -1,22 +1,21 @@
-.. _epiviz-bundle:
+.. _epiviz-crosswalk-version:
 
-Bundle
-======
+Crosswalk Version
+=================
 
-Measurements on populations are stored in the *bundle.*
-Each time EpiViz-AT runs, it copies the current bundle
-for this modelable entity ID to a permanent storage, called Tier 3.
+Measurements on populations are stored in the *crosswalk version.*
+Crosswalk versions are pre-processed data uploaded to the IHME databases.
 
-.. _input-bundle-columns:
+.. _input-crosswalk-version-columns:
 
 Input Columns
 ^^^^^^^^^^^^^
 
 Command-line EpiViz-AT uses the following columns in the bundle.
 
-====================        ======================================
-``bundle_id``               used to select bundle
-``seq``                     unique ID for each record in bundle
+========================    ======================================
+``crosswalk_version_id``    used to select crosswalk version ID
+``seq``                     unique ID for each record in crosswalk version
 ``input_type_id``           exclude 5, 6 from usage
 ``outlier_type_id``         Keep 0 always. Exclude 1.
 ``mean``                    mean value of measurement
@@ -29,7 +28,7 @@ Command-line EpiViz-AT uses the following columns in the bundle.
 ``age_start``               real for youngest age
 ``age_end``                 real for oldest age
 ``measure_id``              measure ID, integer
-====================        ======================================
+========================    ======================================
 
 
 The following are ignored:
@@ -49,8 +48,8 @@ Demographic Interval Transformation
 
 There has been discussion about whether bundles can use demographic
 notation. There is a somewhat complicated formula on the Hub about
-implied demographic notation for bundle data. As shown in
-:py:func:`bundle_to_observations <cascade.input_data.configuration.construct_bundle.bundle_to_observations>`,
+implied demographic notation for crosswalk version data. As shown in
+:py:func:`crosswalk_version_to_observations<cascade.input_data.configuration.construct_crosswalk_version.crosswalk_version_to_observations>`,
 there is no fix applied for demographic intervals.
 
 
@@ -76,11 +75,17 @@ Conversion to Standard Deviation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Dismod-AT describes uncertainty in data using a density, a mean, a standard
-deviation, and possibly other parameters for the density. That standard
-deviation will come from the upper and lower confidence intervals, not from
-standard error in the mean.
+deviation, and possibly other parameters for the density. The standard deviation
+comes from the crosswalk version. Uncertainty can be in many forms in a crosswalk version,
+and we prioritize obtaining them in this order:
 
-Each bundle measurement is converted to have a standard deviation
+- Standard error
+- Uncertainty intervals (upper and lower)
+- Mean and effective sample size
+- Mean and sample size
+
+First, we check that standard error exists. If it doesn't, we look to the upper and lower values
+for the confidence interval. We convert these values into standard deviation with the following formula
 using lower = :math:`x_l` and upper = :math:`x_u`,
 
 .. math::
@@ -91,5 +96,10 @@ using lower = :math:`x_l` and upper = :math:`x_u`,
 where 1.96 is :math:`z^*` for the 95% confidence interval.
 
 The equation is in :py:func:`bounds_to_stdev <cascade.stats.estimation.bounds_to_stdev>`
-and it is applied to the bundle in
-:py:func:`bundle_to_observations <cascade.input_data.configuration.construct_bundle.bundle_to_observations>`.
+and it is applied to the crosswalk version in
+:py:func:`stdev_from_crosswalk_version <cascade.input_data.configuration.construct_crosswalk_version.crosswalk_version_to_observations>`.
+
+If neither of these are present, we then use effective sample size and the mean to calculate standard error. If
+effective sample size is not present, then we fill effective sample size with sample size before doing this calculation.
+
+To get standard error from effective sample size, we

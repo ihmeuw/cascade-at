@@ -4,7 +4,7 @@ Covariate Design
 ================
 
 EpiViz-AT classifies covariates as country and study types.
-The country are 0 or 1 and are specific to the bundle. The country
+The country are 0 or 1 and are specific to the model version settings. The country
 are floating-point values defined for every age / location / sex / year.
 
 The strategy for parsing these and putting them into the model is to
@@ -35,5 +35,5 @@ and names.
     but inside Dismdod-AT, they get renamed to ``x_0``, ``x_1``, ``x_...``.
 
 Testing study covariate data requires that the ``seq`` matches in covariates
-and bundle, so there is a :py:module:``cascade.testing_utilities.fake_data``
+and crosswalk version, so there is a :py:module:``cascade.testing_utilities.fake_data``
 module. The main test, however, is in ``test_estimate_locations.py``.

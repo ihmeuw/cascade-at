@@ -156,7 +156,7 @@ and where the 7800 lines of code in the source are allocated.
 
     * Translate on writing and reading.
 
- 6. IHME Database access for ASDR, CSMR, demographics, locations, bundle, covariates.
+ 6. IHME Database access for ASDR, CSMR, demographics, locations, crosswalk versions, covariates.
 
     * Initial query, with care for what can go wrong (661 lines)
 
