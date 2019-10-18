@@ -47,7 +47,7 @@ class ObjectWrapper:
     within those tables into higher-level objects that are then
     easier to reason about.
     """
-    def __init__(self, filename, unlink = False):
+    def __init__(self, filename, unlink=False):
         """
         Args:
             filename (Path|str|None): Path to filename or None if this
@@ -58,11 +58,11 @@ class ObjectWrapper:
             self._filename = Path(filename)
         else:
             self._filename = filename
-            
         if unlink:
             if self._filename.exists():
                 self._filename.unlink()
-                CODELOG.info(f"object_wrapper seems to incrementally add add (e.g., to the log) of DB files that exist -- deleting {self._filename.absolute()}.")
+                CODELOG.info(f"object_wrapper seems to incrementally add add (e.g., to the log) of DB files that exist"\
+                             f"-- deleting {self._filename.absolute()}.")
         self.dismod_file = DismodFile()
         CODELOG.info(f"creating database file {self._filename.absolute()}.")
         self.dismod_file.engine = get_engine(self._filename)
