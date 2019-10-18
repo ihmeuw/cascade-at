@@ -37,7 +37,7 @@ def save_global_data_to_hdf(path, global_data):
     else:
         CODELOG.info(f"All global data is dataframes.")
 
-    CODELOG.info(f"HDFStore path {path}")
+    CODELOG.info(f"HDFStore path {path.absolute()}")
     with closing(pd.HDFStore(str(path), "w", complevel=9, complib="zlib")) as store:
         for name, df in dataframes.items():
             store.put(name, df, format="fixed", columns=True, dropna=False)

@@ -226,6 +226,11 @@ def compute_parent_fit_fixed(execution_context, db_path, local_settings, input_d
     dismod_objects.locations = input_data.locations_df
     dismod_objects.parent_location_id = model.location_id
     dismod_objects.model = model
+    if input_data.observations.empty:
+        raise Exception("Input_data.observations is empty -- there is no data.")
+    else:
+        CODELOG.info(f"There are {len(input_data.observations)} of measured data.")
+        dismod_objects.data = input_data.observations
     dismod_objects.set_option(**make_options(local_settings.settings, local_settings.model_options))
     for integrand_name, value in make_minimum_meas_cv(local_settings.settings).items():
         dismod_objects.set_minimum_meas_cv(integrand_name, value)
