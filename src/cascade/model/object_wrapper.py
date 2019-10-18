@@ -52,6 +52,7 @@ class ObjectWrapper:
         Args:
             filename (Path|str|None): Path to filename or None if this
                 DismodFile should be in memory, as used for testing.
+            unlink (bool): If true, then delete the dismod database file
         """
         if filename is not None:
             assert isinstance(filename, (Path, str))
