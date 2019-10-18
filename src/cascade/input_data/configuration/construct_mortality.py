@@ -25,22 +25,16 @@ def get_raw_csmr(execution_context, data_access,
     else:
         small_number_locations = parameters.getint("small-location-count")
         if included_locations is not None and len(included_locations) < small_number_locations:
-            CODELOG.debug(f"CSMR retrieval for {included_locations}.")
-            # Call db_queries multiple times because it uses the SQL in set()
-            # syntax, which fails when the set is large.
-            locations_per_query = parameters.getint("locations-per-query")
-            multiple_csmr = list()
-            for location_bunch in grouped_by_count(included_locations, locations_per_query):
-                piece = get_csmr_location(
-                    execution_context,
-                    location_bunch,
-                    data_access.add_csmr_cause,
-                    data_access.cod_version,
-                    data_access.gbd_round_id,
-                    data_access.decomp_step,
-                )
-                multiple_csmr.append(piece)
-            raw_csmr = pd.concat(multiple_csmr, axis=0, ignore_index=True, sort=False)
+            raw_csmr = get_csmr_data(
+                execution_context,
+                included_locations,
+                data_access.add_csmr_cause,
+                data_access.cod_version,
+                data_access.gbd_round_id,
+                data_access.decomp_step,
+            )
+            assert set(raw_csmr.location_id.unique()) == set(included_locations), \
+                "The get_raw_csmr csmr query failed to return all of the requested locations."
         else:
             CODELOG.debug(
                 f"CSMR retrieval for location_set_id {data_access.location_set_id}.")

@@ -108,18 +108,8 @@ def asdr_as_fit_input(
         ``eta``, ``nu``, ``time_lower``, ``time_upper``, ``age_lower``,
         ``age_upper``, and ``location``, ``sex_id``.
     """
-    parameters = application_config()["NonModel"]
-    # Why not download all every time? It's really slow for testing.
-    small_number_locations = parameters.getint("small-location-count")
-    if included_locations is not None and len(included_locations) < small_number_locations:
-        # Call db_queries multiple times because it uses the SQL in set()
-        # syntax, which fails when the set is large.
-        locations_per_query = parameters.getint("locations-per-query")
-        multiple_asdr = list()
-        for location_bunch in grouped_by_count(included_locations, locations_per_query):
-            piece = get_asdr_data(gbd_round_id, decomp_step, location_bunch, with_hiv)
-            multiple_asdr.append(piece)
-        asdr = pd.concat(multiple_asdr, axis=0, ignore_index=True, sort=False)
+    if included_locations is not None:
+        asdr = get_asdr_data(gbd_round_id, decomp_step, included_locations, with_hiv)
         CODELOG.debug(f"asdr_as_fit_input Retrieving {len(asdr)} ASDR for {included_locations}.")
     else:
         asdr = get_asdr_global(gbd_round_id, decomp_step, location_set_version_id, with_hiv)
