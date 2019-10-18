@@ -72,7 +72,7 @@ def add_country_covariate_to_observations_and_avgints(data, local_settings, epiv
 
         parent_ccov_ranges = ccov_ranges_df[ccov_ranges_df.location_id.isin([local_settings.parent_location_id])]
         if not parent_ccov_ranges.empty:
-            CODELOG.warning ("****** FIXME -- The parent had ccov values -- population weight these *********")
+            CODELOG.warning("****** FIXME -- The parent had ccov values -- population weight these *********")
             reference = reference_value_for_covariate_mean_all_values(parent_ccov_ranges)
         else:
             __patch__ = True
@@ -85,7 +85,7 @@ def add_country_covariate_to_observations_and_avgints(data, local_settings, epiv
                     if missing:
                         CODELOG.error(f"Country covariates for child locations {sorted(missing)} were missing.")
                     else:
-                        CODELOG.warning ("****** FIXME -- The children had ccov values -- population weight these *********")
+                        CODELOG.warning("****** FIXME -- The children had ccov values -- population weight these *********")
                         reference = reference_value_for_covariate_mean_all_values(child_ccov_ranges)
                 else:
                     msg = (f"FIXME -- covariate reference is missing for parent {local_settings.parent_location_id} and children {local_settings.children}\n"
