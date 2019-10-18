@@ -246,23 +246,22 @@ def compute_interpolated_covariate_values_by_sex(
         # covariate is by_age and "by_time"
         if covar_at_dims.age_1d and covar_at_dims.time_1d:
 
-            covariate_sex = griddata((covariates_sex["avg_age"], covariates_sex["avg_time"]),
-                                     covariates_sex["mean_value"],
-                                     (meas_sex_new_index["avg_age"], meas_sex_new_index["avg_time"]))
+            covariate_sex = griddata((covariates_sex["avg_age"].values, covariates_sex["avg_time"].values),
+                                     covariates_sex["mean_value"].values,
+                                     (meas_sex_new_index["avg_age"].values, meas_sex_new_index["avg_time"].values))
 
         # covariate is "by_time", but not by_age
         elif not covar_at_dims.age_1d and covar_at_dims.time_1d:
-
-            covariate_sex = griddata((covariates_sex["avg_time"],),
-                                     covariates_sex["mean_value"],
-                                     (meas_sex_new_index["avg_time"],))
+            covariate_sex = griddata((covariates_sex["avg_time"].values,),
+                                     covariates_sex["mean_value"].values,
+                                     (meas_sex_new_index["avg_time"].values,))
 
         # covariate is by_age, but not "by_time"
         elif covar_at_dims.age_1d and not covar_at_dims.time_1d:
 
-            covariate_sex = griddata((covariates_sex["avg_age"],),
-                                     covariates_sex["mean_value"],
-                                     (meas_sex_new_index["avg_age"],))
+            covariate_sex = griddata((covariates_sex["avg_age"].values,),
+                                     covariates_sex["mean_value"].values,
+                                     (meas_sex_new_index["avg_age"].values,))
         else:
             raise RuntimeError(f"Covariate sex neither by age nor time {covar_at_dims}.")
 
