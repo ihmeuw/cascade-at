@@ -134,6 +134,7 @@ def check_data_uncertainty_columns(df):
 
     return has_se, has_ui, has_ess, has_ss
 
+
 def stdev_from_dataframe_data(df):
     """
     Takes a data frame and figures out the standard deviation
