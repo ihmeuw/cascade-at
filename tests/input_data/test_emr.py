@@ -7,7 +7,7 @@ from pandas.testing import assert_frame_equal
 
 from cascade.dismod.constants import DensityEnum
 from cascade.executor.execution_context import make_execution_context
-from cascade.stats import meas_bounds_to_stdev
+from cascade.stats import meas_bounds_to_stdev, stdev_from_dataframe_data
 
 from cascade.input_data.emr import (
     _emr_from_sex_and_node_specific_csmr_and_prevalence,

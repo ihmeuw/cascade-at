@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from cascade.stats.estimation import meas_bounds_to_stdev, ess_to_stdev, stdev_from_bundle_data
+from cascade.stats.estimation import meas_bounds_to_stdev, ess_to_stdev, stdev_from_dataframe_data
 from cascade.stats.estimation import wilson_interval, check_bundle_uncertainty_columns
 
 
