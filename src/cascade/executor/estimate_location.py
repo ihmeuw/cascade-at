@@ -231,7 +231,7 @@ def compute_parent_fit_fixed(execution_context, db_path, local_settings, input_d
         The fit.
     """
     begin = timer()
-    dismod_objects = ObjectWrapper(str(db_path))
+    dismod_objects = ObjectWrapper(str(db_path), unlink=True)
     dismod_objects.locations = input_data.locations_df
     dismod_objects.parent_location_id = model.location_id
     dismod_objects.model = model
