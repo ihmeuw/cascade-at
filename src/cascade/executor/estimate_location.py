@@ -285,7 +285,7 @@ def compute_parent_fit(execution_context, db_path, local_settings, simulate_idx=
             CODELOG.warning(msg)
             try:
                 dismod_objects.sample
-            except: 
+            except Exception:
                 simulate_idx = None
                 CODELOG.error(msg)
 
