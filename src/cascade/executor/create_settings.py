@@ -41,6 +41,7 @@ BASE_CASE = {
         "bundle_id": 173,
         "model_version_id": 264749,
         "crosswalk_version_id": 12437,
+        "decomp_step_id": 7,
         "add_calc_emr": 1,
         "drill": "drill",
         "drill_sex": 2,
