@@ -23,6 +23,11 @@ from cascade.runner.job_graph import CascadeJob, recipe_graph_to_job_graph
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
+def cascade_shelve(filepath, mode = 'c'):
+    import dbm.gnu as gdbm
+    return shelve.Shelf(gdbm.open(filepath, mode))
+
+
 def is_pandas(maybe_df):
     return isinstance(maybe_df, (pd.DataFrame, pd.Series))
 
@@ -51,7 +56,7 @@ def read_global_for_location(global_vars_path, global_data_path):
         for df_name in retrieve.keys():
             setattr(global_data, df_name.split("/")[-1], retrieve.get(df_name))
 
-    with shelve.open(str(global_vars_path), "r") as shelf:
+    with cascade_shelve(str(global_vars_path), "r") as shelf:
         for key in shelf.keys():
             setattr(global_data, key, shelf[key])
 
@@ -88,7 +93,7 @@ class GlobalPrepareData(CascadeJob):
         modified_data = modify_input_data(input_data, local_settings)
         not_written = save_global_data_to_hdf(self.outputs["data"].path, modified_data)
 
-        with shelve.open(str(self.outputs["shared"].path)) as shared:
+        with cascade_shelve(str(self.outputs["shared"].path)) as shared:
             shared["covariate_multipliers"] = covariate_multipliers
             shared["covariate_data_spec"] = covariate_data_spec
 
