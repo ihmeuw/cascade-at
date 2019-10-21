@@ -287,7 +287,7 @@ def compute_parent_fit(execution_context, db_path, local_settings, simulate_idx=
         MATHLOG.info(f"Ran with db_only so not running dismod fit both on {db_path}.")
     CODELOG.info(f"fit fixed {timer() - begin}")
 
-    dismod_objects.avgint = None  # Need to make an avgint table.
+    dismod_objects.avgint = pd.Dataframe()  # Need to have an avgint table.
     dismod_objects.truth_var = dismod_objects.fit_var
     dismod_objects.run_dismod(["predict", "truth_var"])
 
