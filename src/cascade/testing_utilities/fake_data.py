@@ -93,13 +93,16 @@ def retrieve_fake_data(execution_context, local_settings, covariate_data_spec, r
         children = [parent_id]
     data_cnt = 100
     seqs = sorted(rng.choice(10 * data_cnt, size=data_cnt, replace=False))
-    data.bundle = pd.DataFrame(dict(
+    data.crosswalk_version = pd.DataFrame(dict(
         seq=seqs,
         measure=np.repeat(["prevalence", "Sincidence", "mtother", "mtexcess"], 25),
         mean=np.repeat([0.01, 0.02, 0.03, 0.04], 25),
         sex_id=np.repeat([1, 2, 3, 2], 25),
         lower=np.repeat([0.005, 0.003, 0.004, 0.002], 25),
         upper=np.repeat([0.015, 0.023, 0.034, 0.0042], 25),
+        standard_error=np.repeat([0.02, 0.03, 0.01, 0.2], 25),
+        sample_size=np.repeat([100], 100),
+        effective_sample_size=np.repeat([100], 100),
         hold_out=np.repeat([0, 0, 0, 1], 25),
         age_lower=np.repeat([0.0, 5.0, 2.0, 10], 25),
         age_upper=np.repeat([0.019, 10.0, 100.0, 80], 25),
