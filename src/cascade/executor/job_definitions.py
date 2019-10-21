@@ -138,7 +138,10 @@ class FitSingleMAP(CascadeJob):
             modified_data.covariate_data_spec
         )
         set_priors_from_parent_draws(model, modified_data.draws)
-        compute_parent_fit_fixed(
+        CODELOG.warning('FIXME -- It seems compute_parent_fit was the call intended here, as the comments say '
+                        '"without fixed fixed", but the problem is compute_parent_fit has no way of tetting '
+                        'the input data or the model.')
+        compute_parent_fit(        # FIXME -- was this incorrect? --> compute_parent_fit_fixed(
             self.execution_context,
             self.outputs["db_file"].path,
             self.local_settings,
