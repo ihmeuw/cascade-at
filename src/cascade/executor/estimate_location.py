@@ -274,7 +274,8 @@ def compute_parent_fit(execution_context, db_path, local_settings, simulate_idx=
     dismod_objects.scale_var = fit_var
 
     if not local_settings.run.db_only:
-        dismod_objects.run_dismod("init")
+        # init clears tables needed for this next step -- delete the init call
+        # dismod_objects.run_dismod("init")
         command = ["fit", "both"]
         if simulate_idx is not None:
             command += [simulate_idx]
