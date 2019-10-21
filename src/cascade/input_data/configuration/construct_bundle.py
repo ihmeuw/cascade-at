@@ -8,7 +8,7 @@ from cascade.core import getLoggers
 from cascade.input_data import InputDataError
 from cascade.input_data.configuration.id_map import make_integrand_map
 from cascade.input_data.db.bundle import _get_bundle_id, _get_bundle_data
-from cascade.stats.estimation import stdev_from_bundle_data
+from cascade.stats.estimation import stdev_from_dataframe_data
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -151,7 +151,7 @@ def bundle_to_observations(bundle_df, parent_location_id, data_eta, density, nu)
             "time_lower": bundle_df["time_lower"].astype(np.float),
             "time_upper": bundle_df["time_upper"].astype(np.float) + demographic_interval_specification,
             "mean": bundle_df["mean"],
-            "std": stdev_from_bundle_data(bundle_df),
+            "std": stdev_from_dataframe_data(bundle_df),
             "sex_id": bundle_df["sex_id"],
             "name": bundle_df["seq"].astype(str),
             "seq": bundle_df["seq"],  # Keep this until study covariates are added.

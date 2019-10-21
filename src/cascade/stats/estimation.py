@@ -107,16 +107,21 @@ def bounds_to_stdev(lower, upper):
     return (upper - lower) / (2 * stats.norm.ppf(q=0.975))
 
 
-def check_bundle_uncertainty_columns(df):
+def check_data_uncertainty_columns(df):
     """
-    Checks for the validity of bundle columns
+    Checks for the validity of columns
     representing uncertainty. Returns 4
     boolean pd.Series that represent
     where to index to replace values.
     """
     has_se = (~df['standard_error'].isnull()) & (df['standard_error'] > 0)
     MATHLOG.info(f"{sum(has_se)} rows have standard error.")
-    has_ui = (~df['lower'].isnull()) & (~df['upper'].isnull())
+    has_bounds = (~df['lower'].isnull()) & (~df['upper'].isnull())
+    has_width = df['lower'] < df['upper']
+    if (has_bounds & ~has_width).any():
+        MATHLOG.error(f"There are {(has_bounds & ~has_width).sum()} rows of {df[(has_bounds & ~has_width)].measure.unique()}"
+                      " data with lower >= upper. This is probably a data error.")
+    has_ui = has_bounds & has_width
     MATHLOG.info(f"{sum(has_ui)} rows have uncertainty.")
     has_ess = (~df['effective_sample_size'].isnull()) & (df['effective_sample_size'] > 0)
     MATHLOG.info(f"{sum(has_ess)} rows have effective sample size.")
@@ -128,29 +133,27 @@ def check_bundle_uncertainty_columns(df):
 
     return has_se, has_ui, has_ess, has_ss
 
-
-def stdev_from_bundle_data(bundle_df):
+def stdev_from_dataframe_data(df):
     """
-    Takes a bundle data frame and figures out the standard deviation
-    from what is included in the bundle.
+    Takes a data frame and figures out the standard deviation
+    from what is included in the data.
 
     There are other functions that will still use the bounds_to_stdev
     function rather than this because they're not dealing with
-    bundle data. This function should only be used for bundle data.
+    data. This function should only be used for measured and mortality data.
 
     We prefer standard deviation (has_se), then uncertainty intervals (has_ui),
     then effective sample size (has_es), then sample size (has_ss).
 
     Args:
-        bundle_df:
+        df: A pandas dataframe of measured or mortality data
 
     Returns:
 
     """
-    df = bundle_df.copy()
-    standard_error = df['standard_error'].copy()
+    standard_error = df['standard_error']
 
-    has_se, has_ui, has_ess, has_ss = check_bundle_uncertainty_columns(df)
+    has_se, has_ui, has_ess, has_ss = check_data_uncertainty_columns(df)
 
     replace_ess_with_ss = ~has_ess & has_ss
     MATHLOG.info(f"{sum(replace_ess_with_ss)} rows will have their effective sample size filled by sample size.")

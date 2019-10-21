@@ -8,7 +8,7 @@ import pandas as pd
 
 from cascade.input_data.db.mortality import get_frozen_cause_specific_mortality_data, normalize_mortality_data
 from cascade.input_data.db.demographics import age_groups_to_ranges, get_years_from_lower_age_to_mean_age
-from cascade.stats import meas_bounds_to_stdev
+from cascade.stats import stdev_from_dataframe_data
 
 from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -53,8 +53,8 @@ def _prepare_csmr(execution_context, csmr, use_weighted_age_group_midpoints=Fals
     MATHLOG.debug("Preparing CSMR data from GBD")
     csmr = csmr.rename(columns={"location_id": "node_id"})
 
-    MATHLOG.debug("Assigning standard error from measured upper and lower.")
-    csmr = meas_bounds_to_stdev(csmr)
+    MATHLOG.debug("Assigning standard error using standard deviation pecking order.")
+    csmr = stdev_from_dataframe_data(csmr)
 
     null_means = csmr["mean"].isnull()
     if np.any(null_means):
