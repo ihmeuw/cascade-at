@@ -276,6 +276,19 @@ def compute_parent_fit(execution_context, db_path, local_settings, simulate_idx=
     if not local_settings.run.db_only:
         dismod_objects.run_dismod("init")
         command = ["fit", "both"]
+
+        __patch__ = True
+        if __patch__:
+            # GMA -- this is a kluge -- need to clean up all of this dismod call sequencing
+            msg = 'At the top level node, we have no priors (samples) so we should not be '\
+                'calling compute_parent_fit with simulate_idx != None.'
+            CODELOG.warning(msg)
+            try:
+                dismod_objects.sample
+            except: 
+                simulate_idx = None
+                CODELOG.error(msg)
+
         if simulate_idx is not None:
             command += [simulate_idx]
         stdout, stderr, _metrics = dismod_objects.run_dismod(command)
