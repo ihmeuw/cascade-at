@@ -119,8 +119,9 @@ def check_data_uncertainty_columns(df):
     has_bounds = (~df['lower'].isnull()) & (~df['upper'].isnull())
     has_width = df['lower'] < df['upper']
     if (has_bounds & ~has_width).any():
-        MATHLOG.error(f"There are {(has_bounds & ~has_width).sum()} rows of {df[(has_bounds & ~has_width)].measure.unique()}"
-                      " data with lower >= upper. This is probably a data error.")
+        MATHLOG.error(f"There are {(has_bounds & ~has_width).sum()} rows of "
+                      "{df[(has_bounds & ~has_width)].measure.unique()} "
+                      "data with lower >= upper. This is probably a data error.")
     has_ui = has_bounds & has_width
     MATHLOG.info(f"{sum(has_ui)} rows have uncertainty.")
     has_ess = (~df['effective_sample_size'].isnull()) & (df['effective_sample_size'] > 0)
