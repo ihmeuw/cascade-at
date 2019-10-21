@@ -23,7 +23,7 @@ from cascade.runner.job_graph import CascadeJob, recipe_graph_to_job_graph
 CODELOG, MATHLOG = getLoggers(__name__)
 
 
-def cascade_shelve(filepath, mode = 'c'):
+def cascade_shelve(filepath, mode='c'):
     import dbm.gnu as gdbm
     return shelve.Shelf(gdbm.open(filepath, mode))
 
