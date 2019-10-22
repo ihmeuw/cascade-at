@@ -8,7 +8,7 @@ import pandas as pd
 
 from cascade.input_data.db.mortality import get_frozen_cause_specific_mortality_data, normalize_mortality_data
 from cascade.input_data.db.demographics import age_groups_to_ranges, get_years_from_lower_age_to_mean_age
-from cascade.stats import stdev_from_dataframe_data
+from cascade.stats.estimation import stdev_from_dataframe_data
 
 from cascade.core import getLoggers
 CODELOG, MATHLOG = getLoggers(__name__)
