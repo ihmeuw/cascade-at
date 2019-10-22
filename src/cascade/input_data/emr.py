@@ -51,10 +51,11 @@ def _collapse_ages_weighted(execution_context, csmr):
 
 def _prepare_csmr(execution_context, csmr, use_weighted_age_group_midpoints=False):
     MATHLOG.debug("Preparing CSMR data from GBD")
-    csmr = csmr.rename(columns={"location_id": "node_id"})
+    csmr = csmr.rename(columns={"location_id": "node_id",
+                                "meas_value": "mean", "meas_lower": "lower", "meas_upper": "upper"})
 
     MATHLOG.debug("Assigning standard error using standard deviation pecking order.")
-    csmr = stdev_from_dataframe_data(csmr)
+    csmr['standard_error'] = stdev_from_dataframe_data(csmr)
 
     null_means = csmr["mean"].isnull()
     if np.any(null_means):

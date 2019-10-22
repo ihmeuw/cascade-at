@@ -2,6 +2,7 @@ from cascade.dismod.constants import DensityEnum
 from cascade.core import getLoggers
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 CODELOG, MATHLOG = getLoggers(__name__)
@@ -66,6 +67,7 @@ def ess_to_stdev(mean, ess, proportion=False):
     Returns:
 
     """
+    ess = ess.fillna(np.nan)
     if proportion:
         # Calculate the Wilson's Score Interval
         std = wilson_interval(prop=mean, ess=ess)
@@ -114,6 +116,10 @@ def check_data_uncertainty_columns(df):
     boolean pd.Series that represent
     where to index to replace values.
     """
+    if 'effective_sample_size' not in df:
+        df['effective_sample_size'] = None
+    if 'sample_size' not in df:
+        df['sample_size'] = None
     has_se = (~df['standard_error'].isnull()) & (df['standard_error'] > 0)
     MATHLOG.info(f"{sum(has_se)} rows have standard error.")
     has_bounds = (~df['lower'].isnull()) & (~df['upper'].isnull())
@@ -153,7 +159,7 @@ def stdev_from_dataframe_data(df):
     Returns:
 
     """
-    standard_error = df['standard_error']
+    standard_error = df['standard_error'].reindex()
 
     has_se, has_ui, has_ess, has_ss = check_data_uncertainty_columns(df)
 

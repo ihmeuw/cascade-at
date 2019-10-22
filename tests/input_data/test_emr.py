@@ -7,7 +7,7 @@ from pandas.testing import assert_frame_equal
 
 from cascade.dismod.constants import DensityEnum
 from cascade.executor.execution_context import make_execution_context
-from cascade.stats import meas_bounds_to_stdev
+from cascade.stats.estimation import meas_bounds_to_stdev
 
 from cascade.input_data.emr import (
     _emr_from_sex_and_node_specific_csmr_and_prevalence,
@@ -195,10 +195,10 @@ def test_prepare_csmr(mocker):
             "time_upper": [1990] * 5 + [1995] * 5,
             "sex_id": [3] * 5 * 2,
             "location_id": [6] * 5 * 2,
-            "standard_error": [0.0, 0.0, 0.0, 0.0, 0.0] *2,
             "meas_value": [0.006, 0.007, 0.008, 0.009, 0.01] * 2,
-            "meas_lower": [0.006, 0.007, 0.008, 0.009, 0.01] * 2,
-            "meas_upper": [0.006, 0.007, 0.008, 0.009, 0.01] * 2,
+            "standard_error": [0.0, 0.0, 0.0, 0.0, 0.0] * 2,
+            "meas_lower": [0.006, 0.007, 0.008, 0.009, 0.010] * 2,
+            "meas_upper": [0.007, 0.008, 0.009, 0.010, 0.011] * 2,
         }
     )
     mock_age_groups_to_ranges = mocker.patch("cascade.input_data.emr.age_groups_to_ranges")

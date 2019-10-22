@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 from cascade.stats.estimation import meas_bounds_to_stdev, ess_to_stdev
-from cascade.stats.estimation import wilson_interval, check_data_uncertainty_columns
+from cascade.stats.estimation import wilson_interval, check_data_uncertainty_columns, stdev_from_dataframe_data
 
 
 def test_meas_bounds_to_stdev__bad_bounds():
@@ -49,7 +49,7 @@ def simple_df():
 
 
 def test_check_bundle_uncertainty_cols(simple_df):
-    has_se, has_ui, has_ess, has_ss = check_bundle_uncertainty_columns(simple_df)
+    has_se, has_ui, has_ess, has_ss = check_data_uncertainty_columns(simple_df)
 
     assert has_se.all()
     assert has_ui[:int(len(simple_df)/4)].all()
@@ -70,7 +70,7 @@ def test_check_bundle_uncertainty_cols_error(simple_df):
     df = simple_df.copy()
     df['standard_error'] = -1
     with pytest.raises(ValueError):
-        check_bundle_uncertainty_columns(df)
+        check_data_uncertainty_columns(df)
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ def df():
 
 
 def test_stdev_from_bundle_data(df):
-    standard_error = stdev_from_bundle_data(df)
+    standard_error = stdev_from_dataframe_data(df)
     assert (np.isclose(standard_error, np.array([0.1, 0.05, 0.22934,
                                                  0.05773503, 0.2347179, 0.1, 0.1,
                                                  0.05]), atol=1e-5)).all()
