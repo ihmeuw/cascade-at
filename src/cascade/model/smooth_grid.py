@@ -176,6 +176,7 @@ def uninformative_grid_from_var(var, strictly_positive):
     smooth_grid.dtime.grid.loc[:, ["density", "lower", "upper", "mean"]] = ["uniform", -inf, inf, 0]
     return smooth_grid
 
+
 if __name__ == '__main__':
     "Example code showing how define and initialize a smooth grid"
     from cascade.model.priors import Constant
@@ -187,5 +188,5 @@ if __name__ == '__main__':
 
     # For each age/time combo, there are value, dage, and dtime priors (3*n_ages*n_times)
     # And there are mulstd value, dage, dtime (3) total
-    assert len(omega_grid.priors) == 3*(1 + len(list(omega_grid.age_time()))), 'Wrong number of priors'
-    print ('omega_grid.priors:\n', omega_grid.priors) 
+    assert len(omega_grid.priors) == 3 * (1 + len(list(omega_grid.age_time()))), 'Wrong number of priors'
+    print('omega_grid.priors:\n', omega_grid.priors)
