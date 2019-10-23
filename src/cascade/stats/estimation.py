@@ -2,7 +2,6 @@ from cascade.dismod.constants import DensityEnum
 from cascade.core import getLoggers
 
 import numpy as np
-import pandas as pd
 from scipy import stats
 
 CODELOG, MATHLOG = getLoggers(__name__)
