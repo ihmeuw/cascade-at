@@ -194,7 +194,7 @@ class ModelWriter:
         """Each age-time entry in the smooth_grid table, including the mulstds."""
         if const_value:
             long_table = (complete_table.loc[complete_table.age_id.notna()][["age_id", "time_id", "kind", "mean"]]
-                          .rename(columns = {"mean": "const_value"}))
+                          .rename(columns={"mean": "const_value"}))
             grid_table = long_table[["age_id", "time_id"]].sort_values(["age_id", "time_id"]).drop_duplicates()
             for kind in ["value"]:
                 grid_values = long_table.loc[long_table.kind == kind] \
@@ -219,7 +219,6 @@ class ModelWriter:
             grid_table = grid_table.assign(smooth_grid_id=grid_table.index + len(self._dismod_file.smooth_grid))
             self._dismod_file.smooth_grid = self._dismod_file.smooth_grid.append(grid_table, ignore_index=True,
                                                                                  sort=False)
-
 
     def _add_field_smooth(self, grid_name, prior_table, age_time_cnt):
         """Ths one row in the smooth grid table."""
