@@ -181,29 +181,41 @@ class ModelWriter:
         and ``priors`` tables."""
         # The smooth_grid table points to the priors and the smooth, itself,
         # so write it last.
-        complete_table = self._add_field_priors(grid_name, random_field.priors)
+        const_value = (grid_name == 'omega') or (grid_name.startswith('omega_re'))
+        # This call mixes prior_id into complete_table
+        complete_table = self._add_field_priors(grid_name, random_field.priors, const_value = const_value)
         age_cnt, time_cnt = (len(random_field.ages), len(random_field.times))
         assert len(complete_table) == (age_cnt * time_cnt + 1) * 3
         smooth_id = self._add_field_smooth(grid_name, complete_table, (age_cnt, time_cnt))
-        self._add_field_grid(complete_table, smooth_id)
+        self._add_field_grid(complete_table, smooth_id, const_value = const_value)
         return smooth_id
 
-    def _add_field_grid(self, complete_table, smooth_id):
+    def _add_field_grid(self, complete_table, smooth_id, const_value = False):
         """Each age-time entry in the smooth_grid table, including the mulstds."""
-        long_table = complete_table.loc[complete_table.age_id.notna()][["age_id", "time_id", "prior_id", "kind"]]
-        grid_table = long_table[["age_id", "time_id"]].sort_values(["age_id", "time_id"]).drop_duplicates()
-        for kind in ["value", "dage", "dtime"]:
-            grid_values = long_table.loc[long_table.kind == kind] \
-                .drop("kind", axis="columns") \
-                .rename(columns={"prior_id": f"{kind}_prior_id"})
-            grid_table = grid_table.merge(grid_values, on=["age_id", "time_id"])
+        if const_value:
+            long_table = complete_table.loc[complete_table.age_id.notna()][["age_id", "time_id", "kind", "mean"]].rename(columns = {"mean": "const_value"})
+            grid_table = long_table[["age_id", "time_id"]].sort_values(["age_id", "time_id"]).drop_duplicates()
+            for kind in ["value"]:
+                grid_values = long_table.loc[long_table.kind == kind] \
+                    .drop("kind", axis="columns") \
+                    .rename(columns={"prior_id": f"{kind}_prior_id"})
+                grid_table = grid_table.merge(grid_values, on=["age_id", "time_id"])
+            grid_table = grid_table.assign(value_prior_id=nan, dage_prior_id=nan, dtime_prior_id=nan, smooth_id=smooth_id)
+        else:
+            long_table = complete_table.loc[complete_table.age_id.notna()][["age_id", "time_id", "prior_id", "kind"]]
+            grid_table = long_table[["age_id", "time_id"]].sort_values(["age_id", "time_id"]).drop_duplicates()
+            for kind in ["value", "dage", "dtime"]:
+                grid_values = long_table.loc[long_table.kind == kind] \
+                    .drop("kind", axis="columns") \
+                    .rename(columns={"prior_id": f"{kind}_prior_id"})
+                grid_table = grid_table.merge(grid_values, on=["age_id", "time_id"])
+            grid_table = grid_table.assign(const_value=nan, smooth_id=smooth_id)
         grid_table = grid_table.sort_values(["age_id", "time_id"], axis=0).reindex()
-        grid_table = grid_table.assign(const_value=nan, smooth_id=smooth_id)
         if self._dismod_file.smooth_grid.empty:
             self._dismod_file.smooth_grid = grid_table.assign(smooth_grid_id=grid_table.index)
         else:
             grid_table = grid_table.assign(smooth_grid_id=grid_table.index + len(self._dismod_file.smooth_grid))
-            self._dismod_file.smooth_grid = self._dismod_file.smooth_grid.append(grid_table, ignore_index=True)
+            self._dismod_file.smooth_grid = self._dismod_file.smooth_grid.append(grid_table, ignore_index=True, sort=False)
 
     def _add_field_smooth(self, grid_name, prior_table, age_time_cnt):
         """Ths one row in the smooth grid table."""
@@ -223,9 +235,11 @@ class ModelWriter:
         smooth_id = smooth_row["smooth_id"]
         return smooth_id
 
-    def _add_field_priors(self, grid_name, complete_table):
-        """These are all entries in the priors table for this smooth grid."""
+    def _add_field_priors(self, grid_name, complete_table, const_value = False):
+        """These are all entries in the priors table or smooth_grid const values for this smooth grid."""
         # The assigned column will tell us whether mulstds were assigned.
+        # if const_value:
+        #     import pdb; pdb.set_trace()
         complete_table = complete_table.assign(assigned=complete_table.density.notna())
         complete_table.loc[complete_table.density.isnull(), ["density", "mean", "lower", "upper"]] = \
             ["uniform", 0, -inf, inf]
@@ -243,19 +257,21 @@ class ModelWriter:
             null_names, "prior_id"].apply(
             lambda pid: f"{grid_name}_{pid}"
         )
+        if not const_value: # If this is a grid of const_values, don't make priors
+            # Make sure the index still matches the order in the priors list
+            # Remove columns before saving, but keep extra columns in complete_table for
+            # further construction of grids.
+            priors_columns = [
+                "prior_id", "prior_name", "lower", "upper", "mean", "std", "eta", "nu", "density_id"
+            ]
+            prior_table = complete_table.sort_values(by="prior_id").reset_index(drop=True)[priors_columns]
+            if not self._dismod_file.prior.empty:
+                self._dismod_file.prior = self._dismod_file.prior.append(prior_table)
+            else:
+                self._dismod_file.prior = prior_table
+
         # Assign age_id and time_id for age and time.
         complete_table = self._fix_ages_times(complete_table)
-        # Make sure the index still matches the order in the priors list
-        priors_columns = [
-            "prior_id", "prior_name", "lower", "upper", "mean", "std", "eta", "nu", "density_id"
-        ]
-        # Remove columns before saving, but keep extra columns in complete_table for
-        # further construction of grids.
-        prior_table = complete_table.sort_values(by="prior_id").reset_index(drop=True)[priors_columns]
-        if not self._dismod_file.prior.empty:
-            self._dismod_file.prior = self._dismod_file.prior.append(prior_table)
-        else:
-            self._dismod_file.prior = prior_table
         return complete_table
 
     def _flush_ages_times_locations(self):
