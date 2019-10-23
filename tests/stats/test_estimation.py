@@ -40,7 +40,7 @@ def simple_df():
     df = pd.DataFrame([(a, b, c, d, e)
                        for a in [0.1]
                        for b in [0.1, np.nan]
-                       for c in [0.1, np.nan]
+                       for c in [0.2, np.nan]
                        for d in [0.1, 0, np.nan]
                        for e in [0.1, 0, np.nan]])
     df.columns = ['standard_error', 'lower', 'upper',
