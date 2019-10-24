@@ -327,6 +327,8 @@ class Configuration(Form):
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)
     location_set_version_id = IntField(default=429, nullable=True)
+    csmr_cod_output_version_id = IntField()
+    csmr_mortality_output_version_id = Dummy()
     min_cv = FormList(Dummy)
     min_cv_by_rate = FormList(Dummy)
     re_bound_location = FormList(RandomEffectBound)
