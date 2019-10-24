@@ -9,7 +9,6 @@ LOG = get_loggers(__name__)
 
 
 def load_settings(settings_json):
-    import pdb; pdb.set_trace()
     settings = Configuration(settings_json)
     errors = settings.validate_and_normalize()
     if errors:
