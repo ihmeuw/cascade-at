@@ -1,5 +1,7 @@
 BASE_CASE = {
   "model": {
+    "model_version_id": 0000000,
+    "model_drill": 0,
     "random_seed": 290118279,
     "default_age_grid": "0 1 5 10 20 30 40 50 60 70 80 90 100",
     "default_time_grid": "1990 1995 2000 2005 2010 2015 2016",

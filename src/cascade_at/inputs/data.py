@@ -1,6 +1,6 @@
 import elmo
 
-from cascade_at.inputs import ids
+from cascade_at.inputs.utilities import ids
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
