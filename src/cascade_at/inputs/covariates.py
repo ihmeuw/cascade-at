@@ -65,10 +65,11 @@ def get_covariates(covariate_ids, demographics, decomp_step, gbd_round_id):
     """
     covs = []
     for covariate_id in covariate_ids:
-        get_covariate(
+        df = get_covariate(
             covariate_id=covariate_id,
             demographics=demographics,
             decomp_step=decomp_step,
             gbd_round_id=gbd_round_id
         )
+        covs.append(df)
     return covs

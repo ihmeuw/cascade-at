@@ -23,13 +23,13 @@ class LocationDAG:
             location_set_version_id=location_set_version_id
         )
 
-        dag = nx.DiGraph()
-        dag.add_nodes_from([
+        self.dag = nx.DiGraph()
+        self.dag.add_nodes_from([
             (int(row.location_id), row._asdict()) for row in self.df.itertuples()
         ])
-        dag.add_edges_from([
+        self.dag.add_edges_from([
             (int(row.parent_id), int(row.location_id))
             for row in self.df.loc[self.df.location_id != CascadeConstants.GLOBAL_LOCATION_ID].itertuples()
         ])
-        dag.graph["root"] = CascadeConstants.GLOBAL_LOCATION_ID
+        self.dag.graph["root"] = CascadeConstants.GLOBAL_LOCATION_ID
 

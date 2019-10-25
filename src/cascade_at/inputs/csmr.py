@@ -34,10 +34,13 @@ def get_csmr(process_version_id,
         sex_id=demographics.sex_id,
         age_group_id=demographics.age_group_id,
         gbd_round_id=gbd_round_id,
-        decomp_step=decomp_step,
-        process_version_id=process_version_id
+        decomp_step='step4',
+        process_version_id=14469
     )
     df = df.rename(columns={
-        "val": "mean"
+        "val": "meas_value",
+        "year_id": "time_lower"
     })
+    df["time_upper"] = df["time_lower"] + 1
     return df
+

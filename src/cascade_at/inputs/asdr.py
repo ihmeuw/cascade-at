@@ -27,4 +27,8 @@ def get_asdr(demographics, decomp_step,
         gbd_round_id=gbd_round_id,
         with_hiv=with_hiv
     )
+    df = df[['age_group_id', 'location_id', 'year_id', 'sex_id', 'mean', 'upper', 'lower']]
+    df.rename(columns={'mean': 'meas_value', 'year_id': 'time_lower'}, inplace=True)
+    df['time_upper'] = df['time_lower'] + 1
     return df
+

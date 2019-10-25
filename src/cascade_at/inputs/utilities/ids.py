@@ -7,6 +7,7 @@ class CascadeConstants:
     NON_AGE_SPECIFIC_ID = [22, 27]
     GLOBAL_LOCATION_ID = 1
     ESTIMATION_LOCATION_HIERARCHY_ID = 35
+    AGE_GROUP_SET_ID = 12
 
 
 def get_sex_ids():
@@ -44,3 +45,13 @@ def get_location_set_version_id(gbd_round_id):
         gbd_round_id=gbd_round_id
     )['location_set_version_id'].unique()[0]
     return location_set_version_id
+
+
+def get_age_group_metadata():
+    """
+    Gets age group metadata.
+    """
+    df = db_queries.get_age_metadata(age_group_set_id=CascadeConstants.AGE_GROUP_SET_ID)
+    df.rename(columns={'age_group_years_start': 'age_lower', 'age_group_years_end': 'age_upper'}, inplace=True)
+    return df
+

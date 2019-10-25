@@ -190,6 +190,7 @@ class Model(Form):
     add_csmr_cause = IntField(nullable=True, display="CSMR cause")
     title = StrField(nullable=True, display="Title")
     description = StrField(nullable=True, display="Description")
+    crosswalk_version_id = IntField(nullable=False, display="Crosswalk version ID")
     bundle_id = IntField(nullable=True, display="Data bundle")
     drill = OptionField(["cascade", "drill"], display="Drill")
     drill_location = IntField(display="Drill location", nullable=True)

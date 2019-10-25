@@ -10,6 +10,7 @@ from cascade_at.inputs.data import get_crosswalk_version
 from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.inputs.utilities.ids import get_location_set_version_id
+from cascade_at.inputs.utilities.ids import get_age_group_metadata
 
 LOG = get_loggers(__name__)
 
@@ -40,7 +41,7 @@ class Inputs:
         self.decomp_step_id = decomp_step_id
         self.csmr_process_version_id = csmr_process_version_id
         self.csmr_cause_id = csmr_cause_id
-        self.crosswalk_version_id = crosswalk_version_id,
+        self.crosswalk_version_id = crosswalk_version_id
         self.country_covariate_id = country_covariate_id
         self.conn_def = conn_def
 
@@ -57,17 +58,13 @@ class Inputs:
         else:
             self.location_set_version_id = location_set_version_id
 
-        self.settings = None
-        self.csmr_cause_id = None
-        self.csmr_process_version_id = None
-        self.crosswalk_version_id = None
-        self.exclude_outliers = None
-
+        self.exclude_outliers = True
         self.asdr = None
         self.csmr = None
         self.data = None
         self.covariates = None
         self.location_dag = None
+        self.age_groups = None
 
     def get_raw_inputs(self):
         """
@@ -103,6 +100,7 @@ class Inputs:
         self.location_dag = LocationDAG(
             location_set_version_id=self.location_set_version_id
         )
+        self.age_groups = get_age_group_metadata()
 
     def modify_inputs_for_settings(self, settings):
         """
