@@ -53,5 +53,5 @@ def get_age_group_metadata():
     """
     df = db_queries.get_age_metadata(age_group_set_id=CascadeConstants.AGE_GROUP_SET_ID)
     df.rename(columns={'age_group_years_start': 'age_lower', 'age_group_years_end': 'age_upper'}, inplace=True)
-    return df
+    return df[['age_group_id', 'age_lower', 'age_upper']]
 
