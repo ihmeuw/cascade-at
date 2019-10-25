@@ -3,6 +3,7 @@ from db_queries import get_envelope
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
+from cascade_at.dismod.dismod_ids import IntegrandEnum
 
 LOG = get_loggers(__name__)
 
@@ -60,6 +61,8 @@ class ASDR(BaseInput):
         }, inplace=True)
         df['time_upper'] = df['time_lower'] + 1
         df = self.convert_to_age_lower_upper(df)
+        df['integrand_id'] = IntegrandEnum.mtall.value
+        df['integrand'] = IntegrandEnum.mtall.name
         return df
 
 

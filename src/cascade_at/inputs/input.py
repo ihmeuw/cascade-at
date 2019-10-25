@@ -9,7 +9,7 @@ from cascade_at.inputs.covariates import Covariate
 from cascade_at.inputs.data import CrosswalkVersion
 from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.locations import LocationDAG
-from cascade_at.inputs.utilities.ids import get_location_set_version_id
+from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id
 
 LOG = get_loggers(__name__)
 

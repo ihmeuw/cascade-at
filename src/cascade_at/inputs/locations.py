@@ -1,6 +1,6 @@
 import networkx as nx
 
-from cascade_at.inputs.utilities.ids import CascadeConstants
+from cascade_at.inputs.utilities.gbd_ids import CascadeConstants
 from cascade_at.core.db import db_queries
 from cascade_at.core.log import get_loggers
 

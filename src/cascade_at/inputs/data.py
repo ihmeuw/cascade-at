@@ -1,8 +1,9 @@
 import elmo
 
-from cascade_at.inputs.utilities import ids
+from cascade_at.inputs.utilities import gbd_ids
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
+from cascade_at.dismod.dismod_ids import IntegrandEnum
 
 LOG = get_loggers(__name__)
 
@@ -40,12 +41,15 @@ class CrosswalkVersion(BaseInput):
         if self.exclude_outliers:
             df = df.loc[df.is_outlier != 1].copy()
 
-        sex_ids = ids.get_sex_ids()
-        measure_ids = ids.get_measure_ids(conn_def=self.conn_def)
+        sex_ids = gbd_ids.get_sex_ids()
+        measure_ids = gbd_ids.get_measure_ids(conn_def=self.conn_def)
 
         df = df.merge(sex_ids, on='sex')
         df = df.merge(measure_ids, on='measure')
 
         df = df.loc[~df.input_type.isin(['parent', 'group_review'])].copy()
-        df = self.convert_to_age_lower_upper(df)
+        df.rename(columns={
+            'age_start': 'age_lower',
+            'age_end': 'age_upper'
+        }, inplace=True)
         return df

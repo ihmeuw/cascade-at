@@ -1,4 +1,4 @@
-from cascade_at.inputs.utilities.ids import get_age_group_metadata
+from cascade_at.inputs.utilities.gbd_ids import get_age_group_metadata
 
 
 class BaseInput:

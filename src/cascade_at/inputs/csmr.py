@@ -3,6 +3,7 @@ import gbd.constants as gbd
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
+from cascade_at.dismod.dismod_ids import IntegrandEnum
 
 LOG = get_loggers(__name__)
 
@@ -65,5 +66,7 @@ class CSMR(BaseInput):
         })
         df["time_upper"] = df["time_lower"] + 1
         self.convert_to_age_lower_upper(df)
+        df['integrand_id'] = IntegrandEnum.mtspecific.value
+        df['integrand'] = IntegrandEnum.mtspecific.name
         return df
 
