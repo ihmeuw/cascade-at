@@ -4,6 +4,7 @@ import gbd.constants as gbd
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
 from cascade_at.dismod.dismod_ids import IntegrandEnum
+from cascade_at.inputs.uncertainty import bounds_to_stdev
 
 LOG = get_loggers(__name__)
 
@@ -68,5 +69,9 @@ class CSMR(BaseInput):
         self.convert_to_age_lower_upper(df)
         df['integrand_id'] = IntegrandEnum.mtspecific.value
         df['measure'] = IntegrandEnum.mtspecific.name
+
+        df["stdev"] = bounds_to_stdev(df.lower, df.upper)
+        df.drop(columns=['lower', 'upper'], inplace=True, axis=1)
+
         return df
 
