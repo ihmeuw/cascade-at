@@ -1,11 +1,12 @@
+import numpy as np
+
 import elmo
-from collections import defaultdict
 
 from cascade_at.dismod.integrand_mappings import make_integrand_map
 from cascade_at.inputs.utilities import gbd_ids
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
-from cascade_at.dismod.dismod_ids import IntegrandEnum
+from cascade_at.inputs.uncertainty import stdev_from_crosswalk_version
 
 LOG = get_loggers(__name__)
 
@@ -61,11 +62,6 @@ class CrosswalkVersion(BaseInput):
         df = df.merge(measure_ids, on='measure')
         df = df.loc[~df.input_type.isin(['parent', 'group_review'])].copy()
 
-        df.rename(columns={
-            'age_start': 'age_lower',
-            'age_end': 'age_upper'
-        }, inplace=True)
-
         df = self.map_to_integrands(df)
         if measures_to_exclude:
             df['hold_out'] = 0
@@ -79,11 +75,23 @@ class CrosswalkVersion(BaseInput):
         df["density"] = df.measure.apply(density.__getitem__)
         df["eta"] = df.measure.apply(data_eta.__getitem__)
         df["nu"] = df.measure.apply(nu.__getitem__)
+
+        df.rename(columns={
+            'age_start': 'age_lower',
+            'age_end': 'age_upper'
+        }, inplace=True)
+
+        df["time_lower"] = df.time_lower.astype(np.float)
+        df["time_upper"] = df.time_upper.astype(np.float)
+
+        df["stdev"] = stdev_from_crosswalk_version(df)
+        df["name"] = df.seq.astype(str)
+
         return df
 
     def map_to_integrands(self, df):
         """
-        Maps
+        Maps the data from the IHME databases to the integrands expected by DisMod AT
         :param df:
         :return:
         """

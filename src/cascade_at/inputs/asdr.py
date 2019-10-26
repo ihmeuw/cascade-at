@@ -62,7 +62,7 @@ class ASDR(BaseInput):
         df['time_upper'] = df['time_lower'] + 1
         df = self.convert_to_age_lower_upper(df)
         df['integrand_id'] = IntegrandEnum.mtall.value
-        df['integrand'] = IntegrandEnum.mtall.name
+        df['measure'] = IntegrandEnum.mtall.name
         return df
 
 

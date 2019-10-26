@@ -67,6 +67,6 @@ class CSMR(BaseInput):
         df["time_upper"] = df["time_lower"] + 1
         self.convert_to_age_lower_upper(df)
         df['integrand_id'] = IntegrandEnum.mtspecific.value
-        df['integrand'] = IntegrandEnum.mtspecific.name
+        df['measure'] = IntegrandEnum.mtspecific.name
         return df
 

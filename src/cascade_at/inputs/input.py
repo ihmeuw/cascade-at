@@ -151,10 +151,9 @@ class Inputs:
         :param settings: (cascade.settings.configuration.Configuration)
         :return:
         """
+        data_eta = defaultdict(lambda: np.nan)
         if not settings.eta.is_field_unset("data") and settings.eta.data:
             data_eta = defaultdict(lambda: float(settings.eta.data))
-        else:
-            data_eta = defaultdict(lambda: np.nan)
         for set_eta in settings.data_eta_by_integrand:
             data_eta[self.integrand_map[set_eta.integrand_measure_id]] = float(set_eta.value)
         return data_eta
@@ -166,10 +165,9 @@ class Inputs:
         :param settings: (cascade.settings.configuration.Configuration)
         :return:
         """
+        density = defaultdict(lambda: "gaussian")
         if not settings.model.is_field_inset("data_density") and settings.model.data_density:
             density = defaultdict(lambda: settings.model.data_density)
-        else:
-            density = defaultdict(lambda: "gaussian")
         for set_density in settings.data_density_by_integrand:
             density[self.integrand_map[set_density.integrand_measure_id]] = set_density.value
         return density
