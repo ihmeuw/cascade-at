@@ -1,4 +1,5 @@
 import numpy as np
+from collections import defaultdict
 
 from gbd.decomp_step import decomp_step_from_decomp_step_id
 
@@ -10,6 +11,7 @@ from cascade_at.inputs.data import CrosswalkVersion
 from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id
+from cascade_at.dismod.integrand_mappings import make_integrand_map
 
 LOG = get_loggers(__name__)
 
@@ -56,6 +58,8 @@ class Inputs:
             )
         else:
             self.location_set_version_id = location_set_version_id
+
+        self.integrand_map = make_integrand_map()
 
         self.exclude_outliers = True
         self.asdr = None
@@ -105,15 +109,80 @@ class Inputs:
             location_set_version_id=self.location_set_version_id
         )
 
-    def modify_inputs_for_settings(self, settings):
+    def configure_inputs_for_dismod(self, settings):
         """
-
+        Modifies the inputs for DisMod based on model-specific settings.
         :param settings: (cascade.settings.configuration.Configuration)
-        :return:
+        :return: self
         """
+        self.data_for_dismod = self.data.configure_for_dismod(
+            measures_to_exclude=self.measures_to_exclude_from_settings(settings),
+            data_eta=self.data_eta_from_settings(settings),
+            density=self.density_from_settings(settings),
+            nu=self.nu_from_settings(settings)
+        )
         self.asdr_for_dismod = self.asdr.configure_for_dismod()
         self.csmr_for_dismod = self.csmr.configure_for_dismod()
-        self.data_for_dismod = self.data.configure_for_dismod()
         self.covariates = [c.configure_for_dismod()
                            for c in self.covariates]
         return self
+
+    def measures_to_exclude_from_settings(self, settings):
+        """
+        Gets the measures to exclude from the data from the model
+        settings configuration.
+        :param settings: (cascade.settings.configuration.Configuration)
+        :return:
+        """
+        if not settings.model.is_field_unset("exclude_data_for_param"):
+            measures_to_exclude = [self.integrand_map[m].name
+                                   for m in settings.model.exclude_data_for_param
+                                   if m in self.integrand_map]
+        else:
+            measures_to_exclude = list()
+        if settings.policies.exclude_relative_risk:
+            measures_to_exclude.append("relrisk")
+        return measures_to_exclude
+
+    def data_eta_from_settings(self, settings):
+        """
+        Gets the data eta from the settings Configuration.
+        The default data eta is np.nan
+        :param settings: (cascade.settings.configuration.Configuration)
+        :return:
+        """
+        if not settings.eta.is_field_unset("data") and settings.eta.data:
+            data_eta = defaultdict(lambda: float(settings.eta.data))
+        else:
+            data_eta = defaultdict(lambda: np.nan)
+        for set_eta in settings.data_eta_by_integrand:
+            data_eta[self.integrand_map[set_eta.integrand_measure_id]] = float(set_eta.value)
+        return data_eta
+
+    def density_from_settings(self, settings):
+        """
+        Gets the density from the settings Configuration.
+        The default density is "gaussian".
+        :param settings: (cascade.settings.configuration.Configuration)
+        :return:
+        """
+        if not settings.model.is_field_inset("data_density") and settings.model.data_density:
+            density = defaultdict(lambda: settings.model.data_density)
+        else:
+            density = defaultdict(lambda: "gaussian")
+        for set_density in settings.data_density_by_integrand:
+            density[self.integrand_map[set_density.integrand_measure_id]] = set_density.value
+        return density
+
+    @staticmethod
+    def nu_from_settings(settings):
+        """
+        Gets nu from the settings Configuration.
+        The default nu is np.nan.
+        :param settings: (cascade.settings.configuration.Configuration)
+        :return:
+        """
+        nu = defaultdict(lambda: np.nan)
+        nu["students"] = settings.students_dof.data
+        nu["log_students"] = settings.log_students_dof.data
+        return nu

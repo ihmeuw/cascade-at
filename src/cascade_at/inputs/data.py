@@ -1,5 +1,7 @@
 import elmo
+from collections import defaultdict
 
+from cascade_at.dismod.integrand_mappings import make_integrand_map
 from cascade_at.inputs.utilities import gbd_ids
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
@@ -20,6 +22,8 @@ class CrosswalkVersion(BaseInput):
         self.exclude_outliers = exclude_outliers
         self.conn_def = conn_def
 
+        self.integrand_map = make_integrand_map()
+
         self.raw = None
 
     def get_raw(self):
@@ -32,9 +36,18 @@ class CrosswalkVersion(BaseInput):
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
         return self
 
-    def configure_for_dismod(self):
+    def configure_for_dismod(self,
+                             data_eta, density, nu,
+                             measures_to_exclude=None):
         """
         Configures the crosswalk version for DisMod.
+
+        :param data_eta: (Dict[str, float]): Default value for eta parameter on distributions
+            as a dictionary from measure name to float
+        :param density: (Dict[str, float]): Default values for density parameter on distributions
+            as a dictionary from measure name to string
+        :param nu: (Dict[str, float]): The parameter for students-t distributions
+        :param measures_to_exclude: (list) list of parameters to exclude, by name
         :return: pd.DataFrame
         """
         df = self.raw.copy()
@@ -46,10 +59,48 @@ class CrosswalkVersion(BaseInput):
 
         df = df.merge(sex_ids, on='sex')
         df = df.merge(measure_ids, on='measure')
-
         df = df.loc[~df.input_type.isin(['parent', 'group_review'])].copy()
+
         df.rename(columns={
             'age_start': 'age_lower',
             'age_end': 'age_upper'
         }, inplace=True)
+
+        df = self.map_to_integrands(df)
+        if measures_to_exclude:
+            df['hold_out'] = 0
+            df.loc[df.integrand.isin(measures_to_exclude), 'hold_out'] = 1
+            LOG.info(
+                f"Filtering {df.hold_out.sum()} rows of of data where the measure has been excluded. "
+                f"Measures marked for exclusion: {measures_to_exclude}. "
+                f"{len(df)} rows remaining."
+            )
+
+        df["density"] = df.measure.apply(density.__getitem__)
+        df["eta"] = df.measure.apply(data_eta.__getitem__)
+        df["nu"] = df.measure.apply(nu.__getitem__)
         return df
+
+    def map_to_integrands(self, df):
+        """
+        Maps
+        :param df:
+        :return:
+        """
+        if any(df.measure_id == 6):
+            LOG.warning(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
+        if any(df.measure_id == 17):
+            LOG.info(
+                f"Found case fatality rate, measure_id=17, in data. Ignoring it because it does not "
+                f"map to a Dismod-AT integrand and cannot be used by the model."
+            )
+            df = df[df.measure_id != 17]
+
+        try:
+            df["measure"] = df.measure_id.apply(lambda k: self.integrand_map[k].name)
+        except KeyError as ke:
+            raise RuntimeError(
+                f"The bundle data uses measure {str(ke)} which does not map "
+                f"to an integrand. The map is {self.integrand_map}."
+            )
+
