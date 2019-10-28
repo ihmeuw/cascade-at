@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from collections import defaultdict
 
 from gbd.decomp_step import decomp_step_from_decomp_step_id
@@ -123,8 +124,14 @@ class Inputs:
         )
         self.asdr_for_dismod = self.asdr.configure_for_dismod()
         self.csmr_for_dismod = self.csmr.configure_for_dismod()
+        self.data_for_dismod = pd.concat([
+            self.data_for_dismod,
+            self.asdr_for_dismod,
+            self.csmr_for_dismod
+        ], axis=0)
         self.covariates = [c.configure_for_dismod()
                            for c in self.covariates]
+
         return self
 
     def measures_to_exclude_from_settings(self, settings):

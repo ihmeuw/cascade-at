@@ -94,6 +94,3 @@ class PriorKindEnum(Enum):
     value = 0
     dage = 1
     dtime = 2
-
-
-

@@ -17,3 +17,6 @@ class SettingsError(InputDataError):
 class CascadeError(Exception):
     """Cascade base for exceptions."""
 
+
+class DismodFileError(TypeError):
+    """These are all Pandas data frames that don't match what Dismod expects."""
