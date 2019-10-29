@@ -65,7 +65,7 @@ class CrosswalkVersion(BaseInput):
         df = self.map_to_integrands(df)
         if measures_to_exclude:
             df['hold_out'] = 0
-            df.loc[df.integrand.isin(measures_to_exclude), 'hold_out'] = 1
+            df.loc[df.measure.isin(measures_to_exclude), 'hold_out'] = 1
             LOG.info(
                 f"Filtering {df.hold_out.sum()} rows of of data where the measure has been excluded. "
                 f"Measures marked for exclusion: {measures_to_exclude}. "
@@ -81,9 +81,8 @@ class CrosswalkVersion(BaseInput):
             'age_end': 'age_upper'
         }, inplace=True)
 
-        df["time_lower"] = df.time_lower.astype(np.float)
-        df["time_upper"] = df.time_upper.astype(np.float)
-
+        df["time_lower"] = df.year_start.astype(np.float)
+        df["time_upper"] = df.year_end.astype(np.float)
         df["stdev"] = stdev_from_crosswalk_version(df)
         df["name"] = df.seq.astype(str)
 
@@ -111,4 +110,6 @@ class CrosswalkVersion(BaseInput):
                 f"The bundle data uses measure {str(ke)} which does not map "
                 f"to an integrand. The map is {self.integrand_map}."
             )
+        return df
+
 

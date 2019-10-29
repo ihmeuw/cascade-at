@@ -8,7 +8,7 @@ from cascade_at.core.log import get_loggers
 from cascade_at.inputs.asdr import ASDR
 from cascade_at.inputs.csmr import CSMR
 from cascade_at.inputs.covariate_data import CovariateData
-from cascade_at.inputs.covariate_specs import Covariates
+from cascade_at.inputs.covariate_specs import CovariateSpecs
 from cascade_at.inputs.data import CrosswalkVersion
 from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.locations import LocationDAG
@@ -102,7 +102,7 @@ class Inputs:
             exclude_outliers=self.exclude_outliers,
             conn_def=self.conn_def
         ).get_raw()
-        self.country_covariate_data = [CovariateData(
+        self.covariate_data = [CovariateData(
             covariate_id=c,
             demographics=self.demographics,
             decomp_step=self.decomp_step,
@@ -131,8 +131,8 @@ class Inputs:
             self.asdr_for_dismod,
             self.csmr_for_dismod
         ], axis=0)
-        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.country_covariate_data}
-        self.country_covariate_specs = Covariates(settings.country_covariates)
+        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
+        self.country_covariate_specs = CovariateSpecs(settings.country_covariate)
 
         return self
 
@@ -175,7 +175,7 @@ class Inputs:
         :return:
         """
         density = defaultdict(lambda: "gaussian")
-        if not settings.model.is_field_inset("data_density") and settings.model.data_density:
+        if not settings.model.is_field_unset("data_density") and settings.model.data_density:
             density = defaultdict(lambda: settings.model.data_density)
         for set_density in settings.data_density_by_integrand:
             density[self.integrand_map[set_density.integrand_measure_id]] = set_density.value

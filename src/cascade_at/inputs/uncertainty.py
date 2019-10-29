@@ -146,7 +146,11 @@ def stdev_from_crosswalk_version(crosswalk_version):
     # Calculate standard deviation different ways (also
     stdev_from_bounds = bounds_to_stdev(lower=df['lower'], upper=df['upper'])
     stdev_from_es = ess_to_stdev(mean=df['mean'], ess=df['effective_sample_size'])
-
+    
+    # Check to see if the UI was bad to begin with, then go to ESS
+    bad_ui = stdev_from_bounds <= 0
+    replace_se_with_ess = replace_se_with_ess | (replace_se_with_ui & bad_ui)
+    
     # Use boolean arrays representing the pecking order to replacing standard error
     standard_error[replace_se_with_ui] = stdev_from_bounds[replace_se_with_ui]
     standard_error[replace_se_with_ess] = stdev_from_es[replace_se_with_ess]

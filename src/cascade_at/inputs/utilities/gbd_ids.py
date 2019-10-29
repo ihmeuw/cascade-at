@@ -66,7 +66,7 @@ def get_study_level_covariate_ids():
     that will be used in DisMod-AT
     :return:
     """
-    return {0: "s_sex}", 1604: "s_one"}
+    return {0: "s_sex", 1604: "s_one"}
 
 
 def get_country_level_covariate_ids(country_covariate_id):
