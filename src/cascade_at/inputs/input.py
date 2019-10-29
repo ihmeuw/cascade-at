@@ -7,7 +7,8 @@ from gbd.decomp_step import decomp_step_from_decomp_step_id
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.asdr import ASDR
 from cascade_at.inputs.csmr import CSMR
-from cascade_at.inputs.covariates import Covariate
+from cascade_at.inputs.covariate_data import CovariateData
+from cascade_at.inputs.covariate_specs import Covariates
 from cascade_at.inputs.data import CrosswalkVersion
 from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.locations import LocationDAG
@@ -73,7 +74,8 @@ class Inputs:
         self.asdr_for_dismod = None
         self.csmr_for_dismod = None
         self.data_for_dismod = None
-        self.covariates = None
+        self.country_covariate_data = None
+        self.country_covariate_specs = None
 
     def get_raw_inputs(self):
         """
@@ -100,7 +102,7 @@ class Inputs:
             exclude_outliers=self.exclude_outliers,
             conn_def=self.conn_def
         ).get_raw()
-        self.covariates = [Covariate(
+        self.country_covariate_data = [CovariateData(
             covariate_id=c,
             demographics=self.demographics,
             decomp_step=self.decomp_step,
@@ -129,8 +131,8 @@ class Inputs:
             self.asdr_for_dismod,
             self.csmr_for_dismod
         ], axis=0)
-        self.covariates = [c.configure_for_dismod()
-                           for c in self.covariates]
+        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.country_covariate_data}
+        self.country_covariate_specs = Covariates(settings.country_covariates)
 
         return self
 

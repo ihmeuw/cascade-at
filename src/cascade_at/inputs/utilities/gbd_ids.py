@@ -1,5 +1,9 @@
-import db_queries
-import db_tools
+from cascade_at.core.db import db_queries
+from cascade_at.core.db import db_tools
+
+from cascade_at.core.log import get_loggers
+
+LOG = get_loggers(__name__)
 
 
 class CascadeConstants:
@@ -54,4 +58,26 @@ def get_age_group_metadata():
     df = db_queries.get_age_metadata(age_group_set_id=CascadeConstants.AGE_GROUP_SET_ID)
     df.rename(columns={'age_group_years_start': 'age_lower', 'age_group_years_end': 'age_upper'}, inplace=True)
     return df[['age_group_id', 'age_lower', 'age_upper']]
+
+
+def get_study_level_covariate_ids():
+    """
+    Grabs the covariate names for study-level
+    that will be used in DisMod-AT
+    :return:
+    """
+    return {0: "s_sex}", 1604: "s_one"}
+
+
+def get_country_level_covariate_ids(country_covariate_id):
+    """
+    Grabs country-level covariate names associated with
+    the IDs passed.
+    :param country_covariate_id: (list of int)
+    :return: (dict)
+    """
+    df = db_queries.get_ids(table='covariate')
+    df = df.loc[df.covariate_id.isin(country_covariate_id)].copy()
+    cov_dict = df[['covariate_id', 'covariate_name_short']].set_index('covariate_id').to_dict('index')
+    return {k: f"c_{v['covariate_name_short']}" for k, v in cov_dict.items()}
 

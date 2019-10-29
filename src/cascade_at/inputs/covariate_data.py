@@ -9,7 +9,7 @@ from cascade_at.inputs.base_input import BaseInput
 LOG = get_loggers(__name__)
 
 
-class Covariate(BaseInput):
+class CovariateData(BaseInput):
     def __init__(self, covariate_id, demographics, decomp_step, gbd_round_id):
         """
         Get covariate estimates, and map them to the necessary demographic
@@ -73,3 +73,4 @@ class Covariate(BaseInput):
 
         df = self.convert_to_age_lower_upper(df)
         return df
+
