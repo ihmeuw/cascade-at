@@ -74,6 +74,7 @@ class Inputs:
         self.asdr_for_dismod = None
         self.csmr_for_dismod = None
         self.data_for_dismod = None
+        self.covariate_data = None
         self.country_covariate_data = None
         self.country_covariate_specs = None
 
