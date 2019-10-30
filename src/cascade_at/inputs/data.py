@@ -86,6 +86,12 @@ class CrosswalkVersion(BaseInput):
         df["stdev"] = stdev_from_crosswalk_version(df)
         df["name"] = df.seq.astype(str)
 
+        df = df[[
+            'name', 'measure', 'measure_name', 'measure_id',
+            'location_name', 'location_id', 'sex', 'sex_id', 'time_lower', 'time_upper',
+            'age_lower', 'age_upper', 'mean', 'lower', 'upper',
+            'hold_out', 'density', 'eta', 'nu', 'stdev'
+        ]]
         return df
 
     def map_to_integrands(self, df):

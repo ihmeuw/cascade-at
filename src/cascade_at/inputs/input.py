@@ -74,6 +74,7 @@ class Inputs:
         self.asdr_for_dismod = None
         self.csmr_for_dismod = None
         self.data_for_dismod = None
+        self.all_dismod_data = None
         self.covariate_data = None
         self.country_covariate_data = None
         self.country_covariate_specs = None
@@ -127,11 +128,11 @@ class Inputs:
         )
         self.asdr_for_dismod = self.asdr.configure_for_dismod()
         self.csmr_for_dismod = self.csmr.configure_for_dismod()
-        self.data_for_dismod = pd.concat([
+        self.all_dismod_data = pd.concat([
             self.data_for_dismod,
             self.asdr_for_dismod,
             self.csmr_for_dismod
-        ], axis=0)
+        ], axis=1)
         self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
         self.country_covariate_specs = CovariateSpecs(settings.country_covariate)
 

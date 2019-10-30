@@ -4,6 +4,7 @@ from db_queries import get_envelope
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
 from cascade_at.dismod.dismod_ids import IntegrandEnum
+from cascade_at.inputs.uncertainty import bounds_to_stdev
 
 LOG = get_loggers(__name__)
 
@@ -54,7 +55,7 @@ class ASDR(BaseInput):
         """
         df = self.raw[[
             'age_group_id', 'location_id', 'year_id', 'sex_id', 'mean', 'upper', 'lower'
-        ]]
+        ]].copy()
         df.rename(columns={
             'mean': 'meas_value',
             'year_id': 'time_lower'
@@ -63,6 +64,8 @@ class ASDR(BaseInput):
         df = self.convert_to_age_lower_upper(df)
         df['integrand_id'] = IntegrandEnum.mtall.value
         df['measure'] = IntegrandEnum.mtall.name
+        df['stdev'] = bounds_to_stdev(lower=df.lower, upper=df.upper)
+        df.drop(['age_group_id', 'year_id'], axis=1, inplace=True)
         return df
 
 
