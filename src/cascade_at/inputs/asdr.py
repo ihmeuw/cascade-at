@@ -65,7 +65,7 @@ class ASDR(BaseInput):
         df['integrand_id'] = IntegrandEnum.mtall.value
         df['measure'] = IntegrandEnum.mtall.name
         df['stdev'] = bounds_to_stdev(lower=df.lower, upper=df.upper)
-        df.drop(['age_group_id', 'year_id'], axis=1, inplace=True)
+        df.drop(['age_group_id'], axis=1, inplace=True)
         return df
 
 

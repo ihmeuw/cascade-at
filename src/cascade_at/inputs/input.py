@@ -132,7 +132,7 @@ class Inputs:
             self.data_for_dismod,
             self.asdr_for_dismod,
             self.csmr_for_dismod
-        ], axis=1)
+        ], axis=0)
         self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
         self.country_covariate_specs = CovariateSpecs(settings.country_covariate)
 
