@@ -66,12 +66,12 @@ class CSMR(BaseInput):
             "year_id": "time_lower"
         })
         df["time_upper"] = df["time_lower"] + 1
-        self.convert_to_age_lower_upper(df)
+        df = self.convert_to_age_lower_upper(df)
         df['integrand_id'] = IntegrandEnum.mtspecific.value
         df['measure'] = IntegrandEnum.mtspecific.name
 
         df["stdev"] = bounds_to_stdev(df.lower, df.upper)
-        df.drop(columns=['lower', 'upper'], inplace=True, axis=1)
+        df = self.keep_only_necessary_columns(df)
 
         return df
 
