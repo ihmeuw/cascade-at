@@ -60,6 +60,15 @@ def get_age_group_metadata():
     return df[['age_group_id', 'age_lower', 'age_upper']]
 
 
+def get_age_id_to_range():
+    """
+    Gets the age group ID to range dictionary.
+    :return: dict[int, tuple(float, float)]
+    """
+    df = get_age_group_metadata()
+    return dict([(t.age_group_id, (t.age_lower, t.age_upper)) for t in df.itertuples()])
+
+
 def get_study_level_covariate_ids():
     """
     Grabs the covariate names for study-level

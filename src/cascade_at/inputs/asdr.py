@@ -1,6 +1,4 @@
-
-from db_queries import get_envelope
-
+from cascade_at.core.db import db_queries
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
 from cascade_at.dismod.dismod_ids import IntegrandEnum
@@ -37,7 +35,7 @@ class ASDR(BaseInput):
         :return: self
         """
         LOG.info("Getting ASDR from get_envelope.")
-        self.raw = get_envelope(
+        self.raw = db_queries.get_envelope(
             age_group_id=self.demographics.age_group_id,
             sex_id=self.demographics.sex_id,
             year_id=self.demographics.year_id,
