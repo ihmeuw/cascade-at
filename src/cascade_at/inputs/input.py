@@ -71,10 +71,12 @@ class Inputs:
         self.location_dag = None
         self.age_groups = None
 
-        self.asdr_for_dismod = None
-        self.csmr_for_dismod = None
-        self.data_for_dismod = None
-        self.all_dismod_data = None
+        self.data_eta = None
+        self.density = None
+        self.nu = None
+        self.measures_to_exclude = None
+
+        self.dismod_data = None
         self.covariate_data = None
         self.country_covariate_data = None
         self.country_covariate_specs = None
@@ -117,22 +119,25 @@ class Inputs:
     def configure_inputs_for_dismod(self, settings):
         """
         Modifies the inputs for DisMod based on model-specific settings.
+
         :param settings: (cascade.settings.configuration.Configuration)
         :return: self
         """
-        self.data_for_dismod = self.data.configure_for_dismod(
-            measures_to_exclude=self.measures_to_exclude_from_settings(settings),
-            data_eta=self.data_eta_from_settings(settings),
-            density=self.density_from_settings(settings),
-            nu=self.nu_from_settings(settings)
-        )
-        self.asdr_for_dismod = self.asdr.configure_for_dismod()
-        self.csmr_for_dismod = self.csmr.configure_for_dismod()
-        self.all_dismod_data = pd.concat([
-            self.data_for_dismod,
-            self.asdr_for_dismod,
-            self.csmr_for_dismod
+        self.data_eta = self.data_eta_from_settings(settings)
+        self.density = self.density_from_settings(settings)
+        self.nu = self.nu_from_settings(settings)
+        self.measures_to_exclude = self.measures_to_exclude_from_settings(settings)
+
+        self.dismod_data = pd.concat([
+            self.data.configure_for_dismod(measures_to_exclude=self.measures_to_exclude),
+            self.asdr.configure_for_dismod(),
+            self.csmr.configure_for_dismod()
         ], axis=0)
+
+        self.dismod_data["density"] = self.dismod_data.measure.apply(self.density.__getitem__)
+        self.dismod_data["eta"] = self.dismod_data.measure.apply(self.data_eta.__getitem__)
+        self.dismod_data["nu"] = self.dismod_data.measure.apply(self.nu.__getitem__)
+
         self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
         self.country_covariate_specs = CovariateSpecs(settings.country_covariate)
 
@@ -158,7 +163,10 @@ class Inputs:
     def data_eta_from_settings(self, settings):
         """
         Gets the data eta from the settings Configuration.
-        The default data eta is np.nan
+        The default data eta is np.nan.
+        settings.eta.data: (Dict[str, float]): Default value for eta parameter on distributions
+            as a dictionary from measure name to float
+
         :param settings: (cascade.settings.configuration.Configuration)
         :return:
         """
@@ -173,6 +181,9 @@ class Inputs:
         """
         Gets the density from the settings Configuration.
         The default density is "gaussian".
+        settings.model.data_density: (Dict[str, float]): Default values for density parameter on distributions
+            as a dictionary from measure name to string
+
         :param settings: (cascade.settings.configuration.Configuration)
         :return:
         """
@@ -188,6 +199,9 @@ class Inputs:
         """
         Gets nu from the settings Configuration.
         The default nu is np.nan.
+        settings.students_dof.data: (Dict[str, float]): The parameter for students-t distributions
+        settings.log_students_dof.data: (Dict[str, float]): The parameter for students-t distributions in log-space
+
         :param settings: (cascade.settings.configuration.Configuration)
         :return:
         """

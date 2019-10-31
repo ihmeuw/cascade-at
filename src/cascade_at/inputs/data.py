@@ -37,17 +37,10 @@ class CrosswalkVersion(BaseInput):
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
         return self
 
-    def configure_for_dismod(self,
-                             data_eta, density, nu,
-                             measures_to_exclude=None):
+    def configure_for_dismod(self, measures_to_exclude=None):
         """
         Configures the crosswalk version for DisMod.
 
-        :param data_eta: (Dict[str, float]): Default value for eta parameter on distributions
-            as a dictionary from measure name to float
-        :param density: (Dict[str, float]): Default values for density parameter on distributions
-            as a dictionary from measure name to string
-        :param nu: (Dict[str, float]): The parameter for students-t distributions
         :param measures_to_exclude: (list) list of parameters to exclude, by name
         :return: pd.DataFrame
         """
@@ -71,10 +64,6 @@ class CrosswalkVersion(BaseInput):
                 f"Measures marked for exclusion: {measures_to_exclude}. "
                 f"{len(df)} rows remaining."
             )
-
-        df["density"] = df.measure.apply(density.__getitem__)
-        df["eta"] = df.measure.apply(data_eta.__getitem__)
-        df["nu"] = df.measure.apply(nu.__getitem__)
 
         df.rename(columns={
             'age_start': 'age_lower',
