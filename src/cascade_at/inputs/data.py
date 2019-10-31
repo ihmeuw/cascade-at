@@ -83,6 +83,7 @@ class CrosswalkVersion(BaseInput):
 
         df["time_lower"] = df.year_start.astype(np.float)
         df["time_upper"] = df.year_end.astype(np.float)
+        df["meas_value"] = df["mean"]
         df["stdev"] = stdev_from_crosswalk_version(df)
         df["name"] = df.seq.astype(str)
 
