@@ -30,16 +30,54 @@ class Inputs:
         """
         The class that constructs all of the inputs.
 
-        :param model_version_id: (int)
-        :param gbd_round_id: (int)
-        :param decomp_step_id: (int)
-        :param csmr_process_version_id: (int) process version ID for CSMR
-        :param csmr_cause_id: (int) cause to pull CSMR from
-        :param crosswalk_version_id: (int) crosswalk version to use
-        :param country_covariate_id: (list of int) list of covariate IDs
-        :param conn_def: (str)
-        :param location_set_version_id: (int) can be None, if it's none, get the
-            best location_set_version_id for estimation hierarchy of this GBD round.
+        Parameters:
+            model_version_id: (int) the model version ID
+            gbd_round_id: (int) the GBD round ID
+            decomp_step_id: (int) the decomp step ID
+            csmr_process_version_id: (int) process version ID for CSMR
+            csmr_cause_id: (int) cause to pull CSMR from
+            crosswalk_version_id: (int) crosswalk version to use
+            country_covariate_id: (list of int) list of covariate IDs
+            conn_def: (str) connection definition from .odbc file (e.g. 'epi')
+            location_set_version_id: (int) can be None, if it's none, get the
+                best location_set_version_id for estimation hierarchy of this GBD round.
+
+        Attributes:
+            decomp_step: (str) the decomp step in string form
+            demographics: (cascade_at.inputs.demographics.Demographics) a demographics object
+                that specifies the age group, sex, location, and year IDs to grab
+            integrand_map: (dict) dictionary mapping from GBD measure IDs to DisMod IDs
+            asdr: (cascade_at.inputs.asdr.ASDR) all-cause mortality input object
+            csmr: (cascade_at.inputs.csmr.CSMR) cause-specific mortality input object from cause
+                csmr_cause_id
+            data: (cascade_at.inputs.data.CrosswalkVersion) crosswalk version data from IHME database
+            covariate_data: (List[cascade_at.inputs.covariate_data.CovariateData]) list of covariate
+                data objects that contains the raw covariate data mapped to IDs
+            location_dag: (cascade_at.inputs.locations.LocationDAG) DAG of locations to be used
+            population: (cascade_at.inputs.population.Population) population object that is used
+                for covariate weighting
+            data_eta: (Dict[str, float]): dictionary of eta value to be applied to each measure
+            density: (Dict[str, str]): dictionary of density to be applied to each measure
+            nu: (Dict[str, float]): dictionary of nu value to be applied to each measure
+            dismod_data: (pd.DataFrame) resulting dismod data formatted to be used in the dismod database
+        
+        Usage:
+        >>> from cascade_at.settings.base_case import BASE_CASE
+        >>> from cascade_at.settings.settings import load_settings
+
+        >>> settings = load_settings(BASE_CASE)
+        >>> covariate_ids = [i.country_covariate_id for i in settings.country_covariate]
+
+        >>> i = Inputs(model_version_id=settings.model.model_version_id,
+        >>>            gbd_round_id=settings.gbd_round_id,
+        >>>            decomp_step_id=settings.model.decomp_step_id,
+        >>>            csmr_process_version_id=None,
+        >>>            crosswalk_version_id=settings.model.crosswalk_version_id,
+        >>>            country_covariate_id=settings.covariate_ids,
+        >>>            conn_def='epi',
+        >>>            location_set_version_id=settings.location_set_version_id)
+        >>> i.get_raw_inputs()
+        >>> i.configure_inputs_for_dismod()
         """
         self.model_version_id = model_version_id
         self.gbd_round_id = gbd_round_id
