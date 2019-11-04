@@ -28,7 +28,10 @@ class Inputs:
                  conn_def,
                  location_set_version_id=None):
         """
-        The class that constructs all of the inputs.
+        The class that constructs all of the inputs. Pulls ASDR, CSMR, crosswalk versions,
+        and country covariates, and puts them into one data frame that then formats itself
+        for the dismod database. Performs covariate value interpolation if age and year ranges
+        don't match up with GBD age and year ranges.
 
         Parameters:
             model_version_id: (int) the model version ID
