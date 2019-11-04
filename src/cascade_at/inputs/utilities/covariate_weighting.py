@@ -99,7 +99,7 @@ def get_interpolated_covariate_values(data_df, covariate_df, population_df):
     :param population_df: (pd.DataFrame)
     :return:
     """
-    meas = data_df.copy().reset_index(drop=True)
+    meas = data_df.copy()
 
     loc_ids = sorted(meas.location_id.unique())
     cov_age_year_value = get_age_year_value(covariate_df, loc_ids, SEX_IDS)
@@ -112,14 +112,12 @@ def get_interpolated_covariate_values(data_df, covariate_df, population_df):
             print('processed', i + 1, 'rows', end='\r')
         dct = {}
         tuples, weights = intersect(
-            age_start=row['age_start'],
-            age_end=row['age_end'],
+            age_start=row['age_lower'],
+            age_end=row['age_upper'],
             year_start=row['time_lower'],
             year_end=row['time_upper'],
-            tuples=cov_age_year_value[(row['loc_id'], row['sex_id'])]
+            tuples=cov_age_year_value[(row['location_id'], row['sex_id'])]
         )
-        # store only for debugging purpose
-        # dct['age_year_'+name] = [(age_id_to_range[tup[0]], tup[1]) for tup in tuples]
         dct['val'] = [tup[2] for tup in tuples]  # list of covariate values
         dct['wts'] = weights
         dct['pop'] = []  # to store list of population values corresponding to tuples
@@ -129,16 +127,16 @@ def get_interpolated_covariate_values(data_df, covariate_df, population_df):
             for j in range(len(tuples)):
                 if row['sex_id'] != 3:
                     dct['pop'].append(
-                        pop_dict[(row['loc_id'], row['sex_id'], tuples[j][0], tuples[j][1])]
+                        pop_dict[(row['location_id'], row['sex_id'], tuples[j][0], tuples[j][1])]
                     )
                 else:
                     dct['pop'].append(
-                        pop_dict[(row['loc_id'], 1, tuples[j][0], tuples[j][1])] +
-                        pop_dict[(row['loc_id'], 2, tuples[j][0], tuples[j][1])]
+                        pop_dict[(row['location_id'], 1, tuples[j][0], tuples[j][1])] +
+                        pop_dict[(row['location_id'], 2, tuples[j][0], tuples[j][1])]
                     )
                 val += tuples[j][2] * weights[j] * dct['pop'][-1]  # weigh covariate value by population
                 total_wts += weights[j] * dct['pop'][-1]
             val /= total_wts
         meas.loc[i, 'mean_value'] = val
 
-    return meas
+    return meas['mean_value']

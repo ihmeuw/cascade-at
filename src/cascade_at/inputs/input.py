@@ -14,7 +14,7 @@ from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.inputs.population import Population
 from cascade_at.inputs.utilities.covariate_weighting import get_interpolated_covariate_values
-from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id
+from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id, SEX_MAP
 from cascade_at.dismod.integrand_mappings import make_integrand_map
 
 LOG = get_loggers(__name__)
@@ -107,6 +107,7 @@ class Inputs:
         self.data = CrosswalkVersion(
             crosswalk_version_id=self.crosswalk_version_id,
             exclude_outliers=self.exclude_outliers,
+            demographics=self.demographics,
             conn_def=self.conn_def
         ).get_raw()
         self.covariate_data = [CovariateData(
@@ -121,8 +122,8 @@ class Inputs:
         self.population = Population(
             demographics=self.demographics,
             decomp_step=self.decomp_step,
-            gbd_round_id = self.gbd_round_id
-        )
+            gbd_round_id=self.gbd_round_id
+        ).get_population()
 
     def configure_inputs_for_dismod(self, settings):
         """
@@ -146,26 +147,34 @@ class Inputs:
         self.dismod_data["eta"] = self.dismod_data.measure.apply(self.data_eta.__getitem__)
         self.dismod_data["nu"] = self.dismod_data.measure.apply(self.nu.__getitem__)
 
+        self.dismod_data.reset_index(drop=True, inplace=True)
+
         self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
         self.covariate_specs = CovariateSpecs(settings.country_covariate)
 
-        for covariate in self.covariate_specs.covariate_specs:
-            if covariate.study_country == 'country':
-                LOG.info(f"Interpolating and merging the country covariate {covariate.covariate_id}.")
-                cov_df = self.country_covariate_data[covariate.covariate_id]
-                interpolated_cov_df = get_interpolated_covariate_values(
+        self.interpolate_country_covariate_values()
+
+        self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
+        self.dismod_data['sex'] = self.dismod_data.sex_id.map(SEX_MAP)
+
+        return self
+
+    def interpolate_country_covariate_values(self):
+        """
+        Interpolates the covariate values onto the data
+        so that the non-standard ages and years match up to meaningful
+        covariate values.
+        """
+        for c in self.covariate_specs.covariate_specs:
+            if c.study_country == 'country':
+                LOG.info(f"Interpolating and merging the country covariate {c.covariate_id}.")
+                cov_df = self.country_covariate_data[c.covariate_id]
+                interpolated_mean_value = get_interpolated_covariate_values(
                     data_df=self.dismod_data,
                     covariate_df=cov_df,
                     population_df=self.population.raw
                 )
-                interpolated_cov_df.rename(
-                    columns={'mean_value': covariate.name}, inplace=True
-                )
-                self.dismod_data = self.dismod_data.merge(interpolated_cov_df,
-                                                          on=['age_lower', 'age_upper',
-                                                              'time_lower', 'time_upper',
-                                                              'location_id'])
-        return self
+                self.dismod_data[c.name] = interpolated_mean_value
 
     def measures_to_exclude_from_settings(self, settings):
         """
