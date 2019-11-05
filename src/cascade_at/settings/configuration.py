@@ -340,4 +340,4 @@ class Configuration(Form):
     tolerance = FixedRandomFloat(display="Desired relative convergence tolerance")
     data_eta_by_integrand = FormList(DataEta)
     data_density_by_integrand = FormList(DataDensity)
-    config_version = IntField(nullable=True, display="Settings version")
+    config_version = StrField(nullable=True, display="Settings version")
