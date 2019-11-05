@@ -75,8 +75,9 @@ class Inputs:
         >>>            gbd_round_id=settings.gbd_round_id,
         >>>            decomp_step_id=settings.model.decomp_step_id,
         >>>            csmr_process_version_id=None,
+        >>>            csmr_cause_id = settings.model.add_csmr_cause,
         >>>            crosswalk_version_id=settings.model.crosswalk_version_id,
-        >>>            country_covariate_id=settings.covariate_ids,
+        >>>            country_covariate_id=covariate_ids,
         >>>            conn_def='epi',
         >>>            location_set_version_id=settings.location_set_version_id)
         >>> i.get_raw_inputs()
@@ -197,6 +198,7 @@ class Inputs:
 
         self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
         self.dismod_data['sex'] = self.dismod_data.sex_id.map(SEX_MAP)
+        self.dismod_data['s_one'] = 1
 
         return self
 
