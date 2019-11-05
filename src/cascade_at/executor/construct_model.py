@@ -15,9 +15,33 @@ class ModelConstruct:
         An object initialized with model settings from
         cascade.settings.configuration.Configuration that can be used
         to construct parent-child location-specific models with
-        the attribute ModelConstruct.construct().
+        the attribute ModelConstruct.construct_two_level_model().
 
-        :param settings:
+        Parameters:
+            settings (cascade_at.settings.settings.Configuration):
+        
+        Usage:
+        >>> from cascade_at.settings.base_case import BASE_CASE
+        >>> from cascade_at.settings.settings import load_settings
+        
+        >>> settings = load_settings(BASE_CASE)
+        >>> mc = ModelConstruct(settings)
+        
+        >>> covariate_ids = [i.country_covariate_id for i in settings.country_covariate]
+        >>> i = Inputs(model_version_id=settings.model.model_version_id,
+        >>>            gbd_round_id=settings.gbd_round_id,
+        >>>            decomp_step_id=settings.model.decomp_step_id,
+        >>>            csmr_process_version_id=None,
+        >>>            csmr_cause_id = settings.model.add_csmr_cause,
+        >>>            crosswalk_version_id=settings.model.crosswalk_version_id,
+        >>>            country_covariate_id=covariate_ids,
+        >>>            conn_def='epi',
+        >>>            location_set_version_id=settings.location_set_version_id)
+        >>> i.get_raw_inputs()
+
+        >>> mc.construct_two_level_model(location_dag=i.location_dag,
+        >>>                              parent_location_id=102,
+        >>>                              covariate_specs=i.covariate_specs)
         """
         self.settings = settings
         self.age_time_grid = self.construct_age_time_grid()
@@ -55,13 +79,15 @@ class ModelConstruct:
         single_age_time = (single_age, single_time)
         return single_age_time
 
-    def construct_for_parent_location(self, location_dag, parent_location_id):
+    def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs):
         """
         Construct a Model object for a parent location and its children.
 
-        :param location_dag: (cascade.inputs.locations.LocationDAG)
-        :param parent_location_id: (int)
-        :return: self
+        Parameters:
+            location_dag: (cascade.inputs.locations.LocationDAG)
+            parent_location_id: (int)
+            covariate_specs (cascade_at.inputs.covariate_specs.CovariateSpecs): covariate
+                specifications, specifically will use covariate_specs.covariate_multipliers
         """
         children = list(location_dag.dag.successors(parent_location_id))
         model = Model(
@@ -72,6 +98,7 @@ class ModelConstruct:
             weights=None
         )
 
+        # First construct the rate grid
         for smooth in self.settings.rate:
             rate_grid = smooth_grid_from_smoothing_form(
                 default_age_time=self.age_time_grid,
@@ -79,7 +106,18 @@ class ModelConstruct:
                 smooth=smooth
             )
             model.rate[smooth.rate] = rate_grid
+        
+        # Second construct the covariate grids
+        for mulcov in covariate_specs.covariate_multipliers:
+            grid = smooth_grid_from_smoothing_form(
+                    default_age_time=self.age_time_grid,
+                    single_age_time=self.single_age_time_grid,
+                    smooth=mulcov.grid_spec
+                )
+            model[mulcov.group][mulcov.key] = grid
 
+        # Lastly construct the random effect grids, based on the parent location
+        # specified.
         if self.settings.random_effect:
             random_effect_by_rate = defaultdict(list)
             for smooth in self.settings.random_effect:
@@ -100,8 +138,6 @@ class ModelConstruct:
                     raise RuntimeError(f"Random effect for {rate_to_check} does not have "
                                        f"entries for all child locations, only {locations} "
                                        f"instead of {model.child_location}.")
-
-        # TODO: Construct covariates.
 
         return model
 
