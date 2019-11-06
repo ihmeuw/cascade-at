@@ -14,9 +14,6 @@ setup(
     extras_require={
         "ihme_databases": ["db_tools", "db_queries", "gbd"]
     },
-    scripts=[
-        "scripts/dmdismod"
-    ],
     classifiers=[
         "Intended Audience :: Science/Research",
         "Licence :: OSI Approved :: MIT License",

@@ -149,22 +149,22 @@ class Inputs:
         self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
         self.covariate_specs = CovariateSpecs(settings.country_covariate)
 
-        for covariate in self.covariate_specs.covariate_specs:
-            if covariate.study_country == 'country':
-                LOG.info(f"Interpolating and merging the country covariate {covariate.covariate_id}.")
-                cov_df = self.country_covariate_data[covariate.covariate_id]
-                interpolated_cov_df = get_interpolated_covariate_values(
-                    data_df=self.dismod_data,
-                    covariate_df=cov_df,
-                    population_df=self.population.raw
-                )
-                interpolated_cov_df.rename(
-                    columns={'mean_value': covariate.name}, inplace=True
-                )
-                self.dismod_data = self.dismod_data.merge(interpolated_cov_df,
-                                                          on=['age_lower', 'age_upper',
-                                                              'time_lower', 'time_upper',
-                                                              'location_id'])
+        # for covariate in self.covariate_specs.covariate_specs:
+        #     if covariate.study_country == 'country':
+        #         LOG.info(f"Interpolating and merging the country covariate {covariate.covariate_id}.")
+        #         cov_df = self.country_covariate_data[covariate.covariate_id]
+        #         interpolated_cov_df = get_interpolated_covariate_values(
+        #             data_df=self.dismod_data,
+        #             covariate_df=cov_df,
+        #             population_df=self.population.raw
+        #         )
+        #         interpolated_cov_df.rename(
+        #             columns={'mean_value': covariate.name}, inplace=True
+        #         )
+        #         self.dismod_data = self.dismod_data.merge(interpolated_cov_df,
+        #                                                   on=['age_lower', 'age_upper',
+        #                                                       'time_lower', 'time_upper',
+        #                                                       'location_id'])
         return self
 
     def measures_to_exclude_from_settings(self, settings):

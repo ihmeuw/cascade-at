@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.utilities.gbd_ids import get_age_id_to_range, get_sex_ids
 
@@ -36,6 +38,7 @@ def get_age_year_value(cov, loc_ids, sex_ids):
     return dct
 
 
+@lru_cache
 def intersect(age_start, age_end, year_start, year_end, tuples):
     """
     Find covariate entries that intersects with a given measurement
