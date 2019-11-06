@@ -58,18 +58,10 @@ class DismodAlchemy(DismodIO):
             self.node[["node_id", "c_location_id"]],
             on=["c_location_id"]
         )
-        data["density_id"] = data["density"].apply(
-            lambda x: DensityEnum[x].value
-        )
-        data["integrand_id"] = data["integrand"].apply(
-            lambda x: IntegrandEnum[x].value
-        )
-        data["weight_id"] = data["integrand"].apply(
-            lambda x: INTEGRAND_TO_WEIGHT[x].value
-        )
-        data.drop([
-            'integrand', 'density'
-        ], axis=1, inplace=True)
+        data["density_id"] = data["density"].apply(lambda x: DensityEnum[x].value)
+        data["integrand_id"] = data["integrand"].apply(lambda x: IntegrandEnum[x].value)
+        data["weight_id"] = data["integrand"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
+        data.drop(['integrand', 'density'], axis=1, inplace=True)
 
         data.reset_index(inplace=True, drop=True)
         data["data_name"] = data.index.astype(str)
