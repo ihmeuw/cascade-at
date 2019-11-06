@@ -4,7 +4,7 @@ from cascade_at.dismod.api.dismod_file import
 LOG = get_loggers(__name__)
 
 
-class ModelWriter(DismodFile):
+class DismodIO(DismodFile):
     """
     This class is a verbose getter and setter for tables in the dismod file.
     If you want to set one of the tables in the dismod file, you should
