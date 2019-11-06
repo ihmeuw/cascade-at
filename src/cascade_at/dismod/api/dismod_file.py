@@ -45,11 +45,6 @@ class DismodFile:
     This class checks the type of all columns. It doesn't check that the
     model is correct::
 
-        engine = get_engine(None)
-        dm = DismodFile(engine, {"col": float}, {})
-        dm_file.time = pd.DataFrame({"time": [1997, 2005, 2017]}))
-        time_df = dm_file.time
-
     Each Dismod table has a primary key named with ``<table>_id``.
     When reading a Pandas dataframe from the file, it will have this
     column as a separate column. When writing a Pandas dataframe to
@@ -71,19 +66,19 @@ class DismodFile:
     >>> dm.create_tables()
     """
 
-    def __init__(self, engine):
+    def __init__(self, path):
         """
         The columns arguments add columns to the avgint and data
         tables.
 
         Args:
-            engine: A sqlalchemy engine
+            pathlib.Path: A path to the database
         """
-        self.engine = engine
+        self.path = path
+        LOG.debug(f"Creating an engine at {path.absolute()}.")
+        self.engine = get_engine(file_path)
         self._metadata = deepcopy(Base.metadata)
         self._table_definitions = self._metadata.tables
-        self._table_data = {}
-        self._table_hash = {}
         LOG.debug(f"dmfile tables {self._table_definitions.keys()}")
 
     def create_tables(self, tables=None):
