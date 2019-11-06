@@ -14,9 +14,6 @@ class DismodIO(DismodDB):
     """
     def __init__(self, path):
         super().__init(path=path)
-    
-    def set_attribute(self, name):
-        setattr(self, )
 
     # AGE TABLE
     @property
