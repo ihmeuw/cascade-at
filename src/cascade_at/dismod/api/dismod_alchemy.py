@@ -3,7 +3,7 @@ from cascade_at.dismod.api.dismod_io import DismodIO
 
 LOG = get_loggers(__name__)
 
-class DismodTransformer(DismodIO):
+class DismodAlchemy(DismodIO):
     """
     Sits on top of the DismodIO class,
     and takes inputs from the model construction,
@@ -12,4 +12,5 @@ class DismodTransformer(DismodIO):
     """
     def __init__(self, engine):
         super().__init__(engine=engine)
+    
     

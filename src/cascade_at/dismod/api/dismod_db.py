@@ -38,7 +38,7 @@ def get_engine(file_path):
     return engine
 
 
-class DismodFile:
+class DismodDB:
     """
     Responsible for creation of a Dismod-AT file.
 

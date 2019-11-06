@@ -1,10 +1,10 @@
 from cascade_at.core.log import get_loggers
-from cascade_at.dismod.api.dismod_file import 
+from cascade_at.dismod.api.dismod_db import DismodDB
 
 LOG = get_loggers(__name__)
 
 
-class DismodIO(DismodFile):
+class DismodIO(DismodDB):
     """
     This class is a verbose getter and setter for tables in the dismod file.
     If you want to set one of the tables in the dismod file, you should
