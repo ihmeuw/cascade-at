@@ -1,5 +1,5 @@
 from cascade_at.core.log import get_loggers
-from cascade_at.dismod.api.dismod_db import DismodDB
+from cascade_at.dismod.api import DismodDB
 
 LOG = get_loggers(__name__)
 

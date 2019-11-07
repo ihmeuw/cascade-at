@@ -2,7 +2,7 @@ from collections import Counter
 from collections.abc import Mapping
 import numpy as np
 
-from cascade_at.dismod.dismod_ids import WeightEnum
+from cascade_at.dismod.constants import WeightEnum
 from cascade_at.model.covariate import Covariate
 from cascade_at.model.dismod_groups import DismodGroups
 from cascade_at.model.var import Var

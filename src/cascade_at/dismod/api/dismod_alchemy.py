@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 
 from cascade_at.core.log import get_loggers
-from cascade_at.dismod.api.dismod_io import DismodIO
-from cascade_at.dismod.dismod_ids import DensityEnum, IntegrandEnum, INTEGRAND_TO_WEIGHT
+from cascade_at.dismod.api import DismodIO
+from cascade_at.dismod.constants import DensityEnum, IntegrandEnum, INTEGRAND_TO_WEIGHT
 
 LOG = get_loggers(__name__)
 
@@ -25,6 +25,23 @@ class DismodAlchemy(DismodIO):
     Attributes:
         self.parent_child_model: (cascade_at.model.model.Model) that was constructed from grid_alchemy parameter
             for one specific parent and its descendents
+
+    Example:
+        >>> from pathlib import Path
+        >>> from cascade_at.collector import Alchemy, MeasurementInputsFromSettings
+        >>> from cascade_at.settings.base_case import BASE_CASE
+        >>> from cascade_at.settings.settings import load_settings
+
+        >>> settings = load_settings(BASE_CASE)
+        >>> inputs = MeasurementInputsFromSettings(settings)
+        >>> alchemy = Alchemy(settings)
+
+        >>> da = DismodAlchemy(path=Path('temp.db'),
+        >>>                    settings_configuration=settings,
+        >>>                    measurement_inputs=inputs,
+        >>>                    grid_alchemy=alchemy,
+        >>>                    parent_location_id=1)
+        >>> da.fill_for_parent_child()
     """
     def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id):
         super().__init__(path=path)
@@ -61,7 +78,7 @@ class DismodAlchemy(DismodIO):
         Has unique identifiers for each.
 
         :param variable_name: (str)
-        :param variable: ()
+        :param variable: (np.array)
         :return:
         """
         variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]

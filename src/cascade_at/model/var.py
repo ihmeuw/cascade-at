@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import RectBivariateSpline, interp1d
 
-from cascade_at.dismod.dismod_ids import PriorKindEnum
+from cascade_at.dismod.constants import PriorKindEnum
 from cascade_at.model.age_time_grid import AgeTimeGrid
 
 

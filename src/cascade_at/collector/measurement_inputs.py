@@ -71,7 +71,7 @@ class MeasurementInputs:
         >>> settings = load_settings(BASE_CASE)
         >>> covariate_ids = [i.country_covariate_id for i in settings.country_covariate]
 
-        >>> i = Inputs(model_version_id=settings.model.model_version_id,
+        >>> i = MeasurementInputs(model_version_id=settings.model.model_version_id,
         >>>            gbd_round_id=settings.gbd_round_id,
         >>>            decomp_step_id=settings.model.decomp_step_id,
         >>>            csmr_process_version_id=None,
@@ -285,3 +285,33 @@ class MeasurementInputs:
         nu["students"] = settings.students_dof.data
         nu["log_students"] = settings.log_students_dof.data
         return nu
+
+
+class MeasurementInputsFromSettings(MeasurementInputs):
+    def __init__(self, settings):
+        """
+        Wrapper for MeasurementInputs that takes a settings object rather than the
+        individual arguments. For convenience.
+        :param settings: (cascade.collector.settings_configuration.SettingsConfiguration)
+
+        Example:
+        >>> from cascade_at.settings.base_case import BASE_CASE
+        >>> from cascade_at.settings.settings import load_settings
+
+        >>> settings = load_settings(BASE_CASE)
+        >>> i = MeasurementInputs(settings)
+        >>> i.get_raw_inputs()
+        >>> i.configure_inputs_for_dismod()
+        """
+        covariate_ids = [i.country_covariate_id for i in settings.country_covariate]
+        super().__init__(
+            model_version_id=settings.model.model_version_id,
+            gbd_round_id=settings.gbd_round_id,
+            decomp_step_id=settings.model.decomp_step_id,
+            csmr_process_version_id=None,
+            csmr_cause_id=settings.model.add_csmr_cause,
+            crosswalk_version_id=settings.model.crosswalk_version_id,
+            country_covariate_id=covariate_ids,
+            conn_def='epi',
+            location_set_version_id=settings.location_set_version_id
+        )

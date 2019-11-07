@@ -3,7 +3,7 @@ from math import nan, inf
 import numpy as np
 import pandas as pd
 
-from cascade_at.dismod.dismod_ids import PriorKindEnum
+from cascade_at.dismod.constants import PriorKindEnum
 from cascade_at.model.age_time_grid import AgeTimeGrid
 from cascade_at.model.priors import prior_distribution
 from cascade_at.model.var import Var

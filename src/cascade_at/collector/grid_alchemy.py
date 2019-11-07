@@ -23,21 +23,12 @@ class Alchemy:
         Usage:
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
-        >>> from cascade_at.collector.measurement_inputs import MeasurementInputs
+        >>> from cascade_at.collector.measurement_inputs import MeasurementInputsFromSettings
         
         >>> settings = load_settings(BASE_CASE)
         >>> mc = Alchemy(settings)
         
-        >>> covariate_ids = [i.country_covariate_id for i in settings.country_covariate]
-        >>> i = MeasurementInputs(model_version_id=settings.model.model_version_id,
-        >>>            gbd_round_id=settings.gbd_round_id,
-        >>>            decomp_step_id=settings.model.decomp_step_id,
-        >>>            csmr_process_version_id=None,
-        >>>            csmr_cause_id = settings.model.add_csmr_cause,
-        >>>            crosswalk_version_id=settings.model.crosswalk_version_id,
-        >>>            country_covariate_id=covariate_ids,
-        >>>            conn_def='epi',
-        >>>            location_set_version_id=settings.location_set_version_id)
+        >>> i =
         >>> i.get_raw_inputs()
 
         >>> mc.construct_two_level_model(location_dag=i.location_dag,
