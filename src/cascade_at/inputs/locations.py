@@ -1,4 +1,5 @@
 import networkx as nx
+import numpy as np
 
 from cascade_at.inputs.utilities.gbd_ids import CascadeConstants
 from cascade_at.core.db import db_queries
@@ -32,4 +33,29 @@ class LocationDAG:
             for row in self.df.loc[self.df.location_id != CascadeConstants.GLOBAL_LOCATION_ID].itertuples()
         ])
         self.dag.graph["root"] = CascadeConstants.GLOBAL_LOCATION_ID
+    
+    def to_dataframe():
+        """
+        Converts the location DAG to a data frame with location ID and parent ID
+        and name. Helpful for debugging, and putting into the dismod database.
+
+        Returns:
+            pd.DataFrame
+        """
+        sorted_locations = list(nx.lexicographical_topological_sort(self.dag))
+        parents = list()
+        names = list()
+        for l in sorted_locations:
+            parent = list(locations.predecessors(l))
+            if parent:
+                parents.append(parent[0])
+            else:
+                parents.append(np.nan)
+            names.append(locations.nodes[l]["location_name"])
+        return pd.DataFrame(dict(
+            location_id=sorted_locations,
+            parent_id=parents,
+            name=names
+        ))
+
 

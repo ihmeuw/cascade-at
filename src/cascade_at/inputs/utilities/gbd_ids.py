@@ -6,6 +6,13 @@ from cascade_at.core.log import get_loggers
 LOG = get_loggers(__name__)
 
 
+SEX_MAP = {
+    1: 'Male',
+    2: 'Female',
+    3: 'Both'
+}
+
+
 class CascadeConstants:
     NON_SEX_SPECIFIC_ID = [3]
     NON_AGE_SPECIFIC_ID = [22, 27]

@@ -12,7 +12,8 @@ LOG = get_loggers(__name__)
 
 
 class CrosswalkVersion(BaseInput):
-    def __init__(self, crosswalk_version_id, exclude_outliers, conn_def):
+    def __init__(self, crosswalk_version_id, exclude_outliers,
+                 demographics, conn_def):
         """
         :param crosswalk_version_id: (int)
         :param exclude_outliers: (bool) whether to exclude outliers
@@ -21,6 +22,7 @@ class CrosswalkVersion(BaseInput):
         super().__init__()
         self.crosswalk_version_id = crosswalk_version_id
         self.exclude_outliers = exclude_outliers
+        self.demographics = demographics
         self.conn_def = conn_def
 
         self.integrand_map = make_integrand_map()
@@ -64,6 +66,9 @@ class CrosswalkVersion(BaseInput):
                 f"Measures marked for exclusion: {measures_to_exclude}. "
                 f"{len(df)} rows remaining."
             )
+
+        df = df.loc[df.location_id.isin(self.demographics.location_id)]
+        df = df.loc[df.sex_id.isin(self.demographics.sex_id)]
 
         df.rename(columns={
             'age_start': 'age_lower',

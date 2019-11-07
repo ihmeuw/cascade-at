@@ -1,3 +1,6 @@
+import json
+
+from cascade_at.core.db import db_tools
 from cascade_at.settings.configuration import Configuration
 from cascade_at.core.errors import SettingsError
 from cascade_at.core.log import get_loggers
@@ -9,11 +12,15 @@ def load_settings(settings_json):
     """
     Loads settings from a settings_json.
 
+    Parameters:
+        settings_json: (dict) dictionary of settings
+
+    Usage:
     >>> from cascade_at.settings.base_case import BASE_CASE
     >>> settings = load_settings(BASE_CASE)
 
-    :param settings_json:
-    :return:
+    Returns:
+        cascade_at.settings.configuration.Configuration
     """
     settings = Configuration(settings_json)
     errors = settings.validate_and_normalize()
@@ -23,3 +30,21 @@ def load_settings(settings_json):
                             settings_json)
     return settings
 
+
+def settings_from_model_version_id(model_version_id, conn_def):
+    """
+    Loads settings for a specific model version ID.
+
+    Parameters:
+        model_version_id: (int) the model version ID
+        conn_def: (str) the connection definition like 'dismod-at-dev'
+    
+    Usage:
+    >>> settings = settings_from_model_version_id(model_version_id=,
+    >>>                                           conn_def='dismod-at-dev')
+    """
+    df = db_tools.ezfuncs.query(f"""SELECT parameter_json FROM epi.model_version_at
+                                  WHERE model_version_id = {model_version_id}""", conn_def=conn_def)
+    parameter_json = json.loads(df['parameter_json'][0])
+    settings = load_settings(parameter_json)
+    return settings
