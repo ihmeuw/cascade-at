@@ -1,5 +1,6 @@
 from collections import Counter
 from collections.abc import Mapping
+import numpy as np
 
 from cascade_at.dismod.dismod_ids import WeightEnum
 from cascade_at.model.covariate import Covariate
@@ -88,15 +89,25 @@ class Model(DismodGroups):
             model._scale = self._scale
         return model
 
+    def get_grid_ages(self):
+        ages = np.empty((0,), dtype=np.float)
+        for group in self.values():
+            for grid in group.values():
+                ages = np.append(ages, grid.ages)
+        return ages
+
+    def get_grid_times(self):
+        times = np.empty((0,), dtype=np.float)
+        for group in self.values():
+            for grid in group.values():
+                times = np.append(times, grid.times)
+        return times
+
     def write(self, writer):
         self._ensure_weights()
         self._check()
         writer.start_model(self.nonzero_rates, self.child_location)
-        for group in self.values():
-            for grid in group.values():
-                writer.write_ages_and_times(grid.ages, grid.times)
-        for weight_value in self.weights.values():
-            writer.write_ages_and_times(weight_value.ages, weight_value.times)
+
 
         writer.write_covariate(self.covariates)
         writer.write_weights(self.weights)

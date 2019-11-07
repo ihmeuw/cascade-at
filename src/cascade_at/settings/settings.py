@@ -1,7 +1,7 @@
 import json
 
 from cascade_at.core.db import db_tools
-from cascade_at.settings.settings_inputs import Configuration
+from cascade_at.collector.settings_configuration import SettingsConfiguration
 from cascade_at.core.errors import SettingsError
 from cascade_at.core.log import get_loggers
 
@@ -22,7 +22,7 @@ def load_settings(settings_json):
     Returns:
         cascade_at.settings.configuration.Configuration
     """
-    settings = Configuration(settings_json)
+    settings = SettingsConfiguration(settings_json)
     errors = settings.validate_and_normalize()
     if errors:
         print(f"Configuration does not validate {errors}")
@@ -43,8 +43,11 @@ def settings_from_model_version_id(model_version_id, conn_def):
     >>> settings = settings_from_model_version_id(model_version_id=,
     >>>                                           conn_def='dismod-at-dev')
     """
-    df = db_tools.ezfuncs.query(f"""SELECT parameter_json FROM epi.model_version_at
-                                  WHERE model_version_id = {model_version_id}""", conn_def=conn_def)
+    df = db_tools.ezfuncs.query(
+        f"""SELECT parameter_json FROM epi.model_version_at
+            WHERE model_version_id = {model_version_id}""",
+        conn_def=conn_def
+    )
     parameter_json = json.loads(df['parameter_json'][0])
     settings = load_settings(parameter_json)
     return settings
