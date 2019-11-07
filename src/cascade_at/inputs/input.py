@@ -20,7 +20,7 @@ from cascade_at.dismod.integrand_mappings import make_integrand_map
 LOG = get_loggers(__name__)
 
 
-class Inputs:
+class DataInputs:
     def __init__(self, model_version_id, gbd_round_id,
                  decomp_step_id, csmr_process_version_id,
                  csmr_cause_id, crosswalk_version_id,

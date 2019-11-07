@@ -9,7 +9,7 @@ from cascade_at.model.utilities.grid_helpers import smooth_grid_from_smoothing_f
 LOG = get_loggers(__name__)
 
 
-class ModelConstruct:
+class Alchemy:
     def __init__(self, settings):
         """
         An object initialized with model settings from

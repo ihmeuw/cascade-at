@@ -304,12 +304,12 @@ class Policies(Form):
     gbd_round_id = IntField(nullable=True, default=6)
 
 
-class Configuration(Form):
-    """ The root Form of the whole configuration tree.
+class SettingsInputs(Form):
+    """ The root Form of the whole settings inputs tree.
 
     Example:
         >>> input_data = json.loads(json_blob)
-        >>> form = Configuration(input_data)
+        >>> form = SettingsInputs(input_data)
         >>> errors = form.validate_and_normalize()
         >>> if errors:
                 print(errors)
