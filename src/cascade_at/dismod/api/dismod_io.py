@@ -19,6 +19,7 @@ class DismodIO(DismodDB):
     @property
     def age(self):
         return self.read_table('age')
+
     @age.setter
     def age(self, df):
         self.write_table('age', df)
@@ -27,7 +28,8 @@ class DismodIO(DismodDB):
     @property
     def avgint(self):
         return self.read_table('avgint')
-    @integrand.setter
+
+    @avgint.setter
     def avgint(self, df):
         self.write_table('age', df)
     
@@ -35,6 +37,7 @@ class DismodIO(DismodDB):
     @property
     def covariate(self):
         return self.read_table('covariate')
+
     @covariate.setter
     def covariate(self, df):
         self.write_table('covariate', df)
@@ -43,6 +46,7 @@ class DismodIO(DismodDB):
     @property
     def constraint(self):
         return self.read_table('constraint')
+
     @constraint.setter
     def constraint(self, df):
         self.write_table('constraint', df)
@@ -51,14 +55,16 @@ class DismodIO(DismodDB):
     @property
     def data(self):
         return self.read_table('data')
+
     @data.setter
     def data(self, df):
         self.write_table('data', df)
     
     # DATA SUBSET TABLE
     @property
-    def data_subsest(self):
+    def data_subset(self):
         return self.read_table('data_subset')
+
     @data_subset.setter
     def data_subset(self, df):
         raise RuntimeError("Cannot set data_subset table.")
@@ -67,6 +73,7 @@ class DismodIO(DismodDB):
     @property
     def data_sim(self):
         return self.read_table('data_sim')
+
     @data_sim.setter
     def data_sim(self, df):
         raise RuntimeError("Cannot set data_sim table.")
@@ -75,6 +82,7 @@ class DismodIO(DismodDB):
     @property
     def density(self):
         return self.read_table('density')
+
     @density.setter
     def density(self, df):
         self.write_table('density', df)
@@ -83,22 +91,25 @@ class DismodIO(DismodDB):
     @property
     def depend_var(self):
         return self.read_table('depend_var')
+
     @depend_var.setter
     def depend_var(self, df):
-        return self.write_table('depend_var')
+        self.write_table('depend_var', df)
     
     # FIT VAR TABLE
     @property
     def fit_var(self):
         return self.read_table('fit_var')
+
     @fit_var.setter
     def fit_var(self, df):
-        return self.write_table('fit_var')
+        self.write_table('fit_var', df)
     
     # FIT DATA SUBSET TABLE
     @property
     def fit_data_subset(self):
         return self.read_table('fit_data_subset')
+
     @fit_data_subset.setter
     def fit_data_subset(self, df):
         raise RuntimeError("Cannot set fit_data_subset table.")
@@ -107,6 +118,7 @@ class DismodIO(DismodDB):
     @property
     def integrand(self):
         return self.read_table('integrand')
+
     @integrand.setter
     def integrand(self, df):
         self.write_table('age', df)
@@ -115,14 +127,16 @@ class DismodIO(DismodDB):
     @property
     def log(self):
         return self.read_table('log')
+
     @log.setter
-    def log(self, df)
+    def log(self, df):
         raise RuntimeError("Cannot set log table.")
     
     # MULCOV TABLE
     @property
     def mulcov(self):
         return self.read_table('mulcov')
+
     @mulcov.setter
     def mulcov(self, df):
         self.write_table('mulcov', df)
@@ -131,6 +145,7 @@ class DismodIO(DismodDB):
     @property
     def node(self):
         return self.read_table('node')
+
     @node.setter
     def node(self, df):
         self.write_table('node', df)
@@ -139,6 +154,7 @@ class DismodIO(DismodDB):
     @property
     def option(self):
         return self.read_table('option')
+
     @option.setter
     def option(self, df):
         self.write_table('option', df)
@@ -147,6 +163,7 @@ class DismodIO(DismodDB):
     @property
     def prior(self):
         return self.read_table('prior')
+
     @prior.setter
     def prior(self, df):
         self.write_table('prior', df)
@@ -155,6 +172,7 @@ class DismodIO(DismodDB):
     @property
     def prior_sim(self):
         return self.read_table('prior_sim')
+
     @prior_sim.setter
     def prior_sim(self, df):
         raise RuntimeError("Cannot set prior_sim table.")
@@ -163,6 +181,7 @@ class DismodIO(DismodDB):
     @property
     def predict(self):
         return self.read_table('predict')
+
     @predict.setter
     def predict(self, df):
         raise RuntimeError("Cannot set predict table.")
@@ -171,6 +190,7 @@ class DismodIO(DismodDB):
     @property
     def rate(self):
         return self.read_table('rate')
+
     @rate.setter
     def rate(self, df):
         self.write_table('rate', df)
@@ -179,6 +199,7 @@ class DismodIO(DismodDB):
     @property
     def nslist(self):
         return self.read_table('nslist')
+
     @nslist.setter
     def nslist(self, df):
         self.write_table('nslist', df)
@@ -187,6 +208,7 @@ class DismodIO(DismodDB):
     @property
     def nslist_pair(self):
         return self.read_table('nslist_pair')
+
     @nslist_pair.setter
     def nslist_pair(self, df):
         self.write_table('nslist_pair', df)
@@ -195,6 +217,7 @@ class DismodIO(DismodDB):
     @property
     def sample(self):
         return self.read_table('sample')
+
     @sample.setter
     def sample(self, df):
         self.write_table('sample', df)
@@ -203,6 +226,7 @@ class DismodIO(DismodDB):
     @property
     def scale_var(self):
         return self.read_table('scale_var')
+
     @scale_var.setter
     def scale_var(self, df):
         self.write_table('scale_var', df)
@@ -211,6 +235,7 @@ class DismodIO(DismodDB):
     @property
     def smooth(self):
         return self.read_table('smooth')
+
     @smooth.setter
     def smooth(self, df):
         self.write_table('smooth', df)
@@ -219,6 +244,7 @@ class DismodIO(DismodDB):
     @property
     def smooth_grid(self):
         return self.read_table('smooth_grid')
+
     @smooth_grid.setter
     def smooth_grid(self, df):
         self.write_table('smooth_grid', df)
@@ -227,6 +253,7 @@ class DismodIO(DismodDB):
     @property
     def start_var(self):
         return self.read_table('start_var')
+
     @start_var.setter
     def start_var(self, df):
         self.write_table('start_var', df)
@@ -235,6 +262,7 @@ class DismodIO(DismodDB):
     @property
     def time(self):
         return self.read_table('time')
+
     @time.setter
     def time(self, df):
         self.write_table('time', df)
@@ -243,6 +271,7 @@ class DismodIO(DismodDB):
     @property
     def truth_var(self):
         return self.read_table('truth_var')
+
     @truth_var.setter
     def truth_var(self, df):
         self.write_table('truth_var', df)
@@ -251,6 +280,7 @@ class DismodIO(DismodDB):
     @property
     def var(self):
         return self.read_table('var')
+
     @var.setter
     def var(self, df):
         raise RuntimeError("Cannot set var table.")
@@ -259,6 +289,7 @@ class DismodIO(DismodDB):
     @property
     def weight(self):
         return self.read_table('weight')
+
     @weight.setter
     def weight(self, df):
         self.write_table('weight', df)
@@ -267,6 +298,7 @@ class DismodIO(DismodDB):
     @property
     def weight_grid(self):
         return self.read_table('weight_grid')
+
     @weight_grid.setter
     def weight_grid(self, df):
         self.write_table('weight_grid', df)

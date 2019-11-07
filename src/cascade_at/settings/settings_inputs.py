@@ -308,15 +308,10 @@ class SettingsInputs(Form):
     """ The root Form of the whole settings inputs tree.
 
     Example:
+        >>> import json
         >>> input_data = json.loads(json_blob)
         >>> form = SettingsInputs(input_data)
         >>> errors = form.validate_and_normalize()
-        >>> if errors:
-                print(errors)
-                raise Exception("Woops")
-            else:
-                print(f"Ready to configure a model for {form.model.modelable_entity_id}")
-
     """
     model = Model(display="Model", validation_priority=5)
     policies = Policies(display="Policies")

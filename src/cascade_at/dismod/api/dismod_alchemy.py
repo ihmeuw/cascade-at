@@ -4,6 +4,7 @@ from cascade_at.dismod.dismod_ids import DensityEnum, IntegrandEnum, INTEGRAND_T
 
 LOG = get_loggers(__name__)
 
+
 class DismodAlchemy(DismodIO):
     """
     Sits on top of the DismodIO class,
@@ -14,7 +15,7 @@ class DismodAlchemy(DismodIO):
     def __init__(self, engine):
         super().__init__(engine=engine)
     
-    def initialize(inputs, model_construct):
+    def initialize(self, inputs, model_construct):
         """
         Initializes the Dismod database with inputs
         and a model construction for a parent location
@@ -23,8 +24,7 @@ class DismodAlchemy(DismodIO):
         self.construct_node_table(location_dag=inputs.location_dag)
         self.construct_data_table(df=inputs.dismod_data)
 
-        
-    def construct_node_table(location_dag):
+    def construct_node_table(self, location_dag):
         """
         Constructs the node table from a location
         DAG's to_dataframe() method.
@@ -41,7 +41,7 @@ class DismodAlchemy(DismodIO):
         node["node_id"] = node.index
         self.node = node
         
-    def construct_data_table(df):
+    def construct_data_table(self, df):
         """
         Constructs the data table from input df.
 

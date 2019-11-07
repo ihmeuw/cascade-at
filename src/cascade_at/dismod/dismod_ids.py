@@ -94,3 +94,25 @@ class PriorKindEnum(Enum):
     value = 0
     dage = 1
     dtime = 2
+
+
+INTEGRAND_TO_WEIGHT = dict(
+    Sincidence=WeightEnum.susceptible,
+    remission=WeightEnum.with_condition,
+    mtexcess=WeightEnum.with_condition,
+    mtother=WeightEnum.total,
+    susceptible=WeightEnum.constant,
+    withC=WeightEnum.constant,
+    mtwith=WeightEnum.with_condition,
+    prevalence=WeightEnum.total,
+    Tincidence=WeightEnum.total,
+    mtspecific=WeightEnum.total,
+    mtall=WeightEnum.total,
+    mtstandard=WeightEnum.constant,
+    relrisk=WeightEnum.constant,
+)
+"""Each integrand has a natural association with a particular weight because
+it is a count of events with one of four denominators: constant, susceptibles,
+with-condition, or the total population. For isntance, if you supply
+mtspecific data, it will always use the weight called "total."
+"""
