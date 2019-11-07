@@ -1,4 +1,5 @@
-"""Support for dismod concepts that are expressed over grids: age-time, smoothings and value priors.
+"""Support for dismod concepts that are expressed over grids: age-time,
+smoothings and value priors.
 """
 
 import numpy as np
