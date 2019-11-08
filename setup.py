@@ -10,7 +10,8 @@ setup(
         "pandas==0.25.1",
         "scipy",
         "sqlalchemy",
-        "tables"
+        "tables",
+        "networkx"
     ],
     extras_require={
         "ihme_databases": ["db_tools", "db_queries", "gbd"]

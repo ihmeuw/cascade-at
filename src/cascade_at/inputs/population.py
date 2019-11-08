@@ -38,4 +38,3 @@ class Population:
             gbd_round_id=self.gbd_round_id
         )
         return self
-

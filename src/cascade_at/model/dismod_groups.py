@@ -4,7 +4,8 @@ from os import linesep
 
 
 class DismodGroups(UserDict):
-    """Dismod-AT documentation discusses five kinds of groups of
+    """
+    Dismod-AT documentation discusses five kinds of groups of
     model variables (https://bradbell.github.io/dismod_at/doc/model_variables.htm).
     This class represents that grouping as a set of dictionaries, where the
     values can either be SmoothGrids or RandomFields or whatever is classified
@@ -89,7 +90,8 @@ class DismodGroups(UserDict):
 
         return one_not_other
 
-    def _compare_keys(self, a_keys, b_keys, group_name):
+    @staticmethod
+    def _compare_keys(a_keys, b_keys, group_name):
         a_keys = set(a_keys)
         b_keys = set(b_keys)
         message = []

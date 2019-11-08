@@ -1,7 +1,7 @@
 from cascade_at.core.db import db_queries
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
-from cascade_at.dismod.dismod_ids import IntegrandEnum
+from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.inputs.uncertainty import bounds_to_stdev
 
 LOG = get_loggers(__name__)

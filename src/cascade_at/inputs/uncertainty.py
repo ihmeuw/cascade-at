@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import stats
 
-from cascade_at.dismod.dismod_ids import DensityEnum
+from cascade_at.dismod.constants import DensityEnum
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)

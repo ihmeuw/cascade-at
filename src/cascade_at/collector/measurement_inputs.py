@@ -20,7 +20,7 @@ from cascade_at.dismod.integrand_mappings import make_integrand_map
 LOG = get_loggers(__name__)
 
 
-class DataInputs:
+class MeasurementInputs:
     def __init__(self, model_version_id, gbd_round_id,
                  decomp_step_id, csmr_process_version_id,
                  csmr_cause_id, crosswalk_version_id,
@@ -28,7 +28,7 @@ class DataInputs:
                  conn_def,
                  location_set_version_id=None):
         """
-        The class that constructs all of the inputs. Pulls ASDR, CSMR, crosswalk versions,
+        The class that constructs all of the measurement inputs. Pulls ASDR, CSMR, crosswalk versions,
         and country covariates, and puts them into one data frame that then formats itself
         for the dismod database. Performs covariate value interpolation if age and year ranges
         don't match up with GBD age and year ranges.
@@ -46,23 +46,23 @@ class DataInputs:
                 best location_set_version_id for estimation hierarchy of this GBD round.
 
         Attributes:
-            decomp_step: (str) the decomp step in string form
-            demographics: (cascade_at.inputs.demographics.Demographics) a demographics object
+            self.decomp_step: (str) the decomp step in string form
+            self.demographics: (cascade_at.inputs.demographics.Demographics) a demographics object
                 that specifies the age group, sex, location, and year IDs to grab
-            integrand_map: (dict) dictionary mapping from GBD measure IDs to DisMod IDs
-            asdr: (cascade_at.inputs.asdr.ASDR) all-cause mortality input object
-            csmr: (cascade_at.inputs.csmr.CSMR) cause-specific mortality input object from cause
+            self.integrand_map: (dict) dictionary mapping from GBD measure IDs to DisMod IDs
+            self.asdr: (cascade_at.inputs.asdr.ASDR) all-cause mortality input object
+            self.csmr: (cascade_at.inputs.csmr.CSMR) cause-specific mortality input object from cause
                 csmr_cause_id
-            data: (cascade_at.inputs.data.CrosswalkVersion) crosswalk version data from IHME database
-            covariate_data: (List[cascade_at.inputs.covariate_data.CovariateData]) list of covariate
+            self.data: (cascade_at.inputs.data.CrosswalkVersion) crosswalk version data from IHME database
+            self.covariate_data: (List[cascade_at.inputs.covariate_data.CovariateData]) list of covariate
                 data objects that contains the raw covariate data mapped to IDs
-            location_dag: (cascade_at.inputs.locations.LocationDAG) DAG of locations to be used
-            population: (cascade_at.inputs.population.Population) population object that is used
+            self.location_dag: (cascade_at.inputs.locations.LocationDAG) DAG of locations to be used
+            self.population: (cascade_at.inputs.population.Population) population object that is used
                 for covariate weighting
-            data_eta: (Dict[str, float]): dictionary of eta value to be applied to each measure
-            density: (Dict[str, str]): dictionary of density to be applied to each measure
-            nu: (Dict[str, float]): dictionary of nu value to be applied to each measure
-            dismod_data: (pd.DataFrame) resulting dismod data formatted to be used in the dismod database
+            self.data_eta: (Dict[str, float]): dictionary of eta value to be applied to each measure
+            self.density: (Dict[str, str]): dictionary of density to be applied to each measure
+            self.nu: (Dict[str, float]): dictionary of nu value to be applied to each measure
+            self.dismod_data: (pd.DataFrame) resulting dismod data formatted to be used in the dismod database
         
         Usage:
         >>> from cascade_at.settings.base_case import BASE_CASE
@@ -71,7 +71,7 @@ class DataInputs:
         >>> settings = load_settings(BASE_CASE)
         >>> covariate_ids = [i.country_covariate_id for i in settings.country_covariate]
 
-        >>> i = Inputs(model_version_id=settings.model.model_version_id,
+        >>> i = MeasurementInputs(model_version_id=settings.model.model_version_id,
         >>>            gbd_round_id=settings.gbd_round_id,
         >>>            decomp_step_id=settings.model.decomp_step_id,
         >>>            csmr_process_version_id=None,
@@ -194,25 +194,6 @@ class DataInputs:
         self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
         self.covariate_specs = CovariateSpecs(settings.country_covariate)
 
-<<<<<<< HEAD
-        # for covariate in self.covariate_specs.covariate_specs:
-        #     if covariate.study_country == 'country':
-        #         LOG.info(f"Interpolating and merging the country covariate {covariate.covariate_id}.")
-        #         cov_df = self.country_covariate_data[covariate.covariate_id]
-        #         interpolated_cov_df = get_interpolated_covariate_values(
-        #             data_df=self.dismod_data,
-        #             covariate_df=cov_df,
-        #             population_df=self.population.raw
-        #         )
-        #         interpolated_cov_df.rename(
-        #             columns={'mean_value': covariate.name}, inplace=True
-        #         )
-        #         self.dismod_data = self.dismod_data.merge(interpolated_cov_df,
-        #                                                   on=['age_lower', 'age_upper',
-        #                                                       'time_lower', 'time_upper',
-        #                                                       'location_id'])
-        return self
-=======
         self.interpolate_country_covariate_values()
 
         self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
@@ -237,7 +218,6 @@ class DataInputs:
                     population_df=self.population.raw
                 )
                 self.dismod_data[c.name] = interpolated_mean_value
->>>>>>> 36542b2dfc44830d3c7c0e78a542da5f70aa587d
 
     def measures_to_exclude_from_settings(self, settings):
         """
@@ -305,3 +285,33 @@ class DataInputs:
         nu["students"] = settings.students_dof.data
         nu["log_students"] = settings.log_students_dof.data
         return nu
+
+
+class MeasurementInputsFromSettings(MeasurementInputs):
+    def __init__(self, settings):
+        """
+        Wrapper for MeasurementInputs that takes a settings object rather than the
+        individual arguments. For convenience.
+        :param settings: (cascade.collector.settings_configuration.SettingsConfiguration)
+
+        Example:
+        >>> from cascade_at.settings.base_case import BASE_CASE
+        >>> from cascade_at.settings.settings import load_settings
+
+        >>> settings = load_settings(BASE_CASE)
+        >>> i = MeasurementInputs(settings)
+        >>> i.get_raw_inputs()
+        >>> i.configure_inputs_for_dismod()
+        """
+        covariate_ids = [i.country_covariate_id for i in settings.country_covariate]
+        super().__init__(
+            model_version_id=settings.model.model_version_id,
+            gbd_round_id=settings.gbd_round_id,
+            decomp_step_id=settings.model.decomp_step_id,
+            csmr_process_version_id=None,
+            csmr_cause_id=settings.model.add_csmr_cause,
+            crosswalk_version_id=settings.model.crosswalk_version_id,
+            country_covariate_id=covariate_ids,
+            conn_def='epi',
+            location_set_version_id=settings.location_set_version_id
+        )

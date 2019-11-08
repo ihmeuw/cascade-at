@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from cascade_at.dismod.dismod_ids import IntegrandEnum
+from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)

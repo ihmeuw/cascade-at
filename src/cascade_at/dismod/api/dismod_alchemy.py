@@ -1,29 +1,95 @@
+import numpy as np
+import pandas as pd
+
 from cascade_at.core.log import get_loggers
-from cascade_at.dismod.api.dismod_io import DismodIO
-from cascade_at.dismod.dismod_ids import DensityEnum, IntegrandEnum, INTEGRAND_TO_WEIGHT
+from cascade_at.dismod.api import DismodIO
+from cascade_at.dismod.constants import DensityEnum, IntegrandEnum, INTEGRAND_TO_WEIGHT
 
 LOG = get_loggers(__name__)
+
 
 class DismodAlchemy(DismodIO):
     """
     Sits on top of the DismodIO class,
-    and takes inputs from the model construction,
-    putting them into the Dismod database tables
+    and takes everything from the collector module
+    and puts them into the Dismod database tables
     in the correct construction.
+
+    Parameters:
+        path: (pathlib.Path)
+        settings_configuration: (cascade_at.collector.settings_configuration.SettingsConfiguration)
+        measurement_inputs: (cascade_at.collector.measurement_inputs.MeasurementInputs)
+        grid_alchemy: (cascade_at.collector.grid_alchemy.GridAlchemy)
+        parent_location_id: (int) which parent location to construct the database for
+
+    Attributes:
+        self.parent_child_model: (cascade_at.model.model.Model) that was constructed from grid_alchemy parameter
+            for one specific parent and its descendents
+
+    Example:
+        >>> from pathlib import Path
+        >>> from cascade_at.collector import Alchemy, MeasurementInputsFromSettings
+        >>> from cascade_at.settings.base_case import BASE_CASE
+        >>> from cascade_at.settings.settings import load_settings
+
+        >>> settings = load_settings(BASE_CASE)
+        >>> inputs = MeasurementInputsFromSettings(settings)
+        >>> alchemy = Alchemy(settings)
+
+        >>> da = DismodAlchemy(path=Path('temp.db'),
+        >>>                    settings_configuration=settings,
+        >>>                    measurement_inputs=inputs,
+        >>>                    grid_alchemy=alchemy,
+        >>>                    parent_location_id=1)
+        >>> da.fill_for_parent_child()
     """
-    def __init__(self, engine):
-        super().__init__(engine=engine)
+    def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id):
+        super().__init__(path=path)
+        self.settings_configuration = settings_configuration
+        self.measurement_inputs = measurement_inputs
+        self.grid_alchemy = grid_alchemy
+        self.parent_location_id = parent_location_id
+
+        self.parent_child_model = self.grid_alchemy.construct_two_level_model(
+            location_dag=self.measurement_inputs.location_dag,
+            parent_location_id=self.parent_location_id,
+            covariate_specs=self.measurement_inputs.CovariateSpecs
+        )
     
-    def initialize(inputs, model_construct):
+    def fill_for_parent_child(self):
         """
-        Initializes the Dismod database with inputs
+        Fills the Dismod database with inputs
         and a model construction for a parent location
         and its descendents.
         """
-        self.construct_node_table(location_dag=inputs.location_dag)
-        self.construct_data_table(df=inputs.dismod_data)
+        self.age = self.construct_age_time_table(
+            variable_name='age', variable=self.parent_child_model.get_age_array()
+        )
+        self.time = self.construct_age_time_table(
+            variable_name='time', variable=self.parent_child_model.get_time_array()
+        )
+        self.node = self.construct_node_table(location_dag=self.measurement_inputs.location_dag)
+        self.data = self.construct_data_table(df=self.measurement_inputs.dismod_data, node=self.node)
 
-        
+    @staticmethod
+    def construct_age_time_table(variable_name, variable):
+        """
+        Constructs the age or time table with age_id and age or time_id and time.
+        Has unique identifiers for each.
+
+        Parameters:
+            variable_name: (str) like 'age' or 'time'
+            variable: (np.array) array of ages or times
+        """
+        variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]
+        variable.sort()
+        if variable[-1] - variable[0] < 1:
+            variable = np.append(variable, variable[-1] + 1)
+        df = pd.DataFrame(dict(id=range(len(variable)), var=variable))
+        df.rename(columns={'id': f'{variable_name}_id', 'var': variable_name}, inplace=True)
+        return df
+
+    @staticmethod
     def construct_node_table(location_dag):
         """
         Constructs the node table from a location
@@ -39,14 +105,16 @@ class DismodAlchemy(DismodIO):
         })
         node = node.reset_index(drop=True)
         node["node_id"] = node.index
-        self.node = node
-        
-    def construct_data_table(df):
+        return node
+
+    @staticmethod
+    def construct_data_table(df, node):
         """
         Constructs the data table from input df.
 
         Parameters:
-            df: (pd.DataFrame)
+            df: (pd.DataFrame) data frame of inputs
+            node: (pd.DataFrame) the dismod node table
         """
         data = df.copy()
         data.rename(columns={
@@ -55,7 +123,7 @@ class DismodAlchemy(DismodIO):
         }, inplace=True)
         data["c_location_id"] = data["c_location_id"].astype(str)
         data = data.merge(
-            self.node[["node_id", "c_location_id"]],
+            node[["node_id", "c_location_id"]],
             on=["c_location_id"]
         )
         data["density_id"] = data["density"].apply(lambda x: DensityEnum[x].value)
@@ -66,4 +134,6 @@ class DismodAlchemy(DismodIO):
         data.reset_index(inplace=True, drop=True)
         data["data_name"] = data.index.astype(str)
 
-        self.data = data
+        return data
+
+

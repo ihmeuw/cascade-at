@@ -1,7 +1,8 @@
 from collections import Counter
 from collections.abc import Mapping
+import numpy as np
 
-from cascade_at.dismod.dismod_ids import WeightEnum
+from cascade_at.dismod.constants import WeightEnum
 from cascade_at.model.covariate import Covariate
 from cascade_at.model.dismod_groups import DismodGroups
 from cascade_at.model.var import Var
@@ -18,8 +19,9 @@ class Model(DismodGroups):
     """
     def __init__(self, nonzero_rates, parent_location, child_location=None, covariates=None, weights=None):
         """
-        >>> locations = location_hierarchy(6, location_set_version_id=429)
-        >>> m = Model(["chi", "omega", "iota"], 6, locations.successors(6))
+        >>> from cascade_at.inputs.locations import LocationDAG
+        >>> locations = LocationDAG(location_set_version_id=429)
+        >>> m = Model(["chi", "omega", "iota"], 6, locations.dag.successors(6))
 
         Args:
             nonzero_rates (List[str]): A list of rates, using the Dismod-AT
@@ -87,16 +89,48 @@ class Model(DismodGroups):
             model._scale = self._scale
         return model
 
+    def get_age_array(self):
+        """
+        Gets an array of ages used across grids in the model.
+
+        Returns:
+            ages: (np.array)
+        """
+        ages = np.empty((0,), dtype=np.float)
+        for group in self.values():
+            for grid in group.values():
+                ages = np.append(ages, grid.ages)
+        return ages
+
+    def get_time_array(self):
+        """
+        Gets an array of times used across grids in the model.
+
+        Returns:
+            times: (np.array)
+        """
+        times = np.empty((0,), dtype=np.float)
+        for group in self.values():
+            for grid in group.values():
+                times = np.append(times, grid.times)
+        return times
+
+    def get_model_rates(self):
+        """
+        Gets ...
+
+        Returns:
+        """
+        for group_name, group in self.items():
+            if group_name == "rate":
+                for rate_name, grid in group.items():
+                    pass
+                    # TODO: Working on this
+
     def write(self, writer):
         self._ensure_weights()
         self._check()
         writer.start_model(self.nonzero_rates, self.child_location)
-        for group in self.values():
-            for grid in group.values():
-                writer.write_ages_and_times(grid.ages, grid.times)
-        for weight_value in self.weights.values():
-            writer.write_ages_and_times(weight_value.ages, weight_value.times)
-
         writer.write_covariate(self.covariates)
         writer.write_weights(self.weights)
         for group_name, group in self.items():

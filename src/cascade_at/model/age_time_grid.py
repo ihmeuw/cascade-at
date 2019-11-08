@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from cascade_at.core.log import get_loggers
-from cascade_at.dismod.dismod_ids import PriorKindEnum
+from cascade_at.dismod.constants import PriorKindEnum
 
 LOG = get_loggers(__name__)
 GRID_SNAP_DISTANCE = 1 / timedelta(days=365).total_seconds()
