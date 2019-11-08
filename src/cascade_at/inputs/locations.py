@@ -54,7 +54,7 @@ class LocationDAG:
             names.append(self.dag.nodes[l]["location_name"])
         return pd.DataFrame(dict(
             location_id=sorted_locations,
-            parent_id=parents,
+            parent=parents,
             name=names
         ))
 

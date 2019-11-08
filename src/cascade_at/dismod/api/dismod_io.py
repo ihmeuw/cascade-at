@@ -1,5 +1,5 @@
 from cascade_at.core.log import get_loggers
-from cascade_at.dismod.api import DismodDB
+from cascade_at.dismod.api.dismod_db import DismodDB
 
 LOG = get_loggers(__name__)
 
@@ -13,7 +13,7 @@ class DismodIO(DismodDB):
     then you can just do df = dmfile.data as the 'getter' and it will automatically read it.
     """
     def __init__(self, path):
-        super().__init(path=path)
+        super().__init__(path=path)
 
     # AGE TABLE
     @property

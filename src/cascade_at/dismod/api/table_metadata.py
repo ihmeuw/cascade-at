@@ -339,7 +339,6 @@ class Data(Base):
     """Zero or one for hold outs during fit command"""
     meas_value = Column(Float(), nullable=False)
     meas_std = Column(Float(), nullable=False)
-    sample_size = Column(Float(), nullable=False)
     eta = Column(Float(), nullable=True)
     nu = Column(Float(), nullable=True)
     age_lower = Column(Float(), nullable=False)

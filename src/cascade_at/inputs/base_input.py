@@ -6,7 +6,7 @@ class BaseInput:
         self.age_group_metadata = get_age_group_metadata()
         self.columns_to_keep = [
             'location_id', 'time_lower', 'time_upper', 'sex_id',
-            'measure', 'meas_value', 'stdev',
+            'measure', 'meas_value', 'meas_std',
             'age_lower', 'age_upper', 'age_group_id',
             'name', 'hold_out', 'density', 'eta', 'nu'
         ]

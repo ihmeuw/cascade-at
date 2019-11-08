@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from cascade_at.core.log import get_loggers
-from cascade_at.dismod.api import DismodIO
+from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.constants import DensityEnum, IntegrandEnum, INTEGRAND_TO_WEIGHT
 
 LOG = get_loggers(__name__)
@@ -53,7 +53,7 @@ class DismodAlchemy(DismodIO):
         self.parent_child_model = self.grid_alchemy.construct_two_level_model(
             location_dag=self.measurement_inputs.location_dag,
             parent_location_id=self.parent_location_id,
-            covariate_specs=self.measurement_inputs.CovariateSpecs
+            covariate_specs=self.measurement_inputs.covariate_specs
         )
     
     def fill_for_parent_child(self):
@@ -102,9 +102,10 @@ class DismodAlchemy(DismodIO):
         node.rename(columns={
             "name": "node_name",
             "location_id": "c_location_id"
-        })
+        }, inplace=True)
         node = node.reset_index(drop=True)
         node["node_id"] = node.index
+        node = node[['node_id', 'node_name', 'parent', 'c_location_id']]
         return node
 
     @staticmethod
@@ -121,18 +122,24 @@ class DismodAlchemy(DismodIO):
             "location_id": "c_location_id",
             "location": "c_location"
         }, inplace=True)
-        data["c_location_id"] = data["c_location_id"].astype(str)
+        data['c_location_id'] = data['c_location_id'].astype(int)
         data = data.merge(
             node[["node_id", "c_location_id"]],
             on=["c_location_id"]
         )
         data["density_id"] = data["density"].apply(lambda x: DensityEnum[x].value)
-        data["integrand_id"] = data["integrand"].apply(lambda x: IntegrandEnum[x].value)
-        data["weight_id"] = data["integrand"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
-        data.drop(['integrand', 'density'], axis=1, inplace=True)
+        data["integrand_id"] = data["measure"].apply(lambda x: IntegrandEnum[x].value)
+        data["weight_id"] = data["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
+        data.drop(['measure', 'density'], axis=1, inplace=True)
 
         data.reset_index(inplace=True, drop=True)
         data["data_name"] = data.index.astype(str)
+
+        data = data[[
+            'data_name', 'integrand_id', 'density_id', 'node_id', 'weight_id',
+            'hold_out', 'meas_value', 'meas_std', 'eta', 'nu',
+            'age_lower', 'age_upper', 'time_lower', 'time_upper'
+        ]]
 
         return data
 

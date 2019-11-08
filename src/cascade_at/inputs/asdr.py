@@ -62,7 +62,7 @@ class ASDR(BaseInput):
         df = self.convert_to_age_lower_upper(df)
         df['integrand_id'] = IntegrandEnum.mtall.value
         df['measure'] = IntegrandEnum.mtall.name
-        df['stdev'] = bounds_to_stdev(lower=df.lower, upper=df.upper)
+        df['meas_std'] = bounds_to_stdev(lower=df.lower, upper=df.upper)
 
         df = self.keep_only_necessary_columns(df)
         return df

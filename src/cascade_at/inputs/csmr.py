@@ -70,7 +70,7 @@ class CSMR(BaseInput):
         df['integrand_id'] = IntegrandEnum.mtspecific.value
         df['measure'] = IntegrandEnum.mtspecific.name
 
-        df["stdev"] = bounds_to_stdev(df.lower, df.upper)
+        df["meas_std"] = bounds_to_stdev(df.lower, df.upper)
         df = self.keep_only_necessary_columns(df)
 
         return df
