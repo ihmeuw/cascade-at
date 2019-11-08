@@ -26,9 +26,8 @@ class LocationDAG:
         )
 
         self.dag = nx.DiGraph()
-        self.dag.add_nodes_from([
-            {int(row.location_id), row._asdict()} for row in self.df.itertuples()
-        ])
+        for index, row in self.df.iterrows():
+            self.dag.add_node(int(row['location_id']), **row.to_dict())
         self.dag.add_edges_from([
             (int(row.parent_id), int(row.location_id))
             for row in self.df.loc[self.df.location_id != CascadeConstants.GLOBAL_LOCATION_ID].itertuples()
@@ -49,7 +48,7 @@ class LocationDAG:
         for l in sorted_locations:
             parent = list(self.dag.predecessors(l))
             if parent:
-                parents.append(parent[0])
+                parents.append(int(parent[0]))
             else:
                 parents.append(np.nan)
             names.append(self.dag.nodes[l]["location_name"])
