@@ -38,7 +38,7 @@ def get_age_year_value(cov, loc_ids, sex_ids):
     return dct
 
 
-@lru_cache
+@lru_cache(maxsize=30)
 def intersect(age_start, age_end, year_start, year_end, tuples):
     """
     Find covariate entries that intersects with a given measurement
