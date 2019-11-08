@@ -89,26 +89,48 @@ class Model(DismodGroups):
             model._scale = self._scale
         return model
 
-    def get_grid_ages(self):
+    def get_age_array(self):
+        """
+        Gets an array of ages used across grids in the model.
+
+        Returns:
+            ages: (np.array)
+        """
         ages = np.empty((0,), dtype=np.float)
         for group in self.values():
             for grid in group.values():
                 ages = np.append(ages, grid.ages)
         return ages
 
-    def get_grid_times(self):
+    def get_time_array(self):
+        """
+        Gets an array of times used across grids in the model.
+
+        Returns:
+            times: (np.array)
+        """
         times = np.empty((0,), dtype=np.float)
         for group in self.values():
             for grid in group.values():
                 times = np.append(times, grid.times)
         return times
 
+    def get_model_rates(self):
+        """
+        Gets ...
+
+        Returns:
+        """
+        for group_name, group in self.items():
+            if group_name == "rate":
+                for rate_name, grid in group.items():
+                    pass
+                    # TODO: Working on this
+
     def write(self, writer):
         self._ensure_weights()
         self._check()
         writer.start_model(self.nonzero_rates, self.child_location)
-
-
         writer.write_covariate(self.covariates)
         writer.write_weights(self.weights)
         for group_name, group in self.items():

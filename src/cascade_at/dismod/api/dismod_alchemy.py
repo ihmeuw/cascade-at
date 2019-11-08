@@ -63,10 +63,10 @@ class DismodAlchemy(DismodIO):
         and its descendents.
         """
         self.age = self.construct_age_time_table(
-            variable_name='age', variable=self.parent_child_model.get_grid_ages()
+            variable_name='age', variable=self.parent_child_model.get_age_array()
         )
         self.time = self.construct_age_time_table(
-            variable_name='time', variable=self.parent_child_model.get_grid_times()
+            variable_name='time', variable=self.parent_child_model.get_time_array()
         )
         self.node = self.construct_node_table(location_dag=self.measurement_inputs.location_dag)
         self.data = self.construct_data_table(df=self.measurement_inputs.dismod_data, node=self.node)
@@ -77,9 +77,9 @@ class DismodAlchemy(DismodIO):
         Constructs the age or time table with age_id and age or time_id and time.
         Has unique identifiers for each.
 
-        :param variable_name: (str)
-        :param variable: (np.array)
-        :return:
+        Parameters:
+            variable_name: (str) like 'age' or 'time'
+            variable: (np.array) array of ages or times
         """
         variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]
         variable.sort()
@@ -113,7 +113,7 @@ class DismodAlchemy(DismodIO):
         Constructs the data table from input df.
 
         Parameters:
-            df: (pd.DataFrame)
+            df: (pd.DataFrame) data frame of inputs
             node: (pd.DataFrame) the dismod node table
         """
         data = df.copy()
@@ -135,3 +135,5 @@ class DismodAlchemy(DismodIO):
         data["data_name"] = data.index.astype(str)
 
         return data
+
+

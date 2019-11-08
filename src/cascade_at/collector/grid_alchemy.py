@@ -28,7 +28,7 @@ class Alchemy:
         >>> settings = load_settings(BASE_CASE)
         >>> mc = Alchemy(settings)
         
-        >>> i =
+        >>> i = MeasurementInputsFromSettings(settings)
         >>> i.get_raw_inputs()
 
         >>> mc.construct_two_level_model(location_dag=i.location_dag,
