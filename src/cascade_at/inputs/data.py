@@ -56,6 +56,7 @@ class CrosswalkVersion(BaseInput):
         df = df.merge(sex_ids, on='sex')
         df = df.merge(measure_ids, on='measure')
         df = df.loc[~df.input_type.isin(['parent', 'group_review'])].copy()
+        df = df.loc[df.location_id.isin(self.demographics.location_id)]
 
         df = self.map_to_integrands(df)
         if measures_to_exclude:

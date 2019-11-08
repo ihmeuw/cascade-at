@@ -38,7 +38,6 @@ def get_age_year_value(cov, loc_ids, sex_ids):
     return dct
 
 
-@lru_cache(maxsize=30)
 def intersect(age_start, age_end, year_start, year_end, tuples):
     """
     Find covariate entries that intersects with a given measurement
@@ -107,7 +106,7 @@ def get_interpolated_covariate_values(data_df, covariate_df, population_df):
     loc_ids = sorted(meas.location_id.unique())
     cov_age_year_value = get_age_year_value(covariate_df, loc_ids, SEX_IDS)
     pop_dict = pop_val_dict(population_df, loc_ids)
-
+    
     meas['mean_value'] = 0.0
 
     for i, row in meas.iterrows():
