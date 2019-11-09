@@ -28,12 +28,15 @@ class DismodAlchemy(DismodIO):
 
     Example:
         >>> from pathlib import Path
-        >>> from cascade_at.collector import Alchemy, MeasurementInputsFromSettings
+        >>> from cascade_at.collector.grid_alchemy import Alchemy
+        >>> from cascade_at.collector.measurement_inputs import MeasurementInputsFromSettings
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
 
         >>> settings = load_settings(BASE_CASE)
         >>> inputs = MeasurementInputsFromSettings(settings)
+        >>> inputs.get_raw_inputs()
+        >>> inputs.configure_inputs_for_dismod(settings)
         >>> alchemy = Alchemy(settings)
 
         >>> da = DismodAlchemy(path=Path('temp.db'),
@@ -99,12 +102,16 @@ class DismodAlchemy(DismodIO):
             location_dag: (cascade_at.inputs.locations.LocationDAG)
         """
         node = location_dag.to_dataframe()
+        node = node.reset_index(drop=True)
+        node["node_id"] = node.index
+        p_node = node[["node_id", "location_id"]].rename(
+            columns={"location_id": "parent_id", "node_id": "parent"}
+        )
+        node = node.merge(p_node, on="parent_id")
         node.rename(columns={
             "name": "node_name",
             "location_id": "c_location_id"
         }, inplace=True)
-        node = node.reset_index(drop=True)
-        node["node_id"] = node.index
         node = node[['node_id', 'node_name', 'parent', 'c_location_id']]
         return node
 

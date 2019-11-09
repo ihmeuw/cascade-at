@@ -197,10 +197,10 @@ class MeasurementInputs:
         self.interpolate_country_covariate_values()
 
         self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
-        self.dismod_data['sex'] = self.dismod_data.sex_id.map(SEX_MAP)
+        self.dismod_data['s_sex'] = self.dismod_data.sex_id.map(SEX_MAP)
         self.dismod_data['s_one'] = 1
         self.dismod_data.loc[self.dismod_data.hold_out.isnull(), 'hold_out'] = 0.
-
+        
         return self
 
     def interpolate_country_covariate_values(self):
