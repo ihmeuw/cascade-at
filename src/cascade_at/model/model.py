@@ -114,6 +114,29 @@ class Model(DismodGroups):
             for grid in group.values():
                 times = np.append(times, grid.times)
         return times
+    
+    def get_nonzero_rates(self):
+        """
+        Gets the nonzero rates.
+        """
+        iota_case = "pos" if "iota" in self.nonzero_rates else "zero"
+        rho_case = "pos" if "rho" in self.nonzero_rates else "zero"
+        return f"iota_{iota_case}_rho_{rho_case}"
+    
+    def get_weights(self):
+        """
+        Gets the weights to be written for the model.
+        """
+        weights = self.weights.copy()
+        arbitrary_grid = next(iter(self.rate.values()))
+        one_age_time = (arbitrary_grid.ages[0:1], arbitrary_grid.times[0:1])
+
+        for kind in (weight.name for weight in WeightEnum):
+            if kind not in self.weights:
+                weights[kind] = Var(*one_age_time)
+                weights[kind].grid.loc[:, "mean"] = 1.0
+        return weights
+
 
     def get_model_rates(self):
         """

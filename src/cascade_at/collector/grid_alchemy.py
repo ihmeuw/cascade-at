@@ -71,7 +71,7 @@ class Alchemy:
         single_age_time = (single_age, single_time)
         return single_age_time
 
-    def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs):
+    def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs, weights=None):
         """
         Construct a Model object for a parent location and its children.
 
@@ -87,7 +87,7 @@ class Alchemy:
             parent_location=parent_location_id,
             child_location=children,
             covariates=None,
-            weights=None
+            weights=weights
         )
 
         # First construct the rate grid

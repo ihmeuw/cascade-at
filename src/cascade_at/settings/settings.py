@@ -40,7 +40,7 @@ def settings_from_model_version_id(model_version_id, conn_def):
         conn_def: (str) the connection definition like 'dismod-at-dev'
     
     Usage:
-    >>> settings = settings_from_model_version_id(model_version_id=,
+    >>> settings = settings_from_model_version_id(model_version_id=395837,
     >>>                                           conn_def='dismod-at-dev')
     """
     df = db_tools.ezfuncs.query(
