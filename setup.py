@@ -1,10 +1,11 @@
-from setuptools import setup
+from setuptools import setup, PEP420PackageFinder
 
 setup(
     name="cascade_at",
-    package_dir={"cascade_at": "src/cascade_at"},
-    setup_requires=["setuptools_scm"],
-    packages=["cascade_at"],
+    version='0.0.1',
+    description='DisMod AT Wrapper',
+    package_dir={"": "src"},
+    packages=PEP420PackageFinder.find("src"),
     install_requires=[
         "numpy==1.17.2",
         "pandas==0.25.1",
@@ -13,6 +14,7 @@ setup(
         "tables",
         "networkx"
     ],
+    zip_safe=False,
     extras_require={
         "ihme_databases": ["db_tools", "db_queries", "gbd"]
     },
