@@ -7,6 +7,8 @@ from cascade_at.dismod.constants import DensityEnum, IntegrandEnum, INTEGRAND_TO
 
 LOG = get_loggers(__name__)
 
+DEFAULT_DENSITY = ["uniform", 0 -np.inf, np.inf]
+
 
 class DismodAlchemy(DismodIO):
     """
@@ -268,10 +270,109 @@ class DismodAlchemy(DismodIO):
         pass
     
     @staticmethod
-    def construct_smooth_grid_prior_tables():
+    def add_prior_smooth_entries(grid_name, grid):
+        """
+        Returns:
+            (pd.DataFrame, pd.DataFrame, pd.DataFrame)
+        """
+        age_count, time_count = (len(grid.ages), (grid,times))
+        prior_df = priors.copy()
 
-        pass
-    
+        prior_df["assigned"] = prior_df.density.notna()
+        prior_df.loc[df.density.isnull(), ["density", "mean", "lower", "upper"]] = DEFAULT_DENSITY
+        prior_df["density_id"] = prior_df["density"].apply(lambda x: DensityEnum[x].value)
+        prior_df.rename(columns={"name": "prior_name"}, inplace=True)
+        prior_df["grid_name"] = grid_name
+
+        assert len(prior_df) == (age_count * time_count + 1) * 3
+        
+        smooth_df = pd.DataFrame({
+            "smooth_name": [grid_name],
+            "n_age": [age_time_cnt[0]],
+            "n_time": [age_time_cnt[1]]
+        })
+        return prior_df, smooth_df
+
+    @staticmethod
+    def construct_grid_related_tables(model):
+        """
+        Constructs the rate, random_effect, and mulcov tables plus
+        their by-products of smooth, smooth_grid, and prior tables.
+        """
+        smooth_table = {}
+        prior_table = {}
+
+        rate = pd.DataFrame(columns={'rate_id': [], 'parent_smooth_id': []})
+        random_effect = pd.DataFrame(columns={})
+        mulcov_table = []
+
+        # These are the potential items in the model
+        potential_mulcovs = ["alpha", "beta", "gamma"]
+        potential_items = ["rate", "random_effect"] + potential_mulcovs
+        for p in potential_items:
+            smooth_table[p] = []
+            prior_table[p] = []
+
+        # These are the observed mulcovs in the model
+        mulcovs = [x for x in potentail_mulcovs if x in model]
+
+        if "rate" in model:
+            for rate_name, grid in model["rate"].items():
+                """
+                Loop through each of the rates and add entries into the
+                prior, and smooth tables.
+                """
+                prior, smooth = self.add_prior_smooth_grid_rows(
+                    grid_name=rate_name, grid=grid
+                )
+                prior_table[group_name].append(prior)
+                smooth_table[group_name].append(smooth)
+        
+        if "random_effect" in model:
+            for (rate_name, child_location), grid in model["random_effect"].items():
+                """
+                Loop through each of the random effects and add entries
+                into the prior and smooth tables.
+                """
+                grid_name = f"{rate_name}_re"
+                if child_location is not None:
+                    grid_name = grid_name + f"_{child_location}"
+                
+                prior, smooth = self.add_prior_smooth_rows(
+                    grid_name=grid_name,
+                    grid=grid
+                )
+                prior_table[group_name].append(prior)
+                smooth_table[group_name].append(smooth)
+        
+        for m in mulcovs:
+            for (covariate, rate_or_integrand), grid in model[m].items():
+                grid_name = f"{group_name}_{rate_or_integrand}_{covariate}"
+
+                prior, smooth = self.add_prior_smooth_rows(
+                    grid_name=grid_name,
+                    grid=grid
+                )
+                prior_table[group_name].append(prior)
+                smooth_table[group_name].append(smooth)
+
+                mulcov = pd.DataFrame({
+                    "kind": group_name,
+                    "mulcov_type": MulCovEnum[group_name].value,
+                    "rate_id": np.nan,
+                    "integrand_id": np.nan,
+                    "covariate_id": covariate_to_index[covariate]
+                })
+                if group_name in ["beta", "gamma"]:
+                    mulcov["rate_id"] = get_rate_id(rate_name=rate_or_integrand)
+                elif group_name == "alpha":
+                    mulcov["integrand_id"] = get_integrand_id(integrand_name=rate_or_integrand)
+                else:
+                    raise RuntimeError(f"Unknown mulcov type {group_name}.")
+                mulcov_table.append(mulcov)
+
+        return prior_table, smooth_table, mulcov_table
+            
     @staticmethod
     def construct_rate_table():
         pass
