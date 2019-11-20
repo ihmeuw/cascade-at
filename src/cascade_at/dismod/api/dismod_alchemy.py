@@ -63,9 +63,6 @@ class DismodAlchemy(DismodIO):
             parent_location_id=self.parent_location_id,
             covariate_specs=self.inputs.covariate_specs
         )
-
-        self.age_dict = None
-        self.time_dict = None
     
     def fill_for_parent_child(self, **additional_option_kwargs):
         """
@@ -153,7 +150,7 @@ class DismodAlchemy(DismodIO):
             df = df.merge(aged[["save_idx", col_id]], on="save_idx", how="left")
         assert "age_id" in df.columns
         assert "time_id" in df.columns
-        return df.drop("save_idx", axis=1)
+        return df.drop(["save_idx", "age", "time"], axis=1)
 
     def construct_option_table(self, **kwargs):
         """
@@ -552,6 +549,7 @@ class DismodAlchemy(DismodIO):
             'integrand': integrand_table,
             'prior': prior_table,
             'smooth': smooth_table,
+            'smooth_grid': grid_table,
             'mulcov': mulcov_table,
             'nslist': nslist_table,
             'nslist_pair': nslist_pair_table

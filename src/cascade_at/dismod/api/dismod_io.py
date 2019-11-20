@@ -121,7 +121,7 @@ class DismodIO(DismodDB):
 
     @integrand.setter
     def integrand(self, df):
-        self.write_table('age', df)
+        self.write_table('integrand', df)
     
     # LOG TABLE
     @property
