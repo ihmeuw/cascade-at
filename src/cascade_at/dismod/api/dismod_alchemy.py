@@ -83,25 +83,20 @@ class DismodAlchemy(DismodIO):
         self.time = self.construct_age_time_table(
             variable_name='time', variable=self.parent_child_model.get_time_array()
         )
-
-        self.age_dict = dict(zip(self.age.age_id, self.age.age))
-        self.time_dict = dict(zip(self.time.time_id, self.time.time))
         self.density = self.construct_density_table()
-
         self.node = self.construct_node_table(location_dag=self.inputs.location_dag)
         self.data = self.construct_data_table(df=self.inputs.dismod_data, node=self.node)
         self.covariate = self.construct_covariate_table(covariates=self.parent_child_model.covariates)
-        covariate_index = dict(self.covariate[["covariate_name", "covariate_id"]].to_records(index=False))
 
         self.weight, self.weight_grid = self.construct_weight_grid_tables(
             weights=self.parent_child_model.get_weights(),
-            age_dict=self.age_dict,
-            time_dict=self.time_dict
+            age_df=self.age, time_df=self.time
         )
-
         interconnected_tables = self.construct_interconnected_tables(
             model=self.parent_child_model,
-            location_df=self.inputs.location_dag.to_dataframe()
+            location_df=self.inputs.location_dag.to_dataframe(),
+            age_df=self.age, time_df=self.time,
+            covariate_df=self.covariate
         )
         self.rate = interconnected_tables['rate']
         self.smooth = interconnected_tables['smooth']
@@ -113,7 +108,53 @@ class DismodAlchemy(DismodIO):
         self.nslist_pair = interconnected_tables['nslist_pair']
 
         self.option = self.construct_option_table(**additional_option_kwargs)
-       
+
+    @staticmethod
+    def construct_age_time_table(variable_name, variable):
+        """
+        Constructs the age or time table with age_id and age or time_id and time.
+        Has unique identifiers for each.
+
+        Parameters:
+            variable_name: (str) one of 'age' or 'time'
+            variable: (np.array) array of ages or times
+        """
+        LOG.info(f"Constructing {variable_name} table.")
+        variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]
+        variable.sort()
+        if variable[-1] - variable[0] < 1:
+            variable = np.append(variable, variable[-1] + 1)
+        df = pd.DataFrame(dict(id=range(len(variable)), var=variable))
+        df.rename(columns={'id': f'{variable_name}_id', 'var': variable_name}, inplace=True)
+        return df
+
+    @staticmethod
+    def convert_age_time_to_id(df, age_df, time_df):
+        """
+        Converts the times and ages to IDs based on a dictionary passed
+        that should be made from the age or time table. Gets the "closest"
+        age or time.
+
+        :param df: pd.DataFrame
+        :param age_df: pd.DataFrame
+        :param time_df: pdDataFrame
+        :return:
+        """
+        at_tables = {'age': age_df, 'time': time_df}
+        assert "age" in df.columns
+        assert "time" in df.columns
+        df = df.assign(save_idx=df.index)
+        for dat in ["age", "time"]:
+            col_id = f"{dat}_id"
+            sort_by = df.sort_values(dat)
+            in_grid = sort_by[dat].notna()
+            at_table = at_tables[dat]
+            aged = pd.merge_asof(sort_by[in_grid], at_table, on=dat, direction="nearest")
+            df = df.merge(aged[["save_idx", col_id]], on="save_idx", how="left")
+        assert "age_id" in df.columns
+        assert "time_id" in df.columns
+        return df.drop("save_idx", axis=1)
+
     def construct_option_table(self, **kwargs):
         """
         Construct the option table with the default arguments,
@@ -141,25 +182,6 @@ class DismodAlchemy(DismodIO):
         df = pd.DataFrame()
         df = df.append([pd.Series({'option_name': k, 'option_value': v}) for k, v in option_dict.items()])
         df['option_id'] = df.index
-        return df
-
-    @staticmethod
-    def construct_age_time_table(variable_name, variable):
-        """
-        Constructs the age or time table with age_id and age or time_id and time.
-        Has unique identifiers for each.
-
-        Parameters:
-            variable_name: (str) one of 'age' or 'time'
-            variable: (np.array) array of ages or times
-        """
-        LOG.info(f"Constructing {variable_name} table.")
-        variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]
-        variable.sort()
-        if variable[-1] - variable[0] < 1:
-            variable = np.append(variable, variable[-1] + 1)
-        df = pd.DataFrame(dict(id=range(len(variable)), var=variable))
-        df.rename(columns={'id': f'{variable_name}_id', 'var': variable_name}, inplace=True)
         return df
 
     @staticmethod
@@ -223,7 +245,7 @@ class DismodAlchemy(DismodIO):
         return data
 
     @staticmethod
-    def construct_weight_grid_tables(weights, age_dict, time_dict):
+    def construct_weight_grid_tables(weights, age_df, time_df):
         """
         Constructs the weight and weight_grid tables."
 
@@ -231,8 +253,8 @@ class DismodAlchemy(DismodIO):
             weights (Dict[str, Var]): There are four kinds of weights:
                 "constant", "susceptible", "with_condition", and "total".
                 No other weights are used.
-            age_dict (Dict[int, float]): dictionary of age ID to age
-            time_dict (Dict[int, float]): dictionary of time ID to time
+            age_df (pd.DataFrame)
+            time_df (pd.DataFrame)
         
         Returns:
             (pd.DataFrame, pd.DataFrame) the weight table and the weight grid table
@@ -253,10 +275,11 @@ class DismodAlchemy(DismodIO):
             one_grid["weight_id"] = w.value
             weight_grid.append(one_grid)
         weight_grid = pd.concat(weight_grid).reset_index(drop=True)
-        weight_grid["age_id"] = weight_grid["age"].map({v: k for k, v in age_dict.items()})
-        weight_grid["time_id"] = weight_grid["time"].map({v: k for k, v in time_dict.items()})
+
+        weight_grid = DismodAlchemy.convert_age_time_to_id(
+            df=weight_grid, age_df=age_df, time_df=time_df
+        )
         weight_grid["weight_grid_id"] = weight_grid.index
-        weight_grid.drop(columns=["age", "time"], inplace=True, axis=1)
         return weight, weight_grid
 
     @staticmethod
@@ -295,11 +318,7 @@ class DismodAlchemy(DismodIO):
             "max_difference": np.array([col.max_difference for col in covariates_reordered], dtype=np.float)
         })
         return covariate_table
-    
-    @staticmethod
-    def construct_avgint_table():
-        pass
-    
+
     @staticmethod
     def construct_density_table():
         return pd.DataFrame({
@@ -307,20 +326,8 @@ class DismodAlchemy(DismodIO):
         })
 
     @staticmethod
-    def construct_constraint_table():
-        pass
-    
-    @staticmethod
-    def construct_depend_var_table():
-        pass
-    
-    @staticmethod
-    def construct_fit_var_table():
-        pass
-    
-    @staticmethod
     def add_prior_smooth_entries(grid_name, grid, num_existing_priors, num_existing_grids,
-                                 age_dict, time_dict):
+                                 age_df, time_df):
         """
         Returns:
             (pd.DataFrame, pd.DataFrame, pd.DataFrame)
@@ -347,8 +354,10 @@ class DismodAlchemy(DismodIO):
             lambda pid: f"{grid_name}_{pid}"
         )
 
-        # TODO: EDIT THIS SO THAT THE PRIOR DF ONLY KEEPS NECESSARY COLUMNS
-        #  BUT THAT THE AGES ARE FIXED FOR THE GRID DF!
+        # Convert to age and time ID for prior table
+        prior_df = DismodAlchemy.convert_age_time_to_id(
+            df=prior_df, age_df=age_df, time_df=time_df
+        )
 
         # Create the simple smooth data frame
         smooth_df = pd.DataFrame({
@@ -370,10 +379,32 @@ class DismodAlchemy(DismodIO):
         grid_df["const_value"] = np.nan
         grid_df["smooth_grid_id"] = grid_df.index + num_existing_grids
 
+        prior_df = prior_df[[
+            'prior_id', 'prior_name', 'lower', 'upper',
+            'mean', 'std', 'eta', 'nu', 'density_id'
+        ]].sort_values(by='prior_id').reset_index(drop=True)
+
         return prior_df, smooth_df, grid_df
 
     @staticmethod
-    def construct_interconnected_tables(model, location_df):
+    def default_integrand_table():
+        return pd.DataFrame({
+            "integrand_name": enum_to_dataframe(IntegrandEnum)["name"],
+            "minimum_meas_cv": 0.0
+        })
+
+    @staticmethod
+    def default_rate_table():
+        return pd.DataFrame({
+            'rate_id': [rate.value for rate in RateEnum],
+            'rate_name': [rate.name for rate in RateEnum],
+            'parent_smooth_id': np.nan,
+            'child_smooth_id': np.nan,
+            'child_nslist_id': np.nan
+        })
+
+    @staticmethod
+    def construct_interconnected_tables(model, location_df, age_df, time_df, covariate_df):
         """
         Loops through the items from a model object, which include
         rate, random_effect, alpha, beta, and gamma.
@@ -386,29 +417,24 @@ class DismodAlchemy(DismodIO):
 
         Parameters:
             model: cascade_at.model.model.Model
-            covariate_index: Dict #TODO: add this!
             location_df: pd.DataFrame
+            age_df: pd.DataFrame
+            time_df: pd.DataFrame
+            covariate_df: pd.DataFrame
 
         Returns:
             Dict
         """
+        nslist = {}
         smooth_table = pd.DataFrame()
         prior_table = pd.DataFrame()
         grid_table = pd.DataFrame()
-
-        nslist = {}
         nslist_pair_table = pd.DataFrame()
 
-        integrand_table = pd.DataFrame({"integrand_name": enum_to_dataframe(IntegrandEnum)["name"]})
-        integrand_table["minimum_meas_cv"] = 0.0
+        integrand_table = DismodAlchemy.default_integrand_table()
+        rate_table = DismodAlchemy.default_rate_table()
 
-        rate_table = pd.DataFrame({
-            'rate_id': [rate.value for rate in RateEnum],
-            'rate_name': [rate.name for rate in RateEnum],
-            'parent_smooth_id': np.nan,
-            'child_smooth_id': np.nan,
-            'child_nslist_id': np.nan
-        })
+        covariate_index = dict(covariate_df[["covariate_name", "covariate_id"]].to_records(index=False))
 
         if "rate" in model:
             for rate_name, grid in model["rate"].items():
@@ -420,7 +446,8 @@ class DismodAlchemy(DismodIO):
                 prior, smooth, grid = DismodAlchemy.add_prior_smooth_entries(
                     grid_name=rate_name, grid=grid,
                     num_existing_priors=len(prior_table),
-                    num_existing_grids=len(grid_table)
+                    num_existing_grids=len(grid_table),
+                    age_df=age_df, time_df=time_df
                 )
 
                 smooth_id = len(smooth_table)
@@ -446,7 +473,8 @@ class DismodAlchemy(DismodIO):
                 prior, smooth, grid = DismodAlchemy.add_prior_smooth_entries(
                     grid_name=grid_name, grid=grid,
                     num_existing_priors=len(prior_table),
-                    num_existing_grids=len(grid_table)
+                    num_existing_grids=len(grid_table),
+                    age_df=age_df, time_df=time_df
                 )
 
                 smooth_id = len(smooth_table)
@@ -485,7 +513,8 @@ class DismodAlchemy(DismodIO):
                 prior, smooth, grid = DismodAlchemy.add_prior_smooth_entries(
                     grid_name=grid_name, grid=grid,
                     num_existing_priors=len(prior_table),
-                    num_existing_grids=len(grid_table)
+                    num_existing_grids=len(grid_table),
+                    age_df=age_df, time_df=time_df
                 )
                 smooth_id = len(smooth_table)
                 smooth["smooth_id"] = smooth_id
@@ -499,8 +528,8 @@ class DismodAlchemy(DismodIO):
                     "mulcov_type": [MulCovEnum[m].value],
                     "rate_id": [np.nan],
                     "integrand_id": [np.nan],
-                    "covariate_id": [covariate],
-                    "smooth_id": smooth_id
+                    "covariate_id": [covariate_index[covariate]],
+                    "smooth_id": [smooth_id]
                 })
                 if m == "alpha":
                     mulcov["rate_id"] = RateEnum[rate_or_integrand].value
@@ -527,6 +556,22 @@ class DismodAlchemy(DismodIO):
             'nslist': nslist_table,
             'nslist_pair': nslist_pair_table
         }
+
+    @staticmethod
+    def construct_avgint_table():
+        pass
+
+    @staticmethod
+    def construct_constraint_table():
+        pass
+
+    @staticmethod
+    def construct_depend_var_table():
+        pass
+
+    @staticmethod
+    def construct_fit_var_table():
+        pass
 
     @staticmethod
     def construct_sample_table():
