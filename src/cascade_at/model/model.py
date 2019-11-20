@@ -6,7 +6,6 @@ from cascade_at.dismod.constants import WeightEnum
 from cascade_at.model.covariate import Covariate
 from cascade_at.model.dismod_groups import DismodGroups
 from cascade_at.model.var import Var
-from cascade_at.model.smooth_grid import uninformative_grid_from_var
 
 
 class Model(DismodGroups):
@@ -137,38 +136,6 @@ class Model(DismodGroups):
                 weights[kind].grid.loc[:, "mean"] = 1.0
         return weights
 
-
-    def get_model_rates(self):
-        """
-        Gets ...
-
-        Returns:
-        """
-        for group_name, group in self.items():
-            if group_name == "rate":
-                for rate_name, grid in group.items():
-                    pass
-                    # TODO: Working on this
-
-    def write(self, writer):
-        self._ensure_weights()
-        self._check()
-        writer.start_model(self.nonzero_rates, self.child_location)
-        writer.write_covariate(self.covariates)
-        writer.write_weights(self.weights)
-        for group_name, group in self.items():
-            if group_name == "rate":
-                for rate_name, grid in group.items():
-                    writer.write_rate(rate_name, grid)
-            elif group_name == "random_effect":
-                for (rate_name, child), grid in group.items():
-                    writer.write_random_effect(rate_name, child, grid)
-            elif group_name in {"alpha", "beta", "gamma"}:
-                for (covariate, target), grid in group.items():
-                    writer.write_mulcov(group_name, covariate, target, grid)
-            else:
-                raise RuntimeError(f"Unknown kind of field {group_name}")
-
     def var_from_mean(self):
         # Call the mean mu because mean is a function.
         mu = DismodGroups()
@@ -186,44 +153,6 @@ class Model(DismodGroups):
                         mu[group_name][key] = grid.var_from_mean()
         return mu
 
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        if not super().__eq__(other):
-            return False
-        if self.scale_set_by_user and not (other.scale_set_by_user and self._scale == other._scale):
-            return False
-        return (set(self.nonzero_rates) == set(other.nonzero_rates) and
-                self.location_id == other.location_id and
-                set(self.child_location) == set(other.child_location) and
-                set(self.covariates) == set(other.covariates) and
-                self.weights == other.weights
-                )
-
-    def _ensure_weights(self):
-        """If weights weren't made, then make them constant. Must be done after
-        there is data in the Model."""
-        # Find an age and time already in the model because adding an
-        # age and time outside the model can change the integration ranges.
-        arbitrary_grid = next(iter(self.rate.values()))
-        one_age_time = (arbitrary_grid.ages[0:1], arbitrary_grid.times[0:1])
-
-        for kind in (weight.name for weight in WeightEnum):
-            if kind not in self.weights:
-                self.weights[kind] = Var(*one_age_time)
-                self.weights[kind].grid.loc[:, "mean"] = 1.0
-
-    def _check(self):
-        child_specific_rate = dict()
-        for rate, child in self.random_effect:
-            child_specific = child is not None
-            if rate in child_specific_rate and child_specific_rate[rate] != child_specific:
-                raise ValueError(
-                    f"Model random effect for {rate} has both child-specific "
-                    f"and all-child specifications")
-            else:
-                child_specific_rate[rate] = child_specific
-
     @staticmethod
     def _check_covariates(covariates):
         for c in covariates:
@@ -240,42 +169,16 @@ class Model(DismodGroups):
             if name not in dir(WeightEnum):
                 raise ValueError(f"Weights should be one of {[w.name for w in WeightEnum]}")
 
-    @classmethod
-    def from_var(cls, var, parent_location, weights=None, covariates=None,
-                 multiple_random_effects=False):
-        """
-        Given values across all rates, construct a model with loose priors
-        in order to be able to predict from those rates.
-
-        Args:
-            var (DismodGroups[Var]): Values on grids.
-            parent_location (int): A parent location, because that isn't
-                in the keys.
-            weights (Dict[Var]): Population weights for integrands.
-            covariates(List[Covariate]): Covariate objects.
-            multiple_random_effects (bool): Create a separate smooth grid for
-                each random effect in the Var. The default is to create a
-                single smooth grid for all random effects.
-
-        Returns:
-            Model: with Uniform distributions everywhere and no mulstd.
-        """
-        child_locations = list(sorted({k[1] for k in var.random_effect.keys()}))
-        nonzero_rates = list(var.rate.keys())
-        model = cls(nonzero_rates, parent_location, child_locations, weights=weights, covariates=covariates)
-
-        strictly_positive = dict(rate=True)
-        for group_name, group in var.items():
-            skip_re_children = group_name == "random_effect" and not multiple_random_effects
-            for key, var in group.items():
-                if skip_re_children:
-                    # Make one smooth grid for all children.
-                    assign_key = (key[0], None)
-                else:
-                    assign_key = key
-
-                if assign_key not in model[group_name]:
-                    must_be_positive = strictly_positive.get(group_name, False)
-                    model[group_name][assign_key] = uninformative_grid_from_var(var, must_be_positive)
-
-        return model
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        if not super().__eq__(other):
+            return False
+        if self.scale_set_by_user and not (other.scale_set_by_user and self._scale == other._scale):
+            return False
+        return (set(self.nonzero_rates) == set(other.nonzero_rates) and
+                self.location_id == other.location_id and
+                set(self.child_location) == set(other.child_location) and
+                set(self.covariates) == set(other.covariates) and
+                self.weights == other.weights
+                )

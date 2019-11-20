@@ -80,13 +80,14 @@ class Alchemy:
             parent_location_id: (int)
             covariate_specs (cascade_at.inputs.covariate_specs.CovariateSpecs): covariate
                 specifications, specifically will use covariate_specs.covariate_multipliers
+            weights:
         """
         children = list(location_dag.dag.successors(parent_location_id))
         model = Model(
             nonzero_rates=self.settings.rate,
             parent_location=parent_location_id,
             child_location=children,
-            covariates=None,
+            covariates=covariate_specs.covariate_list,
             weights=weights
         )
 

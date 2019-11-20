@@ -1,4 +1,5 @@
 from cascade_at.inputs.utilities.covariate_specifications import create_covariate_specifications
+from cascade_at.model.covariate import Covariate
 from cascade_at.inputs.utilities.gbd_ids import get_study_level_covariate_ids, get_country_level_covariate_ids
 from cascade_at.core.log import get_loggers
 
@@ -15,6 +16,7 @@ class CovariateSpecs:
         self.covariate_multipliers, self.covariate_specs = create_covariate_specifications(
             country_covariate=self.country_covariates
         )
+
         self.country_covariate_ids = {
             spec.covariate_id for spec in self.covariate_specs
             if spec.study_country == "country"
@@ -32,3 +34,7 @@ class CovariateSpecs:
             if short is None:
                 raise RuntimeError(f"Covariate {cov} is not found in id-to-name mapping.")
             cov.untransformed_covariate_name = short
+
+        self.covariate_list = []
+        for c in self.covariate_specs:
+            self.covariate_list.append(Covariate(c.name, c.reference, c.max_difference))

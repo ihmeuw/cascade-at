@@ -220,6 +220,59 @@ class MeasurementInputs:
                 )
                 self.dismod_data[c.name] = interpolated_mean_value
 
+    def get_covariate_reference_max_diff(self, parent_location_id):
+        """
+        Gets the country covariate reference value for a covariate ID and a parent location ID.
+        Also gets the maximum difference between the reference value and covariate values observed.
+
+        :param: (int)
+        :param parent_location_id: (int)
+        :return: (float)
+        """
+        ref_max = pd.DataFrame()
+
+        age_min = self.dismod_data.age_lower.min()
+        age_max = self.dismod_data.age_upper.max()
+        time_min = self.dismod_data.time_lower.min()
+        time_max = self.dismod_data.time_upper.max()
+        BOTH_SEX = 3
+
+        children = list(self.location_dag.dag.successors(parent_location_id))
+
+        for c_id in self.country_covariate_id:
+            cov_df = self.country_covariate_data[c_id]
+
+            parent_df = cov_df.loc[cov_df.location_id == parent_location_id].copy()
+            child_df = cov_df.loc[cov_df.location_id.isin(children)].copy()
+            all_loc_df = pd.concat([child_df, parent_df], axis=0)
+
+            if cov_df.empty:
+                # A hack for now, in case there is no value for the location in the database.
+                reference_value = 0.0
+            else:
+                pop_df = self.population.raw
+                pop_df = pop_df.loc[pop_df.location_id == parent_location_id].copy()
+
+                df_to_interp = pd.DataFrame({
+                    'location_id': parent_location_id,
+                    'sex_id': [BOTH_SEX],
+                    'age_lower': [age_min],
+                    'age_upper': [age_max],
+                    'time_lower': [time_min],
+                    'time_upper': [time_max]
+                })
+                reference_value = get_interpolated_covariate_values(
+                    data_df=df_to_interp,
+                    covariate_df=parent_df,
+                    population_df=pop_df
+                )
+            ref_max = ref_max.append(pd.DataFrame({
+                'real_covariate_id': c_id,
+                'reference': reference_value,
+                'max_difference': np.max(np.abs(all_loc_df.mean_value - reference_value))
+            }))
+        return ref_max
+
     def measures_to_exclude_from_settings(self, settings):
         """
         Gets the measures to exclude from the data from the model

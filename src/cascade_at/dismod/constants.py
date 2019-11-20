@@ -1,5 +1,17 @@
 from collections import namedtuple
 from enum import Enum
+import pandas as pd
+import numpy as np
+
+
+def enum_to_dataframe(enum_name):
+    """Given an enum, return a dataframe with two columns, name and value."""
+    return pd.DataFrame.from_records(
+        np.array(
+            [(measure, enum_value.value) for (measure, enum_value) in enum_name.__members__.items()],
+            dtype=np.dtype([("name", object), ("value", np.int)]),
+        )
+    )
 
 
 class DensityEnum(Enum):
