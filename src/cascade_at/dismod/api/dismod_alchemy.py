@@ -25,6 +25,7 @@ class DismodAlchemy(DismodIO):
         measurement_inputs: (cascade_at.collector.measurement_inputs.MeasurementInputs)
         grid_alchemy: (cascade_at.collector.grid_alchemy.GridAlchemy)
         parent_location_id: (int) which parent location to construct the database for
+        sex_id: (int) the sex that this database will be run for
 
     Attributes:
         self.parent_child_model: (cascade_at.model.model.Model) that was constructed from grid_alchemy parameter
@@ -51,17 +52,22 @@ class DismodAlchemy(DismodIO):
         >>>                    parent_location_id=1)
         >>> da.fill_for_parent_child()
     """
-    def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id):
+    def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id, sex_id):
         super().__init__(path=path)
         self.settings = settings_configuration
         self.inputs = measurement_inputs
         self.alchemy = grid_alchemy
         self.parent_location_id = parent_location_id
+        self.sex_id = sex_id
 
+        self.covariate_specs_with_valid_reference = self.inputs.calculate_country_covariate_reference_values(
+            parent_location_id=self.parent_location_id,
+            sex_id=self.sex_id
+        )
         self.parent_child_model = self.alchemy.construct_two_level_model(
             location_dag=self.inputs.location_dag,
             parent_location_id=self.parent_location_id,
-            covariate_specs=self.inputs.covariate_specs
+            covariate_specs=self.covariate_specs_with_valid_reference
         )
     
     def fill_for_parent_child(self, **additional_option_kwargs):
@@ -82,8 +88,11 @@ class DismodAlchemy(DismodIO):
         )
         self.density = self.construct_density_table()
         self.node = self.construct_node_table(location_dag=self.inputs.location_dag)
-        self.data = self.construct_data_table(df=self.inputs.dismod_data, node=self.node)
         self.covariate = self.construct_covariate_table(covariates=self.parent_child_model.covariates)
+        self.data = self.construct_data_table(
+            df=self.inputs.dismod_data,
+            node=self.node,
+        )
 
         self.weight, self.weight_grid = self.construct_weight_grid_tables(
             weights=self.parent_child_model.get_weights(),
@@ -426,6 +435,7 @@ class DismodAlchemy(DismodIO):
         smooth_table = pd.DataFrame()
         prior_table = pd.DataFrame()
         grid_table = pd.DataFrame()
+        mulcov_table = pd.DataFrame()
         nslist_pair_table = pd.DataFrame()
 
         integrand_table = DismodAlchemy.default_integrand_table()
@@ -499,11 +509,11 @@ class DismodAlchemy(DismodIO):
                             'smooth_id': smooth_id
                         }))
 
-        mulcov_table = []
         potential_mulcovs = ["alpha", "beta", "gamma"]
         mulcovs = [x for x in potential_mulcovs if x in model]
 
         for m in mulcovs:
+            import pdb; pdb.set_trace()
             for (covariate, rate_or_integrand), grid in model[m].items():
                 grid_name = f"{m}_{rate_or_integrand}_{covariate}"
 
@@ -536,7 +546,6 @@ class DismodAlchemy(DismodIO):
                     raise RuntimeError(f"Unknown mulcov type {m}.")
                 mulcov_table.append(mulcov)
 
-        mulcov_table = pd.concat(mulcov_table).reset_index(drop=True)
         mulcov_table["mulcov_id"] = mulcov_table.index
 
         nslist_table = pd.DataFrame.from_records(

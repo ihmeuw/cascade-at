@@ -6,10 +6,14 @@ from cascade_at.core.log import get_loggers
 LOG = get_loggers(__name__)
 
 
-SEX_MAP = {
+SEX_ID_TO_NAME = {
     1: 'Male',
     2: 'Female',
     3: 'Both'
+}
+
+SEX_NAME_TO_ID = {
+    v: k for k, v in SEX_ID_TO_NAME.items()
 }
 
 
@@ -19,6 +23,18 @@ class CascadeConstants:
     GLOBAL_LOCATION_ID = 1
     ESTIMATION_LOCATION_HIERARCHY_ID = 35
     AGE_GROUP_SET_ID = 12
+    PRECISION_FOR_REFERENCE_VALUES = 1e-10
+
+
+class StudyCovConstants:
+    SEX_COV_VALUE_MAP = {
+        'Male': 0.5,
+        'Both': 0,
+        'Female': -0.5
+    }
+    MAX_DIFFERENCE_SEX_COV = 0.5 + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES
+    ONE_COV_VALUE = 1
+    MAX_DIFFERENCE_ONE_COV = None
 
 
 def get_sex_ids():

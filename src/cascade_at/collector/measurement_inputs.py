@@ -14,8 +14,11 @@ from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.inputs.population import Population
 from cascade_at.inputs.utilities.covariate_weighting import get_interpolated_covariate_values
-from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id, SEX_MAP
+from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id
 from cascade_at.dismod.integrand_mappings import make_integrand_map
+from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
+from cascade_at.inputs.utilities.gbd_ids import SEX_ID_TO_NAME, SEX_NAME_TO_ID
+from cascade_at.inputs.utilities.gbd_ids import CascadeConstants, StudyCovConstants
 
 LOG = get_loggers(__name__)
 
@@ -192,15 +195,20 @@ class MeasurementInputs:
         self.dismod_data.reset_index(drop=True, inplace=True)
 
         self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
+        # This makes the specs not just for the country covariate but adds on the
+        # sex and one covariates.
         self.covariate_specs = CovariateSpecs(settings.country_covariate)
 
         self.interpolate_country_covariate_values()
+        self.transform_country_covariates()
+
+        self.dismod_data.loc[self.dismod_data.hold_out.isnull(), 'hold_out'] = 0.
 
         self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
-        self.dismod_data['s_sex'] = self.dismod_data.sex_id.map(SEX_MAP)
-        self.dismod_data['s_one'] = 1
-        self.dismod_data.loc[self.dismod_data.hold_out.isnull(), 'hold_out'] = 0.
-        
+
+        self.dismod_data['s_sex'] = self.dismod_data.sex_id.map(SEX_ID_TO_NAME).map(StudyCovConstants.SEX_COV_VALUE_MAP)
+        self.dismod_data['s_one'] = StudyCovConstants.ONE_COV_VALUE
+
         return self
 
     def interpolate_country_covariate_values(self):
@@ -220,58 +228,84 @@ class MeasurementInputs:
                 )
                 self.dismod_data[c.name] = interpolated_mean_value
 
-    def get_covariate_reference_max_diff(self, parent_location_id):
+    def transform_country_covariates(self):
+        """
+        Transforms the covariate data with the transformation ID.
+        :return: self
+        """
+        for c in self.covariate_specs.covariate_specs:
+            if c.study_country == 'country':
+                LOG.info(f"Transforming the data for country covariate {c.covariate_id}.")
+                self.dismod_data[c.name] = self.dismod_data[c.name].apply(
+                    lambda x: COVARIATE_TRANSFORMS[c.transformation_id](x)
+                )
+        return self
+
+    def calculate_country_covariate_reference_values(self, parent_location_id, sex_id):
         """
         Gets the country covariate reference value for a covariate ID and a parent location ID.
         Also gets the maximum difference between the reference value and covariate values observed.
 
+        Run this when you're going to make a DisMod AT database for a specific parent location
+        and sex ID.
+
         :param: (int)
         :param parent_location_id: (int)
-        :return: (float)
+        :param sex_id: (int)
+        :return: List[CovariateSpec] list of the covariate specs with the correct reference values and max diff.
         """
-        ref_max = pd.DataFrame()
+        covariate_specs = self.covariate_specs.covariate_specs.copy()
 
         age_min = self.dismod_data.age_lower.min()
         age_max = self.dismod_data.age_upper.max()
         time_min = self.dismod_data.time_lower.min()
         time_max = self.dismod_data.time_upper.max()
-        BOTH_SEX = 3
 
         children = list(self.location_dag.dag.successors(parent_location_id))
 
-        for c_id in self.country_covariate_id:
-            cov_df = self.country_covariate_data[c_id]
+        for c in covariate_specs:
+            if c.study_country == 'study':
+                if c.name == 's_sex':
+                    c.reference_value = StudyCovConstants.SEX_COV_VALUE_MAP[SEX_ID_TO_NAME[sex_id]]
+                    c.max_difference = StudyCovConstants.MAX_DIFFERENCE_SEX_COV
+                elif c.name == 's_one':
+                    c.reference_value = StudyCovConstants.ONE_COV_VALUE
+                    c.max_difference = StudyCovConstants.MAX_DIFFERENCE_ONE_COV
+                else:
+                    raise ValueError(f"The only two study covariates allowed are sex and one, you tried {c.name}.")
+            elif c.study_country == 'country':
+                LOG.info(f"Calculating the reference and max difference for country covariate {c.covariate_id}.")
 
-            parent_df = cov_df.loc[cov_df.location_id == parent_location_id].copy()
-            child_df = cov_df.loc[cov_df.location_id.isin(children)].copy()
-            all_loc_df = pd.concat([child_df, parent_df], axis=0)
+                cov_df = self.country_covariate_data[c.covariate_id]
+                parent_df = cov_df.loc[cov_df.location_id == parent_location_id].copy()
+                child_df = cov_df.loc[cov_df.location_id.isin(children)].copy()
+                all_loc_df = pd.concat([child_df, parent_df], axis=0)
 
-            if cov_df.empty:
-                # A hack for now, in case there is no value for the location in the database.
-                reference_value = 0.0
-            else:
-                pop_df = self.population.raw
-                pop_df = pop_df.loc[pop_df.location_id == parent_location_id].copy()
+                # if there is no data for the parent location at all (which there should be provided by Central Comp)
+                # then we are going to set the reference value to 0.
+                if cov_df.empty:
+                    reference_value = 0
+                else:
+                    pop_df = self.population.raw
+                    pop_df = pop_df.loc[pop_df.location_id == parent_location_id].copy()
 
-                df_to_interp = pd.DataFrame({
-                    'location_id': parent_location_id,
-                    'sex_id': [BOTH_SEX],
-                    'age_lower': [age_min],
-                    'age_upper': [age_max],
-                    'time_lower': [time_min],
-                    'time_upper': [time_max]
-                })
-                reference_value = get_interpolated_covariate_values(
-                    data_df=df_to_interp,
-                    covariate_df=parent_df,
-                    population_df=pop_df
-                )
-            ref_max = ref_max.append(pd.DataFrame({
-                'real_covariate_id': c_id,
-                'reference': reference_value,
-                'max_difference': np.max(np.abs(all_loc_df.mean_value - reference_value))
-            }))
-        return ref_max
+                    df_to_interp = pd.DataFrame({
+                        'location_id': parent_location_id,
+                        'sex_id': [SEX_NAME_TO_ID['Both']],
+                        'age_lower': [age_min], 'age_upper': [age_max],
+                        'time_lower': [time_min], 'time_upper': [time_max]
+                    })
+                    reference_value = get_interpolated_covariate_values(
+                        data_df=df_to_interp,
+                        covariate_df=parent_df,
+                        population_df=pop_df
+                    ).iloc[0]
+
+                c.reference_value = reference_value
+                c.max_difference = np.max(
+                    np.abs(all_loc_df.mean_value - reference_value)
+                ) + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES
+        return covariate_specs
 
     def measures_to_exclude_from_settings(self, settings):
         """
