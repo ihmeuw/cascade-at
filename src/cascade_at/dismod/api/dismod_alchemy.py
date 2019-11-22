@@ -95,8 +95,8 @@ class DismodAlchemy(DismodIO):
         self.covariate = self.construct_covariate_table(covariates=self.parent_child_model.covariates)
         self.data = self.construct_data_table(
             df=self.inputs.dismod_data,
-            node=self.node,
-            covariate=self.covariate
+            node_df=self.node,
+            covariate_df=self.covariate
         )
 
         self.weight, self.weight_grid = self.construct_weight_grid_tables(
@@ -237,7 +237,7 @@ class DismodAlchemy(DismodIO):
         }, inplace=True)
         data['c_location_id'] = data['c_location_id'].astype(int)
         data = data.merge(
-            node[["node_id", "c_location_id"]],
+            node_df[["node_id", "c_location_id"]],
             on=["c_location_id"]
         )
         data["density_id"] = data["density"].apply(lambda x: DensityEnum[x].value)
@@ -308,7 +308,6 @@ class DismodAlchemy(DismodIO):
         :param covariates: List(cascade_at.model.covariate.Covariate)
         :return: pd.DataFrame()
         """
-        import pdb; pdb.set_trace()
         covariates_reordered = list()
         lookup = {search.name: search for search in covariates}
         for special in ["sex", "one"]:
@@ -370,7 +369,7 @@ class DismodAlchemy(DismodIO):
             prior_df.loc[~null_names, "prior_name"].astype(str) + "    " +
             prior_df.loc[~null_names, "prior_id"].astype(str)
         )
-        prior_df.loc[null_names, "prior_name"] = prior_df.loc[null_names, "prior_name"].apply(
+        prior_df.loc[null_names, "prior_name"] = prior_df.loc[null_names, "prior_id"].apply(
             lambda pid: f"{grid_name}_{pid}"
         )
 
@@ -455,7 +454,7 @@ class DismodAlchemy(DismodIO):
         integrand_table = DismodAlchemy.default_integrand_table()
         rate_table = DismodAlchemy.default_rate_table()
 
-        covariate_index = dict(covariate_df[["covariate_name", "covariate_id"]].to_records(index=False))
+        covariate_index = dict(covariate_df[["c_covariate_name", "covariate_id"]].to_records(index=False))
 
         if "rate" in model:
             for rate_name, grid in model["rate"].items():
@@ -557,7 +556,7 @@ class DismodAlchemy(DismodIO):
                     mulcov["integrand_id"] = IntegrandEnum[rate_or_integrand].value
                 else:
                     raise RuntimeError(f"Unknown mulcov type {m}.")
-                mulcov_table.append(mulcov)
+                mulcov_table = mulcov_table.append(mulcov)
 
         mulcov_table["mulcov_id"] = mulcov_table.index
 
