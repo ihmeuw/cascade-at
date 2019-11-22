@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from cascade_at.core.form import (
+from cascade_at.core.form.fields import (
     Form,
     FormList,
     IntField,
