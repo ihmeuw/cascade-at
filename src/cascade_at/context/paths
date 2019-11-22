@@ -1,7 +1,0 @@
-
-
-class Context:
-    def __init__(model_version_id, conn_def):
-        self.model_version_id = model_version_id,
-        self.conn_def = conn_def
-        
