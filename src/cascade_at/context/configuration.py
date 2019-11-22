@@ -20,10 +20,10 @@ def application_config():
     Returns:
         ConfigParser.SectionProxy: This is a mapping type.
     """
-    import pdb; pdb.set_trace()
+
     parser = ConfigParser()
     config_sources = list()
-    print(list(iter_entry_points("config")))
+
     for entry_point in iter_entry_points("config"):
         LOG.debug(f"Found configuration in distribution {entry_point.dist}")
         config_sources.append(entry_point.dist)
