@@ -22,7 +22,8 @@ class LocationDAG:
         self.location_set_version_id = location_set_version_id
 
         self.df = db_queries.get_location_metadata(
-            location_set_version_id=location_set_version_id
+            location_set_version_id=location_set_version_id,
+            location_set_id=CascadeConstants.ESTIMATION_LOCATION_HIERARCHY_ID
         )
 
         self.dag = nx.DiGraph()

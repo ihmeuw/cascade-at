@@ -3,13 +3,14 @@ from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
 from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.inputs.uncertainty import bounds_to_stdev
+from cascade_at.inputs.utilities.gbd_ids import CascadeConstants
 
 LOG = get_loggers(__name__)
 
 
 class ASDR(BaseInput):
     def __init__(self, demographics, decomp_step,
-                 gbd_round_id, with_hiv=True):
+                 gbd_round_id):
         """
         Gets age-specific death rate for all
         demographic groups.
@@ -24,7 +25,6 @@ class ASDR(BaseInput):
         self.demographics = demographics
         self.decomp_step = decomp_step
         self.gbd_round_id = gbd_round_id
-        self.with_hiv = with_hiv
 
         self.raw = None
 
@@ -42,7 +42,9 @@ class ASDR(BaseInput):
             location_id=self.demographics.location_id,
             decomp_step=self.decomp_step,
             gbd_round_id=self.gbd_round_id,
-            with_hiv=self.with_hiv
+            with_hiv=CascadeConstants.WITH_HIV,
+            with_shock=CascadeConstants.WITH_SHOCK,
+            rates=1
         )
         return self
 

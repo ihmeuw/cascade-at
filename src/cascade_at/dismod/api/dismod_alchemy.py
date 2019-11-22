@@ -65,10 +65,6 @@ class DismodAlchemy(DismodIO):
             parent_location_id=self.parent_location_id,
             sex_id=self.sex_id
         )
-        # Generate the Covariate objects' covariate_list
-        # with the correct max difference and reference value
-        # for this particular sex and parent location ID.
-        self.covariate_specs_with_valid_reference.create_covariate_list()
         
         # Pass the location-sex specific covariate information to construct a new
         # two-level model for the specified parent and all of its children (coming from LocationDAG)
@@ -100,6 +96,7 @@ class DismodAlchemy(DismodIO):
         self.data = self.construct_data_table(
             df=self.inputs.dismod_data,
             node=self.node,
+            covariate=self.covariate
         )
 
         self.weight, self.weight_grid = self.construct_weight_grid_tables(
@@ -223,13 +220,14 @@ class DismodAlchemy(DismodIO):
         return node
 
     @staticmethod
-    def construct_data_table(df, node):
+    def construct_data_table(df, node_df, covariate_df):
         """
         Constructs the data table from input df.
 
         Parameters:
             df: (pd.DataFrame) data frame of inputs that have been prepped for dismod
-            node: (pd.DataFrame) the dismod node table
+            node_df: (pd.DataFrame) the dismod node table
+            covariate_df: (pd.DataFrame) the dismod covariate table
         """
         LOG.info("Constructing data table.")
         data = df.copy()
@@ -250,11 +248,17 @@ class DismodAlchemy(DismodIO):
         data.reset_index(inplace=True, drop=True)
         data["data_name"] = data.index.astype(str)
 
+        covariate_rename = pd.Series(
+            covariate_df.covariate_name.values,
+            index=covariate_df.c_covariate_name
+        ).to_dict()
+
+        data.rename(columns=covariate_rename, inplace=True)
         data = data[[
             'data_name', 'integrand_id', 'density_id', 'node_id', 'weight_id',
             'hold_out', 'meas_value', 'meas_std', 'eta', 'nu',
             'age_lower', 'age_upper', 'time_lower', 'time_upper'
-        ]]
+        ] + list(covariate_rename.values())]
 
         return data
 
@@ -304,6 +308,7 @@ class DismodAlchemy(DismodIO):
         :param covariates: List(cascade_at.model.covariate.Covariate)
         :return: pd.DataFrame()
         """
+        import pdb; pdb.set_trace()
         covariates_reordered = list()
         lookup = {search.name: search for search in covariates}
         for special in ["sex", "one"]:
@@ -327,7 +332,8 @@ class DismodAlchemy(DismodIO):
 
         covariate_table = pd.DataFrame({
             "covariate_id": np.arange(len(covariates_reordered)),
-            "covariate_name": [col.name for col in covariates_reordered],
+            "covariate_name": [covariate_rename[col.name] for col in covariates_reordered],
+            "c_covariate_name": [col.name for col in covariates_reordered],
             "reference": np.array([col.reference for col in covariates_reordered], dtype=np.float),
             "max_difference": np.array([col.max_difference for col in covariates_reordered], dtype=np.float)
         })

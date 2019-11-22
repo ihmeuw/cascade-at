@@ -263,7 +263,7 @@ class MeasurementInputs:
         time_max = self.dismod_data.time_upper.max()
 
         children = list(self.location_dag.dag.successors(parent_location_id))
-
+        import pdb; pdb.set_trace()
         for c in covariate_specs.covariate_specs:
             if c.study_country == 'study':
                 if c.name == 's_sex':
@@ -301,11 +301,13 @@ class MeasurementInputs:
                         covariate_df=parent_df,
                         population_df=pop_df
                     ).iloc[0]
+                    max_difference = np.max(
+                        np.abs(all_loc_df.mean_value - reference_value)
+                    ) + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES
 
                 c.reference_value = reference_value
-                c.max_difference = np.max(
-                    np.abs(all_loc_df.mean_value - reference_value)
-                ) + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES
+                c.max_difference = max_difference
+        covariate_specs.create_covariate_list()
         return covariate_specs
 
     def measures_to_exclude_from_settings(self, settings):
