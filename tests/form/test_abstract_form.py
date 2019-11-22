@@ -1,6 +1,6 @@
 import pytest
 
-from cascade.core.form.abstract_form import Form, Field, SimpleTypeField
+from cascade_at.core.form.abstract_form import Form, Field, SimpleTypeField
 
 
 def test_development_target():
