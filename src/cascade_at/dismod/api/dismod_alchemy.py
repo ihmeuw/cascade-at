@@ -49,7 +49,8 @@ class DismodAlchemy(DismodIO):
         >>>                    settings_configuration=settings,
         >>>                    measurement_inputs=inputs,
         >>>                    grid_alchemy=alchemy,
-        >>>                    parent_location_id=1)
+        >>>                    parent_location_id=1,
+        >>>                    sex_id=3)
         >>> da.fill_for_parent_child()
     """
     def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id, sex_id):
@@ -64,6 +65,13 @@ class DismodAlchemy(DismodIO):
             parent_location_id=self.parent_location_id,
             sex_id=self.sex_id
         )
+        # Generate the Covariate objects' covariate_list
+        # with the correct max difference and reference value
+        # for this particular sex and parent location ID.
+        self.covariate_specs_with_valid_reference.create_covariate_list()
+        
+        # Pass the location-sex specific covariate information to construct a new
+        # two-level model for the specified parent and all of its children (coming from LocationDAG)
         self.parent_child_model = self.alchemy.construct_two_level_model(
             location_dag=self.inputs.location_dag,
             parent_location_id=self.parent_location_id,
@@ -513,7 +521,6 @@ class DismodAlchemy(DismodIO):
         mulcovs = [x for x in potential_mulcovs if x in model]
 
         for m in mulcovs:
-            import pdb; pdb.set_trace()
             for (covariate, rate_or_integrand), grid in model[m].items():
                 grid_name = f"{m}_{rate_or_integrand}_{covariate}"
 

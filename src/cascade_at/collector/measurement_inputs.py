@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from copy import copy
 from collections import defaultdict
 
 from gbd.decomp_step import decomp_step_from_decomp_step_id
@@ -254,7 +255,7 @@ class MeasurementInputs:
         :param sex_id: (int)
         :return: List[CovariateSpec] list of the covariate specs with the correct reference values and max diff.
         """
-        covariate_specs = self.covariate_specs.covariate_specs.copy()
+        covariate_specs = copy(self.covariate_specs)
 
         age_min = self.dismod_data.age_lower.min()
         age_max = self.dismod_data.age_upper.max()
@@ -263,7 +264,7 @@ class MeasurementInputs:
 
         children = list(self.location_dag.dag.successors(parent_location_id))
 
-        for c in covariate_specs:
+        for c in covariate_specs.covariate_specs:
             if c.study_country == 'study':
                 if c.name == 's_sex':
                     c.reference_value = StudyCovConstants.SEX_COV_VALUE_MAP[SEX_ID_TO_NAME[sex_id]]
@@ -282,7 +283,7 @@ class MeasurementInputs:
                 all_loc_df = pd.concat([child_df, parent_df], axis=0)
 
                 # if there is no data for the parent location at all (which there should be provided by Central Comp)
-                # then we are going to set the reference value to 0.
+                # then we are going to set the reference v alue to 0.
                 if cov_df.empty:
                     reference_value = 0
                 else:

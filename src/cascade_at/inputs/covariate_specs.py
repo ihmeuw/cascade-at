@@ -34,7 +34,12 @@ class CovariateSpecs:
             if short is None:
                 raise RuntimeError(f"Covariate {cov} is not found in id-to-name mapping.")
             cov.untransformed_covariate_name = short
-
+    
+    def create_covariate_list(self):
+        """
+        Creates a list of Covariate objects with the current reference value and max difference.
+        """
         self.covariate_list = []
         for c in self.covariate_specs:
             self.covariate_list.append(Covariate(c.name, c.reference, c.max_difference))
+        return self
