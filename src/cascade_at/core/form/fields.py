@@ -1,11 +1,10 @@
 """ This module defines specializations of the general tools in abstract_form,
 mostly useful field types.
 """
-from cascade.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
+from cascade_at.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
+from cascade_at.core.log import get_loggers
 
-from cascade.core.log import getLoggers
-
-CODELOG, MATHLOG = getLoggers(__name__)
+LOG = get_loggers(__name__)
 
 
 class BoolField(SimpleTypeField):

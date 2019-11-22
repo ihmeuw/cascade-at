@@ -29,8 +29,8 @@ Example:
     "Some Text"
 """
 
-from cascade.core.log import getLoggers
-CODELOG, MATHLOG = getLoggers(__name__)
+from cascade_at.core.log import get_loggers
+LOG = get_loggers(__name__)
 
 
 class NoValue:
@@ -160,8 +160,6 @@ class Field(FormComponent):
                           showing where in this object they occurred. For most
                           fields the path will always be empty.
         """
-        import pdb
-        pdb.set_trace()
         if self.is_unset(instance):
             if not self._nullable:
                 return [("", "", "Missing data")]
