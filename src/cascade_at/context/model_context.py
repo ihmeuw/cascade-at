@@ -4,14 +4,15 @@ from cascade_at.context.configuration import application_config
 
 
 class Context:
-    def __init__(self, model_version_id, conn_def, make=False, cascade_dir=None):
-        self.app = application_config()
-        self.root_directory = self.app["DataLayout"]["root-directory"]
-
-        if cascade_dir:
-            self.cascade_dir = cascade_dir
-        else:
+    def __init__(self, model_version_id, conn_def, make=False, configure_application=True):
+        
+        if configure_application:
+            self.app = application_config()
+            self.root_directory = self.app["DataLayout"]["root-directory"]
             self.cascade_dir = self.app["DataLayout"]["cascade-dir"]
+        else:
+            self.root_directory = Path('.')
+            self.cascade_dir = 'cascade_dir'
 
         self.model_version_id = model_version_id
         self.conn_def = conn_def
