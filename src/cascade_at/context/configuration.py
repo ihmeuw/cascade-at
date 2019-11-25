@@ -11,12 +11,7 @@ LOG = get_loggers(__name__)
 
 def application_config():
     """Returns a configuration dictionary.
-    If something passes in an object of type ConfigParser,
-    then we use that.
-    Args:
-        alternate_configparser (ConfigParser.SectionProxy):
-            If this is passed in, then use this instead of
-            the internal config parser.
+
     Returns:
         ConfigParser.SectionProxy: This is a mapping type.
     """
