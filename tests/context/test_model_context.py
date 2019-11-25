@@ -10,5 +10,5 @@ def test_context_files():
 
 def test_context_location_sex():
     c = Context(0, 'dismod-at-dev', make=False, configure_application=False)
-    assert str(c.db_folder(1, 3, make=False)) == 'cascade_dir/data/0/dbs/1/3'
+    assert str(c.db_file(1, 3, make=False)) == 'cascade_dir/data/0/dbs/1/3/dismod.db'
 
