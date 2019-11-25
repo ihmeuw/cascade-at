@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from cascade_at.context.model_context import Context
 from cascade_at.dismod.api.dismod_alchemy import DismodAlchemy
 from cascade_at.context.arg_utils import parse_options
+from cascade_at.dismod.api.run_dismod import run_dismod
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
@@ -55,6 +56,6 @@ if __name__ == '__main__':
     )
     da.fill_for_parent_child(**args.options)
     for c in args.commands:
-        pass
-        # TODO: pass the command to the dismod database using dmdismod executable.
+        process = run_dismod(dm_file=da.path.absolute(), command=c)
+
 
