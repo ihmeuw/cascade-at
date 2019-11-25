@@ -11,6 +11,7 @@ setup(
         "pandas==0.25.1",
         "scipy",
         "sqlalchemy",
+        "dill",
         "tables",
         "networkx"
     ],
@@ -23,5 +24,9 @@ setup(
         "Licence :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.6",
         "Topic :: Scientific/Engineering :: Statistics"
-    ]
+    ],
+    entry_points={'console_scripts': [
+        'configure_inputs=cascade_at.executor.configure_inputs:main',
+        'create_db=cascade_at.executor.create_db:main'
+    ]}
 )
