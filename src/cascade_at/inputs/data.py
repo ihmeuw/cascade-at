@@ -1,7 +1,6 @@
 import numpy as np
 
-import elmo
-
+from cascade_at.core.db import elmo
 from cascade_at.dismod.integrand_mappings import make_integrand_map
 from cascade_at.inputs.utilities import gbd_ids
 from cascade_at.core.log import get_loggers

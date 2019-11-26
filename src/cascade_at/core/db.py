@@ -69,5 +69,5 @@ db_tools = ModuleProxy("db_tools")
 ezfuncs = ModuleProxy("db_tools.ezfuncs")
 gbd = ModuleProxy("gbd")
 decomp_step = ModuleProxy("gbd.decomp_step")
-
+elmo = ModuleProxy("elmo")
 
