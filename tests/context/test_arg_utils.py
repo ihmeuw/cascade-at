@@ -1,4 +1,4 @@
-from cascade_at.context.arg_utils import parse_options
+from cascade_at.context.arg_utils import parse_options, parse_commands
 
 
 def test_options():
@@ -8,3 +8,9 @@ def test_options():
     assert option_dict['foo'] == 'hello'
     assert option_dict['bar'] == 1
     assert option_dict['foobar'] == 1.0
+
+
+def test_commands():
+    assert parse_commands(['init']) == ['init']
+    assert parse_commands(['init', 'fit-fixed']) == ['init', 'fit fixed']
+

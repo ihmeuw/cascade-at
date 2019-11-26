@@ -31,6 +31,22 @@ def load_settings(settings_json):
     return settings
 
 
+def settings_json_from_model_version_id(model_version_id, conn_def):
+    """
+    Loads settings for a specific model version ID into a json.
+
+    Parameters:
+        model_version_id: (int) the model version ID
+        conn_def: (str) the connection definition like 'dismod-at-dev'
+    """
+    df = db_tools.ezfuncs.query(
+        f"""SELECT parameter_json FROM epi.model_version_at
+            WHERE model_version_id = {model_version_id}""",
+        conn_def=conn_def
+    )
+    return json.loads(df['parameter_json'][0])
+
+
 def settings_from_model_version_id(model_version_id, conn_def):
     """
     Loads settings for a specific model version ID.
@@ -43,11 +59,6 @@ def settings_from_model_version_id(model_version_id, conn_def):
     >>> settings = settings_from_model_version_id(model_version_id=395837,
     >>>                                           conn_def='dismod-at-dev')
     """
-    df = db_tools.ezfuncs.query(
-        f"""SELECT parameter_json FROM epi.model_version_at
-            WHERE model_version_id = {model_version_id}""",
-        conn_def=conn_def
-    )
-    parameter_json = json.loads(df['parameter_json'][0])
+    parameter_json = settings_json_from_model_version_id(model_version_id=model_version_id, conn_def=conn_def)
     settings = load_settings(parameter_json)
     return settings

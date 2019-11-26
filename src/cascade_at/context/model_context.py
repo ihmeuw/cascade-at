@@ -1,9 +1,13 @@
 import os
 import dill
+import json
 from pathlib import Path
 
 from cascade_at.context.configuration import application_config
 from cascade_at.core.log import get_loggers
+from cascade_at.inputs.covariate_specs import CovariateSpecs
+from cascade_at.collector.grid_alchemy import Alchemy
+from cascade_at.settings.settings import load_settings
 
 LOG = get_loggers(__name__)
 
@@ -41,7 +45,7 @@ class Context:
 
         self.alchemy_file = self.inputs_dir / 'alchemy.p'
         self.inputs_file = self.inputs_dir / 'inputs.p'
-        self.settings_file = self.inputs_dir / 'settings.p'
+        self.settings_file = self.inputs_dir / 'settings.json'
 
         if make:
             os.makedirs(self.inputs_dir, exist_ok=True)
@@ -57,7 +61,7 @@ class Context:
             os.makedirs(folder, exist_ok=True)
         return folder / 'dismod.db'
 
-    def write_inputs(self, inputs=None, alchemy=None, settings=None):
+    def write_inputs(self, inputs=None, settings=None):
         """
         Write the inputs objects to disk.
         """
@@ -65,14 +69,10 @@ class Context:
             with open(self.inputs_file, "wb") as f:
                 LOG.info(f"Writing input obj to {self.inputs_file}.")
                 dill.dump(inputs, f)
-        if alchemy:
-            with open(self.alchemy_file, "wb") as f:
-                LOG.info(f"Writing alchemy obj to {self.alchemy_file}.")
-                dill.dump(alchemy, f)
         if settings:
-            with open(self.settings_file, "wb") as f:
+            with open(self.settings_file, 'w') as f:
                 LOG.info(f"Writing settings obj to {self.settings_file}.")
-                dill.dump(settings, f)
+                json.dump(settings, f)
 
     def read_inputs(self):
         """
@@ -86,10 +86,17 @@ class Context:
         with open(self.inputs_file, "rb") as f:
             LOG.info(f"Reading input obj from {self.inputs_file}.")
             inputs = dill.load(f)
-        with open(self.alchemy_file, "rb") as f:
-            LOG.info(f"Reading alchemy obj from {self.alchemy_file}.")
-            alchemy = dill.load(f)
-        with open(self.settings_file, "rb") as f:
-            LOG.info(f"Reading settings obj from {self.settings_file}.")
-            settings = dill.load(f)
+        with open(self.settings_file) as f:
+            settings_json = json.load(f)
+
+        settings = load_settings(settings_json=settings_json)
+        alchemy = Alchemy(settings=settings)
+
+        # For some reason the pickling process makes it so that there is a 
+        # key error in FormList when trying to access CovariateSpecs
+
+        # This re-creates the covariate specs for the inputs, but ideally
+        # we don't have to do this if we can figure out why pickling makes it error.
+        inputs.covariate_specs = CovariateSpecs(settings.country_covariate)
+
         return inputs, alchemy, settings

@@ -87,6 +87,9 @@ class MeasurementInputs:
         >>> i.get_raw_inputs()
         >>> i.configure_inputs_for_dismod()
         """
+        LOG.info(f"Initializing input object for model version ID {model_version_id}.")
+        LOG.info(f"GBD Round ID {gbd_round_id}.")
+        LOG.info(f"Pulling from connection {conn_def}.")
         self.model_version_id = model_version_id
         self.gbd_round_id = gbd_round_id
         self.decomp_step_id = decomp_step_id
@@ -263,7 +266,7 @@ class MeasurementInputs:
         time_max = self.dismod_data.time_upper.max()
 
         children = list(self.location_dag.dag.successors(parent_location_id))
-        import pdb; pdb.set_trace()
+        
         for c in covariate_specs.covariate_specs:
             if c.study_country == 'study':
                 if c.name == 's_sex':

@@ -23,3 +23,13 @@ def parse_options(option_list):
         d.update({key: type_func(val)})
     return d
 
+
+def parse_commands(command_list):
+    """
+    Parse the dismod commands that come from command line arguments
+    in a list.
+
+    :param command_list: List[str]
+    :return: list of commands that dismod can understand
+    """
+    return [' '.join(x.split('-')) for x in command_list]

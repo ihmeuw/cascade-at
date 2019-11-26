@@ -1,4 +1,5 @@
 import subprocess
+from types import SimpleNamespace
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
@@ -12,9 +13,14 @@ def run_dismod(dm_file, command):
     :return:
     """
     command = ["dmdismod", str(dm_file), command]
-    process = subprocess.run(command, capture_output=True)
-    return {
-        "exit_status": process.returncode,
-        "stdout": process.stdout.decode(),
-        "stderr": process.stderr.decode()
-    }
+    command = ' '.join(command)
+    LOG.info(f"Running {command}...")
+
+    process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    info = SimpleNamespace()
+    info.exit_status = process.returncode
+    info.stdout = process.stdout.decode()
+    info.stderr = process.stderr.decode()
+    
+    return info

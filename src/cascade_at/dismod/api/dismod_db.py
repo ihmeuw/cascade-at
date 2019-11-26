@@ -157,6 +157,19 @@ class DismodDB:
         except StatementError:
             raise
 
+    def empty_table(self, table_name, extra_columns=None):
+        """
+        Initializes an empty table for table_name.
+        """
+        table_definition = self._table_definitions[table_name]
+        df = pd.DataFrame({
+            k: pd.Series(dtype=v.type.python_type) for k, v in table_definition.c.items()
+        })
+        if extra_columns:
+            extras = pd.DataFrame({k: pd.Series() for k in extra_columns})
+            df = pd.concat([df, extras], axis=1)
+        return df
+
     def _validate_data(self, table_definition, data):
         """Validates that the dtypes in data match the expected types in the table_definition.
         Pandas makes this difficult because DataFrames with no length have Object type,

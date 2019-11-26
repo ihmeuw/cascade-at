@@ -216,7 +216,7 @@ class Model(Form):
         nullable=True,
         display="allowed modification to point to move it within bounds"
     )
-    rate_case = Dummy()
+    rate_case = StrField(nullable=False, display="The rate case")
     data_density = StrField(nullable=True, display="Data density")
 
     def _full_form_validation(self, root):

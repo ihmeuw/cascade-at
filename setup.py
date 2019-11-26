@@ -27,6 +27,7 @@ setup(
     ],
     entry_points={'console_scripts': [
         'configure_inputs=cascade_at.executor.configure_inputs:main',
-        'create_db=cascade_at.executor.create_db:main'
-    ]}
+        'dismod_db=cascade_at.executor.dismod_db:main'
+    ]},
+    scripts=["scripts/dmdismod"]
 )
