@@ -3,7 +3,7 @@ import pandas as pd
 from copy import copy
 from collections import defaultdict
 
-from gbd.decomp_step import decomp_step_from_decomp_step_id
+import cascade_at.core.db.decomp_step import as ds
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.asdr import ASDR
@@ -99,7 +99,7 @@ class MeasurementInputs:
         self.country_covariate_id = country_covariate_id
         self.conn_def = conn_def
 
-        self.decomp_step = decomp_step_from_decomp_step_id(
+        self.decomp_step = ds.decomp_step_from_decomp_step_id(
             self.decomp_step_id
         )
 
