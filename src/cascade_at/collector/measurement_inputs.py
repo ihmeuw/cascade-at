@@ -3,7 +3,7 @@ import pandas as pd
 from copy import copy
 from collections import defaultdict
 
-import cascade_at.core.db.decomp_step import as ds
+import cascade_at.core.db.decomp_step as ds
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.asdr import ASDR
