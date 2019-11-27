@@ -34,6 +34,14 @@ class LocationDAG:
             for row in self.df.loc[self.df.location_id != CascadeConstants.GLOBAL_LOCATION_ID].itertuples()
         ])
         self.dag.graph["root"] = CascadeConstants.GLOBAL_LOCATION_ID
+
+    def descendants(self, location_id):
+        """
+        Gets all descendants (not just direct children) for a location ID.
+        :param location_id: (int)
+        :return:
+        """
+        return nx.algorithms.dag.descendants(G=self.dag, source=location_id)
     
     def to_dataframe(self):
         """

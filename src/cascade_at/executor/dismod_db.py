@@ -71,7 +71,6 @@ def main():
     for c in args.commands:
         process = run_dismod(dm_file=da.path.absolute(), command=c)
         if process.exit_status:
-            import pdb; pdb.set_trace()
             LOG.error(f"{c} failed with exit_status {process.exit_status}:")
             LOG.error(f"{process.stderr}")
 

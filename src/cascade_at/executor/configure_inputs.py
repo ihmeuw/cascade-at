@@ -4,7 +4,6 @@ from argparse import ArgumentParser
 from cascade_at.context.model_context import Context
 from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
 from cascade_at.collector.measurement_inputs import MeasurementInputsFromSettings
-from cascade_at.collector.grid_alchemy import Alchemy
 from cascade_at.core.log import get_loggers, LEVELS
 
 LOG = get_loggers(__name__)
@@ -24,6 +23,8 @@ def get_args():
                         help="whether or not to make the file structure for cascade")
     parser.add_argument("--configure", action='store_true',
                         help="whether or not to configure the application")
+    parser.add_argument("--drill", type=int, required=False,
+                        help="if doing a drill, which parent ID to drill the model from?")
     parser.add_argument("--loglevel", type=str, required=False, default='info')
     return parser.parse_args()
 
@@ -31,8 +32,11 @@ def get_args():
 def main():
     """
     Grabs the inputs for a specific model version ID, sets up the folder
-    structure, and pickles the inputs, settings, and alchemy objects
+    structure, and pickles the inputs object plus writes the settings json
     for use later on.
+
+    If you're doing a drill, then only get input data from locations
+    that will be used for the drilling for parent-children.
     """
     args = get_args()
     logging.basicConfig(level=LEVELS[args.loglevel])
@@ -52,8 +56,11 @@ def main():
     settings = load_settings(settings_json=parameter_json)
 
     inputs = MeasurementInputsFromSettings(settings=settings)
-    LOG.info("Subsetting to just a couple locs for now.")
-    inputs.demographics.location_id = [102, 555]
+
+    if args.drill:
+        drill_descendants = inputs.location_dag.descendants(location_id=args.drill)
+        inputs.demographics.location_id = [args.drill] + drill_descendants
+
     inputs.get_raw_inputs()
     inputs.configure_inputs_for_dismod(settings=settings)
 
