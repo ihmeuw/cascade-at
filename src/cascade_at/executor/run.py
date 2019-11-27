@@ -35,7 +35,6 @@ def main():
             model_version_id=args.model_version_id,
             conn_def=args.conn_def,
             drill_location_start=settings.model.drill_location_start,
-            drill_location_end=settings.model.drill_location_end,
             drill_sex=settings.model.drill_sex
         )
     elif settings.model.drill == 'cascade':

@@ -10,10 +10,11 @@ class CascadeOperation:
 
 
 class ConfigureInputs(CascadeOperation):
-    def __init__(self, model_version_id, conn_def):
+    def __init__(self, model_version_id, conn_def, drill_location_parent_id):
         super().__init__(model_version_id=model_version_id)
         self.model_version_id = model_version_id
         self.conn_def = conn_def
+        self.drill_location_parent_id = drill_location_parent_id
 
         self.command = (
             f'configure_inputs '
@@ -21,6 +22,8 @@ class ConfigureInputs(CascadeOperation):
             f'-conn-def {self.conn_def} '
             f'--make --configure'
         )
+        if self.drill_location_parent_id:
+            self.command += f'--drill {self.drill_location_parent_id}'
 
 
 class FitBoth(CascadeOperation):

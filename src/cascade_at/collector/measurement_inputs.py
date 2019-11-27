@@ -98,20 +98,19 @@ class MeasurementInputs:
         self.crosswalk_version_id = crosswalk_version_id
         self.country_covariate_id = country_covariate_id
         self.conn_def = conn_def
-
         self.decomp_step = ds.decomp_step_from_decomp_step_id(
             self.decomp_step_id
         )
-
         self.demographics = Demographics(gbd_round_id=self.gbd_round_id)
-
         if location_set_version_id is None:
             self.location_set_version_id = get_location_set_version_id(
                 gbd_round_id=self.gbd_round_id
             )
         else:
             self.location_set_version_id = location_set_version_id
-
+        self.location_dag = LocationDAG(
+            location_set_version_id=self.location_set_version_id
+        )
         self.integrand_map = make_integrand_map()
 
         self.exclude_outliers = True
@@ -120,7 +119,6 @@ class MeasurementInputs:
         self.population = None
         self.data = None
         self.covariates = None
-        self.location_dag = None
         self.age_groups = None
 
         self.data_eta = None
@@ -165,9 +163,6 @@ class MeasurementInputs:
             decomp_step=self.decomp_step,
             gbd_round_id=self.gbd_round_id
         ).get_raw() for c in self.country_covariate_id]
-        self.location_dag = LocationDAG(
-            location_set_version_id=self.location_set_version_id
-        )
         self.population = Population(
             demographics=self.demographics,
             decomp_step=self.decomp_step,
