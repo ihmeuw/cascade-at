@@ -43,7 +43,6 @@ class Context:
         self.outputs_dir = self.model_dir / 'outputs'
         self.database_dir = self.model_dir / 'dbs'
 
-        self.alchemy_file = self.inputs_dir / 'alchemy.p'
         self.inputs_file = self.inputs_dir / 'inputs.p'
         self.settings_file = self.inputs_dir / 'settings.json'
 
