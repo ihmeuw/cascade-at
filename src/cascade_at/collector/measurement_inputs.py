@@ -216,16 +216,16 @@ class MeasurementInputs:
         so that the non-standard ages and years match up to meaningful
         covariate values.
         """
-        for c in self.covariate_specs.covariate_specs:
-            if c.study_country == 'country':
-                LOG.info(f"Interpolating and merging the country covariate {c.covariate_id}.")
-                cov_df = self.country_covariate_data[c.covariate_id]
-                interpolated_mean_value = get_interpolated_covariate_values(
-                    data_df=self.dismod_data,
-                    covariate_df=cov_df,
-                    population_df=self.population.raw
-                )
-                self.dismod_data[c.name] = interpolated_mean_value
+        LOG.info(f"Interpolating and merging the country covariates.")
+        cov_dict_for_interpolation = {c.name: self.country_covariate_data[c.covariate_id]
+                                      for c in self.covariate_specs.covariate_specs
+                                      if c.study_country == 'country'}
+        self.dismod_data = get_interpolated_covariate_values(
+            data_df=self.dismod_data,
+            covariate_dict=cov_dict_for_interpolation,
+            population_df=self.population.raw,
+            location_dag=self.location_dag
+        )
 
     def transform_country_covariates(self):
         """
@@ -281,7 +281,7 @@ class MeasurementInputs:
                 all_loc_df = pd.concat([child_df, parent_df], axis=0)
 
                 # if there is no data for the parent location at all (which there should be provided by Central Comp)
-                # then we are going to set the reference v alue to 0.
+                # then we are going to set the reference value to 0.
                 if cov_df.empty:
                     reference_value = 0
                 else:

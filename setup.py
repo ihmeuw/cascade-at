@@ -12,6 +12,7 @@ setup(
         "scipy",
         "sqlalchemy",
         "dill",
+        "intervaltree",
         "tables",
         "networkx"
     ],
