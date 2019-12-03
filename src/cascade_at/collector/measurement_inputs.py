@@ -265,10 +265,10 @@ class MeasurementInputs:
         for c in covariate_specs.covariate_specs:
             if c.study_country == 'study':
                 if c.name == 's_sex':
-                    c.reference_value = StudyCovConstants.SEX_COV_VALUE_MAP[SEX_ID_TO_NAME[sex_id]]
+                    c.reference = StudyCovConstants.SEX_COV_VALUE_MAP[SEX_ID_TO_NAME[sex_id]]
                     c.max_difference = StudyCovConstants.MAX_DIFFERENCE_SEX_COV
                 elif c.name == 's_one':
-                    c.reference_value = StudyCovConstants.ONE_COV_VALUE
+                    c.reference = StudyCovConstants.ONE_COV_VALUE
                     c.max_difference = StudyCovConstants.MAX_DIFFERENCE_ONE_COV
                 else:
                     raise ValueError(f"The only two study covariates allowed are sex and one, you tried {c.name}.")
@@ -303,7 +303,7 @@ class MeasurementInputs:
                         np.abs(all_loc_df.mean_value - reference_value)
                     ) + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES
 
-                c.reference_value = reference_value
+                c.reference = reference_value
                 c.max_difference = max_difference
         covariate_specs.create_covariate_list()
         return covariate_specs

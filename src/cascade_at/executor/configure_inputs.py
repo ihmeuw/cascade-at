@@ -58,7 +58,11 @@ def main():
     inputs = MeasurementInputsFromSettings(settings=settings)
 
     if args.drill:
-        drill_descendants = inputs.location_dag.descendants(location_id=args.drill)
+        LOG.info(
+            f"This is a DRILL model, so only going to pull data associated with "
+            f"drill location start {args.drill} and its descendants."
+        )
+        drill_descendants = list(inputs.location_dag.descendants(location_id=args.drill))
         inputs.demographics.location_id = [args.drill] + drill_descendants
 
     inputs.get_raw_inputs()
