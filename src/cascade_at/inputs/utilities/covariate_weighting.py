@@ -1,4 +1,5 @@
-from functools import lru_cache
+import numpy as np
+from intervaltree import IntervalTree
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.utilities.gbd_ids import get_age_id_to_range, get_sex_ids
@@ -9,136 +10,130 @@ AGE_ID_TO_RANGE = get_age_id_to_range()
 SEX_IDS = get_sex_ids()['sex_id'].tolist()
 
 
-def get_age_year_value(cov, loc_ids, sex_ids):
+def values(interval):
+    return interval.begin, interval.end, interval.data
+
+
+def interval_weighting(intervals, lower, upper):
     """
-    Build a dictionary where key is (loc_id, age_id) and value is
-    a list of (age_group_id, year_id, mean_value) collected from
-    covariate data. If covariate from a certain location is not
-    available, the list is empty.
+    Compute a weighting function by finding the proportion
+    within the dataframe df's lower and upper bounds.
 
-    Args:
-        cov (pandas.Dataframe): a dataframe storing covariate info
-        loc_ids (list[int]): location ids
-        sex_ids (list[int]): sex ids
-
-    Returns:
-        dct (dict[tuple(int, int), list[tuple(int, int, float)]])
-
+    Note: intervals is of the form ((lower, upper, id), ...)
     """
-    dct = {}
-    available_locations = set(cov.location_id.unique())
-    for loc_id in loc_ids:
-        for sex_id in sex_ids:
-            if loc_id in available_locations:
-                cov_sub = cov[(cov['location_id'] == loc_id) & (cov['sex_id'].isin([3, sex_id]))]
-                cov_sub = cov_sub.sort_values(['age_group_id', 'year_id'])
-                dct[(loc_id, sex_id)] = list(cov_sub[['age_group_id', 'year_id', 'mean_value']].values)
-            else:
-                dct[(loc_id, sex_id)] = []
-    return dct
+
+    if len(intervals) == 1:
+        return np.asarray([1])
+    wts = np.ones(len(intervals))
+    lower_limit, upper_limit = intervals[0], intervals[-1]
+    wts[0] = (lower_limit[1] - lower) / np.diff(lower_limit[:2])
+    wts[-1] = (upper - upper_limit[0]) / np.diff(upper_limit[:2])
+    return wts
 
 
-def intersect(age_start, age_end, year_start, year_end, tuples):
-    """
-    Find covariate entries that intersects with a given measurement
-    entry and compute weights based on length of the overlap.
+class CovariateInterpolator:
+    def __init__(self,
+                 covariate,
+                 population):
+        """
+        Interpolates a covariate by population weighting.
+        :param covariate: (pd.DataFrame)
+        :param population: (pd.DataFrame)
+        """
+        # Covariates must be sorted by both age_group_id and age_lower because age_lower is not unique to age_group_id
+        indices = ['location_id', 'sex_id', 'year_id', 'age_group_id']
+        sort_order = indices + ['age_lower']
 
-    Args:
-        age_start (int): start age of the measurement entry
-        age_end (int): end age of the measurement entry
-        year_start (int): start year of the measurement entry
-        year_end (int): end year of the entry
-        tuples (tuple(int, int, float)): tuples of (age_group_id, year_id, cov_value)
-    Returns:
-        common_tuples (list[tuple(int, int, float)]): tuples that intersect with measurement
-        weights (list[float]): weights corresponding to each tuple
-    """
-    common_tuples = []
-    weights = []
-    for tup in tuples:
-        tup = (int(tup[0]), int(tup[1]), tup[2])
-        age_group = tup[0]
-        if age_group in AGE_ID_TO_RANGE:
-            year = tup[1]
-            interval = AGE_ID_TO_RANGE[age_group]
-            if year_start <= year <= year_end:  # check if intersects in time
-                if interval[0] < age_end and interval[1] > age_start:  # check if intersect in age
-                    common_tuples.append(tup)
-                    weights.append(max(min(age_end+1, interval[1]) - max(age_start, interval[0]), 0) /
-                                   (interval[1] - interval[0]))
-                elif age_start == age_end and \
-                        (interval[0] == age_start or interval[1] == age_end):  # case when measurement is on boundary
-                    common_tuples.append(tup)
-                    weights.append(1./(interval[1] - interval[0]))
-    return common_tuples, weights
+        self.covariate = covariate.sort_values(by=sort_order)
+        self.population = population.sort_values(by=sort_order)
+
+        self.location_ids = self.covariate.location_id.unique()
+
+        self.age_intervals = IntervalTree.from_tuples(
+            self.covariate[['age_lower', 'age_upper', 'age_group_id']].values
+        )
+        self.time_intervals = IntervalTree.from_tuples([
+            (t, t+1, t) for t in self.covariate.year_id.unique()
+        ])
+
+        self.dict_cov = dict(zip(
+            map(tuple, self.covariate[indices].values.tolist()), self.covariate['mean_value'].values
+        ))
+        self.dict_pop = dict(zip(
+            map(tuple, self.population[indices].values.tolist()), self.population['population'].values
+        ))
+
+    def _weighting(self, age_lower, age_upper, time_lower, time_upper):
+        age_groups = sorted(map(values, self.age_intervals[age_lower: age_upper]))
+        age_group_ids = [a[-1] for a in age_groups]
+        age_wts = interval_weighting(tuple(age_groups), age_lower, age_upper)
+
+        time_groups = sorted(map(values, self.time_intervals[time_lower: time_upper]))
+        year_ids = [t[-1] for t in time_groups]
+        time_wts = interval_weighting(tuple(time_groups), time_lower, time_upper)
+
+        # The order of outer must agree with the covariate and population sort order
+        wt = np.outer(time_wts, age_wts)
+        return age_group_ids, year_ids, wt
+
+    def interpolate(self, loc_id, sex_id, age_lower, age_upper, time_lower, time_upper):
+        """
+        Main interpolation function.
+        """
+        if loc_id not in self.location_ids:
+            LOG.warn(f"Covariate is missing for location_id {loc_id},"
+                     f"sex_id {sex_id} -- setting the value to None.")
+            cov_value = None
+        else:
+            age_group_ids, year_ids, epoch_weights = self._weighting(
+                age_lower=age_lower, age_upper=age_upper,
+                time_lower=time_lower, time_upper=time_upper
+            )
+            shape = epoch_weights.shape
+            # This loop indexing order matters, and must agree with the covariate and population sort order
+            cov_value = np.asarray([self.dict_cov[(loc_id, sex_id, year_id, age_id)]
+                                    for year_id in year_ids for age_id in age_group_ids]).reshape(shape)
+            # This loop indexing order matters, and must agree with the covariate and population sort order
+            pop_value = np.asarray([self.dict_pop[(loc_id, sex_id, year_id, age_id)]
+                                    for year_id in year_ids for age_id in age_group_ids]).reshape(shape)
+
+            weight = epoch_weights * pop_value
+            cov_value = np.average(cov_value, weights=weight)
+        return cov_value
 
 
-def pop_val_dict(df, locations):
-    """
-    Build a dictionary mapping (location_id, sex_id, age_group_id, year_id) to
-    a population value.
-    Args:
-        df (pandas.Dataframe): population data
-        locations (list[int]): location ids
-
-    Returns:
-        dct (dict[tuple(int, int, int, int), float])
-    """
-    dct = {}
-    for i, row in df[df['location_id'].isin(locations)].iterrows():
-        dct[(row['location_id'], row['sex_id'], row['age_group_id'], row['year_id'])] = row['population']
-    return dct
-
-
-def get_interpolated_covariate_values(data_df, covariate_df, population_df):
+def get_interpolated_covariate_values(data_df, covariate_dict,
+                                      population_df, location_dag):
     """
     Gets the unique age-time combinations from the data_df, and creates
     interpolated covariate values for each of these combinations by population-weighting
     the standard GBD age-years that span the non-standard combinations.
 
     :param data_df: (pd.DataFrame)
-    :param covariate_df: (pd.DataFrame)
+    :param covariate_dict: Dict[pd.DataFrame] with covariate names as keys
     :param population_df: (pd.DataFrame)
-    :return:
+    :param location_dag: (cascade_at.inputs.locations.LocationDAG)
+    :return: pd.DataFrame
     """
-    meas = data_df.copy()
+    data = data_df.copy()
+    pop = population_df.copy()
 
-    loc_ids = sorted(meas.location_id.unique())
-    cov_age_year_value = get_age_year_value(covariate_df, loc_ids, SEX_IDS)
-    pop_dict = pop_val_dict(population_df, loc_ids)
-    
-    meas['mean_value'] = 0.0
+    data_groups = data.groupby([
+        'location_id', 'sex_id', 'age_lower', 'age_upper', 'time_lower', 'time_upper'
+    ], as_index=False)
 
-    for i, row in meas.iterrows():
-        if (i + 1) % 500 == 0:
-            print('processed', i + 1, 'rows', end='\r')
-        dct = {}
-        tuples, weights = intersect(
-            age_start=row['age_lower'],
-            age_end=row['age_upper'],
-            year_start=row['time_lower'],
-            year_end=row['time_upper'],
-            tuples=cov_age_year_value[(row['location_id'], row['sex_id'])]
-        )
-        dct['val'] = [tup[2] for tup in tuples]  # list of covariate values
-        dct['wts'] = weights
-        dct['pop'] = []  # to store list of population values corresponding to tuples
-        val = 0.0
-        total_wts = 0.0
-        if len(tuples) > 0:
-            for j in range(len(tuples)):
-                if row['sex_id'] != 3:
-                    dct['pop'].append(
-                        pop_dict[(row['location_id'], row['sex_id'], tuples[j][0], tuples[j][1])]
-                    )
-                else:
-                    dct['pop'].append(
-                        pop_dict[(row['location_id'], 1, tuples[j][0], tuples[j][1])] +
-                        pop_dict[(row['location_id'], 2, tuples[j][0], tuples[j][1])]
-                    )
-                val += tuples[j][2] * weights[j] * dct['pop'][-1]  # weigh covariate value by population
-                total_wts += weights[j] * dct['pop'][-1]
-            val /= total_wts
-        meas.loc[i, 'mean_value'] = val
-
-    return meas['mean_value']
+    cov_objects = {cov_name: CovariateInterpolator(covariate=raw_cov, population=pop)
+                   for cov_name, raw_cov in covariate_dict.items()}
+    num_groups = len(data_groups)
+    for i, (k, v) in enumerate(data_groups):
+        if i % 1000 == 0:
+            LOG.info(f"Processed {i} of {num_groups} data groups.")
+        [loc_id, sex_id, age_lower, age_upper, time_lower, time_upper] = k
+        for cov_id, cov_obj in cov_objects.items():
+            cov_value = cov_obj.interpolate(
+                loc_id=loc_id, sex_id=sex_id,
+                age_lower=age_lower, age_upper=age_upper,
+                time_lower=time_lower, time_upper=time_upper
+            )
+            data.loc[v.index, cov_id] = cov_value
+    return data

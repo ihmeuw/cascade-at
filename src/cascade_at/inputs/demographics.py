@@ -10,4 +10,4 @@ class Demographics:
         self.age_group_id = demographics['age_group_id']
         self.location_id = demographics['location_id']
         self.year_id = demographics['year_id']
-        self.sex_id = demographics['sex_id']
+        self.sex_id = demographics['sex_id'] + [3]
