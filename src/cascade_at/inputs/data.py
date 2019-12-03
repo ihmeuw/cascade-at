@@ -81,6 +81,8 @@ class CrosswalkVersion(BaseInput):
         df["meas_std"] = stdev_from_crosswalk_version(df)
         df["name"] = df.seq.astype(str)
 
+        df = self.get_out_of_demographic_notation(df, columns=['age', 'time'])
+
         df = self.keep_only_necessary_columns(df)
         return df
 

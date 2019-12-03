@@ -193,7 +193,10 @@ class MeasurementInputs:
 
         self.dismod_data.reset_index(drop=True, inplace=True)
 
-        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
+        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod(
+            pop_df=self.population.configure_for_dismod(),
+            loc_df=self.location_dag.df
+        ) for c in self.covariate_data}
         # This makes the specs not just for the country covariate but adds on the
         # sex and one covariates.
         self.covariate_specs = CovariateSpecs(settings.country_covariate)
@@ -223,7 +226,7 @@ class MeasurementInputs:
         self.dismod_data = get_interpolated_covariate_values(
             data_df=self.dismod_data,
             covariate_dict=cov_dict_for_interpolation,
-            population_df=self.population.raw,
+            population_df=self.population.configure_for_dismod(),
             location_dag=self.location_dag
         )
 
@@ -285,7 +288,7 @@ class MeasurementInputs:
                 if cov_df.empty:
                     reference_value = 0
                 else:
-                    pop_df = self.population.raw
+                    pop_df = self.population.configure_for_dismod()
                     pop_df = pop_df.loc[pop_df.location_id == parent_location_id].copy()
 
                     df_to_interp = pd.DataFrame({
@@ -296,8 +299,9 @@ class MeasurementInputs:
                     })
                     reference_value = get_interpolated_covariate_values(
                         data_df=df_to_interp,
-                        covariate_df=parent_df,
-                        population_df=pop_df
+                        covariate_dict={c.covariate_id: parent_df},
+                        population_df=pop_df,
+                        location_dag=self.location_dag
                     ).iloc[0]
                     max_difference = np.max(
                         np.abs(all_loc_df.mean_value - reference_value)

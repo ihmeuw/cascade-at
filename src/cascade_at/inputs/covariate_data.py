@@ -38,7 +38,6 @@ class CovariateData(BaseInput):
         """
         self.raw = db_queries.get_covariate_estimates(
             covariate_id=self.covariate_id,
-            location_id=self.demographics.location_id,
             year_id=self.demographics.year_id,
             gbd_round_id=self.gbd_round_id,
             decomp_step=self.decomp_step
@@ -53,10 +52,25 @@ class CovariateData(BaseInput):
         df = self.raw[[
             'location_id', 'year_id', 'age_group_id', 'sex_id', 'mean_value'
         ]]
-        df = self.convert_to_age_lower_upper(df)
+        df = self.complete_covariate_ages(cov_df=df)
         df = self.complete_covariate_sex(cov_df=df, pop_df=pop_df)
         df = self.complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df)
+        df = self.convert_to_age_lower_upper(df)
         return df
+    
+    def complete_covariate_ages(self, cov_df):
+        """
+        Adds on covariate ages for all age group IDs.
+        """
+        if (22 in cov_df.age_group_id) or (27 in cov_df.age_group_id):
+            covs = pd.DataFrame()
+            for age in self.demographics.age_group_id:
+                df = cov_df.copy()
+                df['age_group_id'] = age
+                covs = covs.append(df)
+        else:
+            covs = cov_df.copy()
+        return covs
 
     @staticmethod
     def complete_covariate_locations(cov_df, pop_df, loc_df):
@@ -69,23 +83,44 @@ class CovariateData(BaseInput):
         """
         parent_pop = pop_df[['location_id', 'age_group_id', 'sex_id', 'year_id', 'population']].copy()
         parent_pop.rename(columns={'location_id': 'parent_id', 'population': 'parent_population'}, inplace=True)
+        
+        cov = cov_df.location_id
+        all_levels = loc_df.level.unique().tolist()
+        cov_locations = cov_df.location_id.unique().tolist()
+        cov_levels = loc_df.loc[loc_df.location_id.isin(cov_locations)].level.unique().tolist()
+        missing_levels = [x for x in all_levels if x not in cov_levels]
 
-        df = pop_df.merge(cov_df, on=['location_id', 'age_group_id', 'sex_id', 'year_id'], how='left')
-        dl = df.merge(loc_df[['location_id', 'parent_id', 'level']], on=['location_id'], how='outer')
+        df = cov_df.copy()
 
-        dp = dl.merge(parent_pop, on=['parent_id', 'age_group_id', 'sex_id', 'year_id'], how='left')
-        dp['cov_weighted'] = dp.mean_value / dp.parent_population
+        for level in sorted(missing_levels, reverse=True):
+            LOG.info(f"Filling in covariate values at location hierarchy level {level}.")
+            # Get one location below this level
+            ldf = loc_df.loc[loc_df.level == level + 1].copy()
 
-        na_locs = dp.loc[dp.mean_value.isnull()].location_id
-        good_covs = dp.loc[~dp.location_id.isin(na_locs)]
-        good_covs = good_covs.groupby([
-            'parent_id', 'year_id', 'age_group_id', 'sex_id'
-        ])['cov_weighted'].sum().reset_index()
-        good_covs.rename(columns={'parent_id': 'location_id'}, inplace=True)
+            # Merge on the population just for these locations (left) --
+            # builds out the full age-sex-year data frame for populations
+            lp = ldf.merge(pop_df, on=['location_id'], how='left')
 
-        df = df.merge(good_covs, on=['location_id', 'age_group_id', 'year_id', 'sex_id'])
-        df.loc[df.location_id.isin(na_locs), 'mean_value'] = df.loc[df.location_id.isin(na_locs), 'cov_weighted']
-        df.drop(['cov_weighted'], inplace=True, axis=1)
+            # Merge on the covariate data just for these location-populations
+            clp = lp.merge(df, on=['location_id', 'age_group_id', 'sex_id', 'year_id'], how='left')
+
+            # Get the parent population based on parent ID
+            dp = clp.merge(parent_pop, on=['parent_id', 'age_group_id', 'sex_id', 'year_id'], how='left')
+            dp.drop('location_id', inplace=True, axis=1)
+            
+            # Calculate the weighted value for each row
+            dp['cov_weighted'] = dp.mean_value * dp.population / dp.parent_population
+
+            # Group by parent ID and other demographics, over location IDs, summing
+            # to get the final weighted covariate value
+            dp = dp.groupby([
+                'parent_id', 'year_id', 'age_group_id', 'sex_id'
+            ])['cov_weighted'].sum().reset_index()
+
+            # Set the new parent ID as location ID so that it can be used one level up the tree
+            dp.rename(columns={'parent_id': 'location_id', 'cov_weighted': 'mean_value'}, inplace=True)
+            df = df.append(dp)
+
         return df
 
     @staticmethod
@@ -106,13 +141,16 @@ class CovariateData(BaseInput):
             cov_2['sex_id'] = 2
             result_df = cov_df.append([cov_1, cov_2])
         elif set(cov_df.sex_id) == {1, 2}:
-            both = cov_df.merge(pop_df.loc[pop_df.sex_id == 3],
-                                on=['location_id', 'year_id', 'age_group_id', 'sex_id'], how='left')
+            both_pop = pop_df.loc[pop_df.sex_id == 3][['location_id', 'year_id', 'age_group_id', 'population']].copy()
+            both = cov_df.merge(both_pop,
+                                on=['location_id', 'year_id', 'age_group_id'], how='left')
             both.rename(columns={'population': 'both_pop'}, inplace=True)
             both = both.merge(pop_df.loc[pop_df.sex_id.isin([1, 2])],
                               on=['location_id', 'year_id', 'age_group_id', 'sex_id'], how='left')
-            both['cov_weighted'] = both.mean_value / both.both_pop
-            both.groupby(['location_id', 'year_id', 'age_group_id'])['cov_weighted'].sum().reset_index()
+            both['cov_weighted'] = both.mean_value * both.population / both.both_pop
+            both = both.groupby(['location_id', 'year_id', 'age_group_id'])['cov_weighted'].sum().reset_index()
+            both['sex_id'] = 3
+            both.rename(columns={'cov_weighted': 'mean_value'}, inplace=True)
             result_df = cov_df.append([both])
         else:
             raise RuntimeError(f"Unknown covariate sex IDs {set(cov_df.sex_id)}.")
