@@ -37,7 +37,7 @@ class FitBoth(CascadeOperation):
             f'-model-version-id {self.model_version_id} '
             f'-parent-location-id {self.parent_location_id} '
             f'-sex-id {self.sex_id} '
-            f'--commands init fit-fixed fit-random'
+            f'--commands init fit-fixed fit-both '
         )
 
 
