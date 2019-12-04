@@ -2,17 +2,22 @@
 Sequences of dismod_at commands that work together to create a cascade operation
 that can be performed on a single DisMod-AT database.
 """
+from cascade_at.jobmon.resources import DEFAULT_EXECUTOR_PARAMETERS
 
 
 class CascadeOperation:
-    def __init__(self, model_version_id):
+    def __init__(self, model_version_id, upstream_tasks=None):
+        if upstream_tasks is None:
+            upstream_tasks = list()
+
         self.model_version_id = model_version_id
+        self.executor_parameters = DEFAULT_EXECUTOR_PARAMETERS
+        self.upstream_tasks = upstream_tasks
 
 
 class ConfigureInputs(CascadeOperation):
-    def __init__(self, model_version_id, conn_def, drill_parent_location_id):
-        super().__init__(model_version_id=model_version_id)
-        self.model_version_id = model_version_id
+    def __init__(self, conn_def, drill_parent_location_id, **kwargs):
+        super().__init__(**kwargs)
         self.conn_def = conn_def
         self.drill_parent_location_id = drill_parent_location_id
 
@@ -27,8 +32,8 @@ class ConfigureInputs(CascadeOperation):
 
 
 class FitBoth(CascadeOperation):
-    def __init__(self, model_version_id, parent_location_id, sex_id):
-        super().__init__(model_version_id=model_version_id)
+    def __init__(self, parent_location_id, sex_id, **kwargs):
+        super().__init__(**kwargs)
         self.parent_location_id = parent_location_id
         self.sex_id = sex_id
 
@@ -42,8 +47,8 @@ class FitBoth(CascadeOperation):
 
 
 class CleanUp(CascadeOperation):
-    def __init__(self, model_version_id):
-        super().__init__(model_version_id=model_version_id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.command = (
             f'cleanup '

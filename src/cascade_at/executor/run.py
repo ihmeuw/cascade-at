@@ -1,10 +1,12 @@
 import logging
+import subprocess
 from argparse import ArgumentParser
 
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.cascade.cascade_commands import CASCADE_COMMANDS
 from cascade_at.settings.settings import settings_from_model_version_id
 from cascade_at.inputs.locations import LocationDAG
+from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
 
 LOG = get_loggers(__name__)
 
@@ -17,6 +19,11 @@ def get_args():
     parser = ArgumentParser()
     parser.add_argument("-model-version-id", type=int, required=True)
     parser.add_argument("-conn-def", type=int, required=True)
+    parser.add_argument("--jobmon", action='store_true',
+                        help="whether or not to use jobmon to run the cascade or just"
+                             "run as a sequence of command line tasks")
+    parser.add_argument("--make", action='store_true',
+                        help="whether or not to make the file structure for cascade")
     parser.add_argument("--loglevel", type=str, required=False, default="info")
     return parser.parse_args()
 
@@ -41,6 +48,18 @@ def main():
         raise NotImplementedError("Cascade is not implemented yet for Cascade-AT.")
     else:
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")
+
+    if args.jobmon:
+        wf = jobmon_workflow_from_cascade_command(cc=cascade_command)
+        wf.run()
+    else:
+        for c in cascade_command.get_commands():
+            process = subprocess.run(
+                c, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            if process.returncode:
+                raise RuntimeError(f"Command {c} failed with error"
+                                   f"{process.stderr.decode()}")
 
 
 if __name__ == '__main__':

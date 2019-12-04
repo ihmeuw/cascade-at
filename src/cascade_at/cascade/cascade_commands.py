@@ -10,7 +10,12 @@ LOG = get_loggers(__name__)
 
 class CascadeCommand:
     def __init__(self):
-        self.task_list = []
+        self.task_dict = {}
+
+    def add_task(self, cascade_operation):
+        self.task_dict.update({
+            cascade_operation.command: cascade_operation
+        })
 
     def get_commands(self):
         """
@@ -18,7 +23,7 @@ class CascadeCommand:
         them without using jobmon.
         :return:
         """
-        return [t.command for t in self.task_list]
+        return list(self.task_dict.keys())
 
 
 class Drill(CascadeCommand):
@@ -33,18 +38,20 @@ class Drill(CascadeCommand):
         self.drill_parent_location_id = drill_parent_location_id
         self.drill_sex = drill_sex
 
-        self.task_list.append(CASCADE_OPERATIONS['configure_inputs'](
+        self.add_task(CASCADE_OPERATIONS['configure_inputs'](
             model_version_id=self.model_version_id,
             conn_def=self.conn_def,
             drill_parent_location_id=self.drill_parent_location_id
         ))
-        self.task_list.append(CASCADE_OPERATIONS['fit_both'](
+        self.add_task(CASCADE_OPERATIONS['fit_both'](
             model_version_id=self.model_version_id,
             parent_location_id=self.drill_parent_location_id,
-            sex_id=self.drill_sex
+            sex_id=self.drill_sex,
+            upstream_tasks=self.get_commands()
         ))
-        self.task_list.append(CASCADE_OPERATIONS['cleanup'](
-            model_version_id=self.model_version_id
+        self.add_task(CASCADE_OPERATIONS['cleanup'](
+            model_version_id=self.model_version_id,
+            upstream_tasks=self.get_commands()
         ))
 
 
