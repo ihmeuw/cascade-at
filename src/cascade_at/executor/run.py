@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.cascade.cascade_commands import CASCADE_COMMANDS
 from cascade_at.settings.settings import settings_from_model_version_id
+from cascade_at.context.model_context import Context
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
 
@@ -38,6 +39,12 @@ def main():
         conn_def=args.conn_def
     )
 
+    context = Context(
+        model_version_id=args.model_version_id,
+        make=True,
+        configure_application=True
+    )
+
     if settings.model.drill == 'drill':
         cascade_command = CASCADE_COMMANDS['drill'](
             model_version_id=args.model_version_id,
@@ -52,7 +59,7 @@ def main():
 
     if args.jobmon:
         LOG.info("Configuring jobmon.")
-        wf = jobmon_workflow_from_cascade_command(cc=cascade_command)
+        wf = jobmon_workflow_from_cascade_command(cc=cascade_command, context=context)
         wf.run()
     else:
         LOG.info("Running without jobmon.")

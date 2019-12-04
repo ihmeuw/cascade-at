@@ -31,6 +31,13 @@ class Context:
             self.root_directory = Path('.')
             self.cascade_dir = 'cascade_dir'
 
+        self.log_dir = (
+            Path(self.root_directory)
+            / self.cascade_dir 
+            / 'logs'
+            / str(self.model_version_id)
+        )
+
         self.model_version_id = model_version_id
 
         self.model_dir = (
@@ -50,6 +57,7 @@ class Context:
             os.makedirs(self.inputs_dir, exist_ok=True)
             os.makedirs(self.outputs_dir, exist_ok=True)
             os.makedirs(self.database_dir, exist_ok=True)
+            os.makedirs(self.log_dir, exist_ok=True)
 
     def db_file(self, location_id, sex_id, make=True):
         """

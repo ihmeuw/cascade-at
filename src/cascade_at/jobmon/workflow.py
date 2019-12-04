@@ -48,19 +48,20 @@ def bash_task_from_cascade_operation(co):
     )
 
 
-def jobmon_workflow_from_cascade_command(cc):
+def jobmon_workflow_from_cascade_command(cc, context):
     """
     Create a jobmon workflow from a cascade command (cc for short)
 
     :param cc: (cascade_at.cascade.cascade_commands.CascadeCommand)
+    :param context: (cascade_at.context.model_context.Context)
     :return: jobmon.client.swarm.workflow.workflow.Workflow
     """
     user = getpass.getuser()
-    log_dir = f'/ihme/epi/at_cascade/logs/{cc.model_version_id}/'
-    error_dir = log_dir + 'errors'
-    output_dir = log_dir + 'output'
 
-    for folder in [log_dir, error_dir, output_dir]:
+    error_dir = context.log_dir / 'errors'
+    output_dir = context.log_dir / 'output'
+
+    for folder in [error_dir, output_dir]:
         os.makedirs(folder, exist_ok=True)
 
     wf = Workflow(
