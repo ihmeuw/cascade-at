@@ -31,6 +31,5 @@ setup(
         'dismod_db=cascade_at.executor.dismod_db:main',
         'cleanup=cascade_at.executor.cleanup:main'
         'run_cascade=cascade_at.executor.run:main'
-    ]},
-    scripts=["scripts/dmdismod"]
+    ]}
 )
