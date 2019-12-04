@@ -33,3 +33,14 @@ class BaseInput:
         cols = df.columns
         keep_cols = [c for c in cols if c in self.columns_to_keep]
         return df[keep_cols]
+
+    @staticmethod
+    def get_out_of_demographic_notation(df, columns):
+        """
+        Convert things that are in demographic notation to non-demographic notation.
+        """
+        dd = df.copy()
+        for col in columns:
+            demographers = dd[col + '_lower'] == dd[col + '_upper']
+            dd.loc[demographers, col + '_upper'] = dd.loc[demographers, col + '_lower'] + 1
+        return dd    

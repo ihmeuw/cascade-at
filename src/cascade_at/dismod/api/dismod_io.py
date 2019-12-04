@@ -31,7 +31,7 @@ class DismodIO(DismodDB):
 
     @avgint.setter
     def avgint(self, df):
-        self.write_table('age', df)
+        self.write_table('avgint', df)
     
     # COVARIATE TABLE
     @property

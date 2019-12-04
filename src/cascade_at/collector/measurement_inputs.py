@@ -3,7 +3,7 @@ import pandas as pd
 from copy import copy
 from collections import defaultdict
 
-from gbd.decomp_step import decomp_step_from_decomp_step_id
+from cascade_at.core.db import decomp_step as ds
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.asdr import ASDR
@@ -87,6 +87,9 @@ class MeasurementInputs:
         >>> i.get_raw_inputs()
         >>> i.configure_inputs_for_dismod()
         """
+        LOG.info(f"Initializing input object for model version ID {model_version_id}.")
+        LOG.info(f"GBD Round ID {gbd_round_id}.")
+        LOG.info(f"Pulling from connection {conn_def}.")
         self.model_version_id = model_version_id
         self.gbd_round_id = gbd_round_id
         self.decomp_step_id = decomp_step_id
@@ -95,20 +98,19 @@ class MeasurementInputs:
         self.crosswalk_version_id = crosswalk_version_id
         self.country_covariate_id = country_covariate_id
         self.conn_def = conn_def
-
-        self.decomp_step = decomp_step_from_decomp_step_id(
+        self.decomp_step = ds.decomp_step_from_decomp_step_id(
             self.decomp_step_id
         )
-
         self.demographics = Demographics(gbd_round_id=self.gbd_round_id)
-
         if location_set_version_id is None:
             self.location_set_version_id = get_location_set_version_id(
                 gbd_round_id=self.gbd_round_id
             )
         else:
             self.location_set_version_id = location_set_version_id
-
+        self.location_dag = LocationDAG(
+            location_set_version_id=self.location_set_version_id
+        )
         self.integrand_map = make_integrand_map()
 
         self.exclude_outliers = True
@@ -117,7 +119,6 @@ class MeasurementInputs:
         self.population = None
         self.data = None
         self.covariates = None
-        self.location_dag = None
         self.age_groups = None
 
         self.data_eta = None
@@ -162,9 +163,6 @@ class MeasurementInputs:
             decomp_step=self.decomp_step,
             gbd_round_id=self.gbd_round_id
         ).get_raw() for c in self.country_covariate_id]
-        self.location_dag = LocationDAG(
-            location_set_version_id=self.location_set_version_id
-        )
         self.population = Population(
             demographics=self.demographics,
             decomp_step=self.decomp_step,
@@ -195,7 +193,10 @@ class MeasurementInputs:
 
         self.dismod_data.reset_index(drop=True, inplace=True)
 
-        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod() for c in self.covariate_data}
+        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod(
+            pop_df=self.population.configure_for_dismod(),
+            loc_df=self.location_dag.df
+        ) for c in self.covariate_data}
         # This makes the specs not just for the country covariate but adds on the
         # sex and one covariates.
         self.covariate_specs = CovariateSpecs(settings.country_covariate)
@@ -218,16 +219,16 @@ class MeasurementInputs:
         so that the non-standard ages and years match up to meaningful
         covariate values.
         """
-        for c in self.covariate_specs.covariate_specs:
-            if c.study_country == 'country':
-                LOG.info(f"Interpolating and merging the country covariate {c.covariate_id}.")
-                cov_df = self.country_covariate_data[c.covariate_id]
-                interpolated_mean_value = get_interpolated_covariate_values(
-                    data_df=self.dismod_data,
-                    covariate_df=cov_df,
-                    population_df=self.population.raw
-                )
-                self.dismod_data[c.name] = interpolated_mean_value
+        LOG.info(f"Interpolating and merging the country covariates.")
+        cov_dict_for_interpolation = {c.name: self.country_covariate_data[c.covariate_id]
+                                      for c in self.covariate_specs.covariate_specs
+                                      if c.study_country == 'country'}
+        self.dismod_data = get_interpolated_covariate_values(
+            data_df=self.dismod_data,
+            covariate_dict=cov_dict_for_interpolation,
+            population_df=self.population.configure_for_dismod(),
+            location_dag=self.location_dag
+        )
 
     def transform_country_covariates(self):
         """
@@ -263,14 +264,14 @@ class MeasurementInputs:
         time_max = self.dismod_data.time_upper.max()
 
         children = list(self.location_dag.dag.successors(parent_location_id))
-        import pdb; pdb.set_trace()
+        
         for c in covariate_specs.covariate_specs:
             if c.study_country == 'study':
                 if c.name == 's_sex':
-                    c.reference_value = StudyCovConstants.SEX_COV_VALUE_MAP[SEX_ID_TO_NAME[sex_id]]
+                    c.reference = StudyCovConstants.SEX_COV_VALUE_MAP[SEX_ID_TO_NAME[sex_id]]
                     c.max_difference = StudyCovConstants.MAX_DIFFERENCE_SEX_COV
                 elif c.name == 's_one':
-                    c.reference_value = StudyCovConstants.ONE_COV_VALUE
+                    c.reference = StudyCovConstants.ONE_COV_VALUE
                     c.max_difference = StudyCovConstants.MAX_DIFFERENCE_ONE_COV
                 else:
                     raise ValueError(f"The only two study covariates allowed are sex and one, you tried {c.name}.")
@@ -283,11 +284,11 @@ class MeasurementInputs:
                 all_loc_df = pd.concat([child_df, parent_df], axis=0)
 
                 # if there is no data for the parent location at all (which there should be provided by Central Comp)
-                # then we are going to set the reference v alue to 0.
+                # then we are going to set the reference value to 0.
                 if cov_df.empty:
                     reference_value = 0
                 else:
-                    pop_df = self.population.raw
+                    pop_df = self.population.configure_for_dismod()
                     pop_df = pop_df.loc[pop_df.location_id == parent_location_id].copy()
 
                     df_to_interp = pd.DataFrame({
@@ -298,14 +299,15 @@ class MeasurementInputs:
                     })
                     reference_value = get_interpolated_covariate_values(
                         data_df=df_to_interp,
-                        covariate_df=parent_df,
-                        population_df=pop_df
-                    ).iloc[0]
+                        covariate_dict={c.name: parent_df},
+                        population_df=pop_df,
+                        location_dag=self.location_dag
+                    )[c.name].iloc[0]
                     max_difference = np.max(
                         np.abs(all_loc_df.mean_value - reference_value)
                     ) + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES
 
-                c.reference_value = reference_value
+                c.reference = reference_value
                 c.max_difference = max_difference
         covariate_specs.create_covariate_list()
         return covariate_specs

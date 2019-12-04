@@ -1,5 +1,5 @@
-from db_queries import get_outputs
-import gbd.constants as gbd
+from cascade_at.core.db import db_queries as db
+from cascade_at.core.db import gbd
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
@@ -39,11 +39,11 @@ class CSMR(BaseInput):
         :return: self
         """
         LOG.info(f"Getting CSMR from process version ID {self.process_version_id}")
-        self.raw = get_outputs(
+        self.raw = db.get_outputs(
             topic='cause',
             cause_id=self.cause_id,
-            metric_id=gbd.metrics.RATE,
-            measure_id=gbd.measures.DEATH,
+            metric_id=gbd.constants.metrics.RATE,
+            measure_id=gbd.constants.measures.DEATH,
             year_id=self.demographics.year_id,
             location_id=self.demographics.location_id,
             sex_id=self.demographics.sex_id,

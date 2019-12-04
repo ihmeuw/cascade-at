@@ -84,12 +84,6 @@ class DismodAlchemy(DismodIO):
         table with additional info or to over-ride the defaults.
         """
         LOG.info(f"Filling tables in {self.path.absolute()}")
-        self.age = self.construct_age_time_table(
-            variable_name='age', variable=self.parent_child_model.get_age_array()
-        )
-        self.time = self.construct_age_time_table(
-            variable_name='time', variable=self.parent_child_model.get_time_array()
-        )
         self.density = self.construct_density_table()
         self.node = self.construct_node_table(location_dag=self.inputs.location_dag)
         self.covariate = self.construct_covariate_table(covariates=self.parent_child_model.covariates)
@@ -98,7 +92,14 @@ class DismodAlchemy(DismodIO):
             node_df=self.node,
             covariate_df=self.covariate
         )
-
+        self.age = self.construct_age_time_table(
+            variable_name='age', variable=self.parent_child_model.get_age_array(),
+            data_range=(self.data.age_lower.min(), self.data.age_upper.max()),
+        )
+        self.time = self.construct_age_time_table(
+            variable_name='time', variable=self.parent_child_model.get_time_array(),
+            data_range=(self.data.time_lower.min(), self.data.time_upper.max())
+        )
         self.weight, self.weight_grid = self.construct_weight_grid_tables(
             weights=self.parent_child_model.get_weights(),
             age_df=self.age, time_df=self.time
@@ -117,11 +118,28 @@ class DismodAlchemy(DismodIO):
         self.mulcov = interconnected_tables['mulcov']
         self.nslist = interconnected_tables['nslist']
         self.nslist_pair = interconnected_tables['nslist_pair']
+        
+        # Initialize empty tables that need to be there that may or may not
+        # be filled with relevant info, if they're currently empty.
+        for name in ["nslist", "nslist_pair", "mulcov", "smooth_grid", "smooth", "data"]:
+            if getattr(self, name).empty:
+                setattr(self, name, self.empty_table(table_name=name))
 
+        covariate_columns = [x for x in self.data.columns if x.startswith('x_')]
+        self.avgint = self.empty_table(table_name='avgint', extra_columns=covariate_columns)
         self.option = self.construct_option_table(**additional_option_kwargs)
 
+    def node_id_from_location_id(self, location_id):
+        """
+        Get the node ID from a location ID in an already created node table.
+        """
+        loc_df = self.node.loc[self.node.c_location_id == location_id]
+        if len(loc_df) > 1:
+            raise RuntimeError("Problem with the node table -- should only be one node-id for each location_id.")
+        return loc_df['node_id'].iloc[0]
+
     @staticmethod
-    def construct_age_time_table(variable_name, variable):
+    def construct_age_time_table(variable_name, variable, data_range):
         """
         Constructs the age or time table with age_id and age or time_id and time.
         Has unique identifiers for each.
@@ -129,8 +147,10 @@ class DismodAlchemy(DismodIO):
         Parameters:
             variable_name: (str) one of 'age' or 'time'
             variable: (np.array) array of ages or times
+            data_range: (list) range of variable observed in the data
         """
         LOG.info(f"Constructing {variable_name} table.")
+        variable = np.append(variable, data_range)
         variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]
         variable.sort()
         if variable[-1] - variable[0] < 1:
@@ -175,24 +195,28 @@ class DismodAlchemy(DismodIO):
         LOG.info("Filling option table.")
 
         option_dict = {
-            'parent_location_id': self.parent_location_id,
+            'parent_node_id': self.node_id_from_location_id(location_id=self.parent_location_id),
             'random_seed': self.settings.model.random_seed,
             'ode_step_size': self.settings.model.ode_step_size,
             'max_num_iter_fixed': self.settings.max_num_iter.fixed,
             'max_num_iter_random': self.settings.max_num_iter.random,
             'print_level_fixed': self.settings.print_level.fixed,
             'print_level_random': self.settings.print_level.random,
-            'accept_after_max_steps_fixed': self.settings.print_level.fixed,
-            'accept_after_max_steps_random': self.settings.print_level.random,
-            'tolerance_fixed': self.settings.tolerance.fixed,
-            'tolerance_random': self.settings.tolerance.random,
-            'rate_case': self.parent_child_model.get_nonzero_rates()
+            'accept_after_max_steps_fixed': self.settings.accept_after_max_steps.fixed,
+            'accept_after_max_steps_random': self.settings.accept_after_max_steps.random,
+            'rate_case': self.settings.model.rate_case
         }
+        if self.settings.tolerance.fixed:
+            option_dict.update({'tolerance_fixed': self.settings.tolerance.fixed})
+        if self.settings.tolerance.random:
+            option_dict.update({'tolerance_random': self.settings.tolerance.random})
         option_dict.update(**kwargs)
 
         df = pd.DataFrame()
         df = df.append([pd.Series({'option_name': k, 'option_value': v}) for k, v in option_dict.items()])
         df['option_id'] = df.index
+        df['option_value'] = df['option_value'].astype(str)
+
         return df
 
     @staticmethod
@@ -211,7 +235,7 @@ class DismodAlchemy(DismodIO):
         p_node = node[["node_id", "location_id"]].rename(
             columns={"location_id": "parent_id", "node_id": "parent"}
         )
-        node = node.merge(p_node, on="parent_id")
+        node = node.merge(p_node, on="parent_id", how="left")
         node.rename(columns={
             "name": "node_name",
             "location_id": "c_location_id"
@@ -382,7 +406,10 @@ class DismodAlchemy(DismodIO):
         smooth_df = pd.DataFrame({
             "smooth_name": [grid_name],
             "n_age": [age_count],
-            "n_time": [time_count]
+            "n_time": [time_count],
+            "mulstd_value_prior_id": [np.nan],
+            "mulstd_dage_prior_id": [np.nan],
+            "mulstd_dtime_prior_id": [np.nan]
         })
 
         # Create the grid entries

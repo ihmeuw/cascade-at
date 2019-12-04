@@ -67,5 +67,7 @@ db_queries = ModuleProxy("db_queries")
 age_spans = ModuleProxy("db_queries.get_age_metadata")
 db_tools = ModuleProxy("db_tools")
 ezfuncs = ModuleProxy("db_tools.ezfuncs")
-
-
+gbd = ModuleProxy("gbd")
+decomp_step = ModuleProxy("gbd.decomp_step")
+elmo = ModuleProxy("elmo")
+swarm = ModuleProxy("jobmon.client.swarm")

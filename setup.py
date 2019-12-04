@@ -11,17 +11,25 @@ setup(
         "pandas==0.25.1",
         "scipy",
         "sqlalchemy",
+        "dill",
+        "intervaltree",
         "tables",
         "networkx"
     ],
     zip_safe=False,
     extras_require={
-        "ihme_databases": ["db_tools", "db_queries", "gbd"]
+        "ihme": ["db_tools", "db_queries", "gbd", "jobmon"]
     },
     classifiers=[
         "Intended Audience :: Science/Research",
         "Licence :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.6",
         "Topic :: Scientific/Engineering :: Statistics"
-    ]
+    ],
+    entry_points={'console_scripts': [
+        'configure_inputs=cascade_at.executor.configure_inputs:main',
+        'dismod_db=cascade_at.executor.dismod_db:main',
+        'cleanup=cascade_at.executor.cleanup:main'
+        'run_cascade=cascade_at.executor.run:main'
+    ]}
 )
