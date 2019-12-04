@@ -31,13 +31,6 @@ class Context:
             self.root_directory = Path('.')
             self.cascade_dir = 'cascade_dir'
 
-        self.log_dir = (
-            Path(self.root_directory)
-            / self.cascade_dir 
-            / 'logs'
-            / str(self.model_version_id)
-        )
-
         self.model_version_id = model_version_id
 
         self.model_dir = (
@@ -52,6 +45,13 @@ class Context:
 
         self.inputs_file = self.inputs_dir / 'inputs.p'
         self.settings_file = self.inputs_dir / 'settings.json'
+
+        self.log_dir = (
+            Path(self.root_directory)
+            / self.cascade_dir 
+            / 'logs'
+            / str(self.model_version_id)
+        )
 
         if make:
             os.makedirs(self.inputs_dir, exist_ok=True)

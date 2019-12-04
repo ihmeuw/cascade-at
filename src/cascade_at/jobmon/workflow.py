@@ -76,10 +76,9 @@ def jobmon_workflow_from_cascade_command(cc, context):
     bash_tasks = {command: bash_task_from_cascade_operation(co)
                   for command, co in cc.task_dict.items()}
     for command, task in bash_tasks.items():
-        task.upstream_tasks = [bash_tasks.get(uc) for uc in task.upstream_commands]
+        for upstream in task.upstream_commands:
+            task.add_upstream(bash_tasks.get(uc))
 
     wf.add_tasks(list(bash_tasks.values()))
-    # Just for debugging
-    wf_tasks = list(wf.task_dag.tasks.values())
     return wf
 
