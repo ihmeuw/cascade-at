@@ -299,10 +299,10 @@ class MeasurementInputs:
                     })
                     reference_value = get_interpolated_covariate_values(
                         data_df=df_to_interp,
-                        covariate_dict={c.covariate_id: parent_df},
+                        covariate_dict={c.name: parent_df},
                         population_df=pop_df,
                         location_dag=self.location_dag
-                    ).iloc[0]
+                    )[c.name].iloc[0]
                     max_difference = np.max(
                         np.abs(all_loc_df.mean_value - reference_value)
                     ) + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES

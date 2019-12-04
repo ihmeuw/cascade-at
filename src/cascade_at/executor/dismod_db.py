@@ -73,6 +73,10 @@ def main():
         if process.exit_status:
             LOG.error(f"{c} failed with exit_status {process.exit_status}:")
             LOG.error(f"{process.stderr}")
+            raise
+        else:
+            print(process.stdout)
+            print(process.stderr)
 
 
 if __name__ == '__main__':

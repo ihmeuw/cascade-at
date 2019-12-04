@@ -18,7 +18,7 @@ def get_args():
     """
     parser = ArgumentParser()
     parser.add_argument("-model-version-id", type=int, required=True)
-    parser.add_argument("-conn-def", type=int, required=True)
+    parser.add_argument("-conn-def", type=str, required=True)
     parser.add_argument("--jobmon", action='store_true',
                         help="whether or not to use jobmon to run the cascade or just"
                              "run as a sequence of command line tasks")
@@ -31,6 +31,7 @@ def get_args():
 def main():
     args = get_args()
     logging.basicConfig(level=LEVELS[args.loglevel])
+    LOG.info(f"Starting model for {args.model_version_id}.")
 
     settings = settings_from_model_version_id(
         model_version_id=args.model_version_id,
@@ -41,7 +42,7 @@ def main():
         cascade_command = CASCADE_COMMANDS['drill'](
             model_version_id=args.model_version_id,
             conn_def=args.conn_def,
-            drill_location_start=settings.model.drill_location_start,
+            drill_parent_location_id=settings.model.drill_location_start,
             drill_sex=settings.model.drill_sex
         )
     elif settings.model.drill == 'cascade':
@@ -50,10 +51,13 @@ def main():
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")
 
     if args.jobmon:
+        LOG.info("Configuring jobmon.")
         wf = jobmon_workflow_from_cascade_command(cc=cascade_command)
         wf.run()
     else:
+        LOG.info("Running without jobmon.")
         for c in cascade_command.get_commands():
+            LOG.info(f"Running {c}.")
             process = subprocess.run(
                 c, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
