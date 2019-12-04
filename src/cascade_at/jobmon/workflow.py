@@ -33,9 +33,12 @@ def bash_task_from_cascade_operation(co):
     :param co: (cascade_at.cascade.cascade_operations.CascadeOperation)
     :return: jobmon.client.swarm.workflow.bash_task.BashTask
     """
+    name = co.command.split(' ')
     return COBashTask(
         command=co.command,
+        name='_'.join([name[0], name[2]]),
         upstream_commands=co.upstream_commands,
+        j_resource=co.j_resource,
         executor_parameters=ExecutorParameters(
             max_runtime_seconds=co.executor_parameters['max_runtime_seconds'],
             m_mem_free=co.executor_parameters['m_mem_free'],
@@ -53,20 +56,21 @@ def jobmon_workflow_from_cascade_command(cc):
     :return: jobmon.client.swarm.workflow.workflow.Workflow
     """
     user = getpass.getuser()
-    
-    log_dir = '/ihme/epi/at_cascade/logs/{model_version_id}/'
+    log_dir = f'/ihme/epi/at_cascade/logs/{cc.model_version_id}/'
     error_dir = log_dir + 'errors'
     output_dir = log_dir + 'output'
 
-    for folder in log_dir, error_dir, output_dir:
-        os.makedirs(path=folder, exist_ok=True)
+    for folder in [log_dir, error_dir, output_dir]:
+        os.makedirs(folder, exist_ok=True)
 
     wf = Workflow(
-        workflow_args=f'DM-AT_{cc.model_version_id}',
-        project='proj_msm',
-        stderr='/ihme/epi/at_cascade/logs/{model_version_id}',
+        workflow_args=f'DM-AT_{cc.model_version_id}-test-3',
+        project='proj_mscm',
+        stderr=error_dir,
+        stdout=output_dir,
         working_dir='/homes/{}'.format(user),
-        seconds_until_timeout=60*60*24*5
+        seconds_until_timeout=60*60*24*5,
+        resume=True
     )
     bash_tasks = {command: bash_task_from_cascade_operation(co)
                   for command, co in cc.task_dict.items()}
@@ -74,5 +78,7 @@ def jobmon_workflow_from_cascade_command(cc):
         task.upstream_tasks = [bash_tasks.get(uc) for uc in task.upstream_commands]
 
     wf.add_tasks(list(bash_tasks.values()))
+    # Just for debugging
+    wf_tasks = list(wf.task_dag.tasks.values())
     return wf
 

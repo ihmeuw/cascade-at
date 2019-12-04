@@ -47,11 +47,11 @@ class Drill(CascadeCommand):
             model_version_id=self.model_version_id,
             parent_location_id=self.drill_parent_location_id,
             sex_id=self.drill_sex,
-            upstream_tasks=self.get_commands()
+            upstream_commands=self.get_commands()
         ))
         self.add_task(CASCADE_OPERATIONS['cleanup'](
             model_version_id=self.model_version_id,
-            upstream_tasks=self.get_commands()
+            upstream_commands=self.get_commands()
         ))
 
 
