@@ -69,7 +69,7 @@ def jobmon_workflow_from_cascade_command(cc, context):
         project='proj_mscm',
         stderr=error_dir,
         stdout=output_dir,
-        working_dir='/homes/{}'.format(user),
+        working_dir=context.model_dir,
         seconds_until_timeout=60*60*24*5,
         resume=True
     )
