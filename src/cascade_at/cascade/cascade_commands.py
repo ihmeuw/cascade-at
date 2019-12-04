@@ -49,10 +49,6 @@ class Drill(CascadeCommand):
             sex_id=self.drill_sex,
             upstream_commands=self.get_commands()
         ))
-        self.add_task(CASCADE_OPERATIONS['cleanup'](
-            model_version_id=self.model_version_id,
-            upstream_commands=self.get_commands()
-        ))
 
 
 class TraditionalCascade(CascadeCommand):

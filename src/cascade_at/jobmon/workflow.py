@@ -65,11 +65,11 @@ def jobmon_workflow_from_cascade_command(cc, context):
         os.makedirs(folder, exist_ok=True)
 
     wf = Workflow(
-        workflow_args=f'DM-AT_{cc.model_version_id}-test-3',
+        workflow_args=f'DM-AT_{cc.model_version_id}-test-4',
         project='proj_mscm',
-        stderr=error_dir,
-        stdout=output_dir,
-        working_dir=context.model_dir,
+        stderr=str(error_dir),
+        stdout=str(output_dir),
+        working_dir=str(context.model_dir),
         seconds_until_timeout=60*60*24*5,
         resume=True
     )
@@ -77,7 +77,7 @@ def jobmon_workflow_from_cascade_command(cc, context):
                   for command, co in cc.task_dict.items()}
     for command, task in bash_tasks.items():
         for upstream in task.upstream_commands:
-            task.add_upstream(bash_tasks.get(uc))
+            task.add_upstream(bash_tasks.get(upstream))
 
     wf.add_tasks(list(bash_tasks.values()))
     return wf
