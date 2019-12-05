@@ -13,6 +13,7 @@ setup(
         "sqlalchemy",
         "dill",
         "intervaltree",
+        "pytest",
         "tables",
         "networkx"
     ],
