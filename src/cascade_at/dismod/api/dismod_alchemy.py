@@ -584,7 +584,8 @@ class DismodAlchemy(DismodIO):
                 else:
                     raise RuntimeError(f"Unknown mulcov type {m}.")
                 mulcov_table = mulcov_table.append(mulcov)
-
+        
+        mulcov_table.reset_index(inplace=True, drop=True)
         mulcov_table["mulcov_id"] = mulcov_table.index
 
         nslist_table = pd.DataFrame.from_records(
