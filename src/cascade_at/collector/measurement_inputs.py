@@ -130,6 +130,7 @@ class MeasurementInputs:
         self.covariate_data = None
         self.country_covariate_data = None
         self.covariate_specs = None
+        self.omega = None
 
     def get_raw_inputs(self):
         """
@@ -181,11 +182,18 @@ class MeasurementInputs:
         self.nu = self.nu_from_settings(settings)
         self.measures_to_exclude = self.measures_to_exclude_from_settings(settings)
 
-        self.dismod_data = pd.concat([
-            self.data.configure_for_dismod(measures_to_exclude=self.measures_to_exclude),
-            self.asdr.configure_for_dismod(),
-            self.csmr.configure_for_dismod()
-        ], axis=0)
+        # If we are constraining omega, then we want to hold out the data
+        # from the DisMod fit for ASDR and CSMR.
+
+        data = self.data.configure_for_dismod(measures_to_exclude=self.measures_to_exclude)
+        asdr = self.asdr.configure_for_dismod(hold_out=settings.model.constrain_omega)
+        csmr = self.csmr.configure_for_dismod(hold_out=settings.model.constrain_omega)
+        self.dismod_data = pd.concat([data, asdr, csmr], axis=0)
+
+        if settings.model.constrain_omega:
+            self.omega = self.calculate_omega(asdr=asdr, csmr=csmr)
+        else:
+            self.omega = None
 
         self.dismod_data["density"] = self.dismod_data.measure.apply(self.density.__getitem__)
         self.dismod_data["eta"] = self.dismod_data.measure.apply(self.data_eta.__getitem__)
@@ -212,6 +220,37 @@ class MeasurementInputs:
         self.dismod_data['s_one'] = StudyCovConstants.ONE_COV_VALUE
 
         return self
+
+    @staticmethod
+    def calculate_omega(asdr, csmr):
+        """
+        Calculates other cause mortality (omega) from ASDR (mtall -- all-cause mortality)
+        and CSMR (mtspecific -- cause-specific mortality). For most diseases, mtall is a
+        good approximation to omega, but we calculate omega = mtall - mtspecific in case it isn't.
+        For diseases without CSMR (self.csmr_cause_id = None), then omega = mtall.
+        """
+        join_columns = ['location_id', 'time_lower', 'time_upper',
+                        'age_lower', 'age_upper', 'sex_id']
+
+        mtall = asdr[join_columns + ['meas_value']].copy()
+        mtspecific = csmr[join_columns + ['meas_value']].copy()
+        
+        mtall.rename(columns={'meas_value': 'mtall'}, inplace=True)
+        mtspecific.rename(columns={'meas_value': 'mtspecific'}, inplace=True)
+
+        if mtspecific.empty:
+            omega = mtall
+            omega.rename(columns={'mtall': 'omega'}, inplace=True)
+        else:
+            omega = mtall.merge(mtspecific, on=join_columns)
+            omega['mean'] = omega['mtall'] - omega['mtspecific']
+            omega.drop(columns=['mtall', 'mtspecific'], inplace=True)
+        
+        negative_omega = omega['mean'] < 0
+        if any(negative_omega):
+            raise ValueError("There are negative values for omega. Must fix.")
+
+        return omega
 
     def interpolate_country_covariate_values(self):
         """
