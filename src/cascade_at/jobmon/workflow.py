@@ -38,9 +38,9 @@ def bash_task_from_cascade_operation(co):
         command=co.command,
         name='_'.join([name[0], name[2]]),
         upstream_commands=co.upstream_commands,
-        j_resource=co.j_resource,
         executor_parameters=ExecutorParameters(
             max_runtime_seconds=co.executor_parameters['max_runtime_seconds'],
+            j_resource=co.j_resource,
             m_mem_free=co.executor_parameters['m_mem_free'],
             num_cores=co.executor_parameters['num_cores'],
             resource_scales=co.executor_parameters['resource_scales']
