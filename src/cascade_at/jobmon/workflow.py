@@ -65,7 +65,7 @@ def jobmon_workflow_from_cascade_command(cc, context):
         os.makedirs(folder, exist_ok=True)
 
     wf = Workflow(
-        workflow_args=f'DM-AT_{cc.model_version_id}-test-4',
+        workflow_args=f'dismod-at_{cc.model_version_id}',
         project='proj_mscm',
         stderr=str(error_dir),
         stdout=str(output_dir),
