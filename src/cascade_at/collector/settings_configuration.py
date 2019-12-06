@@ -218,6 +218,7 @@ class Model(Form):
     )
     rate_case = StrField(nullable=False, display="The rate case")
     data_density = StrField(nullable=True, display="Data density")
+    relabel_incidence = IntField(nullable=False, display="Relabel incidence")
 
     def _full_form_validation(self, root):
         errors = []

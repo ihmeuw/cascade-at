@@ -18,3 +18,22 @@ COVARIATE_TRANSFORMS = {0: identity, 1: np.log, 2: logit, 3: squared, 4: np.sqrt
 """
 These functions transform covariate data, as specified in EpiViz.
 """
+
+
+RELABEL_INCIDENCE_MAP = {
+    1: {
+        'incidence': 'Sincidence',
+        'Sincidence': 'Sincidence',
+        'Tincidence': 'Tincidence'
+    },
+    2: {
+        'incidence': 'Tincidence',
+        'Sincidence': 'Sincidence',
+        'Tincidence': 'Tincidence'
+    },
+    3: {
+        'incidence': 'Sincidence',
+        'Sincidence': 'Sincidence',
+        'Tincidence': 'Tincidence'
+    }
+}

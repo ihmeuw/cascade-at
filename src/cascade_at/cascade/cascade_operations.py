@@ -29,8 +29,6 @@ class ConfigureInputs(CascadeOperation):
             f'-conn-def {self.conn_def} '
             f'--make --configure '
         )
-        if self.drill_parent_location_id:
-            self.command += f'--drill {self.drill_parent_location_id}'
 
 
 class FitBoth(CascadeOperation):

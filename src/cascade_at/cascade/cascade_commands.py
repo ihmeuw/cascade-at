@@ -35,13 +35,11 @@ class Drill(CascadeCommand):
         super().__init__()
         self.model_version_id = model_version_id
         self.conn_def = conn_def
-        self.drill_parent_location_id = drill_parent_location_id
         self.drill_sex = drill_sex
 
         self.add_task(CASCADE_OPERATIONS['configure_inputs'](
             model_version_id=self.model_version_id,
             conn_def=self.conn_def,
-            drill_parent_location_id=self.drill_parent_location_id
         ))
         self.add_task(CASCADE_OPERATIONS['fit_both'](
             model_version_id=self.model_version_id,

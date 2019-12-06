@@ -2,6 +2,7 @@ import numpy as np
 
 from cascade_at.core.db import elmo
 from cascade_at.dismod.integrand_mappings import make_integrand_map
+from cascade_at.inputs.utilities.transformations import RELABEL_INCIDENCE_MAP
 from cascade_at.inputs.utilities import gbd_ids
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
@@ -24,8 +25,6 @@ class CrosswalkVersion(BaseInput):
         self.demographics = demographics
         self.conn_def = conn_def
 
-        self.integrand_map = make_integrand_map()
-
         self.raw = None
 
     def get_raw(self):
@@ -38,11 +37,12 @@ class CrosswalkVersion(BaseInput):
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
         return self
 
-    def configure_for_dismod(self, measures_to_exclude=None):
+    def configure_for_dismod(self, measures_to_exclude=None, relabel_incidence=1):
         """
         Configures the crosswalk version for DisMod.
 
         :param measures_to_exclude: (list) list of parameters to exclude, by name
+        :param relabel_incidence: (int) how to label incidence -- see RELABEL_INCIDENCE_MAP
         :return: pd.DataFrame
         """
         df = self.raw.copy()
@@ -82,16 +82,27 @@ class CrosswalkVersion(BaseInput):
         df["name"] = df.seq.astype(str)
 
         df = self.get_out_of_demographic_notation(df, columns=['age', 'time'])
-
         df = self.keep_only_necessary_columns(df)
-        return df
 
-    def map_to_integrands(self, df):
+        return df
+    
+    @staticmethod
+    def relabel_incidence(df):
+        """
+        Relabel incidence to T or Sincidence (understood by DisMod).
+        """
+        data = df.copy()
+
+    @staticmethod
+    def map_to_integrands(df):
         """
         Maps the data from the IHME databases to the integrands expected by DisMod AT
         :param df:
         :return:
         """
+        import pdb; pdb.set_trace()
+        integrand_map = make_integrand_map()
+        
         if any(df.measure_id == 6):
             LOG.warning(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
         if any(df.measure_id == 17):
@@ -102,12 +113,15 @@ class CrosswalkVersion(BaseInput):
             df = df[df.measure_id != 17]
 
         try:
-            df["measure"] = df.measure_id.apply(lambda k: self.integrand_map[k].name)
+            df["measure"] = df.measure_id.apply(lambda k: integrand_map[k].name)
         except KeyError as ke:
             raise RuntimeError(
                 f"The bundle data uses measure {str(ke)} which does not map "
-                f"to an integrand. The map is {self.integrand_map}."
+                f"to an integrand. The map is {integrand_map}."
             )
+        
+        df = self.relabel_incidence(df)
+
         return df
 
 
