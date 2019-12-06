@@ -48,9 +48,11 @@ class ASDR(BaseInput):
         )
         return self
 
-    def configure_for_dismod(self):
+    def configure_for_dismod(self, hold_out=0):
         """
         Configures ASDR for DisMod.
+
+        :param hold_out: (int) hold-out value for Dismod. 0 means it will be fit, 1 means held out
         :return: (pd.DataFrame)
         """
         df = self.raw[[
@@ -67,6 +69,7 @@ class ASDR(BaseInput):
         df['meas_std'] = bounds_to_stdev(lower=df.lower, upper=df.upper)
 
         df = self.keep_only_necessary_columns(df)
+        df["hold_out"] = hold_out
         return df
 
 
