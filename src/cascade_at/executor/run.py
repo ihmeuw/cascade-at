@@ -19,7 +19,6 @@ def get_args():
     """
     parser = ArgumentParser()
     parser.add_argument("-model-version-id", type=int, required=True)
-    parser.add_argument("-conn-def", type=str, required=True)
     parser.add_argument("--jobmon", action='store_true',
                         help="whether or not to use jobmon to run the cascade or just"
                              "run as a sequence of command line tasks")
@@ -34,21 +33,21 @@ def main():
     logging.basicConfig(level=LEVELS[args.loglevel])
     LOG.info(f"Starting model for {args.model_version_id}.")
 
-    settings = settings_from_model_version_id(
-        model_version_id=args.model_version_id,
-        conn_def=args.conn_def
-    )
-
     context = Context(
         model_version_id=args.model_version_id,
         make=True,
         configure_application=True
     )
 
+    settings = settings_from_model_version_id(
+        model_version_id=args.model_version_id,
+        conn_def=context.model_connection
+    )
+
     if settings.model.drill == 'drill':
         cascade_command = CASCADE_COMMANDS['drill'](
             model_version_id=args.model_version_id,
-            conn_def=args.conn_def,
+            conn_def=context.model_connection,
             drill_parent_location_id=settings.model.drill_location_start,
             drill_sex=settings.model.drill_sex
         )
