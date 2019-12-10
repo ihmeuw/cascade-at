@@ -17,16 +17,14 @@ class CascadeOperation:
 
 
 class ConfigureInputs(CascadeOperation):
-    def __init__(self, conn_def, drill_parent_location_id, **kwargs):
+    def __init__(self, drill_parent_location_id, **kwargs):
         super().__init__(**kwargs)
-        self.conn_def = conn_def
         self.drill_parent_location_id = drill_parent_location_id
         self.j_resource = True
 
         self.command = (
             f'configure_inputs '
             f'-model-version-id {self.model_version_id} '
-            f'-conn-def {self.conn_def} '
             f'--make --configure '
         )
         if self.drill_parent_location_id:
