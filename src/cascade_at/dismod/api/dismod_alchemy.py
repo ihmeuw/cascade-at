@@ -68,7 +68,7 @@ class DismodAlchemy(DismodIO):
         
         # Pass the location-sex specific covariate information to construct a new
         # two-level model for the specified parent and all of its children (coming from LocationDAG)
-        if self.inputs.omega:
+        if self.inputs.omega is not None:
             omega_df = self.inputs.omega.loc[self.inputs.omega.sex_id == sex_id].copy()
         else:
             omega_df = None

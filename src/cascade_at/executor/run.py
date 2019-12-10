@@ -47,7 +47,6 @@ def main():
     if settings.model.drill == 'drill':
         cascade_command = CASCADE_COMMANDS['drill'](
             model_version_id=args.model_version_id,
-            conn_def=context.model_connection,
             drill_parent_location_id=settings.model.drill_location_start,
             drill_sex=settings.model.drill_sex
         )
