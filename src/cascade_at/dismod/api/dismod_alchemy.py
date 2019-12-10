@@ -68,10 +68,15 @@ class DismodAlchemy(DismodIO):
         
         # Pass the location-sex specific covariate information to construct a new
         # two-level model for the specified parent and all of its children (coming from LocationDAG)
+        if self.inputs.omega:
+            omega_df = self.inputs.omega.loc[self.inputs.omega.sex_id == sex_id].copy()
+        else:
+            omega_df = None
         self.parent_child_model = self.alchemy.construct_two_level_model(
             location_dag=self.inputs.location_dag,
             parent_location_id=self.parent_location_id,
-            covariate_specs=self.covariate_specs_with_valid_reference
+            covariate_specs=self.covariate_specs_with_valid_reference,
+            omega_df=omega_df
         )
     
     def fill_for_parent_child(self, **additional_option_kwargs):
@@ -106,7 +111,7 @@ class DismodAlchemy(DismodIO):
         )
         interconnected_tables = self.construct_interconnected_tables(
             model=self.parent_child_model,
-            location_df=self.inputs.location_dag.to_dataframe(),
+            location_df=self.node,
             age_df=self.age, time_df=self.time,
             covariate_df=self.covariate
         )
@@ -484,12 +489,14 @@ class DismodAlchemy(DismodIO):
         covariate_index = dict(covariate_df[["c_covariate_name", "covariate_id"]].to_records(index=False))
 
         if "rate" in model:
+            LOG.info("Adding rates...")
             for rate_name, grid in model["rate"].items():
                 """
                 Loop through each of the rates and add entries into the
                 prior, and smooth tables. Also put an entry in the rate table so we know the
                 parent smooth ID.
                 """
+                LOG.info(f"Adding rate {rate_name}")
                 prior, smooth, grid = DismodAlchemy.add_prior_smooth_entries(
                     grid_name=rate_name, grid=grid,
                     num_existing_priors=len(prior_table),
@@ -508,11 +515,13 @@ class DismodAlchemy(DismodIO):
                 rate_table.loc[rate_table.rate_id == RateEnum[rate_name].value, "parent_smooth_id"] = smooth_id
         
         if "random_effect" in model:
+            LOG.info("Adding random effects...")
             for (rate_name, child_location), grid in model["random_effect"].items():
                 """
                 Loop through each of the random effects and add entries
                 into the prior and smooth tables.
                 """
+                LOG.info(f"Adding random effect for rate {rate_name}")
                 grid_name = f"{rate_name}_re"
                 if child_location is not None:
                     grid_name = grid_name + f"_{child_location}"
@@ -537,23 +546,26 @@ class DismodAlchemy(DismodIO):
                 else:
                     # If we are doing this for a child location, then we want to make entries in the
                     # nslist and nslist_pair tables
-                    node_id = location_df[location_df.location_id == child_location].node_id.iloc[0]
+                    node_id = location_df[location_df.c_location_id == child_location].node_id.iloc[0]
                     if rate_name not in nslist:
                         ns_id = len(nslist)
                         nslist[rate_name] = ns_id
                     else:
                         ns_id = nslist[rate_name]
-                        nslist_pair_table.append(pd.DataFrame({
-                            'nslist_id': ns_id,
-                            'node_id': node_id,
-                            'smooth_id': smooth_id
-                        }))
+                    rate_table.loc[rate_table.rate_id == RateEnum[rate_name].value, "child_nslist_id"] = ns_id
+                    nslist_pair_table = nslist_pair_table.append(pd.DataFrame({
+                        'nslist_id': [ns_id],
+                        'node_id': [node_id],
+                        'smooth_id': [smooth_id]
+                    }))
 
         potential_mulcovs = ["alpha", "beta", "gamma"]
         mulcovs = [x for x in potential_mulcovs if x in model]
 
         for m in mulcovs:
+            LOG.info(f"Looking for mulcovs {m}...")
             for (covariate, rate_or_integrand), grid in model[m].items():
+                LOG.info(f"Adding covariate {covariate} on {rate_or_integrand}.")
                 grid_name = f"{m}_{rate_or_integrand}_{covariate}"
 
                 prior, smooth, grid = DismodAlchemy.add_prior_smooth_entries(
@@ -592,6 +604,8 @@ class DismodAlchemy(DismodIO):
             data=list(nslist.items()),
             columns=["nslist_name", "nslist_id"]
         )
+        nslist_pair_table.reset_index(inplace=True, drop=True)
+        nslist_pair_table["nslist_pair_id"] = nslist_pair_table.index
 
         return {
             'rate': rate_table,

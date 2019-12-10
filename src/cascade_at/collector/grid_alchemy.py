@@ -5,6 +5,8 @@ import numpy as np
 from cascade_at.core.log import get_loggers
 from cascade_at.model.model import Model
 from cascade_at.model.utilities.grid_helpers import smooth_grid_from_smoothing_form
+from cascade_at.model.utilities.grid_helpers import rectangular_data_to_var
+from cascade_at.model.utilities.grid_helpers import constraint_from_rectangular_data
 
 LOG = get_loggers(__name__)
 
@@ -70,8 +72,9 @@ class Alchemy:
         single_time = [self.age_time_grid["time"][len(self.age_time_grid["time"]) // 2]]
         single_age_time = (single_age, single_time)
         return single_age_time
-
-    def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs, weights=None):
+    
+    def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs, weights=None,
+                                  omega_df=None):
         """
         Construct a Model object for a parent location and its children.
 
@@ -109,7 +112,7 @@ class Alchemy:
                 )
             model[mulcov.group][mulcov.key] = grid
 
-        # Lastly construct the random effect grids, based on the parent location
+        # Construct the random effect grids, based on the parent location
         # specified.
         if self.settings.random_effect:
             random_effect_by_rate = defaultdict(list)
@@ -132,5 +135,40 @@ class Alchemy:
                                        f"entries for all child locations, only {locations} "
                                        f"instead of {model.child_location}.")
 
+        # Lastly, constrain omega for the parent and the random effects for the children.
+        if self.settings.model.constrain_omega:
+            LOG.info("Adding the omega constraint.")
+            
+            if omega_df is None:
+                raise RuntimeError("Need an omega data frame in order to constrain omega.")
+            
+            parent_omega = omega_df.loc[omega_df.location_id == parent_location_id].copy()
+            if parent_omega.empty:
+                raise RuntimeError("No omega values for location {parent_location_id}.")
+
+            omega = rectangular_data_to_var(gridded_data=parent_omega)
+            model.rate["omega"] = constraint_from_rectangular_data(
+                rate_var=omega,
+                default_age_time=self.age_time_grid
+            )
+            
+            locations = set(omega_df.location_id.unique().tolist())
+            children_without_omega = set(children) - set(locations)
+            if children_without_omega:
+                LOG.warning(f"Children of {parent_location_id} missing omega {children_without_omega}"
+                            f"so not including child omega constraints")
+            else:
+                for child in children:
+                    child_omega = omega_df.loc[omega_df.location_id == child].copy()
+                    assert not child_omega.empty
+                    child_rate = rectangular_data_to_var(gridded_data=child_omega)
+
+                    def child_effect(age, time):
+                        return np.log(child_rate(age, time) / omega(age, time))
+                    
+                    model.random_effect[("omega", child)] = constraint_from_rectangular_data(
+                        rate_var=child_effect,
+                        default_age_time=self.age_time_grid
+                    )
         return model
 

@@ -38,40 +38,50 @@ class CSMR(BaseInput):
         this class.
         :return: self
         """
-        LOG.info(f"Getting CSMR from process version ID {self.process_version_id}")
-        self.raw = db.get_outputs(
-            topic='cause',
-            cause_id=self.cause_id,
-            metric_id=gbd.constants.metrics.RATE,
-            measure_id=gbd.constants.measures.DEATH,
-            year_id=self.demographics.year_id,
-            location_id=self.demographics.location_id,
-            sex_id=self.demographics.sex_id,
-            age_group_id=self.demographics.age_group_id,
-            gbd_round_id=self.gbd_round_id,
-            # TODO: these next two are hard-coded,
-            #  should be self.decomp_step and self.process_version_id
-            decomp_step='step4',
-            process_version_id=14469
-        )
+        if self.cause_id:
+            LOG.info(f"Getting CSMR from process version ID {self.process_version_id}")
+            self.raw = db.get_outputs(
+                topic='cause',
+                cause_id=self.cause_id,
+                metric_id=gbd.constants.metrics.RATE,
+                measure_id=gbd.constants.measures.DEATH,
+                year_id=self.demographics.year_id,
+                location_id=self.demographics.location_id,
+                sex_id=self.demographics.sex_id,
+                age_group_id=self.demographics.age_group_id,
+                gbd_round_id=self.gbd_round_id,
+                # TODO: these next two are hard-coded,
+                #  should be self.decomp_step and self.process_version_id
+                decomp_step='step4',
+                process_version_id=14469
+            )
+        else:
+            LOG.info("There is no CSMR cause to pull from.")
+            self.raw = pd.DataFrame()
         return self
 
-    def configure_for_dismod(self):
+    def configure_for_dismod(self, hold_out=0):
         """
         Configures CSMR for DisMod.
+
+        :param hold_out: (int) hold-out value for Dismod. 0 means it will be fit, 1 means held out
         :return: (pd.DataFrame)
         """
-        df = self.raw.rename(columns={
-            "val": "meas_value",
-            "year_id": "time_lower"
-        })
-        df["time_upper"] = df["time_lower"] + 1
-        df = self.convert_to_age_lower_upper(df)
-        df['integrand_id'] = IntegrandEnum.mtspecific.value
-        df['measure'] = IntegrandEnum.mtspecific.name
+        if self.cause_id:
+            df = self.raw.rename(columns={
+                "val": "meas_value",
+                "year_id": "time_lower"
+            })
+            df["time_upper"] = df["time_lower"] + 1
+            df = self.convert_to_age_lower_upper(df)
+            df['integrand_id'] = IntegrandEnum.mtspecific.value
+            df['measure'] = IntegrandEnum.mtspecific.name
 
-        df["meas_std"] = bounds_to_stdev(df.lower, df.upper)
-        df = self.keep_only_necessary_columns(df)
-
+            df["meas_std"] = bounds_to_stdev(df.lower, df.upper)
+            df = self.keep_only_necessary_columns(df)
+            if hold_out:
+                df["hold_out"] = 1
+        else:
+            df = pd.DataFrame()
         return df
 

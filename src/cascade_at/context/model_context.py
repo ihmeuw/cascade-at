@@ -8,6 +8,7 @@ from cascade_at.core.log import get_loggers
 from cascade_at.inputs.covariate_specs import CovariateSpecs
 from cascade_at.collector.grid_alchemy import Alchemy
 from cascade_at.settings.settings import load_settings
+from cascade_at.core.db import db_tools
 
 LOG = get_loggers(__name__)
 
@@ -27,6 +28,17 @@ class Context:
             self.app = application_config()
             self.root_directory = self.app["DataLayout"]["root-directory"]
             self.cascade_dir = self.app["DataLayout"]["cascade-dir"]
+            self.odbc_file = self.app["Database"]["local-odbc"]
+
+            self.data_connection = 'epi'
+            self.model_connection = 'dismod-at-dev'
+
+            # Configure the odbc.ini for db-tools
+            db_tools.config.DBConfig(
+                load_base_defs=True,
+                load_odbc_defs=True,
+                odbc_filepath=self.odbc_file
+            )
         else:
             self.root_directory = Path('.')
             self.cascade_dir = 'cascade_dir'
