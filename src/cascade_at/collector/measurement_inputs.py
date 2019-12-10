@@ -6,6 +6,7 @@ from collections import defaultdict
 from cascade_at.core.db import decomp_step as ds
 
 from cascade_at.core.log import get_loggers
+from cascade_at.inputs.base_input import BaseInput
 from cascade_at.inputs.asdr import ASDR
 from cascade_at.inputs.csmr import CSMR
 from cascade_at.inputs.covariate_data import CovariateData
@@ -20,6 +21,7 @@ from cascade_at.dismod.integrand_mappings import make_integrand_map
 from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
 from cascade_at.inputs.utilities.gbd_ids import SEX_ID_TO_NAME, SEX_NAME_TO_ID
 from cascade_at.inputs.utilities.gbd_ids import CascadeConstants, StudyCovConstants
+from cascade_at.inputs.utilities.covariate_weighting import expand_grid
 
 LOG = get_loggers(__name__)
 
@@ -209,8 +211,8 @@ class MeasurementInputs:
         # sex and one covariates.
         self.covariate_specs = CovariateSpecs(settings.country_covariate)
 
-        self.interpolate_country_covariate_values()
-        self.transform_country_covariates()
+        self.dismod_data = self.interpolate_country_covariate_values(df=self.dismod_data)
+        self.dismod_data = self.transform_country_covariates(df=self.dismod_data)
 
         self.dismod_data.loc[self.dismod_data.hold_out.isnull(), 'hold_out'] = 0.
 
@@ -220,6 +222,33 @@ class MeasurementInputs:
         self.dismod_data['s_one'] = StudyCovConstants.ONE_COV_VALUE
 
         return self
+
+    def to_avgint(self, parent_location_id, sex_id):
+        """
+        Converts the demographics of the model to the avgint table.
+        :return:
+        """
+        LOG.info(f"Getting grid for the avgint table "
+                 f"for parent location ID {parent_location_id} "
+                 f"and sex_id {sex_id}.")
+        grid = expand_grid({
+            'sex_id': sex_id,
+            'location_id': self.location_dag.parent_children(parent_location_id),
+            'year_id': self.demographics.year_id,
+            'age_group_id': self.demographics.age_group_id
+        })
+        grid['time_lower'] = grid['year_id'].astype(int)
+        grid['time_upper'] = grid['year_id'] + 1.
+        grid = BaseInput().convert_to_age_lower_upper(df=grid)
+        grid = grid[[
+            'location_id', 'sex_id',
+            'age_lower', 'age_upper', 'time_lower', 'time_upper'
+        ]]
+
+        LOG.info("Adding covariates to avgint grid.")
+        grid = self.interpolate_country_covariate_values(df=grid)
+        grid = self.transform_country_covariates(df=grid)
+        return grid
 
     @staticmethod
     def calculate_omega(asdr, csmr):
@@ -252,35 +281,39 @@ class MeasurementInputs:
 
         return omega
 
-    def interpolate_country_covariate_values(self):
+    def interpolate_country_covariate_values(self, df):
         """
         Interpolates the covariate values onto the data
         so that the non-standard ages and years match up to meaningful
         covariate values.
+
+        :param df: (pd.DataFrame)
         """
         LOG.info(f"Interpolating and merging the country covariates.")
         cov_dict_for_interpolation = {c.name: self.country_covariate_data[c.covariate_id]
                                       for c in self.covariate_specs.covariate_specs
                                       if c.study_country == 'country'}
-        self.dismod_data = get_interpolated_covariate_values(
-            data_df=self.dismod_data,
+        interp_df = get_interpolated_covariate_values(
+            data_df=df,
             covariate_dict=cov_dict_for_interpolation,
             population_df=self.population.configure_for_dismod(),
             location_dag=self.location_dag
         )
+        return interp_df
 
-    def transform_country_covariates(self):
+    def transform_country_covariates(self, df):
         """
         Transforms the covariate data with the transformation ID.
+        :param df: (pd.DataFrame)
         :return: self
         """
         for c in self.covariate_specs.covariate_specs:
             if c.study_country == 'country':
                 LOG.info(f"Transforming the data for country covariate {c.covariate_id}.")
-                self.dismod_data[c.name] = self.dismod_data[c.name].apply(
+                df[c.name] = df[c.name].apply(
                     lambda x: COVARIATE_TRANSFORMS[c.transformation_id](x)
                 )
-        return self
+        return df
 
     def calculate_country_covariate_reference_values(self, parent_location_id, sex_id):
         """
@@ -326,6 +359,7 @@ class MeasurementInputs:
                 # then we are going to set the reference value to 0.
                 if cov_df.empty:
                     reference_value = 0
+                    max_difference = np.nan
                 else:
                     pop_df = self.population.configure_for_dismod()
                     pop_df = pop_df.loc[pop_df.location_id == parent_location_id].copy()

@@ -42,6 +42,14 @@ class LocationDAG:
         :return:
         """
         return nx.algorithms.dag.descendants(G=self.dag, source=location_id)
+
+    def parent_children(self, location_id):
+        """
+        Gets the parent and the child location IDs.
+        :param location_id: (int)
+        :return:
+        """
+        return [location_id] + [self.dag.successors(location_id)]
     
     def to_dataframe(self):
         """
