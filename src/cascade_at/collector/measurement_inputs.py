@@ -207,6 +207,7 @@ class MeasurementInputs:
             pop_df=self.population.configure_for_dismod(),
             loc_df=self.location_dag.df
         ) for c in self.covariate_data}
+        
         # This makes the specs not just for the country covariate but adds on the
         # sex and one covariates.
         self.covariate_specs = CovariateSpecs(settings.country_covariate)
@@ -232,7 +233,7 @@ class MeasurementInputs:
                  f"for parent location ID {parent_location_id} "
                  f"and sex_id {sex_id}.")
         grid = expand_grid({
-            'sex_id': sex_id,
+            'sex_id': [sex_id],
             'location_id': self.location_dag.parent_children(parent_location_id),
             'year_id': self.demographics.year_id,
             'age_group_id': self.demographics.age_group_id
@@ -240,12 +241,10 @@ class MeasurementInputs:
         grid['time_lower'] = grid['year_id'].astype(int)
         grid['time_upper'] = grid['year_id'] + 1.
         grid = BaseInput().convert_to_age_lower_upper(df=grid)
-        grid = grid[[
-            'location_id', 'sex_id',
-            'age_lower', 'age_upper', 'time_lower', 'time_upper'
-        ]]
 
         LOG.info("Adding covariates to avgint grid.")
+        grid.merge()
+
         grid = self.interpolate_country_covariate_values(df=grid)
         grid = self.transform_country_covariates(df=grid)
         return grid
