@@ -675,22 +675,22 @@ class DismodAlchemy(DismodIO):
             node_df=node_df,
             covariate_df=covariate_df
         )
-        avgints = pd.DataFrame()
+        avgint_df = pd.DataFrame()
         for i in integrand_df.integrand_name.unique():
             df = avgint.copy()
             df['measure'] = i
-            avgints = avgints.append(df)
+            avgint_df = avgint_df.append(df)
 
-        avgints = avgints.reset_index(drop=True)
+        avgint_df = avgint_df.reset_index(drop=True)
 
-        avgints["integrand_id"] = avgints["measure"].apply(lambda x: IntegrandEnum[x].value)
-        avgints["weight_id"] = avgints["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
+        avgint_df["integrand_id"] = avgint_df["measure"].apply(lambda x: IntegrandEnum[x].value)
+        avgint_df["weight_id"] = avgint_df["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
 
-        avgints = avgints[[
+        avgint_df = avgint_df[[
             'integrand_id', 'node_id', 'weight_id',
             'age_lower', 'age_upper', 'time_lower', 'time_upper'
-        ] + [x for x in avgints.columns if x.startswith('x_')]]
-        return avgints
+        ] + [x for x in avgint_df.columns if x.startswith('x_')]]
+        return avgint_df
 
     @staticmethod
     def construct_constraint_table():
