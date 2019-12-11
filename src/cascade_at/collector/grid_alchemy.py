@@ -84,6 +84,7 @@ class Alchemy:
             covariate_specs (cascade_at.inputs.covariate_specs.CovariateSpecs): covariate
                 specifications, specifically will use covariate_specs.covariate_multipliers
             weights:
+            omega_df: (pd.DataFrame)
         """
         children = list(location_dag.dag.successors(parent_location_id))
         model = Model(
