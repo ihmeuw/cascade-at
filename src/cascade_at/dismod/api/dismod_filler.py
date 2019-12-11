@@ -28,8 +28,8 @@ class DismodFiller(DismodIO):
 
     Example:
         >>> from pathlib import Path
-        >>> from cascade_at.collector.grid_alchemy import Alchemy
-        >>> from cascade_at.collector.measurement_inputs import MeasurementInputsFromSettings
+        >>> from cascade_at.model.grid_alchemy import Alchemy
+        >>> from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
 

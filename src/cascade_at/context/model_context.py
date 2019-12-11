@@ -6,7 +6,7 @@ from pathlib import Path
 from cascade_at.context.configuration import application_config
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.covariate_specs import CovariateSpecs
-from cascade_at.collector.grid_alchemy import Alchemy
+from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.settings.settings import load_settings
 from cascade_at.core.db import db_tools
 

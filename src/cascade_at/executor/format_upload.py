@@ -2,7 +2,7 @@ import logging
 from argparse import ArgumentParser
 
 from cascade_at.context.model_context import Context
-from cascade_at.dismod.api.dismod_filler import DismodIO
+from cascade_at.dismod.api.dismod_extractor import DismodExtractor
 from cascade_at.core.log import get_loggers, LEVELS
 
 LOG = get_loggers(__name__)
@@ -35,4 +35,4 @@ def main():
     inputs, alchemy, settings = context.read_inputs()
 
     dismod_file = context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id, make=False)
-    da = DismodIO(path=dismod_file)
+    da = DismodExtractor(path=dismod_file)

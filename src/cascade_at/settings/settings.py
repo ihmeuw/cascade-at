@@ -1,6 +1,6 @@
 import json
 
-from cascade_at.collector.settings_configuration import SettingsConfiguration
+from cascade_at.settings.settings_configuration import SettingsConfiguration
 from cascade_at.core.db import db_tools
 from cascade_at.core.errors import SettingsError
 from cascade_at.core.log import get_loggers
