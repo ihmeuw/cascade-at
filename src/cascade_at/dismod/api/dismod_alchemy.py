@@ -124,15 +124,22 @@ class DismodAlchemy(DismodIO):
         self.nslist = interconnected_tables['nslist']
         self.nslist_pair = interconnected_tables['nslist_pair']
         
+        avgint_df = self.inputs.to_avgint(
+            parent_location_id=self.parent_location_id,
+            sex_id=self.sex_id
+        )
+        self.avgint = self.construct_avgint_table(
+            df=avgint_df,
+            node_df=self.node,
+            covariate_df=self.covariate,
+            integrand_df=self.integrand
+        )
+        self.option = self.construct_option_table(**additional_option_kwargs)
         # Initialize empty tables that need to be there that may or may not
         # be filled with relevant info, if they're currently empty.
         for name in ["nslist", "nslist_pair", "mulcov", "smooth_grid", "smooth", "data"]:
             if getattr(self, name).empty:
                 setattr(self, name, self.empty_table(table_name=name))
-
-        covariate_columns = [x for x in self.data.columns if x.startswith('x_')]
-        self.avgint = self.empty_table(table_name='avgint', extra_columns=covariate_columns)
-        self.option = self.construct_option_table(**additional_option_kwargs)
 
     def node_id_from_location_id(self, location_id):
         """
@@ -142,6 +149,54 @@ class DismodAlchemy(DismodIO):
         if len(loc_df) > 1:
             raise RuntimeError("Problem with the node table -- should only be one node-id for each location_id.")
         return loc_df['node_id'].iloc[0]
+    
+    @staticmethod
+    def map_locations_to_nodes(df, node_df):
+        """
+        Maps the location ID to node ID and 
+        changes column names in a df.
+        """
+        data = df.copy()
+        data.rename(columns={
+            "location_id": "c_location_id",
+            "location": "c_location"
+        }, inplace=True)
+        data['c_location_id'] = data['c_location_id'].astype(int)
+        data = data.merge(
+            node_df[["node_id", "c_location_id"]],
+            on=["c_location_id"]
+        )
+        return data
+    
+    @staticmethod
+    def map_covariate_names(df, covariate_df):
+        """
+        Maps the covariate names to the covariate
+        IDs in the covariate table.
+        """
+        data = df.copy()
+        covariate_rename = pd.Series(
+            covariate_df.covariate_name.values,
+            index=covariate_df.c_covariate_name
+        ).to_dict()
+
+        data.rename(columns=covariate_rename, inplace=True)
+        return data
+    
+    @staticmethod
+    def prep_data_avgint(df, node_df, covariate_df):
+        """
+        Preps both the data table and the avgint table.
+        Putting it in the same function because it does the same stuff,
+        but they need to be called separately because dismod requires
+        different columns.
+        """
+        data = df.copy()
+        data = DismodAlchemy.map_locations_to_nodes(df=data, node_df=node_df)
+        data = DismodAlchemy.map_covariate_names(df=data, covariate_df=covariate_df)
+
+        data.reset_index(inplace=True, drop=True)
+        return data
 
     @staticmethod
     def construct_age_time_table(variable_name, variable, data_range):
@@ -259,36 +314,25 @@ class DismodAlchemy(DismodIO):
             covariate_df: (pd.DataFrame) the dismod covariate table
         """
         LOG.info("Constructing data table.")
-        data = df.copy()
-        data.rename(columns={
-            "location_id": "c_location_id",
-            "location": "c_location"
-        }, inplace=True)
-        data['c_location_id'] = data['c_location_id'].astype(int)
-        data = data.merge(
-            node_df[["node_id", "c_location_id"]],
-            on=["c_location_id"]
-        )
-        data["density_id"] = data["density"].apply(lambda x: DensityEnum[x].value)
-        data["integrand_id"] = data["measure"].apply(lambda x: IntegrandEnum[x].value)
-        data["weight_id"] = data["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
-        data.drop(['measure', 'density'], axis=1, inplace=True)
 
-        data.reset_index(inplace=True, drop=True)
+        data = df.copy()
+        data = DismodAlchemy.prep_data_avgint(
+            df=data,
+            node_df=node_df,
+            covariate_df=covariate_df
+        )
         data["data_name"] = data.index.astype(str)
 
-        covariate_rename = pd.Series(
-            covariate_df.covariate_name.values,
-            index=covariate_df.c_covariate_name
-        ).to_dict()
-
-        data.rename(columns=covariate_rename, inplace=True)
+        data["density_id"] = data["density"].apply(lambda x: DensityEnum[x].value) 
+        data["integrand_id"] = data["measure"].apply(lambda x: IntegrandEnum[x].value)
+        data["weight_id"] = data["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
+        
+        columns = data.columns
         data = data[[
             'data_name', 'integrand_id', 'density_id', 'node_id', 'weight_id',
             'hold_out', 'meas_value', 'meas_std', 'eta', 'nu',
             'age_lower', 'age_upper', 'time_lower', 'time_upper'
-        ] + list(covariate_rename.values())]
-
+        ] + [x for x in columns if x.startswith('x_')]]
         return data
 
     @staticmethod
@@ -617,10 +661,36 @@ class DismodAlchemy(DismodIO):
             'nslist': nslist_table,
             'nslist_pair': nslist_pair_table
         }
-
+    
     @staticmethod
-    def construct_avgint_table():
-        pass
+    def construct_avgint_table(df, node_df, covariate_df, integrand_df):
+        """
+        Constructs the avgint table using the output df
+        from the inputs.to_avgint() method.
+        """
+        LOG.info("Constructing the avgint table.")
+        avgint = df.copy()
+        avgint = DismodAlchemy.prep_data_avgint(
+            df=avgint,
+            node_df=node_df,
+            covariate_df=covariate_df
+        )
+        avgints = pd.DataFrame()
+        for i in integrand_df.integrand_name.unique():
+            df = avgint.copy()
+            df['measure'] = i
+            avgints = avgints.append(df)
+
+        avgints = avgints.reset_index(drop=True)
+
+        avgints["integrand_id"] = avgints["measure"].apply(lambda x: IntegrandEnum[x].value)
+        avgints["weight_id"] = avgints["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
+
+        avgints = avgints[[
+            'integrand_id', 'node_id', 'weight_id',
+            'age_lower', 'age_upper', 'time_lower', 'time_upper'
+        ] + [x for x in avgints.columns if x.startswith('x_')]]
+        return avgints
 
     @staticmethod
     def construct_constraint_table():

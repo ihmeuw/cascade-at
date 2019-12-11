@@ -49,7 +49,7 @@ class LocationDAG:
         :param location_id: (int)
         :return:
         """
-        return [location_id] + [self.dag.successors(location_id)]
+        return [location_id] + list(self.dag.successors(location_id))
     
     def to_dataframe(self):
         """
