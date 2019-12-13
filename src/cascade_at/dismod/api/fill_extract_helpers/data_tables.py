@@ -72,6 +72,8 @@ def construct_avgint_table(df, node_df, covariate_df, integrand_df):
     )
     avgint_df = pd.DataFrame()
     for i in integrand_df.integrand_name.unique():
+        if i == 'mtstandard' or i == 'relrisk':
+            continue
         df = avgint.copy()
         df['measure'] = i
         avgint_df = avgint_df.append(df)
@@ -82,7 +84,13 @@ def construct_avgint_table(df, node_df, covariate_df, integrand_df):
     avgint_df["weight_id"] = avgint_df["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
 
     avgint_df = avgint_df[[
-        'integrand_id', 'node_id', 'weight_id',
+        'integrand_id', 'node_id', 'weight_id', 'c_location_id',
+        'age_group_id', 'year_id', 'sex_id',
         'age_lower', 'age_upper', 'time_lower', 'time_upper'
     ] + [x for x in avgint_df.columns if x.startswith('x_')]]
+    
+    gbd_id_cols = ['sex_id', 'age_group_id', 'year_id']
+    for ids in gbd_id_cols:
+        avgint_df.rename(columns={x: 'c_' + x for x in gbd_id_cols}, inplace=True)
+
     return avgint_df

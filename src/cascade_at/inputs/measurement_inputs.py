@@ -257,7 +257,6 @@ class MeasurementInputs:
 
         LOG.info("Adding covariates to avgint grid.")
         grid = self.add_covariates_to_data(df=grid)
-        grid.drop(columns=['age_group_id', 'year_id', 'sex_id'], axis=1, inplace=True)
         return grid
 
     @staticmethod
