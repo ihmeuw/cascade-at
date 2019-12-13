@@ -25,7 +25,7 @@ class Alchemy:
         Usage:
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
-        >>> from cascade_at.collector.measurement_inputs import MeasurementInputsFromSettings
+        >>> from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
         
         >>> settings = load_settings(BASE_CASE)
         >>> mc = Alchemy(settings)
