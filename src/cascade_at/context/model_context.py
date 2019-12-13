@@ -54,6 +54,7 @@ class Context:
         self.inputs_dir = self.model_dir / 'inputs'
         self.outputs_dir = self.model_dir / 'outputs'
         self.database_dir = self.model_dir / 'dbs'
+        self.draw_dir = self.outputs_dir / 'draws'
 
         self.inputs_file = self.inputs_dir / 'inputs.p'
         self.settings_file = self.inputs_dir / 'settings.json'
@@ -68,6 +69,7 @@ class Context:
         if make:
             os.makedirs(self.inputs_dir, exist_ok=True)
             os.makedirs(self.outputs_dir, exist_ok=True)
+            os.makedirs(self.draw_dir, exist_ok=True)
             os.makedirs(self.database_dir, exist_ok=True)
             os.makedirs(self.log_dir, exist_ok=True)
 
