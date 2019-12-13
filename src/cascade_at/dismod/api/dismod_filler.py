@@ -64,6 +64,9 @@ class DismodFiller(DismodIO):
         self.min_age = self.inputs.dismod_data.age_lower.min()
         self.max_age = self.inputs.dismod_data.age_upper.max()
 
+        self.min_time = self.inputs.dismod_data.time_lower.min()
+        self.max_time = self.inputs.dismod_data.time_upper.max()
+
     def get_omega_df(self):
         """
         Get the correct omega data frame for this two-level model.
@@ -115,8 +118,8 @@ class DismodFiller(DismodIO):
         LOG.info(f"Filling tables in {self.path.absolute()}")
 
         self.fill_reference_tables()
-        self.fill_data_tables()
         self.fill_grid_tables()
+        self.fill_data_tables()
         self.option = self.construct_option_table(**additional_option_kwargs)
 
     def node_id_from_location_id(self, location_id):
@@ -139,11 +142,11 @@ class DismodFiller(DismodIO):
         self.covariate = reference_tables.construct_covariate_table(covariates=self.parent_child_model.covariates)
         self.age = reference_tables.construct_age_time_table(
             variable_name='age', variable=self.parent_child_model.get_age_array(),
-            data_range=(self.inputs.dismod_data.age_lower.min(), self.inputs.dismod_data.age_upper.max()),
+            data_range=(self.min_age, self.max_age)
         )
         self.time = reference_tables.construct_age_time_table(
             variable_name='time', variable=self.parent_child_model.get_time_array(),
-            data_range=(self.min_age, self.max_age)
+            data_range=(self.min_time, self.max_time)
         )
         return self
 
@@ -227,6 +230,8 @@ class DismodFiller(DismodIO):
             option_dict.update({'tolerance_fixed': self.settings.tolerance.fixed})
         if self.settings.tolerance.random:
             option_dict.update({'tolerance_random': self.settings.tolerance.random})
+        if not self.settings.model.is_field_unset("additional_ode_steps"):
+            option_dict.update({'age_avg_split': ' '.join(str(a) for a in self.settings.model.additional_ode_steps)})
         option_dict.update(**kwargs)
 
         df = pd.DataFrame()
