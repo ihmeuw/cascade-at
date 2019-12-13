@@ -58,7 +58,7 @@ def main():
     context = Context(model_version_id=args.model_version_id)
 
     inputs, alchemy, settings = context.read_inputs()
-    d = DismodFiller(
+    df = DismodFiller(
         path=context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id),
         settings_configuration=settings,
         measurement_inputs=inputs,
@@ -66,10 +66,10 @@ def main():
         parent_location_id=args.parent_location_id,
         sex_id=args.sex_id
     )
-    d.fill_for_parent_child(**args.options)
+    df.fill_for_parent_child(**args.options)
 
     for c in args.commands:
-        process = run_dismod(dm_file=d.path.absolute(), command=c)
+        process = run_dismod(dm_file=df.path.absolute(), command=c)
         if process.exit_status:
             LOG.error(f"{c} failed with exit_status {process.exit_status}:")
             LOG.error(f"{process.stderr}")
