@@ -204,7 +204,10 @@ class MeasurementInputs:
 
         # This makes the specs not just for the country covariate but adds on the
         # sex and one covariates.
-        self.covariate_specs = CovariateSpecs(settings.country_covariate)
+        self.covariate_specs = CovariateSpecs(
+            country_covariates=settings.country_covariate,
+            study_covariates=settings.study_covariate
+        )
         self.country_covariate_data = {c.covariate_id: c.configure_for_dismod(
             pop_df=self.population.configure_for_dismod(),
             loc_df=self.location_dag.df
