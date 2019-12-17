@@ -118,6 +118,9 @@ class Context:
 
         # This re-creates the covariate specs for the inputs, but ideally
         # we don't have to do this if we can figure out why pickling makes it error.
-        inputs.covariate_specs = CovariateSpecs(settings.country_covariate)
+        inputs.covariate_specs = CovariateSpecs(
+            country_covariates=settings.country_covariate,
+            study_covariates=settings.study_covariate
+        )
 
         return inputs, alchemy, settings
