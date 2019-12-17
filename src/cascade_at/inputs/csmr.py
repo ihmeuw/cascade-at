@@ -1,5 +1,7 @@
+import pandas as pd
+
 from cascade_at.core.db import db_queries as db
-from cascade_at.core.db import gbd
+from cascade_at.core.db import gbd, db_tools
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
@@ -59,6 +61,25 @@ class CSMR(BaseInput):
             LOG.info("There is no CSMR cause to pull from.")
             self.raw = pd.DataFrame()
         return self
+
+    def attach_to_model_version_in_db(self, model_version_id, conn_def):
+        """
+        Uploads the CSMR for this model and attaches
+        it to the model version so that it can be
+        viewed in EpiViz.
+
+        Returns: None
+        """
+        df = self.raw[['year_id', 'location_id', 'sex_id', 'age_group_id', 'mean', 'upper', 'lower']]
+        df['model_version_id'] = model_version_id
+
+        session = db_tools.ezfuncs.get_session(conn_def=conn_def)
+        loader = db_tools.loaders.Inserts(
+            table='t3_model_version_csmr',
+            schema='epi',
+            insert_df=df
+        )
+        loader.insert(session=session, commit=True)
 
     def configure_for_dismod(self, hold_out=0):
         """

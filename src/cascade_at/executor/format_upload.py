@@ -34,6 +34,14 @@ def main():
     logging.basicConfig(level=LEVELS[args.loglevel])
 
     context = Context(model_version_id=args.model_version_id)
+    inputs, alchemy, settings = context.read_inputs()
+
+    if not inputs.csmr.raw.empty:
+        LOG.info("Uploading CSMR to t3")
+        inputs.csmr.attach_to_model_version_in_db(
+            model_version_id=args.model_version_id,
+            conn_def=context.model_connection
+        )
 
     LOG.info("Extracting results from DisMod SQLite Database.")
     dismod_file = context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id, make=False)
