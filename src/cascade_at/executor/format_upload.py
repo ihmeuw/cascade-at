@@ -17,6 +17,8 @@ def get_args():
     parser = ArgumentParser()
     parser.add_argument("-model-version-id", type=int, required=True,
                         help="model version ID (need this from database entry)")
+    parser.add_argument("-parent-location-id", type=int, required=True)
+    parser.add_argument("-sex-id", type=int, required=True)
     parser.add_argument("--loglevel", type=str, required=False, default='info')
 
     return parser.parse_args()

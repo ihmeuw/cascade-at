@@ -1,3 +1,5 @@
+import os
+
 from cascade_at.core.db import db_tools
 from cascade_at.core.log import get_loggers
 
@@ -24,8 +26,9 @@ class ResultsHandler:
         Returns:
 
         """
-        if self.draw_keys not in df.columns:
-            raise RuntimeError("Missing id columns for saving the results.")
+        missing_cols = [x for x in self.draw_keys if x not in df.columns]
+        if missing_cols:
+            raise RuntimeError(f"Missing id columns {missing_cols} for saving the results.")
         return df
 
     def save_draw_files(self, df, directory):
@@ -47,12 +50,13 @@ class ResultsHandler:
         df['model_version_id'] = self.model_version_id
         validated_df = self.validate_results(df=df)
 
-        for loc in validated_df.location_id:
-            for sex in validated_df.sex_id:
+        for loc in validated_df.location_id.unique().tolist():
+            os.makedirs(directory / str(loc), exist_ok=True)
+            for sex in validated_df.sex_id.unique().tolist():
                 subset = validated_df.loc[
                     (validated_df.location_id == loc) &
                     (validated_df.sex_id == sex)
-                ]
+                ].copy()
                 subset.to_csv(directory / str(loc) / f'{loc}_{sex}.csv')
 
     @staticmethod
@@ -72,8 +76,8 @@ class ResultsHandler:
         Returns: None
         """
         session = db_tools.ezfuncs.get_session(conn_def=conn_def)
-        loader = db_tools.loaders.Infiles(table='model_results', schema='epi', session=session)
+        loader = db_tools.loaders.Infiles(table='model_estimate_final', schema='epi', session=session)
 
         generic_file = (directory / '*' / '*.csv').absolute()
         LOG.info(f"Loading all files to {conn_def} that match {generic_file} glob.")
-        loader.indir(path=generic_file, commit=True, with_replace=False)
+        loader.indir(path=str(generic_file), commit=True, with_replace=True)

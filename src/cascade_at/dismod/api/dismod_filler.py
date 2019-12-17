@@ -116,7 +116,6 @@ class DismodFiller(DismodIO):
         table with additional info or to over-ride the defaults.
         """
         LOG.info(f"Filling tables in {self.path.absolute()}")
-
         self.fill_reference_tables()
         self.fill_grid_tables()
         self.fill_data_tables()
