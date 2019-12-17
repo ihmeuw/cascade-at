@@ -185,10 +185,10 @@ class MeasurementInputs:
         self.measures_to_exclude = self.measures_to_exclude_from_settings(settings)
 
         # If we are constraining omega, then we want to hold out the data
-        # from the DisMod fit for ASDR and CSMR.
+        # from the DisMod fit for ASDR (but never CSMR -- always want to fit CSMR).
         data = self.data.configure_for_dismod(measures_to_exclude=self.measures_to_exclude)
         asdr = self.asdr.configure_for_dismod(hold_out=settings.model.constrain_omega)
-        csmr = self.csmr.configure_for_dismod(hold_out=settings.model.constrain_omega)
+        csmr = self.csmr.configure_for_dismod(hold_out=0)
 
         self.dismod_data = pd.concat([data, asdr, csmr], axis=0)
         self.dismod_data.reset_index(drop=True, inplace=True)
