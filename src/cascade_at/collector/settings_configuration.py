@@ -319,6 +319,10 @@ class SettingsConfiguration(Form):
     random_effect = FormList(Smoothing, nullable=True, display="Random effects")
     rate = FormList(Smoothing, display="Rates")
     country_covariate = FormList(CountryCovariate, display="Country covariates")
+<<<<<<< HEAD:src/cascade_at/collector/settings_configuration.py
+=======
+    study_covariate = FormList(StudyCovariate, display="Study covariates", nullable=True)
+>>>>>>> af47e09... Nullable study covarites:src/cascade_at/settings/settings_configuration.py
     eta = Eta(validation_priority=5)
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)
