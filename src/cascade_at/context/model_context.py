@@ -8,6 +8,7 @@ from cascade_at.core.log import get_loggers
 from cascade_at.inputs.covariate_specs import CovariateSpecs
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.settings.settings import load_settings
+from cascade_at.executor.utils.utils import MODEL_STATUS, update_model_status
 from cascade_at.core.db import db_tools
 
 LOG = get_loggers(__name__)
@@ -72,6 +73,16 @@ class Context:
             os.makedirs(self.draw_dir, exist_ok=True)
             os.makedirs(self.database_dir, exist_ok=True)
             os.makedirs(self.log_dir, exist_ok=True)
+    
+    def update_status(self, status):
+        """
+        Updates status in the database.
+        """
+        update_model_status(
+            model_version_id=self.model_version_id,
+            conn_def=self.model_connection,
+            status_id=MODEL_STATUS[status]
+        )
 
     def db_file(self, location_id, sex_id, make=True):
         """
