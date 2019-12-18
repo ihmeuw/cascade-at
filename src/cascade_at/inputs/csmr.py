@@ -70,8 +70,9 @@ class CSMR(BaseInput):
 
         Returns: None
         """
-        df = self.raw[['year_id', 'location_id', 'sex_id', 'age_group_id', 'mean', 'upper', 'lower']]
+        df = self.raw[['year_id', 'location_id', 'sex_id', 'age_group_id', 'val', 'upper', 'lower']]
         df['model_version_id'] = model_version_id
+        df.rename(columns={'val': 'mean'}, inplace=True)
 
         session = db_tools.ezfuncs.get_session(conn_def=conn_def)
         loader = db_tools.loaders.Inserts(
