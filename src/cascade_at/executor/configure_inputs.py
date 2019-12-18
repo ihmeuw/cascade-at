@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 from cascade_at.context.model_context import Context
 from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
-from cascade_at.collector.measurement_inputs import MeasurementInputsFromSettings
+from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
 from cascade_at.core.log import get_loggers, LEVELS
 
 LOG = get_loggers(__name__)

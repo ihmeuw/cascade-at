@@ -163,6 +163,24 @@ class Smoothing(Form):
         return errors
 
 
+class StudyCovariate(Form):
+    study_covariate_id = IntField(display="Covariate")
+
+    measure_id = IntField(display="Measure")
+    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
+    transformation = IntField(display="Transformation")
+    age_time_specific = IntField(display="Age and Time specific")
+
+    age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
+    time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
+    default = SmoothingPriorGroup(display="Defaults")
+    mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
+    detail = FormList(SmoothingPrior, nullable=True, display="Detail")
+
+    custom_age_grid = Dummy()
+    custom_time_grid = Dummy()
+
+
 class CountryCovariate(Form):
     country_covariate_id = IntField(display="Covariate")
 
@@ -320,9 +338,13 @@ class SettingsConfiguration(Form):
     rate = FormList(Smoothing, display="Rates")
     country_covariate = FormList(CountryCovariate, display="Country covariates")
 <<<<<<< HEAD:src/cascade_at/collector/settings_configuration.py
+<<<<<<< HEAD:src/cascade_at/collector/settings_configuration.py
 =======
     study_covariate = FormList(StudyCovariate, display="Study covariates", nullable=True)
 >>>>>>> af47e09... Nullable study covarites:src/cascade_at/settings/settings_configuration.py
+=======
+    study_covariate = FormList(StudyCovariate, display="Study covariates")
+>>>>>>> a0fb8fd1c1fe87e7479b57a182c0537c494a3325:src/cascade_at/settings/settings_configuration.py
     eta = Eta(validation_priority=5)
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)
