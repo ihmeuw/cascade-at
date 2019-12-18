@@ -217,20 +217,26 @@ class DismodFiller(DismodIO):
             'parent_node_id': self.node_id_from_location_id(location_id=self.parent_location_id),
             'random_seed': self.settings.model.random_seed,
             'ode_step_size': self.settings.model.ode_step_size,
-            'max_num_iter_fixed': self.settings.max_num_iter.fixed,
-            'max_num_iter_random': self.settings.max_num_iter.random,
-            'print_level_fixed': self.settings.print_level.fixed,
-            'print_level_random': self.settings.print_level.random,
-            'accept_after_max_steps_fixed': self.settings.accept_after_max_steps.fixed,
-            'accept_after_max_steps_random': self.settings.accept_after_max_steps.random,
-            'rate_case': self.settings.model.rate_case
+            'rate_case': self.settings.model.rate_case,
+            'meas_noise_effect': self.settings.policies.meas_std_effect
         }
-        if self.settings.tolerance.fixed:
-            option_dict.update({'tolerance_fixed': self.settings.tolerance.fixed})
-        if self.settings.tolerance.random:
-            option_dict.update({'tolerance_random': self.settings.tolerance.random})
+        for kind in ['fixed', 'random']:
+            for opt in ['derivative_test', 'max_num_iter', 'print_level', 'accept_after_max_steps', 'tolerance']:
+                if hasattr(self.settings, opt):
+                    setting = getattr(self.settings, opt)
+                    if not setting.is_field_unset(kind):
+                        option_dict.update({f'{opt}_{kind}': getattr(setting, kind)})
         if not self.settings.model.is_field_unset("additional_ode_steps"):
-            option_dict.update({'age_avg_split': ' '.join(str(a) for a in self.settings.model.additional_ode_steps)})
+            option_dict.update({'age_avg_split': " ".join(str(a) for a in self.settings.model.additional_ode_steps)})
+        if not self.settings.model.is_field_unset("quasi_fixed"):
+            option_dict.update({'quasi_fixed': self.settings.moel.quasi_fixed == 1})
+            option_dict.update({'bound_frac_fixed': self.settings.model.bound_frac_fixed})
+        if not self.settings.model.is_field_unset("zero_sum_random"):
+            option_dict.update({'zero_sum_random': " ".join(self.settings.model.zero_sum_random)})
+        if not self.settings.policies.is_field_unset("limited_memory_max_history_fixed"):
+            option_dict.update(
+                {'limited_memory_max_history_fixed': self.settings.policies.limited_memory_max_history_fixed}
+            )
         option_dict.update(**kwargs)
 
         df = pd.DataFrame()
