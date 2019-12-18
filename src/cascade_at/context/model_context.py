@@ -6,8 +6,9 @@ from pathlib import Path
 from cascade_at.context.configuration import application_config
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.covariate_specs import CovariateSpecs
-from cascade_at.collector.grid_alchemy import Alchemy
+from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.settings.settings import load_settings
+from cascade_at.executor.utils.utils import MODEL_STATUS, update_model_status
 from cascade_at.core.db import db_tools
 
 LOG = get_loggers(__name__)
@@ -54,6 +55,7 @@ class Context:
         self.inputs_dir = self.model_dir / 'inputs'
         self.outputs_dir = self.model_dir / 'outputs'
         self.database_dir = self.model_dir / 'dbs'
+        self.draw_dir = self.outputs_dir / 'draws'
 
         self.inputs_file = self.inputs_dir / 'inputs.p'
         self.settings_file = self.inputs_dir / 'settings.json'
@@ -68,8 +70,19 @@ class Context:
         if make:
             os.makedirs(self.inputs_dir, exist_ok=True)
             os.makedirs(self.outputs_dir, exist_ok=True)
+            os.makedirs(self.draw_dir, exist_ok=True)
             os.makedirs(self.database_dir, exist_ok=True)
             os.makedirs(self.log_dir, exist_ok=True)
+    
+    def update_status(self, status):
+        """
+        Updates status in the database.
+        """
+        update_model_status(
+            model_version_id=self.model_version_id,
+            conn_def=self.model_connection,
+            status_id=MODEL_STATUS[status]
+        )
 
     def db_file(self, location_id, sex_id, make=True):
         """
@@ -116,6 +129,9 @@ class Context:
 
         # This re-creates the covariate specs for the inputs, but ideally
         # we don't have to do this if we can figure out why pickling makes it error.
-        inputs.covariate_specs = CovariateSpecs(settings.country_covariate)
+        inputs.covariate_specs = CovariateSpecs(
+            country_covariates=settings.country_covariate,
+            study_covariates=settings.study_covariate
+        )
 
         return inputs, alchemy, settings

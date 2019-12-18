@@ -90,3 +90,14 @@ def make_integrand_map():
 
 
 """From Dismod integrand to Dismod primary rate name"""
+
+def reverse_integrand_map():
+    """
+    Makes a dictionary where key=integrand_name, value=GBD measure_id
+
+    NOTE: Over-rides the birth prevalence measure because birth prevalence is
+    defined by age_group_id in IHME databases, not measure in DisMod.
+    """
+    mapping = {v.name: k for k, v in make_integrand_map().items()}
+    mapping['prevalence'] = 5
+    return mapping

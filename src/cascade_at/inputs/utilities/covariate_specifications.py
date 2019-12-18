@@ -1,4 +1,5 @@
 from functools import total_ordering
+from itertools import chain
 
 from cascade_at.dismod.integrand_mappings import make_integrand_map, PRIMARY_INTEGRANDS_TO_RATES
 from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
@@ -109,7 +110,7 @@ def kind_and_id(covariate_setting):
     )
 
 
-def create_covariate_specifications(country_covariate):
+def create_covariate_specifications(country_covariate, study_covariate):
     """Parses EpiViz-AT settings to create two data structures for Covariate creation.
 
     Covariate multipliers will only contain country covariates.
@@ -119,10 +120,11 @@ def create_covariate_specifications(country_covariate):
     >>> from cascade_at.settings.base_case import BASE_CASE
     >>> from cascade_at.settings.settings import load_settings
     >>> settings = load_settings(BASE_CASE)
-    >>> multipliers, data_spec = create_covariate_specifications(settings.country_covariate)
+    >>> multipliers, data_spec = create_covariate_specifications(settings.country_covariate, settings.study_covariate)
 
     Args:
         country_covariate (List[Form]): The country_covariate member of the EpiViz-AT settings.
+        study_covariate (List[Form]): The study_covariate member of the EpiViz-AT settings.
 
     Returns:
          (List[EpiVizCovariateMultiplier], List[EpiVizCovariate]): The multipliers
@@ -132,7 +134,7 @@ def create_covariate_specifications(country_covariate):
          of the covariate.
     """
     covariate_specs = set()
-    for setting in country_covariate:
+    for setting in chain(study_covariate, country_covariate):
         # This tells us what the data is for the column.
         kind, covariate_id = kind_and_id(setting)
         covariate_specs.add((kind, covariate_id, setting.transformation))
@@ -141,7 +143,7 @@ def create_covariate_specifications(country_covariate):
     covariate_dict = {cspec: EpiVizCovariate(*cspec) for cspec in covariate_specs}
 
     multipliers = list()
-    for setting in country_covariate:
+    for setting in chain(study_covariate, country_covariate):
         kind, covariate_id = kind_and_id(setting)
         # This tells us what the data is for the column.
         covariate_id = getattr(setting, f"{kind}_covariate_id")

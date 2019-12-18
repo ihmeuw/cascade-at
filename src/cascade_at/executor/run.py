@@ -38,6 +38,7 @@ def main():
         make=True,
         configure_application=True
     )
+    context.update_status(status='Submitted')
 
     settings = settings_from_model_version_id(
         model_version_id=args.model_version_id,
@@ -58,7 +59,10 @@ def main():
     if args.jobmon:
         LOG.info("Configuring jobmon.")
         wf = jobmon_workflow_from_cascade_command(cc=cascade_command, context=context)
-        wf.run()
+        error = wf.run()
+        if error:
+            context.update_status(status='Failed')
+            raise RuntimeError("Jobmon workflow failed.")
     else:
         LOG.info("Running without jobmon.")
         for c in cascade_command.get_commands():
@@ -67,8 +71,11 @@ def main():
                 c, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             if process.returncode:
+                context.update_status(status='Failed')
                 raise RuntimeError(f"Command {c} failed with error"
                                    f"{process.stderr.decode()}")
+    
+    context.update_status(status='Complete')
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ import logging
 from argparse import ArgumentParser
 
 from cascade_at.context.model_context import Context
-from cascade_at.dismod.api.dismod_alchemy import DismodAlchemy
+from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.context.arg_utils import parse_options, parse_commands
 from cascade_at.dismod.api.run_dismod import run_dismod
 from cascade_at.core.log import get_loggers, LEVELS
@@ -58,7 +58,7 @@ def main():
     context = Context(model_version_id=args.model_version_id)
 
     inputs, alchemy, settings = context.read_inputs()
-    da = DismodAlchemy(
+    df = DismodFiller(
         path=context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id),
         settings_configuration=settings,
         measurement_inputs=inputs,
@@ -66,10 +66,10 @@ def main():
         parent_location_id=args.parent_location_id,
         sex_id=args.sex_id
     )
-    da.fill_for_parent_child(**args.options)
+    df.fill_for_parent_child(**args.options)
 
     for c in args.commands:
-        process = run_dismod(dm_file=da.path.absolute(), command=c)
+        process = run_dismod(dm_file=df.path.absolute(), command=c)
         if process.exit_status:
             LOG.error(f"{c} failed with exit_status {process.exit_status}:")
             LOG.error(f"{process.stderr}")
