@@ -21,8 +21,6 @@ def get_args():
                         help="whether or not to make the file structure for cascade")
     parser.add_argument("--configure", action='store_true',
                         help="whether or not to configure the application")
-    parser.add_argument("--drill", type=int, required=False,
-                        help="if doing a drill, which parent ID to drill the model from?")
     parser.add_argument("--loglevel", type=str, required=False, default='info')
     return parser.parse_args()
 
