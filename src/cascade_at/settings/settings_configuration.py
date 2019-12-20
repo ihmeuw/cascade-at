@@ -163,6 +163,24 @@ class Smoothing(Form):
         return errors
 
 
+class StudyCovariate(Form):
+    study_covariate_id = IntField(display="Covariate")
+
+    measure_id = IntField(display="Measure")
+    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
+    transformation = IntField(display="Transformation")
+    age_time_specific = IntField(display="Age and Time specific")
+
+    age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
+    time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
+    default = SmoothingPriorGroup(display="Defaults")
+    mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
+    detail = FormList(SmoothingPrior, nullable=True, display="Detail")
+
+    custom_age_grid = Dummy()
+    custom_time_grid = Dummy()
+
+
 class CountryCovariate(Form):
     country_covariate_id = IntField(display="Covariate")
 
@@ -203,8 +221,7 @@ class Model(Form):
     constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
     exclude_data_for_param = ListField(constructor=int, nullable=True, display="Exclude data for parameter")
     ode_step_size = FloatField(display="ODE step size")
-    additional_ode_steps = StringListField(constructor=float, nullable=True,
-                                           display="Advanced additional ODE steps")
+    addl_ode_stpes = StringListField(constructor=float, nullable=True, display="Advanced additional ODE steps")
     split_sex = OptionField(["most_detailed", "1", "2", "3", "4", "5"], display="Split sex (Being used as Drill Start)")
     quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
     zero_sum_random = ListField(nullable=True, display="Zero-sum random effects")
@@ -320,6 +337,7 @@ class SettingsConfiguration(Form):
     random_effect = FormList(Smoothing, nullable=True, display="Random effects")
     rate = FormList(Smoothing, display="Rates")
     country_covariate = FormList(CountryCovariate, display="Country covariates")
+    study_covariate = FormList(StudyCovariate, display="Study covariates", nullable=True)
     eta = Eta(validation_priority=5)
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)

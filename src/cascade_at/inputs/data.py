@@ -37,7 +37,7 @@ class CrosswalkVersion(BaseInput):
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
         return self
 
-    def configure_for_dismod(self, measures_to_exclude=None, relabel_incidence=1):
+    def configure_for_dismod(self, relabel_incidence, measures_to_exclude=None):
         """
         Configures the crosswalk version for DisMod.
 
@@ -57,7 +57,7 @@ class CrosswalkVersion(BaseInput):
         df = df.loc[~df.input_type.isin(['parent', 'group_review'])].copy()
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
 
-        df = self.map_to_integrands(df)
+        df = self.map_to_integrands(df, relabel_incidence=relabel_incidence)
         if measures_to_exclude:
             df['hold_out'] = 0
             df.loc[df.measure.isin(measures_to_exclude), 'hold_out'] = 1
@@ -69,6 +69,11 @@ class CrosswalkVersion(BaseInput):
 
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
         df = df.loc[df.sex_id.isin(self.demographics.sex_id)]
+
+        min_year = min(self.demographics.year_id)
+        max_year = max(self.demographics.year_id)
+        df = df.loc[df.year_start >= min_year]
+        df = df.loc[df.year_end <= max_year]
 
         df.rename(columns={
             'age_start': 'age_lower',
@@ -85,26 +90,16 @@ class CrosswalkVersion(BaseInput):
         df = self.keep_only_necessary_columns(df)
 
         return df
-    
-    @staticmethod
-    def relabel_incidence(df):
-        """
-        Relabel incidence to T or Sincidence (understood by DisMod).
-        """
-        data = df.copy()
 
     @staticmethod
-    def map_to_integrands(df):
+    def map_to_integrands(df, relabel_incidence):
         """
         Maps the data from the IHME databases to the integrands expected by DisMod AT
         :param df:
         :return:
         """
-        import pdb; pdb.set_trace()
         integrand_map = make_integrand_map()
         
-        if any(df.measure_id == 6):
-            LOG.warning(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
         if any(df.measure_id == 17):
             LOG.info(
                 f"Found case fatality rate, measure_id=17, in data. Ignoring it because it does not "
@@ -119,9 +114,14 @@ class CrosswalkVersion(BaseInput):
                 f"The bundle data uses measure {str(ke)} which does not map "
                 f"to an integrand. The map is {integrand_map}."
             )
+        measure_dict = {measure: measure for measure in df.measure.unique().tolist()}
+        measure_dict.update(RELABEL_INCIDENCE_MAP[relabel_incidence])
+        df["measure"] = df["measure"].map(measure_dict)
         
-        df = self.relabel_incidence(df)
-
+        if any(df.measure == 'incidence'):
+            LOG.error(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
+            raise ValueError("Measure ID cannot be 6 for incidence. Must be S or Tincidence.")
+        
         return df
 
 

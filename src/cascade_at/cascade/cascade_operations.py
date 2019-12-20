@@ -17,16 +17,14 @@ class CascadeOperation:
 
 
 class ConfigureInputs(CascadeOperation):
-    def __init__(self, conn_def, drill_parent_location_id, **kwargs):
+    def __init__(self, drill_parent_location_id, **kwargs):
         super().__init__(**kwargs)
-        self.conn_def = conn_def
         self.drill_parent_location_id = drill_parent_location_id
         self.j_resource = True
 
         self.command = (
             f'configure_inputs '
             f'-model-version-id {self.model_version_id} '
-            f'-conn-def {self.conn_def} '
             f'--make --configure '
         )
 
@@ -42,7 +40,21 @@ class FitBoth(CascadeOperation):
             f'-model-version-id {self.model_version_id} '
             f'-parent-location-id {self.parent_location_id} '
             f'-sex-id {self.sex_id} '
-            f'--commands init fit-fixed fit-both '
+            f'--commands init fit-fixed fit-both predict-fit_var '
+        )
+
+
+class FormatAndUpload(CascadeOperation):
+    def __init__(self, parent_location_id, sex_id, **kwargs):
+        super().__init__(**kwargs)
+        self.parent_location_id = parent_location_id
+        self.sex_id = sex_id
+
+        self.command = (
+            f'format_upload '
+            f'-model-version-id {self.model_version_id} '
+            f'-parent-location-id {self.parent_location_id} '
+            f'-sex-id {self.sex_id} '
         )
 
 
@@ -59,5 +71,6 @@ class CleanUp(CascadeOperation):
 CASCADE_OPERATIONS = {
     'configure_inputs': ConfigureInputs,
     'fit_both': FitBoth,
+    'format_upload': FormatAndUpload,
     'cleanup': CleanUp
 }

@@ -7,14 +7,17 @@ LOG = get_loggers(__name__)
 
 
 class CovariateSpecs:
-    def __init__(self, country_covariates):
+    def __init__(self, country_covariates, study_covariates):
         """
-
+        :param study_covariates: (cascade_at.settings.settings.Configuration.study_covariate)
         :param country_covariates: (cascade_at.settings.settings.Configuration.country_covariate)
         """
+        self.covariate_list = []
         self.country_covariates = country_covariates
+        self.study_covariates = study_covariates
         self.covariate_multipliers, self.covariate_specs = create_covariate_specifications(
-            country_covariate=self.country_covariates
+            country_covariate=self.country_covariates,
+            study_covariate=self.study_covariates
         )
 
         self.country_covariate_ids = {

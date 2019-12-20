@@ -25,7 +25,7 @@ class Alchemy:
         Usage:
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
-        >>> from cascade_at.collector.measurement_inputs import MeasurementInputsFromSettings
+        >>> from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
         
         >>> settings = load_settings(BASE_CASE)
         >>> mc = Alchemy(settings)
@@ -84,6 +84,7 @@ class Alchemy:
             covariate_specs (cascade_at.inputs.covariate_specs.CovariateSpecs): covariate
                 specifications, specifically will use covariate_specs.covariate_multipliers
             weights:
+            omega_df: (pd.DataFrame)
         """
         children = list(location_dag.dag.successors(parent_location_id))
         model = Model(

@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 from cascade_at.context.model_context import Context
 from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
-from cascade_at.collector.measurement_inputs import MeasurementInputsFromSettings
+from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
 from cascade_at.core.log import get_loggers, LEVELS
 
 LOG = get_loggers(__name__)
@@ -17,8 +17,6 @@ def get_args():
     parser = ArgumentParser()
     parser.add_argument("-model-version-id", type=int, required=True,
                         help="model version ID (need this from database entry)")
-    parser.add_argument("-conn-def", type=str, required=False, default='dismod-at-dev',
-                        help="the connection definition to use from the .odbc.ini file")
     parser.add_argument("--make", action='store_true',
                         help="whether or not to make the file structure for cascade")
     parser.add_argument("--configure", action='store_true',
@@ -51,7 +49,7 @@ def main():
     )
     parameter_json = settings_json_from_model_version_id(
         model_version_id=args.model_version_id,
-        conn_def=args.conn_def
+        conn_def=context.model_connection
     )
     settings = load_settings(settings_json=parameter_json)
 

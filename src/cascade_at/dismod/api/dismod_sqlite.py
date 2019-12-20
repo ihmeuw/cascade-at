@@ -35,7 +35,7 @@ def get_engine(file_path):
     return engine
 
 
-class DismodDB:
+class DismodSQLite:
     """
     Responsible for creation of a Dismod-AT file.
 
@@ -58,7 +58,7 @@ class DismodDB:
     Example:
     >>> from pathlib import Path
     >>> path = Path('test.db')
-    >>> dm = DismodDB(path)
+    >>> dm = DismodSQLite(path)
     >>> dm.create_tables()
 
     >>> data = dm.read_table('data')
