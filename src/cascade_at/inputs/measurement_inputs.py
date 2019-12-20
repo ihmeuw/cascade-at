@@ -32,7 +32,8 @@ class MeasurementInputs:
                  csmr_cause_id, crosswalk_version_id,
                  country_covariate_id,
                  conn_def,
-                 location_set_version_id=None):
+                 location_set_version_id=None,
+                 drill=None):
         """
         The class that constructs all of the measurement inputs. Pulls ASDR, CSMR, crosswalk versions,
         and country covariates, and puts them into one data frame that then formats itself
@@ -50,6 +51,7 @@ class MeasurementInputs:
             conn_def: (str) connection definition from .odbc file (e.g. 'epi')
             location_set_version_id: (int) can be None, if it's none, get the
                 best location_set_version_id for estimation hierarchy of this GBD round.
+            drill: (int) optional, which location ID to drill from as the parent
 
         Attributes:
             self.decomp_step: (str) the decomp step in string form
@@ -113,6 +115,15 @@ class MeasurementInputs:
         self.location_dag = LocationDAG(
             location_set_version_id=self.location_set_version_id
         )
+
+        if drill:
+            LOG.info(
+                f"This is a DRILL model, so only going to pull data associated with "
+                f"drill location start {drill} and its descendants."
+            )
+            drill_descendants = list(self.location_dag.descendants(location_id=drill))
+            self.demographics.location_id = [drill] + drill_descendants
+
         self.integrand_map = make_integrand_map()
 
         self.exclude_outliers = True
@@ -186,7 +197,10 @@ class MeasurementInputs:
 
         # If we are constraining omega, then we want to hold out the data
         # from the DisMod fit for ASDR (but never CSMR -- always want to fit CSMR).
-        data = self.data.configure_for_dismod(measures_to_exclude=self.measures_to_exclude)
+        data = self.data.configure_for_dismod(
+            measures_to_exclude=self.measures_to_exclude,
+            relabel_incidence=settings.model.relabel_incidence
+        )
         asdr = self.asdr.configure_for_dismod(hold_out=settings.model.constrain_omega)
         csmr = self.csmr.configure_for_dismod(hold_out=0)
 
@@ -483,6 +497,12 @@ class MeasurementInputsFromSettings(MeasurementInputs):
         >>> i.configure_inputs_for_dismod()
         """
         covariate_ids = [i.country_covariate_id for i in settings.country_covariate]
+
+        if settings.model.drill:
+            drill = settings.model.drill_location_start
+        else:
+            drill = None
+        
         super().__init__(
             model_version_id=settings.model.model_version_id,
             gbd_round_id=settings.gbd_round_id,
@@ -492,5 +512,6 @@ class MeasurementInputsFromSettings(MeasurementInputs):
             crosswalk_version_id=settings.model.crosswalk_version_id,
             country_covariate_id=covariate_ids,
             conn_def='epi',
-            location_set_version_id=settings.location_set_version_id
+            location_set_version_id=settings.location_set_version_id,
+            drill=drill
         )
