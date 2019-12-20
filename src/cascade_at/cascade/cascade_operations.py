@@ -17,9 +17,8 @@ class CascadeOperation:
 
 
 class ConfigureInputs(CascadeOperation):
-    def __init__(self, drill_parent_location_id, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.drill_parent_location_id = drill_parent_location_id
         self.j_resource = True
 
         self.command = (
