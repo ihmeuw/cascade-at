@@ -12,23 +12,10 @@ def test_cascade_dict():
 def test_configure_inputs():
     obj = ConfigureInputs(
         model_version_id=0,
-        drill_parent_location_id=None
     )
     assert obj.command == (
         f'configure_inputs -model-version-id 0 '
         f'--make --configure'
-    )
-
-
-def test_configure_inputs_with_drill():
-    obj = ConfigureInputs(
-        model_version_id=0,
-        drill_parent_location_id=1
-    )
-    assert obj.command == (
-        f'configure_inputs -model-version-id 0 '
-        f'--make --configure'
-        f' --drill 1'
     )
 
 
