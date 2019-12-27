@@ -2,6 +2,7 @@ import numpy as np
 
 from cascade_at.core.db import elmo
 from cascade_at.dismod.integrand_mappings import make_integrand_map
+from cascade_at.inputs.utilities.transformations import RELABEL_INCIDENCE_MAP
 from cascade_at.inputs.utilities import gbd_ids
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
@@ -24,8 +25,6 @@ class CrosswalkVersion(BaseInput):
         self.demographics = demographics
         self.conn_def = conn_def
 
-        self.integrand_map = make_integrand_map()
-
         self.raw = None
 
     def get_raw(self):
@@ -38,11 +37,12 @@ class CrosswalkVersion(BaseInput):
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
         return self
 
-    def configure_for_dismod(self, measures_to_exclude=None):
+    def configure_for_dismod(self, relabel_incidence, measures_to_exclude=None):
         """
         Configures the crosswalk version for DisMod.
 
         :param measures_to_exclude: (list) list of parameters to exclude, by name
+        :param relabel_incidence: (int) how to label incidence -- see RELABEL_INCIDENCE_MAP
         :return: pd.DataFrame
         """
         df = self.raw.copy()
@@ -57,7 +57,7 @@ class CrosswalkVersion(BaseInput):
         df = df.loc[~df.input_type.isin(['parent', 'group_review'])].copy()
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
 
-        df = self.map_to_integrands(df)
+        df = self.map_to_integrands(df, relabel_incidence=relabel_incidence)
         if measures_to_exclude:
             df['hold_out'] = 0
             df.loc[df.measure.isin(measures_to_exclude), 'hold_out'] = 1
@@ -69,6 +69,11 @@ class CrosswalkVersion(BaseInput):
 
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
         df = df.loc[df.sex_id.isin(self.demographics.sex_id)]
+
+        min_year = min(self.demographics.year_id)
+        max_year = max(self.demographics.year_id)
+        df = df.loc[df.year_start >= min_year]
+        df = df.loc[df.year_end <= max_year]
 
         df.rename(columns={
             'age_start': 'age_lower',
@@ -82,18 +87,19 @@ class CrosswalkVersion(BaseInput):
         df["name"] = df.seq.astype(str)
 
         df = self.get_out_of_demographic_notation(df, columns=['age', 'time'])
-
         df = self.keep_only_necessary_columns(df)
+
         return df
 
-    def map_to_integrands(self, df):
+    @staticmethod
+    def map_to_integrands(df, relabel_incidence):
         """
         Maps the data from the IHME databases to the integrands expected by DisMod AT
         :param df:
         :return:
         """
-        if any(df.measure_id == 6):
-            LOG.warning(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
+        integrand_map = make_integrand_map()
+        
         if any(df.measure_id == 17):
             LOG.info(
                 f"Found case fatality rate, measure_id=17, in data. Ignoring it because it does not "
@@ -102,12 +108,20 @@ class CrosswalkVersion(BaseInput):
             df = df[df.measure_id != 17]
 
         try:
-            df["measure"] = df.measure_id.apply(lambda k: self.integrand_map[k].name)
+            df["measure"] = df.measure_id.apply(lambda k: integrand_map[k].name)
         except KeyError as ke:
             raise RuntimeError(
                 f"The bundle data uses measure {str(ke)} which does not map "
-                f"to an integrand. The map is {self.integrand_map}."
+                f"to an integrand. The map is {integrand_map}."
             )
+        measure_dict = {measure: measure for measure in df.measure.unique().tolist()}
+        measure_dict.update(RELABEL_INCIDENCE_MAP[relabel_incidence])
+        df["measure"] = df["measure"].map(measure_dict)
+        
+        if any(df.measure == 'incidence'):
+            LOG.error(f"Found incidence, measure_id=6, in data. Should be Tincidence or Sincidence.")
+            raise ValueError("Measure ID cannot be 6 for incidence. Must be S or Tincidence.")
+        
         return df
 
 

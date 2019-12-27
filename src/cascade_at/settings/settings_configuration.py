@@ -221,8 +221,7 @@ class Model(Form):
     constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
     exclude_data_for_param = ListField(constructor=int, nullable=True, display="Exclude data for parameter")
     ode_step_size = FloatField(display="ODE step size")
-    additional_ode_steps = StringListField(constructor=float, nullable=True,
-                                           display="Advanced additional ODE steps")
+    addl_ode_stpes = StringListField(constructor=float, nullable=True, display="Advanced additional ODE steps")
     split_sex = OptionField(["most_detailed", "1", "2", "3", "4", "5"], display="Split sex (Being used as Drill Start)")
     quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
     zero_sum_random = ListField(nullable=True, display="Zero-sum random effects")
@@ -236,6 +235,7 @@ class Model(Form):
     )
     rate_case = StrField(nullable=False, display="The rate case")
     data_density = StrField(nullable=True, display="Data density")
+    relabel_incidence = IntField(nullable=False, display="Relabel incidence")
 
     def _full_form_validation(self, root):
         errors = []
@@ -337,7 +337,7 @@ class SettingsConfiguration(Form):
     random_effect = FormList(Smoothing, nullable=True, display="Random effects")
     rate = FormList(Smoothing, display="Rates")
     country_covariate = FormList(CountryCovariate, display="Country covariates")
-    study_covariate = FormList(StudyCovariate, display="Study covariates")
+    study_covariate = FormList(StudyCovariate, display="Study covariates", nullable=True)
     eta = Eta(validation_priority=5)
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)

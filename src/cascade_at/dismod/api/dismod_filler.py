@@ -226,8 +226,8 @@ class DismodFiller(DismodIO):
                     setting = getattr(self.settings, opt)
                     if not setting.is_field_unset(kind):
                         option_dict.update({f'{opt}_{kind}': getattr(setting, kind)})
-        if not self.settings.model.is_field_unset("additional_ode_steps"):
-            option_dict.update({'age_avg_split': " ".join(str(a) for a in self.settings.model.additional_ode_steps)})
+        if not self.settings.model.is_field_unset("addl_ode_stpes"):
+            option_dict.update({'age_avg_split': " ".join(str(a) for a in self.settings.model.addl_ode_stpes)})
         if not self.settings.model.is_field_unset("quasi_fixed"):
             option_dict.update({'quasi_fixed': self.settings.moel.quasi_fixed == 1})
             option_dict.update({'bound_frac_fixed': self.settings.model.bound_frac_fixed})

@@ -17,9 +17,8 @@ class CascadeOperation:
 
 
 class ConfigureInputs(CascadeOperation):
-    def __init__(self, drill_parent_location_id, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.drill_parent_location_id = drill_parent_location_id
         self.j_resource = True
 
         self.command = (
@@ -27,8 +26,11 @@ class ConfigureInputs(CascadeOperation):
             f'-model-version-id {self.model_version_id} '
             f'--make --configure'
         )
+<<<<<<< HEAD
         if self.drill_parent_location_id:
             self.command += f' --drill {self.drill_parent_location_id}'
+=======
+>>>>>>> 3161f64c879b0df79ee364ef412792602231b3f2
 
 
 class FitBoth(CascadeOperation):

@@ -21,8 +21,6 @@ def get_args():
                         help="whether or not to make the file structure for cascade")
     parser.add_argument("--configure", action='store_true',
                         help="whether or not to configure the application")
-    parser.add_argument("--drill", type=int, required=False,
-                        help="if doing a drill, which parent ID to drill the model from?")
     parser.add_argument("--loglevel", type=str, required=False, default='info')
     return parser.parse_args()
 
@@ -54,15 +52,6 @@ def main():
     settings = load_settings(settings_json=parameter_json)
 
     inputs = MeasurementInputsFromSettings(settings=settings)
-
-    if args.drill:
-        LOG.info(
-            f"This is a DRILL model, so only going to pull data associated with "
-            f"drill location start {args.drill} and its descendants."
-        )
-        drill_descendants = list(inputs.location_dag.descendants(location_id=args.drill))
-        inputs.demographics.location_id = [args.drill] + drill_descendants
-
     inputs.get_raw_inputs()
     inputs.configure_inputs_for_dismod(settings=settings)
 
