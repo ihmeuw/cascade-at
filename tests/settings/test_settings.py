@@ -2,6 +2,7 @@ import pytest
 
 from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.settings.settings import load_settings
+from cascade_at.core.form.fields import FormList
 
 
 @pytest.fixture
@@ -77,20 +78,31 @@ def test_model_cascade_method(model):
 
 
 def test_policies(policies):
-    pass
+    assert policies.estimate_emr_from_prevalence == 0
+    assert policies.use_weighted_age_group_midpoints == 1
+    assert policies.with_hiv == 1
+    assert policies.age_group_set_id == 12
+    assert policies.exclude_relative_risk == 1
+    assert policies.meas_std_effect == 'add_var_scale_log'
+    assert policies.limited_memory_max_history_fixed == 30
+    assert policies.gbd_round_id == 6
 
 
 def test_random_effect(random_effect):
-    pass
+    assert type(random_effect) == FormList
+    assert len(random_effect) == 1
 
 
 def test_rate(rate):
-    pass
+    assert type(rate) == FormList
+    assert len(rate) == 3
 
 
 def test_study_covariate(study_covariate):
-    pass
+    assert type(study_covariate) == FormList
+    assert len(study_covariate) == 1
 
 
 def test_country_covariate(country_covariate):
-    pass
+    assert type(country_covariate) == FormList
+    assert len(country_covariate) == 1
