@@ -4,12 +4,8 @@ import itertools
 from intervaltree import IntervalTree
 
 from cascade_at.core.log import get_loggers
-from cascade_at.inputs.utilities.gbd_ids import get_age_id_to_range, get_sex_ids
 
 LOG = get_loggers(__name__)
-
-AGE_ID_TO_RANGE = get_age_id_to_range()
-SEX_IDS = get_sex_ids()['sex_id'].tolist()
 
 
 def expand_grid(data_dict):
