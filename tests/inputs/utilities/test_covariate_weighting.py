@@ -17,7 +17,7 @@ def age_df():
 
 @pytest.fixture
 def test_cov(age_df):
-    df = pd.DataFrame(
+    dd = pd.DataFrame(
         [[2010, 31, 0.1],
          [2010, 32, 0.2],
          [2010, 235, 0.3],
@@ -26,15 +26,15 @@ def test_cov(age_df):
          [2011, 235, 0.5]],
         columns=['year_id', 'age_group_id', 'mean_value']
     )
-    df['location_id'] = 100
-    df['sex_id'] = 1
-    df = df.merge(age_df, how='left').sort_values(by=['year_id', 'age_lower'])
-    return df
+    dd['location_id'] = 100
+    dd['sex_id'] = 1
+    dd = dd.merge(age_df, how='left').sort_values(by=['year_id', 'age_lower'])
+    return dd
 
 
 @pytest.fixture
 def test_pop(age_df):
-    df = pd.DataFrame(
+    dd = pd.DataFrame(
         [[31, 2010, 1000],
          [31, 2011, 2000],
          [32, 2010, 1500],
@@ -43,10 +43,10 @@ def test_pop(age_df):
          [235, 2011, 4000]],
         columns=['age_group_id', 'year_id', 'population']
     )
-    df['location_id'] = 100
-    df['sex_id'] = 1
-    df = df.merge(age_df, how='left').sort_values(by=['year_id', 'age_lower'])
-    return df
+    dd['location_id'] = 100
+    dd['sex_id'] = 1
+    dd = dd.merge(age_df, how='left').sort_values(by=['year_id', 'age_lower'])
+    return dd
 
 
 @pytest.fixture
