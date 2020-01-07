@@ -8,7 +8,7 @@ def test_configure_for_dismod(asdr, hold_out):
     assert asdr.configure_for_dismod(hold_out=hold_out)['hold_out'].iloc[0] == hold_out
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def df_for_dismod(asdr):
     return asdr.configure_for_dismod(hold_out=0)
 

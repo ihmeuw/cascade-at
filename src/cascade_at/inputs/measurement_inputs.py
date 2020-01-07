@@ -113,7 +113,8 @@ class MeasurementInputs:
         else:
             self.location_set_version_id = location_set_version_id
         self.location_dag = LocationDAG(
-            location_set_version_id=self.location_set_version_id
+            location_set_version_id=self.location_set_version_id,
+            gbd_round_id=self.gbd_round_id
         )
 
         if drill:

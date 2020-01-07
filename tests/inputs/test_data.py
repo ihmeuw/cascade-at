@@ -20,7 +20,7 @@ def test_measures_exclude(cv, measures_to_exclude, relabel_incidence, hold_out):
     assert df['hold_out'].iloc[0] == hold_out
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def df_for_dismod(cv):
     return cv.configure_for_dismod(measures_to_exclude=None, relabel_incidence=2)
 
