@@ -101,8 +101,7 @@ class CSMR(BaseInput):
 
             df["meas_std"] = bounds_to_stdev(df.lower, df.upper)
             df = self.keep_only_necessary_columns(df)
-            if hold_out:
-                df["hold_out"] = 1
+            df["hold_out"] = hold_out
         else:
             df = pd.DataFrame()
         return df
