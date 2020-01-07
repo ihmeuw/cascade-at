@@ -18,7 +18,7 @@ class Population(BaseInput):
         :param decomp_step: (int)
         :param gbd_round_id: (int)
         """
-        super().__init__()
+        super().__init__(gbd_round_id=gbd_round_id)
         self.demographics = demographics
         self.decomp_step = decomp_step
         self.gbd_round_id = gbd_round_id

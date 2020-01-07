@@ -80,7 +80,8 @@ def Demographics():
 @pytest.fixture(scope='session')
 def cv(Demographics, ihme):
     cv = CrosswalkVersion(crosswalk_version_id=1, exclude_outliers=1,
-                          demographics=Demographics, conn_def='dismod-at-dev')
+                          demographics=Demographics, conn_def='dismod-at-dev',
+                          gbd_round_id=6)
     cv.raw = pd.DataFrame({
         'underlying_nid': np.nan,
         'nid': 230075,

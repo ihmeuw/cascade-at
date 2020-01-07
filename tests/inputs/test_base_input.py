@@ -8,7 +8,7 @@ def test_convert_to_age_lower_upper(ihme):
     df = pd.DataFrame({
         'age_group_id': [10, 12, 14]
     })
-    c_df = BaseInput().convert_to_age_lower_upper(df=df)
+    c_df = BaseInput(gbd_round_id=6).convert_to_age_lower_upper(df=df)
     assert len(c_df) == 3
     assert np.isfinite(c_df.age_lower.values).all()
     assert np.isfinite(c_df.age_upper.values).all()

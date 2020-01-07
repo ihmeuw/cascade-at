@@ -13,13 +13,13 @@ LOG = get_loggers(__name__)
 
 class CrosswalkVersion(BaseInput):
     def __init__(self, crosswalk_version_id, exclude_outliers,
-                 demographics, conn_def):
+                 demographics, conn_def, gbd_round_id):
         """
         :param crosswalk_version_id: (int)
         :param exclude_outliers: (bool) whether to exclude outliers
         :param conn_def: (str) connection definition
         """
-        super().__init__()
+        super().__init__(gbd_round_id=gbd_round_id)
         self.crosswalk_version_id = crosswalk_version_id
         self.exclude_outliers = exclude_outliers
         self.demographics = demographics

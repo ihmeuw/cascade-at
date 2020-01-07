@@ -25,7 +25,7 @@ class CSMR(BaseInput):
         :param decomp_step: (str)
         :param gbd_round_id: (int)
         """
-        super().__init__()
+        super().__init__(gbd_round_id=gbd_round_id)
         self.process_version_id = process_version_id
         self.cause_id = cause_id
         self.demographics = demographics
