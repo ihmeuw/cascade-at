@@ -155,3 +155,35 @@ def csmr(Demographics, ihme):
         'lower': 2e-06
     }, index=[0])
     return csmr
+
+
+@pytest.fixture(scope='session')
+def asdr(Demographics, ihme):
+    asdr = ASDR(demographics=Demographics, decomp_step='step3',
+                gbd_round_id=6)
+    asdr.raw = pd.DataFrame({
+        'age_group_id': 2.0,
+        'location_id': 101.0,
+        'year_id': 1990.0,
+        'sex_id': 2.0,
+        'run_id': 84.0,
+        'mean': 0.17,
+        'upper': 0.19,
+        'lower': 0.15
+    }, index=[0])
+    return asdr
+
+
+@pytest.fixture(scope='session')
+def population(Demographics, ihme):
+    pop = Population(demographics=Demographics, decomp_step='step3',
+                     gbd_round_id=6)
+    pop.raw = pd.DataFrame({
+        'age_group_id': 2.0,
+        'location_id': 101.0,
+        'year_id': 1990.0,
+        'sex_id': 2.0,
+        'population': 3711.,
+        'run_id': np.nan
+    }, index=[0])
+    return pop
