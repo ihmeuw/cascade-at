@@ -73,7 +73,7 @@ class DismodFuncArg:
 def Demographics():
     d = SimpleNamespace()
     d.age_group_id = list(range(2, 12))
-    d.location_id = [101]
+    d.location_id = [70]
     d.sex_id = [2]
     d.year_id = [1990, 1991]
     return d
@@ -96,7 +96,7 @@ def cv(Demographics, ihme):
         'field_citation_value': '',
         'source_type': '',
         'location_name': 'Canada',
-        'location_id': 101,
+        'location_id': 70,
         'sex': 'Female',
         'year_start': 1990,
         'year_end': 1991,
@@ -146,7 +146,7 @@ def csmr(Demographics, ihme):
     csmr.raw = pd.DataFrame({
         'age_group_id': 2,
         'cause_id': 587,
-        'location_id': 101,
+        'location_id': 70,
         'measure_id': 1,
         'metric_id': 3,
         'sex_id': 2,
@@ -172,7 +172,7 @@ def asdr(Demographics, ihme):
                 gbd_round_id=6)
     asdr.raw = pd.DataFrame({
         'age_group_id': 2.0,
-        'location_id': 101.0,
+        'location_id': 70.0,
         'year_id': 1990.0,
         'sex_id': 2.0,
         'run_id': 84.0,
@@ -189,7 +189,7 @@ def population(Demographics, ihme):
                      gbd_round_id=6)
     pop.raw = pd.DataFrame({
         'age_group_id': 2.0,
-        'location_id': 101.0,
+        'location_id': 70.0,
         'year_id': 1990.0,
         'sex_id': 2.0,
         'population': 3711.,
@@ -205,7 +205,7 @@ def covariate_data(Demographics, ihme):
         'model_version_id': 28964,
         'covariate_id': 8,
         'covariate_name_short': 'ANC4_coverage_prop',
-        'location_id': 101,
+        'location_id': 70,
         'location_name': 'Canada',
         'year_id': 1990,
         'age_group_id': 22,

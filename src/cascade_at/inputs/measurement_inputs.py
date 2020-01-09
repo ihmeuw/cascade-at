@@ -170,7 +170,8 @@ class MeasurementInputs:
             crosswalk_version_id=self.crosswalk_version_id,
             exclude_outliers=self.exclude_outliers,
             demographics=self.demographics,
-            conn_def=self.conn_def
+            conn_def=self.conn_def,
+            gbd_round_id=self.gbd_round_id
         ).get_raw()
         self.covariate_data = [CovariateData(
             covariate_id=c,
