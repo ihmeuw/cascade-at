@@ -10,7 +10,7 @@ def df_for_dismod(population):
     ("age_lower", 0.),
     ("age_upper", 0.01917808),
     ("age_group_id", 2),
-    ("location_id", 101),
+    ("location_id", 70),
     ("year_id", 1990),
     ("population", 3711.)
 ])

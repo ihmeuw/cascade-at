@@ -17,7 +17,7 @@ def df_for_dismod(csmr):
     ("age_lower", 0.),
     ("age_upper", 0.01917808),
     ("age_group_id", 2),
-    ("location_id", 101),
+    ("location_id", 70),
     ("time_lower", 1990),
     ("time_upper", 1991),
     ("measure", IntegrandEnum.mtspecific.name),

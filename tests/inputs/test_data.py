@@ -26,7 +26,7 @@ def df_for_dismod(cv):
 
 
 @pytest.mark.parametrize("column,value", [
-    ("location_id", 101),
+    ("location_id", 70),
     ("time_lower", 1990),
     ("time_upper", 1991),
     ("sex_id", 2),

@@ -24,7 +24,7 @@ def test_square_covariates(df_for_dismod, Demographics):
 
 
 @pytest.mark.parametrize("column,value", [
-    ("location_id", 101.),
+    ("location_id", 70.),
     ("year_id", 1990.),
     ("age_group_id", 2.),
     ("sex_id", 2.),
