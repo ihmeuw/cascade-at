@@ -19,6 +19,7 @@ class BaseInput:
             age_group_id
         :return: (pd.DataFrame)
         """
+        df.age_group_id = df.age_group_id.astype(int)
         df = df.merge(self.age_group_metadata, on='age_group_id')
         return df
 

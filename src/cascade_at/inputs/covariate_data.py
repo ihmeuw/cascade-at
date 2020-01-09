@@ -2,8 +2,6 @@ import pandas as pd
 
 from cascade_at.core.db import db_queries
 from cascade_at.core.log import get_loggers
-from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
-from cascade_at.inputs.utilities.gbd_ids import CascadeConstants
 from cascade_at.inputs.base_input import BaseInput
 
 LOG = get_loggers(__name__)
@@ -23,11 +21,12 @@ class CovariateData(BaseInput):
         :param decomp_step: (str)
         :param gbd_round_id: (int)
         """
-        super().__init__()
         self.covariate_id = covariate_id
         self.demographics = demographics
         self.decomp_step = decomp_step
         self.gbd_round_id = gbd_round_id
+
+        super().__init__(gbd_round_id=gbd_round_id)
 
         self.raw = None
 
@@ -54,7 +53,8 @@ class CovariateData(BaseInput):
         ]]
         df = self.complete_covariate_ages(cov_df=df)
         df = self.complete_covariate_sex(cov_df=df, pop_df=pop_df)
-        df = self.complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df)
+        df = self.complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df,
+                                               locations=self.demographics.location_id)
         df = self.convert_to_age_lower_upper(df)
         return df
     
@@ -62,7 +62,7 @@ class CovariateData(BaseInput):
         """
         Adds on covariate ages for all age group IDs.
         """
-        if (22 in cov_df.age_group_id) or (27 in cov_df.age_group_id):
+        if (22 in cov_df.age_group_id.tolist()) or (27 in cov_df.age_group_id.tolist()):
             covs = pd.DataFrame()
             for age in self.demographics.age_group_id:
                 df = cov_df.copy()
@@ -73,21 +73,22 @@ class CovariateData(BaseInput):
         return covs
 
     @staticmethod
-    def complete_covariate_locations(cov_df, pop_df, loc_df):
+    def complete_covariate_locations(cov_df, pop_df, loc_df, locations):
         """
         Completes the covariate locations that aren't in the database as a population-weighted average.
-        :param cov_df:
-        :param pop_df:
-        :param loc_df:
+        :param cov_df: (pd.DataFrame)
+        :param pop_df: (pd.DataFrame)
+        :param loc_df: (pd.DataFrame)
+        :param locations: (list)
         :return:
         """
         parent_pop = pop_df[['location_id', 'age_group_id', 'sex_id', 'year_id', 'population']].copy()
         parent_pop.rename(columns={'location_id': 'parent_id', 'population': 'parent_population'}, inplace=True)
-        
-        cov = cov_df.location_id
-        all_levels = loc_df.level.unique().tolist()
+
+        loc_subset_df = loc_df.loc[loc_df.location_id.isin(locations)]
+        all_levels = loc_subset_df.level.unique().tolist()
         cov_locations = cov_df.location_id.unique().tolist()
-        cov_levels = loc_df.loc[loc_df.location_id.isin(cov_locations)].level.unique().tolist()
+        cov_levels = loc_subset_df.loc[loc_subset_df.location_id.isin(cov_locations)].level.unique().tolist()
         missing_levels = [x for x in all_levels if x not in cov_levels]
 
         df = cov_df.copy()
@@ -95,7 +96,7 @@ class CovariateData(BaseInput):
         for level in sorted(missing_levels, reverse=True):
             LOG.info(f"Filling in covariate values at location hierarchy level {level}.")
             # Get one location below this level
-            ldf = loc_df.loc[loc_df.level == level + 1].copy()
+            ldf = loc_subset_df.loc[loc_subset_df.level == level + 1].copy()
 
             # Merge on the population just for these locations (left) --
             # builds out the full age-sex-year data frame for populations

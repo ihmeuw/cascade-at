@@ -7,7 +7,9 @@ import cascade_at.core.db
 from cascade_at.inputs.data import CrosswalkVersion
 from cascade_at.inputs.csmr import CSMR
 from cascade_at.inputs.asdr import ASDR
+from cascade_at.inputs.covariate_data import CovariateData
 from cascade_at.inputs.population import Population
+from cascade_at.inputs.locations import LocationDAG
 
 
 cascade_at.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
@@ -74,6 +76,12 @@ def Demographics():
     d.location_id = [101]
     d.sex_id = [2]
     d.year_id = [1990, 1991]
+    return d
+
+
+@pytest.fixture(scope='session')
+def dag(ihme):
+    d = LocationDAG(location_set_version_id=544, gbd_round_id=6)
     return d
 
 
@@ -188,3 +196,24 @@ def population(Demographics, ihme):
         'run_id': np.nan
     }, index=[0])
     return pop
+
+
+@pytest.fixture(scope='session')
+def covariate_data(Demographics, ihme):
+    cov = CovariateData(covariate_id=8, demographics=Demographics, decomp_step='step3', gbd_round_id=6)
+    cov.raw = pd.DataFrame({
+        'model_version_id': 28964,
+        'covariate_id': 8,
+        'covariate_name_short': 'ANC4_coverage_prop',
+        'location_id': 101,
+        'location_name': 'Canada',
+        'year_id': 1990,
+        'age_group_id': 22,
+        'age_group_name': 'All Ages',
+        'sex_id': 3,
+        'sex': 'Both',
+        'mean_value': 0.96,
+        'lower_value': 0.96,
+        'upper_value': 0.96
+    }, index=[0])
+    return cov

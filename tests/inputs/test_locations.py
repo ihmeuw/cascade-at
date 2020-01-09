@@ -1,13 +1,3 @@
-import pytest
-
-from cascade_at.inputs.locations import LocationDAG
-
-
-@pytest.fixture
-def dag(ihme):
-    d = LocationDAG(location_set_version_id=544, gbd_round_id=6)
-    return d
-
 
 def test_not_empty_df(dag):
     assert not dag.df.empty
