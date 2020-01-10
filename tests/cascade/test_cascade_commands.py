@@ -19,11 +19,12 @@ def test_drill():
     assert len(cascade_command.get_commands()) == 3
 
     assert type(
-        cascade_command.task_dict['configure_inputs -model-version-id 0 --make --configure --drill 1']
+        cascade_command.task_dict['configure_inputs -model-version-id 0 --make --configure']
     ) == CASCADE_OPERATIONS['configure_inputs']
     assert type(
         cascade_command.task_dict['dismod_db -model-version-id 0 -parent-location-id 1 -sex-id 1 '
-                                  '--commands init fit-fixed fit-both predict-fit_var']
+                                  '--commands init fit-fixed set-start_var-fit_var '
+                                  'set-scale_var-fit_var fit-both predict-fit_var ']
     ) == CASCADE_OPERATIONS['fit_both']
     assert type(
         cascade_command.task_dict['format_upload -model-version-id 0 -parent-location-id 1 -sex-id 1']
