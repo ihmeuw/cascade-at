@@ -1,6 +1,6 @@
 
 DEFAULT_EXECUTOR_PARAMETERS = {
-    'm_mem_free': '40G',
+    'm_mem_free': '30G',
     'num_cores': 5,
     'max_runtime_seconds': 60*60*24,
     'resource_scales': {
