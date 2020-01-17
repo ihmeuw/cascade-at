@@ -84,7 +84,7 @@ class IntegrandEnum(Enum):
     """Standardized mortality ratio."""
     relrisk = 12
     """Relative risk."""
-    incidence = np.nan
+    incidence = -99
     """This integrand should never be used, but we need it when we are converting
        from the epi database measures initially"""
 

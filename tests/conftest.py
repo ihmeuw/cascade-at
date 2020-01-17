@@ -4,6 +4,7 @@ import numpy as np
 from types import SimpleNamespace
 
 import cascade_at.core.db
+from cascade_at.context.model_context import Context
 from cascade_at.inputs.data import CrosswalkVersion
 from cascade_at.inputs.csmr import CSMR
 from cascade_at.inputs.asdr import ASDR
@@ -101,7 +102,7 @@ def cv(Demographics, ihme):
         'year_start': 1990,
         'year_end': 1991,
         'age_start': 0.0,
-        'age_end': 15.0,
+        'age_end': 0.01917808,
         'measure': 'incidence',
         'mean': 4e-05,
         'lower': 5e-05,
@@ -200,10 +201,10 @@ def population(Demographics, ihme):
 
 @pytest.fixture(scope='session')
 def covariate_data(Demographics, ihme):
-    cov = CovariateData(covariate_id=8, demographics=Demographics, decomp_step='step3', gbd_round_id=6)
+    cov = CovariateData(covariate_id=28, demographics=Demographics, decomp_step='step3', gbd_round_id=6)
     cov.raw = pd.DataFrame({
         'model_version_id': 28964,
-        'covariate_id': 8,
+        'covariate_id': 28,
         'covariate_name_short': 'ANC4_coverage_prop',
         'location_id': 70,
         'location_name': 'Canada',
