@@ -39,7 +39,7 @@ class FitBoth(CascadeOperation):
             f'-model-version-id {self.model_version_id} '
             f'-parent-location-id {self.parent_location_id} '
             f'-sex-id {self.sex_id} '
-            f'--commands init fit-fixed fit-both predict-fit_var'
+            f'--commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var '
         )
 
 

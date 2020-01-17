@@ -11,7 +11,7 @@ def test_cascade_dict():
 
 def test_configure_inputs():
     obj = ConfigureInputs(
-        model_version_id=0,
+        model_version_id=0
     )
     assert obj.command == (
         f'configure_inputs -model-version-id 0 '
@@ -30,7 +30,7 @@ def test_fit_both():
         f'-model-version-id 0 '
         f'-parent-location-id 1 '
         f'-sex-id 1 '
-        f'--commands init fit-fixed fit-both predict-fit_var'
+        f'--commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var '
     )
 
 

@@ -19,7 +19,13 @@ setup(
     ],
     zip_safe=False,
     extras_require={
-        "ihme": ["db_tools", "db_queries", "gbd", "jobmon", "elmo"]
+        "ihme": [
+            "db-tools==0.9.0",
+            "db-queries==21.0.0",
+            "gbd==2.1.0",
+            "jobmon==1.1.1",
+            "elmo==1.6.18",
+            "ihme-rules==2.1.0"]
     },
     classifiers=[
         "Intended Audience :: Science/Research",

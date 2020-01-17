@@ -288,17 +288,15 @@ class MeasurementInputs:
         """
         join_columns = ['location_id', 'time_lower', 'time_upper',
                         'age_lower', 'age_upper', 'sex_id']
-
         mtall = asdr[join_columns + ['meas_value']].copy()
-        mtspecific = csmr[join_columns + ['meas_value']].copy()
-        
         mtall.rename(columns={'meas_value': 'mtall'}, inplace=True)
-        mtspecific.rename(columns={'meas_value': 'mtspecific'}, inplace=True)
 
-        if mtspecific.empty:
-            omega = mtall
+        if csmr.empty:
+            omega = mtall.copy()
             omega.rename(columns={'mtall': 'omega'}, inplace=True)
         else:
+            mtspecific = csmr[join_columns + ['meas_value']].copy()
+            mtspecific.rename(columns={'meas_value': 'mtspecific'}, inplace=True)
             omega = mtall.merge(mtspecific, on=join_columns)
             omega['mean'] = omega['mtall'] - omega['mtspecific']
             omega.drop(columns=['mtall', 'mtspecific'], inplace=True)
