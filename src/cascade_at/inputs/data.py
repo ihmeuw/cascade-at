@@ -13,13 +13,13 @@ LOG = get_loggers(__name__)
 
 class CrosswalkVersion(BaseInput):
     def __init__(self, crosswalk_version_id, exclude_outliers,
-                 demographics, conn_def):
+                 demographics, conn_def, gbd_round_id):
         """
         :param crosswalk_version_id: (int)
         :param exclude_outliers: (bool) whether to exclude outliers
         :param conn_def: (str) connection definition
         """
-        super().__init__()
+        super().__init__(gbd_round_id=gbd_round_id)
         self.crosswalk_version_id = crosswalk_version_id
         self.exclude_outliers = exclude_outliers
         self.demographics = demographics
@@ -56,10 +56,10 @@ class CrosswalkVersion(BaseInput):
         df = df.merge(measure_ids, on='measure')
         df = df.loc[~df.input_type.isin(['parent', 'group_review'])].copy()
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
+        df['hold_out'] = 0
 
         df = self.map_to_integrands(df, relabel_incidence=relabel_incidence)
         if measures_to_exclude:
-            df['hold_out'] = 0
             df.loc[df.measure.isin(measures_to_exclude), 'hold_out'] = 1
             LOG.info(
                 f"Filtering {df.hold_out.sum()} rows of of data where the measure has been excluded. "
@@ -95,11 +95,12 @@ class CrosswalkVersion(BaseInput):
     def map_to_integrands(df, relabel_incidence):
         """
         Maps the data from the IHME databases to the integrands expected by DisMod AT
-        :param df:
+        :param df: (pd.DataFrame)
+        :param relabel_incidence: (int)
         :return:
         """
         integrand_map = make_integrand_map()
-        
+
         if any(df.measure_id == 17):
             LOG.info(
                 f"Found case fatality rate, measure_id=17, in data. Ignoring it because it does not "

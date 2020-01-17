@@ -76,21 +76,27 @@ def get_location_set_version_id(gbd_round_id):
     return location_set_version_id
 
 
-def get_age_group_metadata():
+def get_age_group_metadata(gbd_round_id):
     """
     Gets age group metadata.
+
+    :param gbd_round_id: (int)
     """
-    df = db_queries.get_age_metadata(age_group_set_id=CascadeConstants.AGE_GROUP_SET_ID)
+    df = db_queries.get_age_metadata(age_group_set_id=CascadeConstants.AGE_GROUP_SET_ID,
+                                     gbd_round_id=gbd_round_id)
     df.rename(columns={'age_group_years_start': 'age_lower', 'age_group_years_end': 'age_upper'}, inplace=True)
+    df.age_lower = df.age_lower.astype(float)
+    df.age_upper = df.age_upper.astype(float)
+    df.age_group_id = df.age_group_id.astype(int)
     return df[['age_group_id', 'age_lower', 'age_upper']]
 
 
-def get_age_id_to_range():
+def get_age_id_to_range(gbd_round_id):
     """
     Gets the age group ID to range dictionary.
     :return: dict[int, tuple(float, float)]
     """
-    df = get_age_group_metadata()
+    df = get_age_group_metadata(gbd_round_id=gbd_round_id)
     return dict([(t.age_group_id, (t.age_lower, t.age_upper)) for t in df.itertuples()])
 
 

@@ -31,7 +31,7 @@ idx measure_id                                     measure_name
 2            3               YLDs (Years Lived with Disability)
 3            4                        YLLs (Years of Life Lost)
 4            5                                       Prevalence prevalence
-5            6                                        Incidence Tincidence
+5            6                                        Incidence incidence
 6            7                                        Remission remission
 7            8                                         Duration
 8            9                            Excess mortality rate mtexcess
@@ -84,12 +84,14 @@ happens when decoding the data, not here.
 def make_integrand_map():
     """Makes dict where key=GBD measure_id, value=IntegrandEnum member"""
     split_column = 64
-    return {int(line.split()[1]): IntegrandEnum[line[split_column:].strip()]
+    mapp = {int(line.split()[1]): IntegrandEnum[line[split_column:].strip()]
             for line in INTEGRAND_ENCODED.splitlines()
             if len(line) > split_column}
+    return mapp
 
 
 """From Dismod integrand to Dismod primary rate name"""
+
 
 def reverse_integrand_map():
     """

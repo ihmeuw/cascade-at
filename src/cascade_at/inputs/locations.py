@@ -10,7 +10,7 @@ LOG = get_loggers(__name__)
 
 
 class LocationDAG:
-    def __init__(self, location_set_version_id):
+    def __init__(self, location_set_version_id, gbd_round_id):
         """
         Create a location DAG from the GBD location hierarchy, using
         networkx graph where each node is the location ID, and its properties
@@ -23,7 +23,8 @@ class LocationDAG:
 
         self.df = db_queries.get_location_metadata(
             location_set_version_id=location_set_version_id,
-            location_set_id=CascadeConstants.ESTIMATION_LOCATION_HIERARCHY_ID
+            location_set_id=CascadeConstants.ESTIMATION_LOCATION_HIERARCHY_ID,
+            gbd_round_id=gbd_round_id
         )
 
         self.dag = nx.DiGraph()

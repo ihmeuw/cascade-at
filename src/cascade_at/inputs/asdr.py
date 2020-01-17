@@ -18,10 +18,9 @@ class ASDR(BaseInput):
         :param demographics: (cascade_at.inputs.demographics.Demographics)
         :param decomp_step: (int)
         :param gbd_round_id: (int)
-        :param with_hiv: (bool) pull HIV-added envelope?
         :return:
         """
-        super().__init__()
+        super().__init__(gbd_round_id=gbd_round_id)
         self.demographics = demographics
         self.decomp_step = decomp_step
         self.gbd_round_id = gbd_round_id

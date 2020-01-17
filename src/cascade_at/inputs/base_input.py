@@ -2,8 +2,8 @@ from cascade_at.inputs.utilities.gbd_ids import get_age_group_metadata
 
 
 class BaseInput:
-    def __init__(self):
-        self.age_group_metadata = get_age_group_metadata()
+    def __init__(self, gbd_round_id):
+        self.age_group_metadata = get_age_group_metadata(gbd_round_id=gbd_round_id)
         self.columns_to_keep = [
             'location_id', 'time_lower', 'time_upper', 'sex_id',
             'measure', 'meas_value', 'meas_std',
@@ -19,6 +19,7 @@ class BaseInput:
             age_group_id
         :return: (pd.DataFrame)
         """
+        df.age_group_id = df.age_group_id.astype(int)
         df = df.merge(self.age_group_metadata, on='age_group_id')
         return df
 

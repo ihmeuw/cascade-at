@@ -19,16 +19,6 @@ def test_configure_inputs():
     )
 
 
-def test_configure_inputs_with_drill():
-    obj = ConfigureInputs(
-        model_version_id=0
-    )
-    assert obj.command == (
-        f'configure_inputs -model-version-id 0 '
-        f'--make --configure'
-    )
-
-
 def test_fit_both():
     obj = FitBoth(
         model_version_id=0,
