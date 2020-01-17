@@ -229,7 +229,7 @@ class DismodFiller(DismodIO):
         if not self.settings.model.is_field_unset("addl_ode_stpes"):
             option_dict.update({'age_avg_split': " ".join(str(a) for a in self.settings.model.addl_ode_stpes)})
         if not self.settings.model.is_field_unset("quasi_fixed"):
-            option_dict.update({'quasi_fixed': self.settings.model.quasi_fixed == 1})
+            option_dict.update({'quasi_fixed': str(self.settings.model.quasi_fixed == 1).lower()})
             option_dict.update({'bound_frac_fixed': self.settings.model.bound_frac_fixed})
         if not self.settings.model.is_field_unset("zero_sum_random"):
             option_dict.update({'zero_sum_random': " ".join(self.settings.model.zero_sum_random)})
