@@ -16,7 +16,7 @@ LOG = get_loggers(__name__)
 
 class Context:
     def __init__(self, model_version_id,
-                 make=False, configure_application=True):
+                 make=False, configure_application=True, root_directory=None):
         """
         Context for running a model. Needs a
         :param model_version_id: (int)
@@ -41,7 +41,9 @@ class Context:
                 odbc_filepath=self.odbc_file
             )
         else:
-            self.root_directory = Path('.')
+            if root_directory is None:
+                raise RuntimeError("Need a root directory to set up the files from.")
+            self.root_directory = Path(root_directory)
             self.cascade_dir = 'cascade_dir'
 
         self.model_version_id = model_version_id
@@ -120,7 +122,6 @@ class Context:
             inputs = dill.load(f)
         with open(self.settings_file) as f:
             settings_json = json.load(f)
-
         settings = load_settings(settings_json=settings_json)
         alchemy = Alchemy(settings=settings)
 

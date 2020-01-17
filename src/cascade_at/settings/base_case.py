@@ -29,7 +29,8 @@ BASE_CASE = {
             "iota"
         ],
         "bound_frac_fixed": 1.0e-8,
-        "drill_location_end": 72
+        "drill_location_end": 72,
+        "quasi_fixed": 0
     },
     "max_num_iter": {
         "fixed": 200,

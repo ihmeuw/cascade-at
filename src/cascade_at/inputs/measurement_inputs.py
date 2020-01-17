@@ -272,7 +272,7 @@ class MeasurementInputs:
         })
         grid['time_lower'] = grid['year_id'].astype(int)
         grid['time_upper'] = grid['year_id'] + 1.
-        grid = BaseInput().convert_to_age_lower_upper(df=grid)
+        grid = BaseInput(gbd_round_id=self.gbd_round_id).convert_to_age_lower_upper(df=grid)
 
         LOG.info("Adding covariates to avgint grid.")
         grid = self.add_covariates_to_data(df=grid)

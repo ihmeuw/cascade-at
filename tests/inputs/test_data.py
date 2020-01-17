@@ -34,7 +34,7 @@ def df_for_dismod(cv):
     ("meas_value", 4e-05),
     ("meas_std", 3e-06),
     ("age_lower", 0.0),
-    ("age_upper", 15.0),
+    ("age_upper", 0.01917808),
     ("hold_out", 0),
     ("name", "342686")
 ])
