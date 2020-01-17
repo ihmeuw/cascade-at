@@ -10,10 +10,12 @@ LOG = get_loggers(__name__)
 
 
 def default_integrand_table():
-    return pd.DataFrame({
+    df = pd.DataFrame({
         "integrand_name": enum_to_dataframe(IntegrandEnum)["name"],
         "minimum_meas_cv": 0.0
     })
+    df = df.loc[df.integrand_name != 'incidence'].copy()
+    return df
 
 
 def default_rate_table():
