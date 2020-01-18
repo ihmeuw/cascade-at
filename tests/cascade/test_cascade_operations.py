@@ -1,4 +1,6 @@
-from cascade_at.cascade.cascade_operations import ConfigureInputs, FitBoth, FormatAndUpload, CleanUp
+from cascade_at.cascade.cascade_operations import (
+    ConfigureInputs, FitBoth, FormatAndUpload, CleanUp, SampleSimulate
+)
 from cascade_at.cascade.cascade_operations import CASCADE_OPERATIONS
 
 
@@ -31,6 +33,26 @@ def test_fit_both():
         f'-parent-location-id 1 '
         f'-sex-id 1 '
         f'--commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var '
+    )
+
+
+def test_sample_simulate():
+    obj = SampleSimulate(
+        model_version_id=0,
+        parent_location_id=1,
+        sex_id=1,
+        n_simulations=5,
+        n_pools=1,
+        fit_type='both'
+    )
+    assert obj.command == (
+        f'sample_simulate '
+        f'-model-version-id 0 '
+        f'-parent-location-id 1 '
+        f'-sex-id 1 '
+        f'-n-sim 5 '
+        f'-n-pool 1 '
+        f'-fit-type both'
     )
 
 
