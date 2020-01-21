@@ -113,3 +113,7 @@ def main():
                 'sample simulate {args.n_sim}'
             ]
         )
+
+
+if __name__ == '__main__':
+    main()
