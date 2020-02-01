@@ -110,6 +110,6 @@ def main():
         run_dismod_commands(
             dm_file=main_db,
             commands=[
-                'sample simulate {args.n_sim}'
+                f'sample simulate {args.n_sim}'
             ]
         )
