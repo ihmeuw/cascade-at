@@ -293,7 +293,7 @@ class MeasurementInputs:
 
         if csmr.empty:
             omega = mtall.copy()
-            omega.rename(columns={'mtall': 'omega'}, inplace=True)
+            omega.rename(columns={'mtall': 'mean'}, inplace=True)
         else:
             mtspecific = csmr[join_columns + ['meas_value']].copy()
             mtspecific.rename(columns={'meas_value': 'mtspecific'}, inplace=True)
