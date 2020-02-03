@@ -76,7 +76,7 @@ def Demographics():
     d.age_group_id = list(range(2, 12))
     d.location_id = [70]
     d.sex_id = [2]
-    d.year_id = [1990, 1991]
+    d.year_id = [1990]
     return d
 
 
@@ -100,7 +100,7 @@ def cv(Demographics, ihme):
         'location_id': 70,
         'sex': 'Female',
         'year_start': 1990,
-        'year_end': 1991,
+        'year_end': 1990,
         'age_start': 0.0,
         'age_end': 0.01917808,
         'measure': 'incidence',

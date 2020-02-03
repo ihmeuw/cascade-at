@@ -35,7 +35,7 @@ def test_time(dm, dm_read):
     assert all(dm_read.time.columns == ['time_id', 'time'])
 
 
-def test_age_wrong(dm, dm_read):
+def test_age_wrong(dm):
     with pytest.raises(Exception):
         dm.time = pd.DataFrame({
             'age': [1, 2, 3]
