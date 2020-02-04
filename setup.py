@@ -38,6 +38,7 @@ setup(
         'dismod_db=cascade_at.executor.dismod_db:main',
         'format_upload=cascade_at.executor.format_upload:main',
         'cleanup=cascade_at.executor.cleanup:main',
-        'run_cascade=cascade_at.executor.run:main'
+        'run_cascade=cascade_at.executor.run:main',
+        'run_dmdismod=cascade_at.executor.run_dmdismod:main'
     ]}
 )
