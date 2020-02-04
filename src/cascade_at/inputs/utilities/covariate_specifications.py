@@ -134,6 +134,11 @@ def create_covariate_specifications(country_covariate, study_covariate):
          of the covariate.
     """
     covariate_specs = set()
+
+    if study_covariate is None:
+        study_covariate = []
+    if country_covariate is None:
+        country_covariate = []
     for setting in chain(study_covariate, country_covariate):
         # This tells us what the data is for the column.
         kind, covariate_id = kind_and_id(setting)
