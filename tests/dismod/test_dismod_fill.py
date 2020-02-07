@@ -62,7 +62,7 @@ def test_iota_dage_prior(dage_prior, column, value):
     ("eta", nan),
     ("nu", nan)
 ])
-def test_iota_dage_prior(dtime_prior, column, value):
+def test_iota_dtime_prior(dtime_prior, column, value):
     iota_prior = dtime_prior.loc[dtime_prior.prior_name.str.contains("^iota_*[0-9]", regex=True)]
     if np.isnan(value):
         assert iota_prior[column].isnull().all()
@@ -82,7 +82,7 @@ def test_iota_dage_prior(dtime_prior, column, value):
     ("nu", nan)
 ])
 def test_omega_value_prior(value_prior, column, value):
-    omega_prior = dage_prior.loc[value_prior.prior_name.str.contains("^omega_*[0-9]", regex=True)]
+    omega_prior = value_prior.loc[value_prior.prior_name.str.contains("^omega_*[0-9]", regex=True)]
     if np.isnan(value):
         assert omega_prior[column].isnull().all()
     else:
@@ -141,8 +141,8 @@ def test_chi_value_prior(value_prior, column, value):
 
 
 @pytest.mark.parametrize("column,value", [
-    ("lower", -inf),
-    ("upper", inf),
+    ("lower", -1.0),
+    ("upper", 1.0),
     ("mean", 0),
     ("std", 1e-2),
     ("eta", nan),
@@ -157,8 +157,8 @@ def test_chi_dage_prior(dage_prior, column, value):
 
 
 @pytest.mark.parametrize("column,value", [
-    ("lower", -inf),
-    ("upper", inf),
+    ("lower", -1.0),
+    ("upper", 1.0),
     ("mean", 0),
     ("std", 1e-2),
     ("eta", nan),
@@ -227,39 +227,39 @@ def test_pini_dtime_prior(dtime_prior, column, value):
 
 
 def test_iota_re(value_prior, dage_prior, dtime_prior):
-    assert (value_prior.loc[value_prior.prior_name.str.startswith('iota_re')][[
+    np.testing.assert_array_equal(value_prior.loc[value_prior.prior_name.str.startswith('iota_re')][[
         'lower', 'upper', 'mean', 'std', 'eta', 'nu'
-    ]].values == np.array([[-inf, inf, 0.0, 1.0, nan, nan]])).all()
-    assert (dage_prior.loc[dage_prior.prior_name.str.startswith('iota_re')][[
+    ]].values, np.array([[-inf, inf, 0.0, 1.0, nan, nan]]))
+    np.testing.assert_array_equal(dage_prior.loc[dage_prior.prior_name.str.startswith('iota_re')][[
         'lower', 'upper', 'mean', 'std', 'eta', 'nu'
-    ]].values == np.array([[-inf, inf, 0.0, nan, nan, nan]])).all()
-    assert (dtime_prior.loc[dtime_prior.prior_name.str.startswith('iota_re')][[
+    ]].values, np.array([[-inf, inf, 0.0, nan, nan, nan]]))
+    np.testing.assert_array_equal(dtime_prior.loc[dtime_prior.prior_name.str.startswith('iota_re')][[
         'lower', 'upper', 'mean', 'std', 'eta', 'nu'
-    ]].values == np.array([[-inf, inf, 0.0, nan, nan, nan]])).all()
+    ]].values, np.array([[-inf, inf, 0.0, nan, nan, nan]]))
 
 
 """ alpha covariate multipliers """
 
 
 def test_iota_alpha(value_prior, dage_prior, dtime_prior):
-    assert (value_prior.loc[value_prior.prior_name.str.startswith('alpha_iota')][[
+    np.testing.assert_array_equal(value_prior.loc[value_prior.prior_name.str.startswith('alpha_iota')][[
         'lower', 'upper', 'mean', 'std', 'eta', 'nu'
-    ]].values == np.array([
+    ]].values, np.array([
         [-1., 1., 0., nan, nan, nan],
         [-1., 1., 0., nan, nan, nan]
-    ])).all()
-    assert (dage_prior.loc[dage_prior.prior_name.str.startswith('alpha_iota')][[
+    ]))
+    np.testing.assert_array_equal(dage_prior.loc[dage_prior.prior_name.str.startswith('alpha_iota')][[
         'lower', 'upper', 'mean', 'std', 'eta', 'nu'
-    ]].values == np.array([
+    ]].values, np.array([
         [-1., 1., 0., nan, nan, nan],
         [-inf, inf, 0., nan, nan, nan]
-    ])).all()
-    assert (dtime_prior.loc[dtime_prior.prior_name.str.startswith('alpha_iota')][[
+    ]))
+    np.testing.assert_array_equal(dtime_prior.loc[dtime_prior.prior_name.str.startswith('alpha_iota')][[
         'lower', 'upper', 'mean', 'std', 'eta', 'nu'
-    ]].values == np.array([
+    ]].values, np.array([
         [-1., 1., 0., nan, nan, nan],
         [-inf, inf, 0., nan, nan, nan]
-    ])).all()
+    ]))
 
 
 @pytest.fixture
