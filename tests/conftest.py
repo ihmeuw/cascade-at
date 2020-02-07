@@ -1,16 +1,24 @@
 import pytest
 import pandas as pd
 import numpy as np
+from copy import deepcopy
+from pathlib import Path
+import tempfile
 from types import SimpleNamespace
 
 import cascade_at.core.db
-from cascade_at.context.model_context import Context
 from cascade_at.inputs.data import CrosswalkVersion
+from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.inputs.csmr import CSMR
+from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.inputs.asdr import ASDR
 from cascade_at.inputs.covariate_data import CovariateData
+from cascade_at.context.model_context import Context
+from cascade_at.settings.settings import load_settings
+from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
 from cascade_at.inputs.population import Population
 from cascade_at.inputs.locations import LocationDAG
+from cascade_at.dismod.api.dismod_filler import DismodFiller
 
 
 cascade_at.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
@@ -70,10 +78,16 @@ class DismodFuncArg:
             pytest.skip("specify --dismod or --ihme to run tests requiring Dismod")
 
 
+@pytest.fixture(scope="session")
+def temp_directory():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)
+
+
 @pytest.fixture(scope='session')
 def Demographics():
     d = SimpleNamespace()
-    d.age_group_id = list(range(2, 12))
+    d.age_group_id = [2]
     d.location_id = [70]
     d.sex_id = [2]
     d.year_id = [1990]
@@ -218,3 +232,48 @@ def covariate_data(Demographics, ihme):
         'upper_value': 0.96
     }, index=[0])
     return cov
+
+
+@pytest.fixture(scope='session')
+def context(temp_directory):
+    c = Context(model_version_id=0, make=True, configure_application=False,
+                root_directory=temp_directory)
+    return c
+
+
+@pytest.fixture(scope='session')
+def settings():
+    return load_settings(BASE_CASE)
+
+
+@pytest.fixture(scope='session')
+def mi(asdr, cv, csmr, population, covariate_data, Demographics, settings):
+    m = MeasurementInputsFromSettings(settings=settings)
+    m.asdr = deepcopy(asdr)
+    m.csmr = deepcopy(csmr)
+    m.data = deepcopy(cv)
+    m.covariate_data = [deepcopy(covariate_data)]
+    m.population = deepcopy(population)
+    m.demographics = Demographics
+    m.configure_inputs_for_dismod(settings=settings)
+    return m
+
+
+@pytest.fixture(scope='session')
+def dismod_data(mi, settings):
+    return mi.dismod_data
+
+
+@pytest.fixture(scope='module')
+def df(mi, settings, temp_directory):
+    alchemy = Alchemy(settings)
+    d = DismodFiller(
+        path=temp_directory / 'temp.db',
+        settings_configuration=settings,
+        measurement_inputs=mi,
+        grid_alchemy=alchemy,
+        parent_location_id=70,
+        sex_id=2
+    )
+    d.fill_for_parent_child()
+    return d
