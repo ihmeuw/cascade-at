@@ -267,6 +267,7 @@ def data():
     return pd.DataFrame.from_dict(
         {'data_id': {0: 0, 1: 1, 2: 2}, 'data_name': {0: '0', 1: '1', 2: '2'}, 'integrand_id': {0: 8, 1: 10, 2: 9},
          'density_id': {0: 4, 1: 4, 2: 4}, 'node_id': {0: 67, 1: 67, 2: 67}, 'weight_id': {0: 3, 1: 3, 2: 3},
+         'subgroup_id': {0: 0, 1: 0, 2: 0},
          'hold_out': {0: 0, 1: 1, 2: 0}, 'meas_value': {0: 4e-05, 1: 0.17, 2: 5e-06},
          'meas_std': {0: 3e-06, 1: 0.010204269138493082, 2: 1.020426913849308e-06},
          'eta': {0: 1e-05, 1: 1e-05, 2: 1e-05}, 'nu': {0: nan, 1: nan, 2: nan}, 'age_lower': {0: 0.0, 1: 0.0, 2: 0.0},
@@ -328,7 +329,8 @@ def integrand():
 def mulcov():
     return pd.DataFrame.from_dict(
         {'mulcov_id': {0: 0, 1: 1}, 'mulcov_type': {0: 'rate_value', 1: 'rate_value'}, 'rate_id': {0: 1, 1: 1},
-         'integrand_id': {0: None, 1: None}, 'covariate_id': {0: 2, 1: 0}, 'smooth_id': {0: 5, 1: 6}}
+         'integrand_id': {0: None, 1: None}, 'covariate_id': {0: 2, 1: 0}, 'group_smooth_id': {0: 5, 1: 6},
+         'group_id': {0: 0, 1: 0}, 'subgroup_smooth_id': {0: None, 1: None}}
     )
 
 
@@ -341,7 +343,7 @@ def option():
                          4: 'meas_noise_effect', 5: 'max_num_iter_fixed', 6: 'print_level_fixed',
                          7: 'accept_after_max_steps_fixed', 8: 'tolerance_fixed', 9: 'max_num_iter_random',
                          10: 'print_level_random', 11: 'accept_after_max_steps_random', 12: 'tolerance_random',
-                         13: 'age_avg_split', 14: 'quasi_fixed', 15: 'bound_frac_fixed', 16: 'zero_sum_random'},
+                         13: 'age_avg_split', 14: 'quasi_fixed', 15: 'bound_frac_fixed', 16: 'zero_sum_child_rate'},
          'option_value': {0: '67', 1: '495279142', 2: '5.0', 3: 'iota_pos_rho_zero', 4: 'add_var_scale_log', 5: '200',
                           6: '5', 7: '5', 8: '1e-06', 9: '100', 10: '0', 11: '5', 12: '1e-06',
                           13: '0.01917808 0.07671233 1.0', 14: 'false', 15: '1e-08', 16: 'iota'}}

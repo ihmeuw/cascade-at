@@ -232,7 +232,7 @@ class DismodFiller(DismodIO):
             option_dict.update({'quasi_fixed': str(self.settings.model.quasi_fixed == 1).lower()})
             option_dict.update({'bound_frac_fixed': self.settings.model.bound_frac_fixed})
         if not self.settings.model.is_field_unset("zero_sum_random"):
-            option_dict.update({'zero_sum_random': " ".join(self.settings.model.zero_sum_random)})
+            option_dict.update({'zero_sum_child_rate': " ".join(self.settings.model.zero_sum_random)})
         if not self.settings.policies.is_field_unset("limited_memory_max_history_fixed"):
             option_dict.update(
                 {'limited_memory_max_history_fixed': self.settings.policies.limited_memory_max_history_fixed}
