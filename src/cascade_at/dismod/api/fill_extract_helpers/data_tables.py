@@ -48,10 +48,11 @@ def construct_data_table(df, node_df, covariate_df):
     data["density_id"] = data["density"].apply(lambda x: DensityEnum[x].value)
     data["integrand_id"] = data["measure"].apply(lambda x: IntegrandEnum[x].value)
     data["weight_id"] = data["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
+    data["subgroup_id"] = 0
 
     columns = data.columns
     data = data[[
-        'data_name', 'integrand_id', 'density_id', 'node_id', 'weight_id',
+        'data_name', 'integrand_id', 'density_id', 'node_id', 'weight_id', 'subgroup_id',
         'hold_out', 'meas_value', 'meas_std', 'eta', 'nu',
         'age_lower', 'age_upper', 'time_lower', 'time_upper'
     ] + [x for x in columns if x.startswith('x_')]]
@@ -82,15 +83,15 @@ def construct_avgint_table(df, node_df, covariate_df, integrand_df):
 
     avgint_df["integrand_id"] = avgint_df["measure"].apply(lambda x: IntegrandEnum[x].value)
     avgint_df["weight_id"] = avgint_df["measure"].apply(lambda x: INTEGRAND_TO_WEIGHT[x].value)
+    avgint_df["subgroup_id"] = 0
 
     avgint_df = avgint_df[[
-        'integrand_id', 'node_id', 'weight_id', 'c_location_id',
+        'integrand_id', 'node_id', 'weight_id', 'subgroup_id', 'c_location_id',
         'age_group_id', 'year_id', 'sex_id',
         'age_lower', 'age_upper', 'time_lower', 'time_upper'
     ] + [x for x in avgint_df.columns if x.startswith('x_')]]
     
     gbd_id_cols = ['sex_id', 'age_group_id', 'year_id']
-    for ids in gbd_id_cols:
-        avgint_df.rename(columns={x: 'c_' + x for x in gbd_id_cols}, inplace=True)
+    avgint_df.rename(columns={x: 'c_' + x for x in gbd_id_cols}, inplace=True)
 
     return avgint_df
