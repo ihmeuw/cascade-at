@@ -43,10 +43,14 @@ class DismodExtractor(DismodIO):
 
         integrand_map = reverse_integrand_map()
         predictions['measure_id'] = predictions.integrand_name.apply(lambda x: integrand_map[x])
+
+        # Duplicate the Sincidence results to incidence hazard for the Viz tool
+        predictions_2 = predictions.loc[predictions.measure_id == 41].copy()
+        predictions_2['measure_id'] = 6
+        predictions = pd.concat([predictions, predictions_2], axis=0)
         
         return predictions[[
             'location_id', 'age_group_id', 'year_id', 'sex_id',
             'measure_id', 'mean', 'upper', 'lower'
         ]]
 
-    
