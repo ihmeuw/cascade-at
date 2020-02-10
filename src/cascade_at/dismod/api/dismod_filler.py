@@ -198,6 +198,7 @@ class DismodFiller(DismodIO):
         self.mulcov = model_tables['mulcov']
         self.nslist = model_tables['nslist']
         self.nslist_pair = model_tables['nslist_pair']
+        self.subgroup = model_tables['subgroup']
 
         # Initialize empty tables that need to be there that may or may not
         # be filled with relevant info, if they're currently empty.
