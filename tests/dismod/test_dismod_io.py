@@ -149,7 +149,7 @@ def test_rate(dm, dm_read):
         'rate_id': 1, 'rate_name': '', 'parent_smooth_id': 1,
         'child_smooth_id': 1, 'child_nslist_id': 1
     }, index=[0])
-    assert len(dm_read.rate == 1)
+    assert len(dm_read.rate) == 1
     assert all(dm_read.rate.columns == ['rate_id', 'rate_name', 'parent_smooth_id',
                                         'child_smooth_id', 'child_nslist_id'])
 
@@ -160,7 +160,7 @@ def test_mulcov(dm, dm_read):
         'integrand_id': 1, 'covariate_id': 1, 'group_smooth_id': 1,
         'group_id': 0, 'subgroup_smooth_id': np.nan
     }, index=[0])
-    assert len(dm_read.mulcov == 1)
+    assert len(dm_read.mulcov) == 1
     assert all(dm_read.mulcov.columns == ['mulcov_id', 'mulcov_type', 'rate_id', 'integrand_id',
                                           'covariate_id', 'group_smooth_id', 'group_id', 'subgroup_smooth_id'])
 
@@ -170,7 +170,7 @@ def test_avgint(dm, dm_read):
         'avgint_id': 1, 'integrand_id': 1, 'node_id': 1, 'weight_id': 1, 'subgroup_id': 0,
         'age_lower': 0., 'age_upper': 1., 'time_lower': 0., 'time_upper': 1.
     }, index=[0])
-    assert len(dm_read.avgint == 1)
+    assert len(dm_read.avgint) == 1
     assert all(dm_read.avgint.columns == ['avgint_id', 'integrand_id', 'node_id', 'weight_id', 'subgroup_id',
                                           'age_lower', 'age_upper', 'time_lower', 'time_upper'])
 
@@ -181,7 +181,7 @@ def test_data(dm, dm_read):
         'node_id': 1, 'weight_id': 1, 'hold_out': 0, 'subgroup_id': 0, 'meas_value': 1., 'meas_std': 1.,
         'eta': 1e-6, 'nu': np.nan, 'age_lower': 0., 'age_upper': 1., 'time_lower': 0., 'time_upper': 1.
     }, index=[0])
-    assert len(dm_read.data == 1)
+    assert len(dm_read.data) == 1
     assert all(dm_read.data.columns == ['data_id', 'data_name', 'integrand_id', 'density_id',
                                         'node_id', 'weight_id', 'hold_out', 'subgroup_id', 'meas_value', 'meas_std',
                                         'eta', 'nu', 'age_lower', 'age_upper', 'time_lower', 'time_upper'])
@@ -191,5 +191,16 @@ def test_option(dm, dm_read):
     dm.option = pd.DataFrame({
         'option_id': 0, 'option_name': '', 'option_value': ''
     }, index=[0])
-    assert len(dm_read.option == 1)
+    assert len(dm_read.option) == 1
     assert all(dm_read.option.columns == ['option_id', 'option_name', 'option_value'])
+
+
+def test_subgroup(dm, dm_read):
+    dm.subgroup = pd.DataFrame({
+        'subgroup_id': 0,
+        'subgroup_name': 'world',
+        'group_id': 0,
+        'group_name': 'world'
+    }, index=[0])
+    assert len(dm_read.subgroup) == 1
+    assert all(dm_read.subgroup.columns == ['subgroup_id', 'subgroup_name', 'group_id', 'group_name'])

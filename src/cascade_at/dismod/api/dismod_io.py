@@ -257,7 +257,16 @@ class DismodIO(DismodSQLite):
     @start_var.setter
     def start_var(self, df):
         self.write_table('start_var', df)
-    
+
+    # SUBGROUP TABLE
+    @property
+    def subgroup(self):
+        return self.read_table('subgroup')
+
+    @subgroup.setter
+    def subgroup(self, df):
+        self.write_table('subgroup', df)
+
     # TIME TABLE
     @property
     def time(self):
