@@ -1,6 +1,9 @@
 import pytest
 import numpy as np
 import pandas as pd
+import sys
+# sys.path = ['/Users/gma/Documents/GitHub/cascade-at/build/lib'] + sys.path
+
 
 from cascade_at.dismod.api.dismod_io import DismodIO
 
