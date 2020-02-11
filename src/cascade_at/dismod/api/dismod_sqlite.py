@@ -136,7 +136,7 @@ class DismodSQLite:
             self.update_table_columns(table_name, table)
 
         # Force the table to have the dismod-required columns
-        dtypes = {k: v.type.python_type for k, v in table_definition.c.items()}
+        dtypes = {k: v.type for k, v in table_definition.c.items()}
         id_column = f"{table_name}_id"
         if id_column not in table:
             table[id_column] = table.reset_index(drop=True).index
