@@ -72,6 +72,22 @@ class Alchemy:
         single_time = [self.age_time_grid["time"][len(self.age_time_grid["time"]) // 2]]
         single_age_time = (single_age, single_time)
         return single_age_time
+
+    def get_smoothing_grid(self, rate):
+        """
+        Construct a smoothing grid for any rate in the model.
+
+        Parameters:
+            rate: (cascade_at.settings.settings_configuration.Smoothing)
+
+        Returns: (cascade_at.model.smooth_grid.SmoothGrid)
+
+        """
+        return smooth_grid_from_smoothing_form(
+            default_age_time=self.age_time_grid,
+            single_age_time=self.single_age_time_grid,
+            smooth=rate
+        )
     
     def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs, weights=None,
                                   omega_df=None):
@@ -97,11 +113,7 @@ class Alchemy:
 
         # First construct the rate grid
         for smooth in self.settings.rate:
-            rate_grid = smooth_grid_from_smoothing_form(
-                default_age_time=self.age_time_grid,
-                single_age_time=self.single_age_time_grid,
-                smooth=smooth
-            )
+            rate_grid = self.get_smoothing_grid(rate=smooth)
             model.rate[smooth.rate] = rate_grid
         
         # Second construct the covariate grids

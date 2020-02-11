@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from copy import deepcopy
 
 from cascade_at.settings.settings import load_settings
 from cascade_at.settings.base_case import BASE_CASE
@@ -8,9 +9,9 @@ from cascade_at.model.grid_alchemy import Alchemy
 
 @pytest.fixture(scope='module')
 def modified_settings():
-    s = BASE_CASE
+    s = deepcopy(BASE_CASE)
     s['model']['constrain_omega'] = 0
-    return load_settings(BASE_CASE)
+    return load_settings(s)
 
 
 @pytest.fixture(scope='module')
@@ -42,6 +43,13 @@ def test_construct_single_age_time_grid(alchemy):
     grid = alchemy.construct_single_age_time_grid()
     np.testing.assert_array_equal(grid[1], np.array([2005.]))
     np.testing.assert_array_equal(grid[0], np.array([0.]))
+
+
+def test_get_smoothing_grid(modified_settings, alchemy):
+    rate_settings = {c.rate: c for c in modified_settings.rate}
+    sm = alchemy.get_smoothing_grid(rate=rate_settings['iota'])
+    np.testing.assert_array_equal(sm.ages, np.array([0., 5., 10., 50., 100.]))
+    np.testing.assert_array_equal(sm.times, np.array([1990., 1995., 2000., 2005., 2010., 2015., 2016.]))
 
 
 @pytest.fixture(scope='module')
