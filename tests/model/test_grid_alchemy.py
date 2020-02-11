@@ -52,6 +52,16 @@ def test_get_smoothing_grid(modified_settings, alchemy):
     np.testing.assert_array_equal(sm.times, np.array([1990., 1995., 2000., 2005., 2010., 2015., 2016.]))
 
 
+def test_get_all_smooth_grids(alchemy, default_ages, default_times):
+    all_grids = alchemy.get_all_rates_grids()
+    np.testing.assert_array_equal(all_grids['iota'].ages, np.array([0., 5., 10., 50., 100.]))
+    np.testing.assert_array_equal(all_grids['iota'].times, np.array([1990., 1995., 2000., 2005., 2010., 2015., 2016.]))
+    np.testing.assert_array_equal(all_grids['chi'].ages, default_ages)
+    np.testing.assert_array_equal(all_grids['chi'].times, default_times)
+    np.testing.assert_array_equal(all_grids['pini'].ages, np.array([0.]))
+    np.testing.assert_array_equal(all_grids['pini'].times, np.array([2005.]))
+
+
 @pytest.fixture(scope='module')
 def model(alchemy, mi):
     return alchemy.construct_two_level_model(

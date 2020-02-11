@@ -88,6 +88,15 @@ class Alchemy:
             single_age_time=self.single_age_time_grid,
             smooth=rate
         )
+
+    def get_all_rates_grids(self):
+        """
+        Get a dictionary of all the rates and their grids in the model.
+
+        Returns: dict[str: SmoothGrid]
+
+        """
+        return {c.rate: self.get_smoothing_grid(rate=c) for c in self.settings.rate}
     
     def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs, weights=None,
                                   omega_df=None):
