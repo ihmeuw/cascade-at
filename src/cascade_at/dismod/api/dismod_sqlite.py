@@ -135,22 +135,27 @@ class DismodSQLite:
         if extra_columns:
             self.update_table_columns(table_name, table)
 
+        # Force the table to have the dismod-required columns
+        dtypes = {k: v.type for k, v in table_definition.c.items()}
+        id_column = f"{table_name}_id"
+        if id_column not in table:
+            table[id_column] = table.reset_index(drop=True).index
+        table = pd.DataFrame(table, columns = dtypes.keys())
+
         self._validate_data(table_definition, table)
 
-        if f"{table_name}_id" in table:
-            table = table.set_index(f"{table_name}_id")
-            try:
-                table.index = table.index.astype(np.int64)
-            except ValueError as ve:
-                raise ValueError(f"Cannot convert {table_name}.{table_name}_id to index") from ve
         try:
-            dtypes = {k: v.type for k, v in table_definition.c.items()}
+            table = table.set_index(id_column)
+            table.index = table.index.astype(np.int64)
+        except ValueError as ve:
+            raise ValueError(f"Cannot convert {table_name}.{table_name}_id to index") from ve
+        try:
             LOG.debug(f"Writing table {table_name} rows {len(table)} types {dtypes}")
             table.index.name = None
             table.to_sql(
                 name=table_name,
                 con=self.engine,
-                index_label=f"{table_name}_id",
+                index_label=id_column,
                 if_exists="replace",
                 dtype=dtypes
             )

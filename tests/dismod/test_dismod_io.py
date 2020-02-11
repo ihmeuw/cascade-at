@@ -178,12 +178,12 @@ def test_avgint(dm, dm_read):
 def test_data(dm, dm_read):
     dm.data = pd.DataFrame({
         'data_id': 1, 'data_name': '', 'integrand_id': 1, 'density_id': 1,
-        'node_id': 1, 'weight_id': 1, 'hold_out': 0, 'subgroup_id': 0, 'meas_value': 1., 'meas_std': 1.,
+        'node_id': 1, 'weight_id': 1, 'subgroup_id': 0, 'hold_out': 0, 'meas_value': 1., 'meas_std': 1.,
         'eta': 1e-6, 'nu': np.nan, 'age_lower': 0., 'age_upper': 1., 'time_lower': 0., 'time_upper': 1.
     }, index=[0])
     assert len(dm_read.data) == 1
     assert all(dm_read.data.columns == ['data_id', 'data_name', 'integrand_id', 'density_id',
-                                        'node_id', 'weight_id', 'hold_out', 'subgroup_id', 'meas_value', 'meas_std',
+                                        'node_id', 'weight_id', 'subgroup_id', 'hold_out', 'meas_value', 'meas_std',
                                         'eta', 'nu', 'age_lower', 'age_upper', 'time_lower', 'time_upper'])
 
 
