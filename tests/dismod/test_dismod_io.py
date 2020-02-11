@@ -1,6 +1,9 @@
 import pytest
 import numpy as np
 import pandas as pd
+import sys
+# sys.path = ['/Users/gma/Documents/GitHub/cascade-at/build/lib'] + sys.path
+
 
 from cascade_at.dismod.api.dismod_io import DismodIO
 
@@ -178,7 +181,7 @@ def test_avgint(dm, dm_read):
 def test_data(dm, dm_read):
     dm.data = pd.DataFrame({
         'data_id': 1, 'data_name': '', 'integrand_id': 1, 'density_id': 1,
-        'node_id': 1, 'weight_id': 1, 'hold_out': 0, 'subgroup_id': 0, 'meas_value': 1., 'meas_std': 1.,
+        'node_id': 1, 'weight_id': 1, 'subgroup_id': 0, 'hold_out': 0, 'meas_value': 1., 'meas_std': 1.,
         'eta': 1e-6, 'nu': np.nan, 'age_lower': 0., 'age_upper': 1., 'time_lower': 0., 'time_upper': 1.
     }, index=[0])
     assert len(dm_read.data) == 1
