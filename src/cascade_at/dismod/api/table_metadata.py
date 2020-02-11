@@ -294,7 +294,9 @@ class MulCov(Base):
     If mulcov_type is of type meas_value or meas_std, this must be null."""
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=True)
     covariate_id = Column(None, ForeignKey("covariate.covariate_id"), nullable=False)
-    smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
+    group_smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
+    group_id = Column(None, ForeignKey("subgroup.subgroup_id"), nullable=False)
+    subgroup_smooth_id = Column(Integer(), nullable=True)
     """If this is null, the covariate multiplier is always zero and no
     model_variables are allocated for it."""
 
@@ -311,6 +313,7 @@ class AvgInt(Base):
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=False)
     node_id = Column(None, ForeignKey("node.node_id"), nullable=False)
     weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=False)
+    subgroup_id = Column(None, ForeignKey("subgroup.subgroup_id"), nullable=False)
     age_lower = Column(Float(), nullable=False)
     age_upper = Column(Float(), nullable=False)
     time_lower = Column(Float(), nullable=False)
@@ -335,6 +338,7 @@ class Data(Base):
     density_id = Column(None, ForeignKey("density.density_id"), nullable=False)
     node_id = Column(None, ForeignKey("node.node_id"), nullable=False)
     weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=False)
+    subgroup_id = Column(None, ForeignKey("subgroup.subgroup_id"), nullable=False)
     hold_out = Column(Integer(), nullable=False)
     """Zero or one for hold outs during fit command"""
     meas_value = Column(Float(), nullable=False)
@@ -550,6 +554,16 @@ class Var(Base):
     integrand_id = Column(Integer(), nullable=True)
     covariate_id = Column(Integer(), nullable=True)
     mulcov_id = Column(Integer(), nullable=True)
+
+
+class SubGroup(Base):
+    """Input"""
+    __tablename__ = "subgroup"
+
+    subgroup_id = Column(Integer(), primary_key=True, autoincrement=False)
+    subgroup_name = Column(String(), nullable=False)
+    group_id = Column(Integer(), nullable=False)
+    group_name = Column(String(), nullable=False)
 
 
 _TYPE_MAP = {

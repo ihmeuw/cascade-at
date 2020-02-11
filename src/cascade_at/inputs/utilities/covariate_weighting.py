@@ -111,7 +111,7 @@ class CovariateInterpolator:
 
 
 def get_interpolated_covariate_values(data_df, covariate_dict,
-                                      population_df, location_dag):
+                                      population_df):
     """
     Gets the unique age-time combinations from the data_df, and creates
     interpolated covariate values for each of these combinations by population-weighting
@@ -120,7 +120,6 @@ def get_interpolated_covariate_values(data_df, covariate_dict,
     :param data_df: (pd.DataFrame)
     :param covariate_dict: Dict[pd.DataFrame] with covariate names as keys
     :param population_df: (pd.DataFrame)
-    :param location_dag: (cascade_at.inputs.locations.LocationDAG)
     :return: pd.DataFrame
     """
     data = data_df.copy()

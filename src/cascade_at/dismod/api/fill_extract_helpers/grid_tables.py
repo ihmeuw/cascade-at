@@ -113,6 +113,22 @@ def add_prior_smooth_entries(grid_name, grid, num_existing_priors, num_existing_
     return prior_df, smooth_df, grid_df
 
 
+def construct_subgroup_table():
+    """
+    Constructs the default subgroup table. If we want to actually
+    use the subgroup table, need to build this in.
+
+    Returns:
+        pd.DataFrame
+    """
+    return pd.DataFrame.from_dict({
+        'subgroup_id': [0],
+        'subgroup_name': ['world'],
+        'group_id': [0],
+        'group_name': ['world']
+    })
+
+
 def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
     """
     Loops through the items from a model object, which include
@@ -143,6 +159,7 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
 
     integrand_table = reference_tables.default_integrand_table()
     rate_table = reference_tables.default_rate_table()
+    subgroup_table = construct_subgroup_table()
 
     covariate_index = dict(covariate_df[["c_covariate_name", "covariate_id"]].to_records(index=False))
 
@@ -245,7 +262,7 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
                 "rate_id": [np.nan],
                 "integrand_id": [np.nan],
                 "covariate_id": [covariate_index[covariate]],
-                "smooth_id": [smooth_id]
+                "group_smooth_id": [smooth_id]
             })
             if m == "alpha":
                 mulcov["rate_id"] = RateEnum[rate_or_integrand].value
@@ -257,6 +274,8 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
 
     mulcov_table.reset_index(inplace=True, drop=True)
     mulcov_table["mulcov_id"] = mulcov_table.index
+    mulcov_table["group_id"] = 0
+    mulcov_table["subgroup_smooth_id"] = np.nan
 
     nslist_table = pd.DataFrame.from_records(
         data=list(nslist.items()),
@@ -273,5 +292,6 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
         'smooth_grid': grid_table,
         'mulcov': mulcov_table,
         'nslist': nslist_table,
-        'nslist_pair': nslist_pair_table
+        'nslist_pair': nslist_pair_table,
+        'subgroup': subgroup_table
     }

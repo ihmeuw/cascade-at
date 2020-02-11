@@ -293,7 +293,7 @@ class MeasurementInputs:
 
         if csmr.empty:
             omega = mtall.copy()
-            omega.rename(columns={'mtall': 'omega'}, inplace=True)
+            omega.rename(columns={'mtall': 'mean'}, inplace=True)
         else:
             mtspecific = csmr[join_columns + ['meas_value']].copy()
             mtspecific.rename(columns={'meas_value': 'mtspecific'}, inplace=True)
@@ -320,8 +320,7 @@ class MeasurementInputs:
         interp_df = get_interpolated_covariate_values(
             data_df=df,
             covariate_dict=cov_dict,
-            population_df=self.population.configure_for_dismod(),
-            location_dag=self.location_dag
+            population_df=self.population.configure_for_dismod()
         )
         return interp_df
 
@@ -390,15 +389,14 @@ class MeasurementInputs:
 
                     df_to_interp = pd.DataFrame({
                         'location_id': parent_location_id,
-                        'sex_id': [SEX_NAME_TO_ID['Both']],
+                        'sex_id': [sex_id],
                         'age_lower': [age_min], 'age_upper': [age_max],
                         'time_lower': [time_min], 'time_upper': [time_max]
                     })
                     reference_value = get_interpolated_covariate_values(
                         data_df=df_to_interp,
                         covariate_dict={c.name: parent_df},
-                        population_df=pop_df,
-                        location_dag=self.location_dag
+                        population_df=pop_df
                     )[c.name].iloc[0]
                     max_difference = np.max(
                         np.abs(all_loc_df.mean_value - reference_value)
