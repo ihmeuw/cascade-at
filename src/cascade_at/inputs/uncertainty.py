@@ -156,7 +156,7 @@ def stdev_from_crosswalk_version(crosswalk_version):
     standard_error[replace_se_with_ess] = stdev_from_es[replace_se_with_ess]
 
     # Do a final check on standard error
-    if (standard_error <= 0 | standard_error.isnull()).any():
+    if ((standard_error <= 0) | standard_error.isnull()).any():
         raise ValueError("There are still negative / 0 / or null values for standard error.")
 
     return standard_error
