@@ -160,11 +160,11 @@ class DismodFiller(DismodIO):
             node_df=self.node,
             covariate_df=self.covariate
         )
-        avgint_df = self.inputs.to_avgint(
+        avgint_df = self.inputs.to_gbd_avgint(
             parent_location_id=self.parent_location_id,
             sex_id=self.sex_id
         )
-        self.avgint = data_tables.construct_avgint_table(
+        self.avgint = data_tables.construct_gbd_avgint_table(
             df=avgint_df,
             node_df=self.node,
             covariate_df=self.covariate,

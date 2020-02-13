@@ -8,16 +8,6 @@ from cascade_at.core.log import get_loggers
 LOG = get_loggers(__name__)
 
 
-def expand_grid(data_dict):
-    """
-    Takes lists and turns them into a dictionary of
-    :param data_dict:
-    :return:
-    """
-    rows = itertools.product(*data_dict.values())
-    return pd.DataFrame.from_records(rows, columns=data_dict.keys())
-
-
 def values(interval):
     return interval.begin, interval.end, interval.data
 

@@ -59,7 +59,7 @@ def construct_data_table(df, node_df, covariate_df):
     return data
 
 
-def construct_avgint_table(df, node_df, covariate_df, integrand_df):
+def construct_gbd_avgint_table(df, node_df, covariate_df, integrand_df):
     """
     Constructs the avgint table using the output df
     from the inputs.to_avgint() method.
