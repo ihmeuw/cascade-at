@@ -51,7 +51,7 @@ class MulCovEnum(Enum):
     """These are the mulcov kinds listed in the mulcov table."""
     alpha = "rate_value"
     beta = "meas_value"
-    gamma = "meas_std"
+    gamma = "meas_noise"
 
 
 class IntegrandEnum(Enum):
