@@ -273,7 +273,7 @@ def data():
          'eta': {0: 1e-05, 1: 1e-05, 2: 1e-05}, 'nu': {0: nan, 1: nan, 2: nan}, 'age_lower': {0: 0.0, 1: 0.0, 2: 0.0},
          'age_upper': {0: 0.01917808, 1: 0.01917808, 2: 0.01917808}, 'time_lower': {0: 1990.0, 1: 1990.0, 2: 1990.0},
          'time_upper': {0: 1991.0, 1: 1991.0, 2: 1991.0}, 'x_0': {0: 0.96, 1: 0.96, 2: 0.96},
-         'x_2': {0: -0.5, 1: -0.5, 2: -0.5}, 'x_1': {0: 1.0, 1: 1.0, 2: 1.0}}
+         'x_1': {0: 1.0, 1: 1.0, 2: 1.0}, 'x_2': {0: -0.5, 1: -0.5, 2: -0.5}}
     )
 
 
@@ -281,8 +281,9 @@ def data():
 def covariate():
     return pd.DataFrame.from_dict(
         {'covariate_id': {0: 0, 1: 1, 2: 2}, 'covariate_name': {0: 'x_0', 1: 'x_1', 2: 'x_2'},
-         'c_covariate_name': {0: 'c_diabetes_fpg', 1: 's_one', 2: 's_sex'}, 'reference': {0: 0.96, 1: 1.0, 2: -0.5},
-         'max_difference': {0: 1e-10, 1: nan, 2: 0.5000000001}}
+         'reference': {0: 0.96, 1: 1.0, 2: -0.5},
+         'max_difference': {0: 1e-10, 1: nan, 2: 0.5000000001},
+         'c_covariate_name': {0: 'c_diabetes_fpg', 1: 's_one', 2: 's_sex'}}
     )
 
 
