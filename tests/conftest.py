@@ -255,7 +255,7 @@ def mi(asdr, cv, csmr, population, covariate_data, Demographics, settings):
     m.covariate_data = [deepcopy(covariate_data)]
     m.population = deepcopy(population)
     m.demographics = Demographics
-    m.configure_inputs_for_dismod(settings=settings)
+    m.configure_inputs_for_dismod(settings=settings, mortality_year_reduction=1)
     return m
 
 

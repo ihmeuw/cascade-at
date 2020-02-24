@@ -20,6 +20,7 @@ from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id
 from cascade_at.dismod.integrand_mappings import make_integrand_map
 from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
 from cascade_at.inputs.utilities.gbd_ids import SEX_ID_TO_NAME, SEX_NAME_TO_ID
+from cascade_at.inputs.utilities.reduce_data_volume import decimate_years
 from cascade_at.inputs.utilities.gbd_ids import CascadeConstants, StudyCovConstants
 from cascade_at.inputs.utilities.covariate_weighting import expand_grid
 
@@ -185,11 +186,12 @@ class MeasurementInputs:
             gbd_round_id=self.gbd_round_id
         ).get_population()
 
-    def configure_inputs_for_dismod(self, settings):
+    def configure_inputs_for_dismod(self, settings, mortality_year_reduction=5):
         """
         Modifies the inputs for DisMod based on model-specific settings.
 
         :param settings: (cascade.settings.configuration.Configuration)
+        :param mortality_year_reduction: (int) number of years to decimate csmr and asdr
         :return: self
         """
         self.data_eta = self.data_eta_from_settings(settings)
@@ -206,13 +208,16 @@ class MeasurementInputs:
         asdr = self.asdr.configure_for_dismod(hold_out=settings.model.constrain_omega)
         csmr = self.csmr.configure_for_dismod(hold_out=0)
 
-        self.dismod_data = pd.concat([data, asdr, csmr], axis=0)
-        self.dismod_data.reset_index(drop=True, inplace=True)
-
         if settings.model.constrain_omega:
             self.omega = self.calculate_omega(asdr=asdr, csmr=csmr)
         else:
             self.omega = None
+
+        csmr = decimate_years(data=csmr, num_years=mortality_year_reduction)
+        asdr = decimate_years(data=asdr, num_years=mortality_year_reduction)
+
+        self.dismod_data = pd.concat([data, asdr, csmr], axis=0)
+        self.dismod_data.reset_index(drop=True, inplace=True)
 
         self.dismod_data["density"] = self.dismod_data.measure.apply(self.density.__getitem__)
         self.dismod_data["eta"] = self.dismod_data.measure.apply(self.data_eta.__getitem__)
