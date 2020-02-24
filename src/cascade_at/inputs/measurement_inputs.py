@@ -213,8 +213,10 @@ class MeasurementInputs:
         else:
             self.omega = None
 
-        csmr = decimate_years(data=csmr, num_years=mortality_year_reduction)
-        asdr = decimate_years(data=asdr, num_years=mortality_year_reduction)
+        if not csmr.empty:
+            csmr = decimate_years(data=csmr, num_years=mortality_year_reduction)
+        if not asdr.empty:
+            asdr = decimate_years(data=asdr, num_years=mortality_year_reduction)
 
         self.dismod_data = pd.concat([data, asdr, csmr], axis=0)
         self.dismod_data.reset_index(drop=True, inplace=True)
