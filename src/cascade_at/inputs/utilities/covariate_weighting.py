@@ -72,11 +72,17 @@ class CovariateInterpolator:
         ))
 
     def _weighting(self, age_lower, age_upper, time_lower, time_upper):
-        age_groups = sorted(map(values, self.age_intervals[age_lower: age_upper]))
+        if age_lower == age_upper:
+            age_groups = sorted(map(values, self.age_intervals[age_lower]))
+        else:
+            age_groups = sorted(map(values, self.age_intervals[age_lower: age_upper]))
         age_group_ids = [a[-1] for a in age_groups]
         age_wts = interval_weighting(tuple(age_groups), age_lower, age_upper)
 
-        time_groups = sorted(map(values, self.time_intervals[time_lower: time_upper]))
+        if time_lower == time_upper:
+            time_groups = sorted(map(values, self.time_intervals[time_lower]))
+        else:
+            time_groups = sorted(map(values, self.time_intervals[time_lower: time_upper]))
         year_ids = [t[-1] for t in time_groups]
         time_wts = interval_weighting(tuple(time_groups), time_lower, time_upper)
 
