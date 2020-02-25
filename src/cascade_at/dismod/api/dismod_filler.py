@@ -140,12 +140,10 @@ class DismodFiller(DismodIO):
         self.node = reference_tables.construct_node_table(location_dag=self.inputs.location_dag)
         self.covariate = reference_tables.construct_covariate_table(covariates=self.parent_child_model.covariates)
         self.age = reference_tables.construct_age_time_table(
-            variable_name='age', variable=self.parent_child_model.get_age_array(),
-            data_range=(self.min_age, self.max_age)
+            variable_name='age', variable=self.parent_child_model.get_age_array()
         )
         self.time = reference_tables.construct_age_time_table(
-            variable_name='time', variable=self.parent_child_model.get_time_array(),
-            data_range=(self.min_time, self.max_time)
+            variable_name='time', variable=self.parent_child_model.get_time_array()
         )
         return self
 
@@ -158,7 +156,9 @@ class DismodFiller(DismodIO):
         self.data = data_tables.construct_data_table(
             df=self.inputs.dismod_data,
             node_df=self.node,
-            covariate_df=self.covariate
+            covariate_df=self.covariate,
+            ages=self.parent_child_model.get_age_array(),
+            times=self.parent_child_model.get_time_array()
         )
         avgint_df = self.inputs.to_avgint(
             parent_location_id=self.parent_location_id,
@@ -168,7 +168,9 @@ class DismodFiller(DismodIO):
             df=avgint_df,
             node_df=self.node,
             covariate_df=self.covariate,
-            integrand_df=self.integrand
+            integrand_df=self.integrand,
+            ages=self.parent_child_model.get_age_array(),
+            times=self.parent_child_model.get_time_array()
         )
         return self
 
