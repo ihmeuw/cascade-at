@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from cascade_at.context.model_context import Context
 from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.context.arg_utils import parse_options, parse_commands
-from cascade_at.dismod.api.run_dismod import run_dismod
+from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.core.log import get_loggers, LEVELS
 
 LOG = get_loggers(__name__)
@@ -68,15 +68,7 @@ def main():
     )
     df.fill_for_parent_child(**args.options)
 
-    for c in args.commands:
-        process = run_dismod(dm_file=df.path.absolute(), command=c)
-        if process.exit_status:
-            LOG.error(f"{c} failed with exit_status {process.exit_status}:")
-            LOG.error(f"{process.stderr}")
-            raise
-        else:
-            print(process.stdout)
-            print(process.stderr)
+    run_dismod_commands(dm_file=df.path.absolute(), commands=args.commands)
 
 
 if __name__ == '__main__':
