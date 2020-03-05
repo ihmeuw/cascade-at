@@ -1,6 +1,8 @@
 """ This module defines specializations of the general tools in abstract_form,
 mostly useful field types.
 """
+from re import split
+
 from cascade_at.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
 from cascade_at.core.log import get_loggers
 
@@ -160,7 +162,9 @@ class ListField(SimpleTypeField):
 class StringListField(ListField):
     def _validate_and_normalize(self, instance, value):
         if isinstance(value, str):
-            values = value.split(self.separator)
+            values = [val.strip() for val in split(
+                rf'{self.separator}+', value.strip())]
+
         else:
             # This case hits when there's only a single numerical value in the
             # list because Epiviz switches from strings to the actual numerical
