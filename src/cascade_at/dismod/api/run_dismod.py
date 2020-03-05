@@ -37,6 +37,8 @@ def run_dismod_commands(dm_file, commands):
         commands: (List[str]) a list of strings
 
     """
+    if isinstance(commands, str):
+        commands = [commands]
     for c in commands:
         process = run_dismod(dm_file=dm_file, command=c)
         if process.exit_status:
