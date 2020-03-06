@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from types import SimpleNamespace
 from cascade_at.core.log import get_loggers
 
@@ -32,18 +33,25 @@ def run_dismod_commands(dm_file, commands):
     Will raise an exception if it runs into an error.
 
     Args:
-        dm_file:
-        commands:
-
-    Returns:
+        dm_file: (str) the dismod db filepath
+        commands: (List[str]) a list of strings
 
     """
+    if isinstance(commands, str):
+        commands = [commands]
     for c in commands:
         process = run_dismod(dm_file=dm_file, command=c)
         if process.exit_status:
             LOG.error(f"{c} failed with exit_status {process.exit_status}:")
-            LOG.error(f"{process.stderr}")
-            raise
+            LOG.error(f"Error: {process.stderr}")
+            LOG.error(f"Output: {process.stdout}")
+            try:
+                raise RuntimeError(
+                    f"Dismod-AT failed with exit status {process.exit_status}."
+                    f"Exiting program."
+                )
+            except RuntimeError:
+                sys.exit(process.exit_status)
         else:
-            print(process.stdout)
-            print(process.stderr)
+            LOG.info(f"{process.stdout}")
+            LOG.info(f"{process.stderr}")

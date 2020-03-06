@@ -63,6 +63,14 @@ def form_with_string_list():
 
 
 @pytest.fixture
+def form_with_string_list_commas():
+    class MyForm(Form):
+        ints_field = StringListField(separator=",", constructor=int)
+
+    return MyForm
+
+
+@pytest.fixture
 def form_with_list():
     class MyForm(Form):
         floats_field = ListField(separator=" ", constructor=float)
@@ -205,3 +213,22 @@ def test_StringListField__to_dict(form_with_string_list):
     f = form_with_string_list({"ints_field": "1 2 3 4 5"})
     f.validate_and_normalize()
     assert f.to_dict() == {"ints_field": "1 2 3 4 5"}
+
+
+@pytest.mark.parametrize('string_input', ["1 2 3 4 5", " 1   2 3 4  5",
+                                          "1  2   3   4 5    "])
+def test_StringListField__success_bad_input(form_with_string_list,
+                                            string_input):
+    f = form_with_string_list({"ints_field": string_input})
+    f.validate_and_normalize()
+    assert f.ints_field == [1, 2, 3, 4, 5]
+
+
+@pytest.mark.parametrize('string_input', ["1,2,3,4,5", "1, 2, 3, 4, 5",
+                                          " 1,2, 3,  4,  5 ",
+                                          "  1,,,2,, 3  ,,,4,5"])
+def test_StringListField__success_commas(form_with_string_list_commas,
+                                         string_input):
+    f = form_with_string_list_commas({"ints_field": string_input})
+    f.validate_and_normalize()
+    assert f.ints_field == [1, 2, 3, 4, 5]

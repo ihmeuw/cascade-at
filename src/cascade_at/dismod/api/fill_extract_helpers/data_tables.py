@@ -26,7 +26,7 @@ def prep_data_avgint(df, node_df, covariate_df):
     return data
 
 
-def construct_data_table(df, node_df, covariate_df):
+def construct_data_table(df, node_df, covariate_df, ages, times):
     """
     Constructs the data table from input df.
 
@@ -34,6 +34,8 @@ def construct_data_table(df, node_df, covariate_df):
         df: (pd.DataFrame) data frame of inputs that have been prepped for dismod
         node_df: (pd.DataFrame) the dismod node table
         covariate_df: (pd.DataFrame) the dismod covariate table
+        ages: (np.array)
+        times: (np.array)
     """
     LOG.info("Constructing data table.")
 
@@ -56,10 +58,13 @@ def construct_data_table(df, node_df, covariate_df):
         'hold_out', 'meas_value', 'meas_std', 'eta', 'nu',
         'age_lower', 'age_upper', 'time_lower', 'time_upper'
     ] + [x for x in columns if x.startswith('x_')]]
+
+    data = data.loc[(data.time_lower >= times.min()) & (data.time_upper <= times.max())].copy()
+    data = data.loc[(data.age_lower >= ages.min()) & (data.age_upper <= ages.max())].copy()
     return data
 
 
-def construct_gbd_avgint_table(df, node_df, covariate_df, integrand_df):
+def construct_gbd_avgint_table(df, node_df, covariate_df, integrand_df, ages, times):
     """
     Constructs the avgint table using the output df
     from the inputs.to_avgint() method.
@@ -93,5 +98,8 @@ def construct_gbd_avgint_table(df, node_df, covariate_df, integrand_df):
     
     gbd_id_cols = ['sex_id', 'age_group_id', 'year_id']
     avgint_df.rename(columns={x: 'c_' + x for x in gbd_id_cols}, inplace=True)
+
+    avgint_df = avgint_df.loc[(avgint_df.time_lower >= times.min()) & (avgint_df.time_upper <= times.max())].copy()
+    avgint_df = avgint_df.loc[(avgint_df.age_lower >= ages.min()) & (avgint_df.age_upper <= ages.max())].copy()
 
     return avgint_df
