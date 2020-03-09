@@ -6,6 +6,10 @@ from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers.data_tables import prep_data_avgint
 from cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior import get_prior_avgint_grid
 from cascade_at.core.log import get_loggers, LEVELS
+from cascade_at.dismod.api.run_dismod import run_dismod_commands
+
+
+LOG = get_loggers(__name__)
 
 
 def get_args():
@@ -45,6 +49,10 @@ def main():
         covariate_df=sourceDB.covariate
     )
     sourceDB.avgint = posterior_grid
+    run_dismod_commands(
+        dm_file=sourceDB,
+        commands=['predict sample']
+    )
 
 
 if __name__ == '__main__':
