@@ -48,6 +48,7 @@ def main():
         node_df=sourceDB.node,
         covariate_df=sourceDB.covariate
     )
+    posterior_grid.rename(columns={'sex_id': 'c_sex_id'}, inplace=True)
     sourceDB.avgint = posterior_grid
     run_dismod_commands(
         dm_file=sourceDB,
