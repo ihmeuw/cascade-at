@@ -1,9 +1,11 @@
 import pandas as pd
+import numpy as np
 
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.integrand_mappings import reverse_integrand_map
 from cascade_at.dismod.api.fill_extract_helpers import utils
+from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES
 
 LOG = get_loggers(__name__)
 
@@ -18,18 +20,71 @@ class DismodExtractor(DismodIO):
     def __init__(self, path):
         super().__init__(path=path)
 
+    def get_predictions(self, location_id=None, sex_id=None):
+        """
+        Get the predictions from the predict table for a specific
+        location (rather than node) and sex ID.
+
+        Returns:
+            pd.DataFrame
+        """
+        predictions = self.predict.merge(self.avgint, on=['avgint_id'])
+        predictions = predictions.merge(self.integrand, on=['integrand_id'])
+        if location_id is not None:
+            predictions = predictions.loc[predictions.c_location_id == location_id].copy()
+        if sex_id is not None:
+            predictions = predictions.loc[predictions.c_sex_id == sex_id].copy()
+        return predictions
+
+    def prediction_statistics(self, location_id, sex_id):
+        """
+        Takes a database that has something in the predict table
+        and groups by avgint ID, calculates statistics.
+        Returns:
+            pd.DataFrame
+        """
+        def stats(col):
+            d = dict()
+            d['mean'] = col['avg_integrand'].mean()
+            d['std'] = col['avg_integrand'].std(ddof=1)
+            return pd.Series(d, index=['mean', 'std'])
+
+        predictions = self.get_predictions(location_id=location_id, sex_id=sex_id)
+        prediction_groups = predictions.groupby('avgint_id')
+        return prediction_groups.apply(stats).reset_index()
+
+    def format_predictions_for_prior(self, location_id, sex_id):
+        """
+        Takes a database that has something in the predict table
+        and groups by avgint ID, calculates statistics, and then
+        formats them to be for a prior.
+
+        Returns:
+            pd.DataFrame()
+        """
+        df = self.prediction_statistics(location_id=location_id, sex_id=sex_id)
+        df['rate'] = df['integrand'].map(PRIMARY_INTEGRANDS_TO_RATES)
+        df['prior_name'] = pd.DataFrame([dict(
+            prior_name=f'{row.rate_name}({row.x_sex}, {row.age_lower}, {row.time_lower}',
+            density_id=1,
+            mean=row['mean'],
+            std=row['std'],
+            lower=np.nan,
+            upper=np.nan,
+            eta=np.nan,
+            nu=np.nan
+        ) for i, row in df.iterrows()])
+        return df
+
     def format_predictions_for_ihme(self):
         """
         Gets the predictions from the predict table and transforms them
         into the GBD ids that we expect.
         :return:
         """
-        predictions = self.predict.merge(self.avgint, on=['avgint_id'])
-        predictions = predictions.merge(self.integrand, on=['integrand_id'])
-        predictions = predictions[[
+        predictions = self.get_predictions()[[
             'c_location_id', 'c_age_group_id', 'c_year_id', 'c_sex_id',
-            'integrand_name',
-            'time_lower', 'time_upper', 'age_lower', 'age_upper',
+            'integrand_name', 'time_lower', 'time_upper', 'age_lower', 'age_upper',
             'avg_integrand'
         ]]
         gbd_id_cols = ['location_id', 'sex_id', 'age_group_id', 'year_id']
