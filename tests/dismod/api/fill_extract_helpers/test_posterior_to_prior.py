@@ -14,5 +14,4 @@ def test_get_prior_avgint_grid():
         locations=[1]
     )
     assert type(prior_avgint_grid) == pd.DataFrame
-    import pdb; pdb.set_trace()
     assert sorted(prior_avgint_grid.integrand_id.unique()) == [0, 2, 7]
