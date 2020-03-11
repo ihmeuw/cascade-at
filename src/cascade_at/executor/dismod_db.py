@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 
 from cascade_at.context.model_context import Context
 from cascade_at.dismod.api.dismod_filler import DismodFiller
+from cascade_at.dismod.api.dismod_extractor import DismodExtractor
 from cascade_at.context.arg_utils import parse_options, parse_commands
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.core.log import get_loggers, LEVELS
@@ -21,6 +22,8 @@ def get_args():
     parser.add_argument("-sex-id", type=int, required=True)
     parser.add_argument("--options", metavar="KEY=VALUE=TYPE", nargs="+", required=False,
                         help="optional key-value-type pairs to set in the option table of dismod")
+    parser.add_argument("--prior-parent", type=int, required=False, default=None)
+    parser.add_argument("--prior-sex", type=int, required=False, default=None)
     parser.add_argument("--commands", nargs="+", required=False, default=[])
     parser.add_argument("--loglevel", type=str, required=False, default='info')
 
@@ -58,13 +61,31 @@ def main():
     context = Context(model_version_id=args.model_version_id)
 
     inputs, alchemy, settings = context.read_inputs()
+
+    # If we want to override the rate priors with posteriors from a previous
+    # database, pass them in here.
+    if args.prior_parent or args.prior_sex:
+        if not (args.prior_parent and args.prior_sex):
+            raise RuntimeError("Need to pass both prior parent and sex or neither.")
+        child_prior = DismodExtractor(path=context.db_file(
+            location_id=args.prior_parent,
+            sex_id=args.prior_sex
+        )).gather_draws_for_prior_grid(
+            location_id=args.parent_location_id,
+            sex_id=args.sex_id,
+            rates=[r.rate for r in settings.rate]
+        )
+    else:
+        child_prior = None
+
     df = DismodFiller(
         path=context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id),
         settings_configuration=settings,
         measurement_inputs=inputs,
         grid_alchemy=alchemy,
         parent_location_id=args.parent_location_id,
-        sex_id=args.sex_id
+        sex_id=args.sex_id,
+        child_prior=child_prior
     )
     df.fill_for_parent_child(**args.options)
 

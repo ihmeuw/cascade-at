@@ -59,6 +59,6 @@ def get_prior_avgint_grid(settings, integrands, sexes, locations, midpoint=False
         posterior_dfs = posterior_dfs.append(posterior_df)
 
     return posterior_dfs[[
-        "avgint_id", "integrand_id", "location_id", "weight_id", "subgroup_id",
+        "integrand_id", "location_id", "weight_id", "subgroup_id",
         "age_lower", "age_upper", "time_lower", "time_upper", "sex_id"
     ]]

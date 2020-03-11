@@ -4,7 +4,6 @@ import numpy as np
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.integrand_mappings import reverse_integrand_map
-from cascade_at.dismod.api.fill_extract_helpers import utils
 from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES
 
 LOG = get_loggers(__name__)
@@ -30,51 +29,79 @@ class DismodExtractor(DismodIO):
         """
         predictions = self.predict.merge(self.avgint, on=['avgint_id'])
         predictions = predictions.merge(self.integrand, on=['integrand_id'])
+        predictions['rate'] = predictions['integrand'].map(PRIMARY_INTEGRANDS_TO_RATES)
         if location_id is not None:
             predictions = predictions.loc[predictions.c_location_id == location_id].copy()
         if sex_id is not None:
             predictions = predictions.loc[predictions.c_sex_id == sex_id].copy()
         return predictions
 
-    def prediction_statistics(self, location_id, sex_id):
+    def gather_draws_for_prior_grid(self, location_id, sex_id, rates, value=True, dage=True, dtime=True):
         """
-        Takes a database that has something in the predict table
-        and groups by avgint ID, calculates statistics.
-        Returns:
-            pd.DataFrame
-        """
-        def stats(col):
-            d = dict()
-            d['mean'] = col['avg_integrand'].mean()
-            d['std'] = col['avg_integrand'].std(ddof=1)
-            return pd.Series(d, index=['mean', 'std'])
+        Takes draws and formats them for a prior grid for values, dage, and dtime.
+        Assumes that age_lower == age_upper and time_lower == time_upper for all
+        data rows. We might not want to do all value, dage, and dtime, so pass False
+        if you want to skip those.
 
-        predictions = self.get_predictions(location_id=location_id, sex_id=sex_id)
-        prediction_groups = predictions.groupby('avgint_id')
-        return prediction_groups.apply(stats).reset_index()
-
-    def format_predictions_for_prior(self, location_id, sex_id):
-        """
-        Takes a database that has something in the predict table
-        and groups by avgint ID, calculates statistics, and then
-        formats them to be for a prior.
+        Args:
+            location_id: (int)
+            sex_id: (int)
+            rates: List[str] list of rates to get the draws for
+            value: (bool) calculate value priors
+            dage: (bool) calculate dage priors
+            dtime: (bool) calculate dtime priors
 
         Returns:
-            pd.DataFrame()
+            draw_data: (np.ndarray) 3-d array of value draws over age and time for this loc and sex
+            draw_dage: (np.ndarray) 3-d array of draws for dage over age and time for this loc and sex
+            draw_dtime: (np.ndarray) 3-d array of draws for dtime over age and time for this loc and sex
         """
-        df = self.prediction_statistics(location_id=location_id, sex_id=sex_id)
-        df['rate'] = df['integrand'].map(PRIMARY_INTEGRANDS_TO_RATES)
-        df['prior_name'] = pd.DataFrame([dict(
-            prior_name=f'{row.rate_name}({row.x_sex}, {row.age_lower}, {row.time_lower}',
-            density_id=1,
-            mean=row['mean'],
-            std=row['std'],
-            lower=np.nan,
-            upper=np.nan,
-            eta=np.nan,
-            nu=np.nan
-        ) for i, row in df.iterrows()])
-        return df
+        rate_dict = dict()
+        for r in rates:
+            rate_dict[r] = dict()
+
+        df = self.get_predictions(location_id=location_id, sex_id=sex_id)
+
+        assert (df.age_lower.values == df.age_upper.values).all()
+        assert (df.time_lower.values == df.time_upper.values).all()
+
+        # Loop over rates, age, and time
+        for r in rates:
+            df2 = df.loc[df.rate == r].copy()
+
+            ages = np.asarray(sorted(df2.age_lower.unique().tolist()))
+            times = np.asarray(sorted(df2.age_lower.unique().tolist()))
+            n_draws = int(len(df2) / (len(ages) * len(times)))
+
+            # Save these for later for quality checks
+            rate_dict[r]['ages'] = ages
+            rate_dict[r]['times'] = times
+            rate_dict[r]['n_draws'] = n_draws
+
+            # Create template for filling in the draws
+            draw_data = np.zeros((n_draws, len(ages), len(times)))
+            for age_idx, age in enumerate(ages):
+                for time_idx, time in enumerate(times):
+                    # Subset to the draws that we want from avg_integrand
+                    # but only for this particular age and time
+                    draws = df2.loc[
+                        (df2.age_lower == age) &
+                        (df2.time_lower == time)
+                    ]['avg_integrand'].values
+
+                    # Check to makes sure that the number of draws corresponds to the number
+                    # of draws for the whole thing per age and time
+                    assert len(draws) == n_draws
+                    draw_data[age_idx, time_idx, :] = draws
+
+            if value:
+                rate_dict[r]['value'] = draw_data
+            if dage:
+                rate_dict[r]['dage'] = np.diff(draw_data, n=1, axis=0)
+            if dtime:
+                rate_dict[r]['dtime'] = np.diff(draw_data, n=1, axis=1)
+
+        return rate_dict
 
     def format_predictions_for_ihme(self):
         """

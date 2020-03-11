@@ -1,4 +1,5 @@
 from collections import defaultdict
+import itertools as it
 
 import numpy as np
 
@@ -97,9 +98,30 @@ class Alchemy:
 
         """
         return {c.rate: self.get_smoothing_grid(rate=c) for c in self.settings.rate}
+
+    @staticmethod
+    def estimate_grid_parameters(grid_priors, draws, ages, times):
+        """
+        Estimates using MLE the parameters for the grid using prior draws.
+        Updates the grid_priors object in place, so returns nothing.
+
+        Args:
+            grid_priors: (cascade_at...)
+            draws: (np.ndarray) 3-d array coming out of `DismodExtractor.gather_draws_for_prior_grid()`
+            ages: (np.array)
+            times: (np.array)
+        """
+        assert isinstance(draws, np.ndarray)
+        assert len(draws.shape) == 3
+        assert draws.shape[0] == len(ages), "Not the same number of ages in the prior as the grid"
+        assert draws.shape[1] == len(times), "Not the same number of times in the prior as the grid"
+        for age_idx, time_idx in it.product(range(len(ages)), range(len(times))):
+            age = ages[age_idx]
+            time = times[time_idx]
+            grid_priors[age, time] = grid_priors[age, time].mle(draws[age_idx, time_idx, :])
     
     def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs, weights=None,
-                                  omega_df=None):
+                                  omega_df=None, update_prior=None):
         """
         Construct a Model object for a parent location and its children.
 
@@ -110,6 +132,7 @@ class Alchemy:
                 specifications, specifically will use covariate_specs.covariate_multipliers
             weights:
             omega_df: (pd.DataFrame)
+            update_prior: (dict) of (dict)
         """
         children = list(location_dag.dag.successors(parent_location_id))
         model = Model(
@@ -120,9 +143,35 @@ class Alchemy:
             weights=weights
         )
 
-        # First construct the rate grid
+        # First construct the rate grid, and update with prior
+        # information from a parent for value, dage, and dtime.
         for smooth in self.settings.rate:
             rate_grid = self.get_smoothing_grid(rate=smooth)
+            if update_prior is not None:
+                if smooth.rate in update_prior:
+                    prior = update_prior[smooth.rate]
+                    # Check that the prior grid lines up with this rate
+                    # grid. If it doesn't, we have a problem.
+                    assert (prior['ages'] == rate_grid.ages)
+                    assert (prior['times'] == rate_grid.times)
+                    # For each of the types of priors, update rate_grid
+                    # with the new prior information from the update_prior
+                    # object that has info from a different model fit
+                    if 'value' in prior:
+                        self.estimate_grid_parameters(
+                            grid_priors=rate_grid.value, draws=prior['value'],
+                            ages=rate_grid.ages, times=rate_grid.times
+                        )
+                    if 'dage' in prior:
+                        self.estimate_grid_parameters(
+                            grid_priors=rate_grid.dage, draws=prior['dage'],
+                            ages=rate_grid.ages[:-1], times=rate_grid.times
+                        )
+                    if 'dtime' in prior:
+                        self.estimate_grid_parameters(
+                            grid_priors=rate_grid.dtime, draws=prior['dtime'],
+                            ages=rate_grid.ages, times=rate_grid.times[:-1]
+                        )
             model.rate[smooth.rate] = rate_grid
         
         # Second construct the covariate grids

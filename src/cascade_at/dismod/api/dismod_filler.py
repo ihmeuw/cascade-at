@@ -48,7 +48,8 @@ class DismodFiller(DismodIO):
         >>>                    sex_id=3)
         >>> da.fill_for_parent_child()
     """
-    def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id, sex_id):
+    def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id, sex_id,
+                 child_prior=None):
         super().__init__(path=path)
 
         self.settings = settings_configuration
@@ -56,6 +57,7 @@ class DismodFiller(DismodIO):
         self.alchemy = grid_alchemy
         self.parent_location_id = parent_location_id
         self.sex_id = sex_id
+        self.child_prior = child_prior
 
         self.omega_df = self.get_omega_df()
         self.covariate_reference_specs = self.calculate_reference_covariates()
@@ -90,7 +92,8 @@ class DismodFiller(DismodIO):
             location_dag=self.inputs.location_dag,
             parent_location_id=self.parent_location_id,
             covariate_specs=self.covariate_reference_specs,
-            omega_df=self.omega_df
+            omega_df=self.omega_df,
+            update_prior=self.child_prior
         )
 
     def calculate_reference_covariates(self):
