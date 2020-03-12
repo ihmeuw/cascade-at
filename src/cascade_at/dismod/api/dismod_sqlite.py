@@ -15,7 +15,7 @@ from textwrap import dedent
 import numpy as np
 import pandas as pd
 from pandas.core.dtypes.base import ExtensionDtype
-from sqlalchemy import Enum
+from sqlalchemy import Enum, Integer, Float
 from sqlalchemy import create_engine
 from sqlalchemy.exc import StatementError
 
@@ -200,6 +200,11 @@ class DismodSQLite:
                 actual_type = data[column_name].dtype
                 is_pandas_extension = isinstance(actual_type, ExtensionDtype)
                 expected_type = self._expected_type(column_definition)
+                is_nullable_numeric = (column_definition.nullable and
+                    (isinstance(column_definition.type, Integer) or
+                     isinstance(column_definition.type, Float)))
+                if is_nullable_numeric:
+                    data[column_name] = data[column_name].fillna(value=np.nan)
 
                 if expected_type is int:
                     self._check_int_type(actual_type, column_name, is_pandas_extension, table_definition)
