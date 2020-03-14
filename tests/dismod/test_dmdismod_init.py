@@ -27,7 +27,7 @@ def test_fill_tables(dm):
     dm.integrand = default_integrand_table()
     dm.rate = default_rate_table()
     dm.density = construct_density_table()
-
+    import pdb; pdb.set_trace()
     dm.age = pd.DataFrame({
         'age_id': [0, 1],
         'age': [0.0, 100.0]
@@ -39,7 +39,7 @@ def test_fill_tables(dm):
     dm.node = pd.DataFrame({
         'node_id': [0],
         'node_name': ['world'],
-        'parent': ['']
+        'parent': [np.nan]
     })
     dm.weight = pd.DataFrame({
         'weight_id': [0],
@@ -96,9 +96,9 @@ def test_fill_tables(dm):
     dm.smooth = pd.DataFrame({
         'smooth_id': [0, 1],
         'smooth_name': ['smooth_omega_parent', 'smooth_income_multiplier'],
-        'n_age': [2],
-        'n_time': [2],
-        'mulstd_value_prior_id': [0, 1, 2]
+        'n_age': [1, 1],
+        'n_time': [1, 1],
+        'mulstd_value_prior_id': [1, 2]
     })
     dm.smooth_grid = pd.DataFrame({
         'smooth_grid_id': [0, 1],
