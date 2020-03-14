@@ -8,6 +8,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
+from cascade_at.dismod.api.run_dismod import run_dismod
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers.reference_tables import (
     default_rate_table, default_integrand_table, construct_density_table
@@ -27,7 +28,6 @@ def test_fill_tables(dm):
     dm.integrand = default_integrand_table()
     dm.rate = default_rate_table()
     dm.density = construct_density_table()
-    import pdb; pdb.set_trace()
     dm.age = pd.DataFrame({
         'age_id': [0, 1],
         'age': [0.0, 100.0]
@@ -132,4 +132,8 @@ def test_fill_tables(dm):
         'group_name': ['world']
     })
 
+
+def test_dmdismod_init(dm):
+    run = run_dismod(dm_file=str(dm.path), command='init')
+    assert run.exit_status == 0
 
