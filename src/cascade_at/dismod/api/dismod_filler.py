@@ -150,6 +150,9 @@ class DismodFiller(DismodIO):
             variable_name='time', variable=self.parent_child_model.get_time_array(),
             data_min=self.min_time, data_max=self.max_time
         )
+        self.integrand = reference_tables.construct_integrand_table(
+            minimum_meas_cv=self.settings.model.minimum_meas_cv
+        )
         return self
 
     def fill_data_tables(self):
@@ -201,7 +204,6 @@ class DismodFiller(DismodIO):
         self.smooth = model_tables['smooth']
         self.smooth_grid = model_tables['smooth_grid']
         self.prior = model_tables['prior']
-        self.integrand = model_tables['integrand']
         self.mulcov = model_tables['mulcov']
         self.nslist = model_tables['nslist']
         self.nslist_pair = model_tables['nslist_pair']

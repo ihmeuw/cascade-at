@@ -158,7 +158,6 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
     mulcov_table = pd.DataFrame()
     nslist_pair_table = pd.DataFrame()
 
-    integrand_table = reference_tables.default_integrand_table()
     rate_table = reference_tables.default_rate_table()
     subgroup_table = construct_subgroup_table()
 
@@ -287,7 +286,6 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
 
     return {
         'rate': rate_table,
-        'integrand': integrand_table,
         'prior': prior_table,
         'smooth': smooth_table,
         'smooth_grid': grid_table,
