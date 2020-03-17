@@ -17,7 +17,7 @@ from cascade_at.dismod.api.fill_extract_helpers.reference_tables import (
 
 
 @pytest.fixture
-def dm():
+def dm(dismod):
     return DismodIO(path=Path('dismod-init.db'))
 
 
