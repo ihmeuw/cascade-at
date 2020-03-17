@@ -63,5 +63,5 @@ def test_construct_age_time_table_outside_bounds(variable):
 def test_construct_integrand_table():
     df = construct_integrand_table()
     assert all(df.minimum_meas_cv == 0.0)
-    df = construct_integrand_table(minimum_meas_cv=0.1)
+    df = construct_integrand_table(data_cv=0.1)
     assert all(df.minimum_meas_cv == 0.1)

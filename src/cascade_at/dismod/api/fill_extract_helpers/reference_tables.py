@@ -9,10 +9,10 @@ from cascade_at.core.log import get_loggers
 LOG = get_loggers(__name__)
 
 
-def construct_integrand_table(minimum_meas_cv=0.0):
+def construct_integrand_table(data_cv=0.0):
     df = pd.DataFrame({
         "integrand_name": enum_to_dataframe(IntegrandEnum)["name"],
-        "minimum_meas_cv": minimum_meas_cv
+        "minimum_meas_cv": data_cv
     })
     df = df.loc[df.integrand_name != 'incidence'].copy()
     return df
