@@ -28,7 +28,7 @@ def default_rate_table():
     })
 
 
-def construct_age_time_table(variable_name, variable):
+def construct_age_time_table(variable_name, variable, data_min=None, data_max=None):
     """
     Constructs the age or time table with age_id and age or time_id and time.
     Has unique identifiers for each.
@@ -36,8 +36,11 @@ def construct_age_time_table(variable_name, variable):
     Parameters:
         variable_name: (str) one of 'age' or 'time'
         variable: (np.array) array of ages or times
+        data_min: (float) minimum observed in the data
+        data_max: (float) max observed in the data
     """
     LOG.info(f"Constructing {variable_name} table.")
+    variable = np.concatenate([variable, np.array([data_min, data_max])], axis=0)
     variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]
     variable.sort()
     if variable[-1] - variable[0] < 1:
