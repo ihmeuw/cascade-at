@@ -4,6 +4,7 @@ example to create database tables and then make sure
 that we can run init on it using this code base to fill the tables.
 """
 
+from pathlib import Path
 import pytest
 import pandas as pd
 import numpy as np
@@ -16,17 +17,18 @@ from cascade_at.dismod.api.fill_extract_helpers.reference_tables import (
 
 
 @pytest.fixture
-def dm(tmp_path):
-    return DismodIO(path=tmp_path / 'dismod-init.db')
+def dm():
+    return DismodIO(path=Path('dismod-init.db'))
 
 
 def test_fill_tables(dm):
     unknown_omega_world = 1e-2
     known_income_multiplier = -1e-3
     adjusted_omega = unknown_omega_world * np.exp(known_income_multiplier * 1000.0)
-
     dm.integrand = default_integrand_table()
-    dm.rate = default_rate_table()
+    rate = default_rate_table()
+    rate.loc[rate.rate_name == 'omega', 'parent_smooth_id'] = 0
+    dm.rate = rate
     dm.density = construct_density_table()
     dm.age = pd.DataFrame({
         'age_id': [0, 1],
@@ -47,6 +49,13 @@ def test_fill_tables(dm):
         'n_age': [1],
         'n_time': [1]
     })
+    dm.weight_grid = pd.DataFrame({
+        'weight_id': [0],
+        'weight_grid_id': [0],
+        'age_id': [0],
+        'time_id': [0],
+        'weight': [1]
+    })
     dm.covariate = pd.DataFrame({
         'covariate_id': [0],
         'covariate_name': ['income'],
@@ -62,7 +71,8 @@ def test_fill_tables(dm):
         'age_lower': [0],
         'age_upper': [0],
         'time_lower': [1995.],
-        'time_upper': [1995.]
+        'time_upper': [1995.],
+        'x_0': [1.]
     })
     dm.data = pd.DataFrame({
         'data_id': [0],
@@ -80,7 +90,8 @@ def test_fill_tables(dm):
         'age_lower': [50.],
         'age_upper': [50.],
         'time_lower': [2000.],
-        'time_upper': [2000.]
+        'time_upper': [2000.],
+        'x_0': [1.]
     })
     dm.prior = pd.DataFrame({
         'prior_id': [0, 1, 2],
@@ -104,12 +115,8 @@ def test_fill_tables(dm):
         'smooth_grid_id': [0, 1],
         'smooth_id': [0, 1],
         'age_id': [0, 0],
-        'time_id': [0, 0]
-    })
-    dm.rate = pd.DataFrame({
-        'rate_id': [0],
-        'rate_name': 'omega',
-        'parent_smooth_id': [0]
+        'time_id': [0, 0],
+        'const_value': [1e-3, 1e-3]
     })
     dm.mulcov = pd.DataFrame({
         'mulcov_id': [0],
@@ -131,9 +138,22 @@ def test_fill_tables(dm):
         'group_id': [0],
         'group_name': ['world']
     })
+    dm.nslist = pd.DataFrame({
+        'nslist_id': [0],
+        'nslist_name': ['parent']
+    })
+    dm.nslist_pair = pd.DataFrame({
+        'nslist_id': [0],
+        'nslist_pair_id': [0],
+        'node_id': [0],
+        'smooth_id': [0]
+    })
 
 
 def test_dmdismod_init(dm):
     run = run_dismod(dm_file=str(dm.path), command='init')
+    if run.exit_status:
+        print(run.stdout)
+        print(run.stderr)
     assert run.exit_status == 0
 
