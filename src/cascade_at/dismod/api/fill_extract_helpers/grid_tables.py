@@ -93,6 +93,7 @@ def add_prior_smooth_entries(grid_name, grid, num_existing_priors, num_existing_
     })
 
     # Create the grid entries
+    # TODO: Pass in the value prior ID instead from posterior to prior
     long_table = prior_df.loc[prior_df.age_id.notna()][["age_id", "time_id", "prior_id", "kind"]]
     grid_df = long_table[["age_id", "time_id"]].sort_values(["age_id", "time_id"]).drop_duplicates()
 
