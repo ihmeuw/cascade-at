@@ -12,7 +12,7 @@ import numpy as np
 from cascade_at.dismod.api.run_dismod import run_dismod
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers.reference_tables import (
-    default_rate_table, default_integrand_table, construct_density_table
+    default_rate_table, construct_integrand_table, construct_density_table
 )
 
 
@@ -25,7 +25,7 @@ def test_fill_tables(dm):
     unknown_omega_world = 1e-2
     known_income_multiplier = -1e-3
     adjusted_omega = unknown_omega_world * np.exp(known_income_multiplier * 1000.0)
-    dm.integrand = default_integrand_table()
+    dm.integrand = construct_integrand_table()
     rate = default_rate_table()
     rate.loc[rate.rate_name == 'omega', 'parent_smooth_id'] = 0
     dm.rate = rate

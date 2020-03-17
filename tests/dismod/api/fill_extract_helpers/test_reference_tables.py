@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cascade_at.dismod.api.fill_extract_helpers.reference_tables import construct_age_time_table
+from cascade_at.dismod.api.fill_extract_helpers.reference_tables import (
+    construct_age_time_table, construct_integrand_table
+)
 
 
 @pytest.fixture
@@ -56,3 +58,10 @@ def test_construct_age_time_table_outside_bounds(variable):
             'time': [1989, 1990, 1995, 2000, 2004]
         })
     )
+
+
+def test_construct_integrand_table():
+    df = construct_integrand_table()
+    assert all(df.minimum_meas_cv == 0.0)
+    df = construct_integrand_table(minimum_meas_cv=0.1)
+    assert all(df.minimum_meas_cv == 0.1)
