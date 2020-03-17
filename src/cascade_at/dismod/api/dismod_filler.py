@@ -140,10 +140,12 @@ class DismodFiller(DismodIO):
         self.node = reference_tables.construct_node_table(location_dag=self.inputs.location_dag)
         self.covariate = reference_tables.construct_covariate_table(covariates=self.parent_child_model.covariates)
         self.age = reference_tables.construct_age_time_table(
-            variable_name='age', variable=self.parent_child_model.get_age_array()
+            variable_name='age', variable=self.parent_child_model.get_age_array(),
+            data_min=self.min_age, data_max=self.max_age
         )
         self.time = reference_tables.construct_age_time_table(
-            variable_name='time', variable=self.parent_child_model.get_time_array()
+            variable_name='time', variable=self.parent_child_model.get_time_array(),
+            data_min=self.min_time, data_max=self.max_time
         )
         return self
 
