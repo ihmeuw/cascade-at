@@ -85,8 +85,8 @@ class CovariateInterpolator:
         Main interpolation function.
         """
         if loc_id not in self.location_ids:
-            LOG.warn(f"Covariate is missing for location_id {loc_id},"
-                     f"sex_id {sex_id} -- setting the value to None.")
+            LOG.warning(f"Covariate is missing for location_id {loc_id},"
+                        f"sex_id {sex_id} -- setting the value to None.")
             cov_value = None
         else:
             age_group_ids, year_ids, epoch_weights = self._weighting(

@@ -74,8 +74,8 @@ def dismod(request):
 class DismodFuncArg:
     """Must be able to run dmdismod."""
     def __init__(self, request):
-        if not (request.config.getoption("dismod") or request.config.getoption("ihme")):
-            pytest.skip("specify --dismod or --ihme to run tests requiring Dismod")
+        if not request.config.getoption("dismod"):
+            pytest.skip("specify --dismod to run tests requiring Dismod")
 
 
 @pytest.fixture(scope="session")
