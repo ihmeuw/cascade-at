@@ -1,4 +1,3 @@
-from collections import namedtuple
 from enum import Enum
 import pandas as pd
 import numpy as np
@@ -126,8 +125,17 @@ INTEGRAND_TO_WEIGHT = dict(
     mtstandard=WeightEnum.constant,
     relrisk=WeightEnum.constant,
 )
+
+RateToIntegrand = {
+    "iota": "Sincidence",
+    "rho": "remission",
+    "chi": "mtexcess",
+    "omega": "mtother",
+    "pini": "prevalence"
+}
+
 """Each integrand has a natural association with a particular weight because
 it is a count of events with one of four denominators: constant, susceptibles,
-with-condition, or the total population. For isntance, if you supply
+with-condition, or the total population. For instance, if you supply
 mtspecific data, it will always use the weight called "total."
 """

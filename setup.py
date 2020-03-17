@@ -36,6 +36,7 @@ setup(
     entry_points={'console_scripts': [
         'configure_inputs=cascade_at.executor.configure_inputs:main',
         'dismod_db=cascade_at.executor.dismod_db:main',
+        'sample_simulate=cascade_at.executor.sample_simulate:main',
         'format_upload=cascade_at.executor.format_upload:main',
         'cleanup=cascade_at.executor.cleanup:main',
         'run_cascade=cascade_at.executor.run:main',

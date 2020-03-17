@@ -2,7 +2,10 @@
 Helper functions for Model and ConstructModel
 """
 
+from copy import deepcopy
 import numpy as np
+import pandas as pd
+import itertools
 
 from cascade_at.model.covariate import Covariate
 from cascade_at.model.var import Var
@@ -153,3 +156,39 @@ def covariates_list(covariate_data_spec):
         LOG.debug(f"Adding covariate reference {c.name}.reference={c.reference}")
         covariate_list.append(Covariate(c.name, c.reference, c.max_difference))
     return covariate_list
+
+
+def expand_grid(data_dict):
+    """
+    Takes lists and turns them into a dictionary of
+    :param data_dict:
+    :return:
+    """
+    rows = itertools.product(*data_dict.values())
+    return pd.DataFrame.from_records(rows, columns=data_dict.keys())
+
+
+def integrand_grids(alchemy, integrands):
+    """
+    Get the age-time grids associated with a list of integrands.
+    Should be used for converting priors to posteriors.
+
+    Args:
+        alchemy:
+        integrands:
+
+    Returns:
+
+    """
+    grids = dict()
+
+    default_grid = alchemy.construct_age_time_grid()
+    for integrand in integrands:
+        grids[integrand] = deepcopy(default_grid)
+
+    rate_grids = alchemy.get_all_rates_grids()
+    for k, v in rate_grids.items():
+        if k in integrands:
+            grids[k].update({'age': v.ages})
+            grids[k].update({'time': v.times})
+    return grids

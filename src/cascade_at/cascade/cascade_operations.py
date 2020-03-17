@@ -43,6 +43,26 @@ class FitBoth(CascadeOperation):
         )
 
 
+class SampleSimulate(CascadeOperation):
+    def __init__(self, parent_location_id, sex_id, n_simulations, n_pools, fit_type, **kwargs):
+        super().__init__(**kwargs)
+        self.parent_location_id = parent_location_id
+        self.sex_id = sex_id
+        self.n_simulations = n_simulations
+        self.n_pools = n_pools
+        self.fit_type = fit_type
+
+        self.command = (
+            f'sample_simulate '
+            f'-model-version-id {self.model_version_id} '
+            f'-parent-location-id {self.parent_location_id} '
+            f'-sex-id {self.sex_id} '
+            f'-n-sim {self.n_simulations} '
+            f'-n-pool {self.n_pools} '
+            f'-fit-type {self.fit_type}'
+        )
+
+
 class FormatAndUpload(CascadeOperation):
     def __init__(self, parent_location_id, sex_id, **kwargs):
         super().__init__(**kwargs)

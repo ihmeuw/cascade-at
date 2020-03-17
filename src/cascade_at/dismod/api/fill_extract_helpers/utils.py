@@ -1,6 +1,18 @@
 import pandas as pd
 
 
+def vec_to_midpoint(array):
+    """
+    Computes the midpoint between elements in an array.
+    Args:
+        array: (np.array)
+
+    Returns: (np.array)
+
+    """
+    return (array[1:] + array[:-1]) / 2
+
+
 def map_locations_to_nodes(df, node_df):
     """
     Maps the location ID to node ID and

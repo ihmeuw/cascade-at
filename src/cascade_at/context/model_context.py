@@ -86,14 +86,17 @@ class Context:
             status_id=MODEL_STATUS[status]
         )
 
-    def db_file(self, location_id, sex_id, make=True):
+    def db_file(self, location_id, sex_id, make=True, index=None):
         """
         Makes the database folder for a given location and sex.
         """
         folder = self.database_dir / str(location_id) / str(sex_id)
         if make:
             os.makedirs(folder, exist_ok=True)
-        return folder / 'dismod.db'
+        if index is None:
+            return folder / 'dismod.db'
+        else:
+            return folder / 'dismod_{index}.db'
 
     def write_inputs(self, inputs=None, settings=None):
         """
