@@ -218,7 +218,7 @@ class MeasurementInputs:
         if not asdr.empty:
             asdr = decimate_years(data=asdr, num_years=mortality_year_reduction)
 
-        self.dismod_data = pd.concat([data, asdr, csmr], axis=0)
+        self.dismod_data = pd.concat([data, asdr, csmr], axis=0, sort=True)
         self.dismod_data.reset_index(drop=True, inplace=True)
 
         self.dismod_data["density"] = self.dismod_data.measure.apply(self.density.__getitem__)

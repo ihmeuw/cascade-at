@@ -40,8 +40,12 @@ def construct_age_time_table(variable_name, variable, data_min=None, data_max=No
         data_max: (float) max observed in the data
     """
     LOG.info(f"Constructing {variable_name} table.")
-    variable = np.concatenate([variable, np.array([data_min, data_max])], axis=0)
+    if data_min < np.min(variable):
+        variable = np.append(variable, data_min)
+    if data_max > np.max(variable):
+        variable = np.append(variable, data_max)
     variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]
+
     variable.sort()
     if variable[-1] - variable[0] < 1:
         variable = np.append(variable, variable[-1] + 1)

@@ -45,7 +45,7 @@ def test_all_columns(df_for_dismod, column, value):
 def test_outside_year_bounds(cv):
     cs = copy.deepcopy(cv)
     cs.raw.year_start = 1980
-    assert cs.configure_for_dismod(relabel_incidence=1).empty
+    assert not cs.configure_for_dismod(relabel_incidence=1).empty
 
 
 def test_outside_locations(cv):
