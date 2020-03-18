@@ -29,7 +29,7 @@ class DismodExtractor(DismodIO):
         """
         predictions = self.predict.merge(self.avgint, on=['avgint_id'])
         predictions = predictions.merge(self.integrand, on=['integrand_id'])
-        predictions['rate'] = predictions['integrand'].map(PRIMARY_INTEGRANDS_TO_RATES)
+        predictions['rate'] = predictions['integrand_name'].map(PRIMARY_INTEGRANDS_TO_RATES)
         if location_id is not None:
             predictions = predictions.loc[predictions.c_location_id == location_id].copy()
         if sex_id is not None:
