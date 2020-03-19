@@ -55,6 +55,3 @@ def test_format_for_ihme(ihme, dismod):
     assert all(pred.age_group_id == 2)
     assert all(pred.year_id == 1990)
 
-
-def test_tearDown(ihme, dismod):
-    os.remove('extractor.db')
