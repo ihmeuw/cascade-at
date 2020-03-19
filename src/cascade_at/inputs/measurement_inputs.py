@@ -446,7 +446,7 @@ class MeasurementInputs:
         if not settings.eta.is_field_unset("data") and settings.eta.data:
             data_eta = defaultdict(lambda: float(settings.eta.data))
         for set_eta in settings.data_eta_by_integrand:
-            data_eta[INTEGRAND_MAP[set_eta.integrand_measure_id]] = float(set_eta.value)
+            data_eta[INTEGRAND_MAP[set_eta.integrand_measure_id].name] = float(set_eta.value)
         return data_eta
 
     @staticmethod
@@ -464,7 +464,7 @@ class MeasurementInputs:
         if not settings.model.is_field_unset("data_density") and settings.model.data_density:
             density = defaultdict(lambda: settings.model.data_density)
         for set_density in settings.data_density_by_integrand:
-            density[INTEGRAND_MAP[set_density.integrand_measure_id]] = set_density.value
+            density[INTEGRAND_MAP[set_density.integrand_measure_id].name] = set_density.value
         return density
 
     @staticmethod
@@ -483,7 +483,7 @@ class MeasurementInputs:
         if not settings.model.is_field_unset("data_cv") and settings.model.data_cv:
             data_cv = defaultdict(lambda: float(settings.model.data_cv))
         for set_data_cv in settings.data_cv_by_integrand:
-            data_cv[INTEGRAND_MAP[set_data_cv.integrand_measure_id]] = float(set_data_cv.value)
+            data_cv[INTEGRAND_MAP[set_data_cv.integrand_measure_id].name] = float(set_data_cv.value)
         return data_cv
 
     @staticmethod

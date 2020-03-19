@@ -265,10 +265,10 @@ def dismod_data(mi, settings):
 
 
 @pytest.fixture(scope='module')
-def df(mi, settings, temp_directory):
+def df(mi, settings):
     alchemy = Alchemy(settings)
     d = DismodFiller(
-        path=temp_directory / 'temp.db',
+        path=Path('temp.db'),
         settings_configuration=settings,
         measurement_inputs=mi,
         grid_alchemy=alchemy,

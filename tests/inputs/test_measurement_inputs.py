@@ -54,7 +54,7 @@ def test_data_cv_from_settings_by_integrand():
     s = load_settings(settings)
     cv = MeasurementInputs.data_cv_from_settings(settings=s)
     for k, v in cv.items():
-        if k.name == 'prevalence':
+        if k == 'prevalence':
             assert v == 0.5
         else:
             assert v == 0.1

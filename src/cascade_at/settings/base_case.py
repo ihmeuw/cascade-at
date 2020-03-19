@@ -6,7 +6,7 @@ BASE_CASE = {
         "add_calc_emr": "from_both",
         "birth_prev": 0,
         "ode_step_size": 5,
-        "data_cv": 0.1,
+        "data_cv": 0.2,
         "rate_case": "iota_pos_rho_zero",
         "data_density": "log_gaussian",
         "constrain_omega": 1,

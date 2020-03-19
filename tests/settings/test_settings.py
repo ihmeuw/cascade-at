@@ -63,7 +63,7 @@ def test_model_setup(model):
     ]
     assert model.birth_prev == 0
     assert model.ode_step_size == 5
-    assert model.data_cv == 0.1
+    assert model.data_cv == 0.2
     assert model.rate_case == 'iota_pos_rho_zero'
     assert model.data_density == 'log_gaussian'
     assert model.constrain_omega == 1
