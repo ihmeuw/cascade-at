@@ -17,7 +17,7 @@ def construct_integrand_table(data_cv_from_settings=None, default_data_cv=0.0):
 
     Args:
         data_cv_from_settings: (optional dict) key, value pair that has
-            integrands mapped to data cv
+            integrands enum mapped to data cv
         default_data_cv: (float) default value for data CV to use
     Returns:
         pd.DataFrame

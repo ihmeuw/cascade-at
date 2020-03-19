@@ -37,6 +37,14 @@ def test_pickle(mi, context):
 
 def test_data_cv_from_settings():
     settings = BASE_CASE.copy()
+    s = load_settings(settings)
+    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    for k, v in cv.items():
+        assert v == 0.1
+
+
+def test_data_cv_from_settings_by_integrand():
+    settings = BASE_CASE.copy()
     settings.update({
         "data_cv_by_integrand": [{
                 "integrand_measure_id": 5,
@@ -46,7 +54,7 @@ def test_data_cv_from_settings():
     s = load_settings(settings)
     cv = MeasurementInputs.data_cv_from_settings(settings=s)
     for k, v in cv.items():
-        if k == 'prevalence':
+        if k.name == 'prevalence':
             assert v == 0.5
         else:
             assert v == 0.1

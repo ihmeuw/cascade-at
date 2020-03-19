@@ -479,13 +479,11 @@ class MeasurementInputs:
         Returns:
             dictionary of data cv's from settings
         """
-        # TODO: fix this function
         data_cv = defaultdict(lambda: default)
-        if not settings.model.is_field_unset("data_cv"):
-            for e in IntegrandEnum:
-                data_cv[e.name] = settings.model.data_cv
+        if not settings.model.is_field_unset("data_cv") and settings.model.data_cv:
+            data_cv = defaultdict(lambda: float(settings.model.data_cv))
         for set_data_cv in settings.data_cv_by_integrand:
-            data_cv[INTEGRAND_MAP[set_data_cv.integrand_measure_id]] = set_data_cv.value
+            data_cv[INTEGRAND_MAP[set_data_cv.integrand_measure_id]] = float(set_data_cv.value)
         return data_cv
 
     @staticmethod

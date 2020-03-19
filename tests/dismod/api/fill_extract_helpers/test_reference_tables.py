@@ -5,6 +5,9 @@ import pytest
 from cascade_at.dismod.api.fill_extract_helpers.reference_tables import (
     construct_age_time_table, construct_integrand_table
 )
+from cascade_at.settings.settings import load_settings
+from cascade_at.settings.base_case import BASE_CASE
+from cascade_at.inputs.measurement_inputs import MeasurementInputs
 
 
 @pytest.fixture
@@ -63,5 +66,19 @@ def test_construct_age_time_table_outside_bounds(variable):
 def test_construct_integrand_table():
     df = construct_integrand_table()
     assert all(df.minimum_meas_cv == 0.0)
-    df = construct_integrand_table(data_cv=0.1)
+    df = construct_integrand_table(data_cv_from_settings=None, default_data_cv=0.2)
+    assert all(df.minimum_meas_cv == 0.2)
+
+
+def test_construct_integrand_table_from_settings():
+    settings = BASE_CASE.copy()
+    settings.update({
+        "data_cv_by_integrand": [{
+            "integrand_measure_id": 5,
+            "value": 0.5
+        }]
+    })
+    s = load_settings(settings)
+    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    df = construct_integrand_table(data_cv_from_settings=cv)
     assert all(df.minimum_meas_cv == 0.1)
