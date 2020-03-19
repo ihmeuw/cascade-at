@@ -17,7 +17,8 @@ from cascade_at.inputs.locations import LocationDAG
 from cascade_at.inputs.population import Population
 from cascade_at.inputs.utilities.covariate_weighting import get_interpolated_covariate_values
 from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id
-from cascade_at.dismod.integrand_mappings import make_integrand_map
+from cascade_at.dismod.integrand_mappings import INTEGRAND_MAP
+from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
 from cascade_at.inputs.utilities.gbd_ids import SEX_ID_TO_NAME, SEX_NAME_TO_ID
 from cascade_at.inputs.utilities.reduce_data_volume import decimate_years
@@ -125,8 +126,6 @@ class MeasurementInputs:
             )
             drill_descendants = list(self.location_dag.descendants(location_id=drill))
             self.demographics.location_id = [drill] + drill_descendants
-
-        self.integrand_map = make_integrand_map()
 
         self.exclude_outliers = True
         self.asdr = None
@@ -414,7 +413,8 @@ class MeasurementInputs:
         covariate_specs.create_covariate_list()
         return covariate_specs
 
-    def measures_to_exclude_from_settings(self, settings):
+    @staticmethod
+    def measures_to_exclude_from_settings(settings):
         """
         Gets the measures to exclude from the data from the model
         settings configuration.
@@ -422,16 +422,17 @@ class MeasurementInputs:
         :return:
         """
         if not settings.model.is_field_unset("exclude_data_for_param"):
-            measures_to_exclude = [self.integrand_map[m].name
+            measures_to_exclude = [INTEGRAND_MAP[m].name
                                    for m in settings.model.exclude_data_for_param
-                                   if m in self.integrand_map]
+                                   if m in INTEGRAND_MAP]
         else:
             measures_to_exclude = list()
         if settings.policies.exclude_relative_risk:
             measures_to_exclude.append("relrisk")
         return measures_to_exclude
 
-    def data_eta_from_settings(self, settings):
+    @staticmethod
+    def data_eta_from_settings(settings):
         """
         Gets the data eta from the settings Configuration.
         The default data eta is np.nan.
@@ -445,10 +446,11 @@ class MeasurementInputs:
         if not settings.eta.is_field_unset("data") and settings.eta.data:
             data_eta = defaultdict(lambda: float(settings.eta.data))
         for set_eta in settings.data_eta_by_integrand:
-            data_eta[self.integrand_map[set_eta.integrand_measure_id]] = float(set_eta.value)
+            data_eta[INTEGRAND_MAP[set_eta.integrand_measure_id].name] = float(set_eta.value)
         return data_eta
 
-    def density_from_settings(self, settings):
+    @staticmethod
+    def density_from_settings(settings):
         """
         Gets the density from the settings Configuration.
         The default density is "gaussian".
@@ -462,8 +464,27 @@ class MeasurementInputs:
         if not settings.model.is_field_unset("data_density") and settings.model.data_density:
             density = defaultdict(lambda: settings.model.data_density)
         for set_density in settings.data_density_by_integrand:
-            density[self.integrand_map[set_density.integrand_measure_id]] = set_density.value
+            density[INTEGRAND_MAP[set_density.integrand_measure_id].name] = set_density.value
         return density
+
+    @staticmethod
+    def data_cv_from_settings(settings, default=0.0):
+        """
+        Gets the data min coefficient of variation from the settings Configuration
+
+        Args:
+            settings: (cascade.settings.configuration.Configuration)
+            default: (float) default data cv
+
+        Returns:
+            dictionary of data cv's from settings
+        """
+        data_cv = defaultdict(lambda: default)
+        if not settings.model.is_field_unset("data_cv") and settings.model.data_cv:
+            data_cv = defaultdict(lambda: float(settings.model.data_cv))
+        for set_data_cv in settings.data_cv_by_integrand:
+            data_cv[INTEGRAND_MAP[set_data_cv.integrand_measure_id].name] = float(set_data_cv.value)
+        return data_cv
 
     @staticmethod
     def nu_from_settings(settings):

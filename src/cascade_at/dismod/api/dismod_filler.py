@@ -151,7 +151,7 @@ class DismodFiller(DismodIO):
             data_min=self.min_time, data_max=self.max_time
         )
         self.integrand = reference_tables.construct_integrand_table(
-            minimum_meas_cv=self.settings.model.minimum_meas_cv
+            data_cv_from_settings=self.inputs.data_cv_from_settings(settings=self.settings)
         )
         return self
 

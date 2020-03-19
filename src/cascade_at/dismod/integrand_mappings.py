@@ -90,6 +90,9 @@ def make_integrand_map():
     return mapp
 
 
+INTEGRAND_MAP = make_integrand_map()
+
+
 """From Dismod integrand to Dismod primary rate name"""
 
 

@@ -2,6 +2,8 @@ import pytest
 import numpy as np
 
 from cascade_at.settings.base_case import BASE_CASE
+from cascade_at.settings.settings import load_settings
+from cascade_at.inputs.measurement_inputs import MeasurementInputs
 
 
 @pytest.mark.parametrize("column,values", [
@@ -31,3 +33,28 @@ def test_pickle(mi, context):
     context.write_inputs(inputs=mi, settings=settings)
     p_inputs, p_alchemy, p_settings = context.read_inputs()
     assert len(p_inputs.dismod_data) == len(mi.dismod_data)
+
+
+def test_data_cv_from_settings():
+    settings = BASE_CASE.copy()
+    s = load_settings(settings)
+    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    for k, v in cv.items():
+        assert v == 0.1
+
+
+def test_data_cv_from_settings_by_integrand():
+    settings = BASE_CASE.copy()
+    settings.update({
+        "data_cv_by_integrand": [{
+                "integrand_measure_id": 5,
+                "value": 0.5
+            }]
+    })
+    s = load_settings(settings)
+    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    for k, v in cv.items():
+        if k == 'prevalence':
+            assert v == 0.5
+        else:
+            assert v == 0.1

@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from numbers import Real
+from collections import defaultdict
 
 from cascade_at.dismod.constants import DensityEnum, IntegrandEnum, \
     RateEnum, enum_to_dataframe
@@ -9,12 +10,26 @@ from cascade_at.core.log import get_loggers
 LOG = get_loggers(__name__)
 
 
-def construct_integrand_table(minimum_meas_cv=0.0):
+def construct_integrand_table(data_cv_from_settings=None, default_data_cv=0.0):
+    """
+    Constructs the integrand table and adds data CV in the minimum_meas_cv
+    column.
+
+    Args:
+        data_cv_from_settings: (optional dict) key, value pair that has
+            integrands mapped to data cv
+        default_data_cv: (float) default value for data CV to use
+    Returns:
+        pd.DataFrame
+    """
     df = pd.DataFrame({
         "integrand_name": enum_to_dataframe(IntegrandEnum)["name"],
-        "minimum_meas_cv": minimum_meas_cv
+        "minimum_meas_cv": default_data_cv
     })
     df = df.loc[df.integrand_name != 'incidence'].copy()
+    if data_cv_from_settings is not None:
+        df["minimum_meas_cv"] = df["integrand_name"].apply(data_cv_from_settings.__getitem__)
+
     return df
 
 

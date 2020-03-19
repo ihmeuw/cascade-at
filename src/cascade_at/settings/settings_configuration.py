@@ -204,7 +204,7 @@ class Model(Form):
     decomp_step_id = IntField()
     model_version_id = IntField(nullable=True)
     random_seed = IntField()
-    minimum_meas_cv = FloatField(nullable=True, display="Data CV floor")
+    data_cv = FloatField(nullable=True, display="Data CV floor")
     add_csmr_cause = IntField(nullable=True, display="CSMR cause")
     title = StrField(nullable=True, display="Title")
     description = StrField(nullable=True, display="Description")
@@ -250,6 +250,11 @@ class Model(Form):
 class Eta(Form):
     priors = FloatField(nullable=True)
     data = FloatField(nullable=True)
+
+
+class DataCV(Form):
+    integrand_measure_id = IntField(nullable=True)
+    value = FloatField(nullable=True)
 
 
 class DataEta(Form):
@@ -351,6 +356,7 @@ class SettingsConfiguration(Form):
     print_level = FixedRandomInt(display="Print level")
     accept_after_max_steps = FixedRandomInt(display="Max backtracking")
     tolerance = FixedRandomFloat(display="Desired relative convergence tolerance")
+    data_cv_by_integrand = FormList(DataCV)
     data_eta_by_integrand = FormList(DataEta)
     data_density_by_integrand = FormList(DataDensity)
     config_version = StrField(nullable=True, display="Settings version")

@@ -4,42 +4,26 @@ import numpy as np
 import os
 
 from cascade_at.dismod.api.run_dismod import run_dismod
-from cascade_at.model.grid_alchemy import Alchemy
-from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.dismod.api.dismod_extractor import DismodExtractor
 
 
-def test_fill_for_parent_child(mi, settings, temp_directory):
-    alchemy = Alchemy(settings)
-    print(temp_directory)
-    d = DismodFiller(
-        path=Path('extractor.db'),
-        settings_configuration=settings,
-        measurement_inputs=mi,
-        grid_alchemy=alchemy,
-        parent_location_id=70,
-        sex_id=2
-    )
-    d.fill_for_parent_child()
-
-
 def test_run_dismod_fit_predict(dismod, ihme):
-    run = run_dismod(dm_file='extractor.db', command='init')
+    run = run_dismod(dm_file='temp.db', command='init')
     if run.exit_status:
         print(run.stderr)
     assert run.exit_status == 0
-    run = run_dismod(dm_file='extractor.db', command='fit fixed')
+    run = run_dismod(dm_file='temp.db', command='fit fixed')
     if run.exit_status:
         print(run.stderr)
     assert run.exit_status == 0
-    run = run_dismod(dm_file='extractor.db', command='predict fit_var')
+    run = run_dismod(dm_file='temp.db', command='predict fit_var')
     if run.exit_status:
         print(run.stderr)
     assert run.exit_status == 0
 
 
 def test_get_predictions(ihme, dismod):
-    d = DismodExtractor(path=Path('extractor.db'))
+    d = DismodExtractor(path=Path('temp.db'))
     pred = d.get_predictions()
     assert len(pred) == 33
     assert all(pred.columns == [
@@ -59,7 +43,7 @@ def test_get_predictions(ihme, dismod):
 
 
 def test_format_for_ihme(ihme, dismod):
-    d = DismodExtractor(path=Path('extractor.db'))
+    d = DismodExtractor(path=Path('temp.db'))
     pred = d.format_predictions_for_ihme()
     assert len(pred) == 36
     assert all(pred.columns == [
