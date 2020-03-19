@@ -37,7 +37,7 @@ def ex(mi, settings, temp_directory, dismod):
     return d    
 
 
-def test_get_predictions(ex):
+def test_get_predictions(ex, dismod):
     d = DismodExtractor(path=Path('extractor.db'))
     pred = d.get_predictions()
     assert len(pred) == 33
@@ -57,7 +57,7 @@ def test_get_predictions(ex):
     assert all(pred.c_sex_id == 2)
 
 
-def test_format_for_ihme():
+def test_format_for_ihme(ex, dismod):
     d = DismodExtractor(path=Path('extractor.db'))
     pred = d.format_predictions_for_ihme()
     assert len(pred) == 36
@@ -71,5 +71,5 @@ def test_format_for_ihme():
     assert all(pred.year_id == 1990)
 
 
-def test_tearDown():
+def test_tearDown(ex, dismod):
     os.remove('extractor.db')
