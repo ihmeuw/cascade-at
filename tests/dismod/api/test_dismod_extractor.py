@@ -9,8 +9,7 @@ from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.dismod.api.dismod_extractor import DismodExtractor
 
 
-@pytest.fixture(scope='module')
-def ex(mi, settings, temp_directory, dismod):
+def test_fill_for_parent_child(mi, settings, temp_directory):
     alchemy = Alchemy(settings)
     print(temp_directory)
     d = DismodFiller(
@@ -22,22 +21,24 @@ def ex(mi, settings, temp_directory, dismod):
         sex_id=2
     )
     d.fill_for_parent_child()
-    run = run_dismod(dm_file=str(d.path), command='init')
-    if run.exit_status:
-        print(run.stderr)
-    assert run.exit_status == 0
-    run = run_dismod(dm_file=str(d.path), command='fit fixed')
-    if run.exit_status:
-        print(run.stderr)
-    assert run.exit_status == 0
-    run = run_dismod(dm_file=str(d.path), command='predict fit_var')
-    if run.exit_status:
-        print(run.stderr)
-    assert run.exit_status == 0
-    return d    
 
 
-def test_get_predictions(ex, dismod):
+def test_run_dismod_fit_predict(dismod, ihme):
+    run = run_dismod(dm_file='extractor.db', command='init')
+    if run.exit_status:
+        print(run.stderr)
+    assert run.exit_status == 0
+    run = run_dismod(dm_file='extractor.db', command='fit fixed')
+    if run.exit_status:
+        print(run.stderr)
+    assert run.exit_status == 0
+    run = run_dismod(dm_file='extractor.db', command='predict fit_var')
+    if run.exit_status:
+        print(run.stderr)
+    assert run.exit_status == 0
+
+
+def test_get_predictions(ihme, dismod):
     d = DismodExtractor(path=Path('extractor.db'))
     pred = d.get_predictions()
     assert len(pred) == 33
@@ -57,7 +58,7 @@ def test_get_predictions(ex, dismod):
     assert all(pred.c_sex_id == 2)
 
 
-def test_format_for_ihme(ex, dismod):
+def test_format_for_ihme(ihme, dismod):
     d = DismodExtractor(path=Path('extractor.db'))
     pred = d.format_predictions_for_ihme()
     assert len(pred) == 36
@@ -71,5 +72,5 @@ def test_format_for_ihme(ex, dismod):
     assert all(pred.year_id == 1990)
 
 
-def test_tearDown(ex, dismod):
+def test_tearDown(ihme, dismod):
     os.remove('extractor.db')
