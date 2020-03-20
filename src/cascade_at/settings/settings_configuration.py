@@ -204,7 +204,7 @@ class Model(Form):
     decomp_step_id = IntField()
     model_version_id = IntField(nullable=True)
     random_seed = IntField()
-    data_cv = FloatField(nullable=True, display="Data CV floor")
+    minimum_meas_cv = FloatField(nullable=True, display="Data CV floor")
     add_csmr_cause = IntField(nullable=True, display="CSMR cause")
     title = StrField(nullable=True, display="Title")
     description = StrField(nullable=True, display="Description")

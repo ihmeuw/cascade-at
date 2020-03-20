@@ -480,8 +480,8 @@ class MeasurementInputs:
             dictionary of data cv's from settings
         """
         data_cv = defaultdict(lambda: default)
-        if not settings.model.is_field_unset("data_cv") and settings.model.data_cv:
-            data_cv = defaultdict(lambda: float(settings.model.data_cv))
+        if not settings.model.is_field_unset("minimum_meas_cv") and settings.model.minimum_meas_cv:
+            data_cv = defaultdict(lambda: float(settings.model.minimum_meas_cv))
         for set_data_cv in settings.data_cv_by_integrand:
             data_cv[INTEGRAND_MAP[set_data_cv.integrand_measure_id].name] = float(set_data_cv.value)
         return data_cv
