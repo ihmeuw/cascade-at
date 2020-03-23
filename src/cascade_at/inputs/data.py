@@ -70,11 +70,6 @@ class CrosswalkVersion(BaseInput):
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
         df = df.loc[df.sex_id.isin(self.demographics.sex_id)]
 
-        min_year = min(self.demographics.year_id)
-        max_year = max(self.demographics.year_id)
-        df = df.loc[df.year_start >= min_year]
-        df = df.loc[df.year_end <= max_year]
-
         df.rename(columns={
             'age_start': 'age_lower',
             'age_end': 'age_upper'

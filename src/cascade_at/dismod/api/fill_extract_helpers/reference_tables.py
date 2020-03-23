@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from numbers import Real
+from collections import defaultdict
 
 from cascade_at.dismod.constants import DensityEnum, IntegrandEnum, \
     RateEnum, enum_to_dataframe
@@ -9,12 +10,26 @@ from cascade_at.core.log import get_loggers
 LOG = get_loggers(__name__)
 
 
-def default_integrand_table():
+def construct_integrand_table(data_cv_from_settings=None, default_data_cv=0.0):
+    """
+    Constructs the integrand table and adds data CV in the minimum_meas_cv
+    column.
+
+    Args:
+        data_cv_from_settings: (optional dict) key, value pair that has
+            integrands mapped to data cv
+        default_data_cv: (float) default value for data CV to use
+    Returns:
+        pd.DataFrame
+    """
     df = pd.DataFrame({
         "integrand_name": enum_to_dataframe(IntegrandEnum)["name"],
-        "minimum_meas_cv": 0.0
+        "minimum_meas_cv": default_data_cv
     })
     df = df.loc[df.integrand_name != 'incidence'].copy()
+    if data_cv_from_settings is not None:
+        df["minimum_meas_cv"] = df["integrand_name"].apply(data_cv_from_settings.__getitem__)
+
     return df
 
 
@@ -28,7 +43,7 @@ def default_rate_table():
     })
 
 
-def construct_age_time_table(variable_name, variable):
+def construct_age_time_table(variable_name, variable, data_min=None, data_max=None):
     """
     Constructs the age or time table with age_id and age or time_id and time.
     Has unique identifiers for each.
@@ -36,9 +51,16 @@ def construct_age_time_table(variable_name, variable):
     Parameters:
         variable_name: (str) one of 'age' or 'time'
         variable: (np.array) array of ages or times
+        data_min: (float) minimum observed in the data
+        data_max: (float) max observed in the data
     """
     LOG.info(f"Constructing {variable_name} table.")
+    if data_min < np.min(variable):
+        variable = np.append(variable, data_min)
+    if data_max > np.max(variable):
+        variable = np.append(variable, data_max)
     variable = variable[np.unique(variable.round(decimals=14), return_index=True)[1]]
+
     variable.sort()
     if variable[-1] - variable[0] < 1:
         variable = np.append(variable, variable[-1] + 1)

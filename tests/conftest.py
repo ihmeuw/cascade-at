@@ -74,8 +74,8 @@ def dismod(request):
 class DismodFuncArg:
     """Must be able to run dmdismod."""
     def __init__(self, request):
-        if not (request.config.getoption("dismod") or request.config.getoption("ihme")):
-            pytest.skip("specify --dismod or --ihme to run tests requiring Dismod")
+        if not request.config.getoption("dismod"):
+            pytest.skip("specify --dismod to run tests requiring Dismod")
 
 
 @pytest.fixture(scope="session")
@@ -265,10 +265,10 @@ def dismod_data(mi, settings):
 
 
 @pytest.fixture(scope='module')
-def df(mi, settings, temp_directory):
+def df(mi, settings):
     alchemy = Alchemy(settings)
     d = DismodFiller(
-        path=temp_directory / 'temp.db',
+        path=Path('temp.db'),
         settings_configuration=settings,
         measurement_inputs=mi,
         grid_alchemy=alchemy,

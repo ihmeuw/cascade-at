@@ -321,8 +321,8 @@ def integrand():
          'integrand_name': {0: 'Sincidence', 1: 'remission', 2: 'mtexcess', 3: 'mtother', 4: 'mtwith', 5: 'susceptible',
                             6: 'withC', 7: 'prevalence', 8: 'Tincidence', 9: 'mtspecific', 10: 'mtall',
                             11: 'mtstandard', 12: 'relrisk'},
-         'minimum_meas_cv': {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0, 6: 0.0, 7: 0.0, 8: 0.0, 9: 0.0, 10: 0.0,
-                             11: 0.0, 12: 0.0}}
+         'minimum_meas_cv': {0: 0.2, 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2, 5: 0.2, 6: 0.2, 7: 0.2, 8: 0.2, 9: 0.2, 10: 0.2,
+                             11: 0.2, 12: 0.2}}
     )
 
 

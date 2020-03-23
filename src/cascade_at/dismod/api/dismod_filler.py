@@ -48,7 +48,8 @@ class DismodFiller(DismodIO):
         >>>                    sex_id=3)
         >>> da.fill_for_parent_child()
     """
-    def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id, sex_id):
+    def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id, sex_id,
+                 child_prior=None):
         super().__init__(path=path)
 
         self.settings = settings_configuration
@@ -56,6 +57,7 @@ class DismodFiller(DismodIO):
         self.alchemy = grid_alchemy
         self.parent_location_id = parent_location_id
         self.sex_id = sex_id
+        self.child_prior = child_prior
 
         self.omega_df = self.get_omega_df()
         self.covariate_reference_specs = self.calculate_reference_covariates()
@@ -90,7 +92,8 @@ class DismodFiller(DismodIO):
             location_dag=self.inputs.location_dag,
             parent_location_id=self.parent_location_id,
             covariate_specs=self.covariate_reference_specs,
-            omega_df=self.omega_df
+            omega_df=self.omega_df,
+            update_prior=self.child_prior
         )
 
     def calculate_reference_covariates(self):
@@ -140,10 +143,15 @@ class DismodFiller(DismodIO):
         self.node = reference_tables.construct_node_table(location_dag=self.inputs.location_dag)
         self.covariate = reference_tables.construct_covariate_table(covariates=self.parent_child_model.covariates)
         self.age = reference_tables.construct_age_time_table(
-            variable_name='age', variable=self.parent_child_model.get_age_array()
+            variable_name='age', variable=self.parent_child_model.get_age_array(),
+            data_min=self.min_age, data_max=self.max_age
         )
         self.time = reference_tables.construct_age_time_table(
-            variable_name='time', variable=self.parent_child_model.get_time_array()
+            variable_name='time', variable=self.parent_child_model.get_time_array(),
+            data_min=self.min_time, data_max=self.max_time
+        )
+        self.integrand = reference_tables.construct_integrand_table(
+            data_cv_from_settings=self.inputs.data_cv_from_settings(settings=self.settings)
         )
         return self
 
@@ -160,11 +168,11 @@ class DismodFiller(DismodIO):
             ages=self.parent_child_model.get_age_array(),
             times=self.parent_child_model.get_time_array()
         )
-        avgint_df = self.inputs.to_avgint(
+        avgint_df = self.inputs.to_gbd_avgint(
             parent_location_id=self.parent_location_id,
             sex_id=self.sex_id
         )
-        self.avgint = data_tables.construct_avgint_table(
+        self.avgint = data_tables.construct_gbd_avgint_table(
             df=avgint_df,
             node_df=self.node,
             covariate_df=self.covariate,
@@ -196,7 +204,6 @@ class DismodFiller(DismodIO):
         self.smooth = model_tables['smooth']
         self.smooth_grid = model_tables['smooth_grid']
         self.prior = model_tables['prior']
-        self.integrand = model_tables['integrand']
         self.mulcov = model_tables['mulcov']
         self.nslist = model_tables['nslist']
         self.nslist_pair = model_tables['nslist_pair']

@@ -8,16 +8,6 @@ from cascade_at.core.log import get_loggers
 LOG = get_loggers(__name__)
 
 
-def expand_grid(data_dict):
-    """
-    Takes lists and turns them into a dictionary of
-    :param data_dict:
-    :return:
-    """
-    rows = itertools.product(*data_dict.values())
-    return pd.DataFrame.from_records(rows, columns=data_dict.keys())
-
-
 def values(interval):
     return interval.begin, interval.end, interval.data
 
@@ -95,8 +85,8 @@ class CovariateInterpolator:
         Main interpolation function.
         """
         if loc_id not in self.location_ids:
-            LOG.warn(f"Covariate is missing for location_id {loc_id},"
-                     f"sex_id {sex_id} -- setting the value to None.")
+            LOG.warning(f"Covariate is missing for location_id {loc_id},"
+                        f"sex_id {sex_id} -- setting the value to None.")
             cov_value = None
         else:
             age_group_ids, year_ids, epoch_weights = self._weighting(
