@@ -201,8 +201,7 @@ class DismodSQLite:
                 is_pandas_extension = isinstance(actual_type, ExtensionDtype)
                 expected_type = self._expected_type(column_definition)
                 is_nullable_numeric = (column_definition.nullable and
-                    (isinstance(column_definition.type, Integer) or
-                     isinstance(column_definition.type, Float)))
+                                       expected_type in [int, float])
                 if is_nullable_numeric:
                     data[column_name] = data[column_name].fillna(value=np.nan)
 
