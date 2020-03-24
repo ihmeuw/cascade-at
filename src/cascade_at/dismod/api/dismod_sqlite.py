@@ -176,9 +176,10 @@ class DismodSQLite:
         return df
 
     def _validate_data(self, table_definition, data):
-        """Validates that the dtypes in data match the expected types in the table_definition.
-        Pandas makes this difficult because DataFrames with no length have Object type,
-        and those with nulls become float type.
+        """Validates that the dtypes in data match the expected types in the
+        table_definition.
+        Pandas makes this difficult because DataFrames with no length have
+        Object type, and those with nulls become float type.
 
         Dismod-AT has its own set of rules about representation of null values.
 
@@ -197,29 +198,37 @@ class DismodSQLite:
 
         for column_name, column_definition in table_definition.c.items():
             if column_name in data:
-                actual_type = data[column_name].dtype
-                is_pandas_extension = isinstance(actual_type, ExtensionDtype)
                 expected_type = self._expected_type(column_definition)
                 is_nullable_numeric = (column_definition.nullable and
                                        expected_type in [int, float])
                 if is_nullable_numeric:
                     data[column_name] = data[column_name].fillna(value=np.nan)
-
+                actual_type = data[column_name].dtype
+                is_pandas_extension = isinstance(actual_type, ExtensionDtype)
                 if expected_type is int:
-                    self._check_int_type(actual_type, column_name, is_pandas_extension, table_definition)
+                    self._check_int_type(actual_type, column_name,
+                                         is_pandas_extension, table_definition)
                 elif expected_type is float:
-                    self._check_float_type(actual_type, column_name, table_definition)
+                    self._check_float_type(actual_type, column_name,
+                                           table_definition)
                 elif expected_type is str:
-                    self._check_str_type(actual_type, column_name, data, table_definition)
+                    self._check_str_type(actual_type, column_name, data,
+                                         table_definition)
                 else:
-                    raise RuntimeError(f"Unexpected type from column definitions: {expected_type}.")
-            elif not (column_definition.primary_key or column_definition.nullable):
-                raise DismodFileError(f"Missing column in data for table '{table_definition.name}': '{column_name}'")
+                    raise RuntimeError(f"Unexpected type from column "
+                                       f"definitions: {expected_type}.")
+            elif not (column_definition.primary_key or
+                      column_definition.nullable):
+                raise DismodFileError(f"Missing column in data for table "
+                                      f"'{table_definition.name}': "
+                                      f"'{column_name}'")
             columns_checked.add(column_name)
 
         extra_columns = set(data.columns).difference(table_definition.c.keys())
         if extra_columns:
-            raise DismodFileError(f"extra columns in data for table '{table_definition.name}': {extra_columns}")
+            raise DismodFileError(f"extra columns in data for table "
+                                  f"'{table_definition.name}': {extra_columns}"
+                                  )
 
     @staticmethod
     def _expected_type(column_definition):
