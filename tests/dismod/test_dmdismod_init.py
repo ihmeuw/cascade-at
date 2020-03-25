@@ -15,16 +15,60 @@ from cascade_at.dismod.api.fill_extract_helpers.reference_tables import (
     default_rate_table, construct_integrand_table, construct_density_table
 )
 
+unknown_omega_world = 1e-2
+known_income_multiplier = -1e-3
+adjusted_omega = unknown_omega_world * np.exp(known_income_multiplier * 1000.0)
+default_meas_value = np.exp(-1 * adjusted_omega * 50.)
+default_meas_std = default_meas_value / 20.
+
+default_data_df = pd.DataFrame({
+        'data_id': [0],
+        'data_name': ['world'],
+        'integrand_id': [0],
+        'density_id': [1],
+        'node_id': [0],
+        'weight_id': [0],
+        'subgroup_id': [0],
+        'hold_out': [0],
+        'meas_value': [np.exp(-1 * adjusted_omega * 50.)],
+        'meas_std': [np.exp(-1 * adjusted_omega * 50.) / 20.],
+        'eta': [np.nan],
+        'nu': [np.nan],
+        'age_lower': [50.],
+        'age_upper': [50.],
+        'time_lower': [2000.],
+        'time_upper': [2000.],
+        'x_0': [1.]
+    })
+
+two_input_data_df = pd.DataFrame({
+    'data_id': [0, 1],
+    'data_name': ['world', 'wide'],
+    'integrand_id': [0, 0],
+    'density_id': [1, 1],
+    'node_id': [0, 0],
+    'weight_id': [0, 0],
+    'subgroup_id': [0, 0],
+    'hold_out': [0, 0],
+    'meas_value': [default_meas_value] * 2,
+    'meas_std': [default_meas_std] * 2,
+    'eta': [np.nan] * 2,
+    'nu': [np.nan] * 2,
+    'age_lower': [50., 50.],
+    'age_upper': [50., 50.],
+    'time_lower': [2000., 2005.],
+    'time_upper': [2000., 2005.],
+    'x_0': [1., 1.5]
+    })
+
 
 @pytest.fixture
 def dm(dismod):
     return DismodIO(path=Path('dismod-init.db'))
 
 
-def test_fill_tables(dm):
-    unknown_omega_world = 1e-2
-    known_income_multiplier = -1e-3
-    adjusted_omega = unknown_omega_world * np.exp(known_income_multiplier * 1000.0)
+@pytest.fixture
+def default_fill(dm):
     dm.integrand = construct_integrand_table()
     rate = default_rate_table()
     rate.loc[rate.rate_name == 'omega', 'parent_smooth_id'] = 0
@@ -74,28 +118,11 @@ def test_fill_tables(dm):
         'time_upper': [1995.],
         'x_0': [1.]
     })
-    dm.data = pd.DataFrame({
-        'data_id': [0],
-        'data_name': ['world'],
-        'integrand_id': [0],
-        'density_id': [1],
-        'node_id': [0],
-        'weight_id': [0],
-        'subgroup_id': [0],
-        'hold_out': [0],
-        'meas_value': [np.exp(-1 * adjusted_omega * 50.)],
-        'meas_std': [np.exp(-1 * adjusted_omega * 50.) / 20.],
-        'eta': [np.nan],
-        'nu': [np.nan],
-        'age_lower': [50.],
-        'age_upper': [50.],
-        'time_lower': [2000.],
-        'time_upper': [2000.],
-        'x_0': [1.]
-    })
+    dm.data = default_data_df
     dm.prior = pd.DataFrame({
         'prior_id': [0, 1, 2],
-        'prior_name': ['prior_not_used', 'prior_omega_parent', 'prior_income_multiplier'],
+        'prior_name': ['prior_not_used', 'prior_omega_parent',
+                       'prior_income_multiplier'],
         'density_id': [0, 0, 0],
         'lower': [np.nan, 1e-4, known_income_multiplier],
         'upper': [np.nan, 1.0, known_income_multiplier],
@@ -129,7 +156,8 @@ def test_fill_tables(dm):
     })
     dm.option = pd.DataFrame({
         'option_id': [0, 1, 2, 3],
-        'option_name': ['parent_node_id', 'ode_step_size', 'age_avg_split', 'rate_case'],
+        'option_name': ['parent_node_id', 'ode_step_size',
+                        'age_avg_split', 'rate_case'],
         'option_value': ['0', '10.0', '5.0', 'iota_zero_rho_zero']
     })
     dm.subgroup = pd.DataFrame({
@@ -148,12 +176,51 @@ def test_fill_tables(dm):
         'node_id': [0],
         'smooth_id': [0]
     })
+    return dm
 
 
-def test_dmdismod_init(dm):
-    run = run_dismod(dm_file=str(dm.path), command='init')
+def test_default_dmdismod_init(default_fill):
+    run = run_dismod(dm_file=str(default_fill.path), command='init')
     if run.exit_status:
         print(run.stdout)
         print(run.stderr)
     assert run.exit_status == 0
 
+
+@pytest.mark.parametrize("weight_list",
+                         [[0, np.nan], [np.nan, np.nan],
+                          [0, None], [None, None]])
+def test_default_init_with_null_weight_id(default_fill, weight_list):
+    data_df = two_input_data_df.copy()
+    data_df['weight_id'] = weight_list
+    try:
+        default_fill.data = data_df
+        run = run_dismod(dm_file=str(default_fill.path), command='init')
+        if run.exit_status:
+            print(run.stdout)
+            print(run.stderr)
+        assert run.exit_status == 0
+    except Exception:
+        raise
+    finally:
+        default_fill.data = default_data_df
+
+
+@pytest.mark.parametrize("mulstd_value_prior_id",
+                         [[1, np.nan], [np.nan, np.nan],
+                          [1, None], [None, None]])
+def test_default_init_with_null_mulstd(default_fill, mulstd_value_prior_id):
+    prior_smooth_df = default_fill.smooth.copy()
+    smooth_df = default_fill.smooth.copy()
+    smooth_df['mulstd_value_prior_id'] = mulstd_value_prior_id
+    try:
+        default_fill.smooth = smooth_df
+        run = run_dismod(dm_file=str(default_fill.path), command='init')
+        if run.exit_status:
+            print(run.stdout)
+            print(run.stderr)
+        assert run.exit_status == 0
+    except Exception:
+        raise
+    finally:
+        default_fill.smooth = prior_smooth_df
