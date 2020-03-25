@@ -3,7 +3,8 @@ mostly useful field types.
 """
 from re import split
 
-from cascade_at.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
+from cascade_at.core.form.abstract_form import (
+    Form, Field, SimpleTypeField, NO_VALUE)
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)

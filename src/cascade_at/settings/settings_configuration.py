@@ -43,7 +43,8 @@ class SmoothingPrior(Form):
     born_lower = FloatField(nullable=True, display="Born lower")
     born_upper = FloatField(nullable=True, display="Born upper")
     density = OptionField(
-        ["uniform", "gaussian", "laplace", "students", "log_gaussian", "log_laplace", "log_students"], display="Density"
+        ["uniform", "gaussian", "laplace", "students",
+         "log_gaussian", "log_laplace", "log_students"], display="Density"
     )
     min = FloatField(nullable=True, default=float("-inf"), display="Min")
     mean = FloatField(nullable=True, display="Mean")
@@ -55,12 +56,16 @@ class SmoothingPrior(Form):
     def _full_form_validation(self, root):
         errors = []
 
-        if not self.is_field_unset("age_lower") and not self.is_field_unset("age_lower"):
+        if not (self.is_field_unset("age_lower") and not
+                self.is_field_unset("age_lower")):
             if self.age_lower > self.age_upper:
-                errors.append("age_lower must be less than or equal to age_upper")
-        if not self.is_field_unset("time_lower") and not self.is_field_unset("time_lower"):
+                errors.append(
+                    "age_lower must be less than or equal to age_upper")
+        if not (self.is_field_unset("time_lower") and not
+                self.is_field_unset("time_lower")):
             if self.time_lower > self.time_upper:
-                errors.append("time_lower must be less than or equal to time_upper")
+                errors.append(
+                    "time_lower must be less than or equal to time_upper")
 
         try:
             lower = self.min
@@ -95,36 +100,48 @@ class SmoothingPrior(Form):
             elif self.density == "laplace":
                 self.prior_object = priors.Laplace(mean, std, lower, upper)
             elif self.density == "students":
-                self.prior_object = priors.StudentsT(mean, std, nu, lower, upper)
+                self.prior_object = priors.StudentsT(
+                    mean, std, nu, lower, upper)
             elif self.density == "log_gaussian":
-                self.prior_object = priors.LogGaussian(mean, std, eta, lower, upper)
+                self.prior_object = priors.LogGaussian(
+                    mean, std, eta, lower, upper)
             elif self.density == "log_laplace":
-                self.prior_object = priors.LogLaplace(mean, std, eta, lower, upper)
+                self.prior_object = priors.LogLaplace(
+                    mean, std, eta, lower, upper)
             elif self.density == "log_students":
-                self.prior_object = priors.LogStudentsT(mean, std, nu, eta, lower, upper)
+                self.prior_object = priors.LogStudentsT(
+                    mean, std, nu, eta, lower, upper)
             else:
                 errors.append(f"Unknown density '{self.density}'")
         except priors.PriorError as e:
-            errors.append(f"Parameters incompatible with density '{self.density}': {str(e)}")
+            errors.append(
+                f"Parameters incompatible with density '"
+                f"{self.density}': {str(e)}")
 
         return errors
 
 
 class SmoothingPriorGroup(Form):
-    dage = SmoothingPrior(name_field="prior_type", nullable=True, display="Age diff")
-    dtime = SmoothingPrior(name_field="prior_type", nullable=True, display="Time diff")
-    value = SmoothingPrior(name_field="prior_type", nullable=True, display="Values")
+    dage = SmoothingPrior(
+        name_field="prior_type", nullable=True, display="Age diff")
+    dtime = SmoothingPrior(
+        name_field="prior_type", nullable=True, display="Time diff")
+    value = SmoothingPrior(
+        name_field="prior_type", nullable=True, display="Values")
 
 
 class Smoothing(Form):
     rate = OptionField(["pini", "iota", "rho", "chi", "omega"], "Rate")
     location = IntField(nullable=True)
-    age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
-    time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
+    age_grid = StringListField(
+        constructor=float, nullable=True, display="Age grid")
+    time_grid = StringListField(
+        constructor=float, nullable=True, display="Time grid")
     default = SmoothingPriorGroup(display="Defaults")
     mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
     detail = FormList(SmoothingPrior, nullable=True, display="Detail")
-    age_time_specific = IntField(display="Age and Time specific", nullable=True)
+    age_time_specific = IntField(
+        display="Age and Time specific", nullable=True)
 
     custom_age_grid = Dummy()
     custom_time_grid = Dummy()
@@ -133,32 +150,44 @@ class Smoothing(Form):
         errors = []
 
         if self.rate == "pini":
-            if not self.is_field_unset("age_grid") and len(self.age_grid) != 1:
+            if not (self.is_field_unset("age_grid") and
+                    len(self.age_grid) != 1):
                 errors.append("Pini must have exactly one age point")
         else:
             age_grid = self.age_grid or root.model.default_age_grid
             if len(age_grid) > 1 and self.default.is_field_unset("dage"):
-                errors.append("You must supply a default age diff prior if the smoothing has extent over age")
+                errors.append(
+                    "You must supply a default age diff prior if the "
+                    "smoothing has extent over age")
 
         time_grid = self.time_grid or root.model.default_time_grid
         if len(time_grid) > 1 and self.default.is_field_unset("dtime"):
-            errors.append("You must supply a default time diff prior if the smoothing has extent over time")
+            errors.append(
+                "You must supply a default time diff prior if the smoothing "
+                "has extent over time")
 
         if self._container._name == "rate":
-            # This validation only makes sense for Fixed Effects not Random Effects
-            # TODO This repeats validation logic in cascade.model.rates but I don't see a good way to bring that in here
+            # This validation only makes sense for Fixed Effects not
+            # Random Effects
+            # TODO This repeats validation logic in cascade.model.rates but I
+            # don't see a good way to bring that in here
             is_negative = True
             is_positive = True
-            for prior in [self.default.value] + [p for p in self.detail or [] if p.prior_type == "value"]:
+            for prior in ([self.default.value] + [p for p in self.detail or
+                          [] if p.prior_type == "value"]):
                 is_negative = is_negative and prior.min == 0 and prior.max == 0
                 is_positive = is_positive and prior.min > 0
                 if prior.min < 0:
-                    errors.append("Rates must be constrained to be >= 0 at all points. Add or correct the lower bound")
+                    errors.append(
+                        "Rates must be constrained to be >= 0 at all points. "
+                        "Add or correct the lower bound")
                     break
 
             if self.rate in ["iota", "rho"]:
                 if not (is_negative or is_positive):
-                    errors.append(f"Rate {self.rate} must be either fully positive or constrained to zero")
+                    errors.append(
+                        f"Rate {self.rate} must be either fully positive or "
+                        f"constrained to zero")
 
         return errors
 
@@ -167,12 +196,15 @@ class StudyCovariate(Form):
     study_covariate_id = IntField(display="Covariate")
 
     measure_id = IntField(display="Measure")
-    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
+    mulcov_type = OptionField(
+        ["rate_value", "meas_value", "meas_std"], display="Multiplier type")
     transformation = IntField(display="Transformation")
     age_time_specific = IntField(display="Age and Time specific")
 
-    age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
-    time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
+    age_grid = StringListField(
+        constructor=float, nullable=True, display="Age grid")
+    time_grid = StringListField(
+        constructor=float, nullable=True, display="Time grid")
     default = SmoothingPriorGroup(display="Defaults")
     mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
     detail = FormList(SmoothingPrior, nullable=True, display="Detail")
@@ -185,12 +217,15 @@ class CountryCovariate(Form):
     country_covariate_id = IntField(display="Covariate")
 
     measure_id = IntField(display="Measure")
-    mulcov_type = OptionField(["rate_value", "meas_value", "meas_std"], display="Multiplier type")
+    mulcov_type = OptionField(
+        ["rate_value", "meas_value", "meas_std"], display="Multiplier type")
     transformation = IntField(display="Transformation")
     age_time_specific = IntField(display="Age and Time specific")
 
-    age_grid = StringListField(constructor=float, nullable=True, display="Age grid")
-    time_grid = StringListField(constructor=float, nullable=True, display="Time grid")
+    age_grid = StringListField(
+        constructor=float, nullable=True, display="Age grid")
+    time_grid = StringListField(
+        constructor=float, nullable=True, display="Time grid")
     default = SmoothingPriorGroup(display="Defaults")
     mulstd = SmoothingPriorGroup(nullable=True, display="MulStd")
     detail = FormList(SmoothingPrior, nullable=True, display="Detail")
@@ -208,23 +243,39 @@ class Model(Form):
     add_csmr_cause = IntField(nullable=True, display="CSMR cause")
     title = StrField(nullable=True, display="Title")
     description = StrField(nullable=True, display="Description")
-    crosswalk_version_id = IntField(nullable=False, display="Crosswalk version ID")
+    crosswalk_version_id = IntField(
+        nullable=False, display="Crosswalk version ID")
     bundle_id = IntField(nullable=True, display="Data bundle")
     drill = OptionField(["cascade", "drill"], display="Drill")
     drill_location = IntField(display="Drill location", nullable=True)
-    drill_location_start = IntField(display="Drill location start", nullable=True)
+    drill_location_start = IntField(
+        display="Drill location start", nullable=True)
     drill_location_end = IntField(display="Drill location end", nullable=True)
-    drill_sex = OptionField([1, 2], constructor=int, nullable=True, display="Drill sex")
-    birth_prev = OptionField([0, 1], constructor=int, nullable=True, default=0, display="Prevalence at birth")
-    default_age_grid = StringListField(constructor=float, display="(Cascade) Age grid")
-    default_time_grid = StringListField(constructor=float, display="(Cascade) Time grid")
-    constrain_omega = OptionField([0, 1], constructor=int, nullable=False, display="Constrain other cause mortality")
-    exclude_data_for_param = ListField(constructor=int, nullable=True, display="Exclude data for parameter")
+    drill_sex = OptionField(
+        [1, 2], constructor=int, nullable=True, display="Drill sex")
+    birth_prev = OptionField(
+        [0, 1], constructor=int, nullable=True, default=0,
+        display="Prevalence at birth")
+    default_age_grid = StringListField(
+        constructor=float, display="(Cascade) Age grid")
+    default_time_grid = StringListField(
+        constructor=float, display="(Cascade) Time grid")
+    constrain_omega = OptionField(
+        [0, 1], constructor=int, nullable=False,
+        display="Constrain other cause mortality")
+    exclude_data_for_param = ListField(
+        constructor=int, nullable=True, display="Exclude data for parameter")
     ode_step_size = FloatField(display="ODE step size")
-    addl_ode_stpes = StringListField(constructor=float, nullable=True, display="Advanced additional ODE steps")
-    split_sex = OptionField(["most_detailed", "1", "2", "3", "4", "5"], display="Split sex (Being used as Drill Start)")
-    quasi_fixed = OptionField([0, 1], default=0, constructor=int, nullable=True)
-    zero_sum_random = ListField(nullable=True, display="Zero-sum random effects")
+    addl_ode_stpes = StringListField(
+        constructor=float, nullable=True,
+        display="Advanced additional ODE steps")
+    split_sex = OptionField(
+        ["most_detailed", "1", "2", "3", "4", "5"],
+        display="Split sex (Being used as Drill Start)")
+    quasi_fixed = OptionField(
+        [0, 1], default=0, constructor=int, nullable=True)
+    zero_sum_random = ListField(
+        nullable=True, display="Zero-sum random effects")
     bound_frac_fixed = FloatField(
         default=1e-2, nullable=True,
         display="allowed modification to point to move it within bounds"
@@ -306,22 +357,30 @@ class RandomEffectBound(Form):
 
 class Policies(Form):
     estimate_emr_from_prevalence = OptionField(
-        [0, 1], constructor=int, default=0, display="Estimate EMR from prevalance", nullable=True
+        [0, 1], constructor=int, default=0,
+        display="Estimate EMR from prevalance", nullable=True
     )
-    use_weighted_age_group_midpoints = OptionField([1, 0], default=1, constructor=int, nullable=True)
+    use_weighted_age_group_midpoints = OptionField(
+        [1, 0], default=1, constructor=int, nullable=True)
     number_of_fixed_effect_samples = IntField(default=30, nullable=True)
-    with_hiv = BoolField(default=True, nullable=True, display="Whether to get ASDR with HIV deaths.")
-    age_group_set_id = IntField(default=12, nullable=True, display="Age groups for analysis work.")
-    exclude_relative_risk = OptionField([1, 0], default=1, constructor=int, nullable=True)
+    with_hiv = BoolField(
+        default=True, nullable=True,
+        display="Whether to get ASDR with HIV deaths.")
+    age_group_set_id = IntField(
+        default=12, nullable=True, display="Age groups for analysis work.")
+    exclude_relative_risk = OptionField(
+        [1, 0], default=1, constructor=int, nullable=True)
     meas_std_effect = OptionField(
-        ["add_std_scale_all", "add_std_scale_log", "add_var_scale_all", "add_var_scale_log"],
+        ["add_std_scale_all", "add_std_scale_log", "add_var_scale_all",
+         "add_var_scale_log"],
         default="add_var_scale_log",
         display="Measurement standard deviation effect",
         nullable=True
     )
     limited_memory_max_history_fixed = IntField(
         default=30, nullable=True,
-        display="number of most recent iterations taken into account for quasi-Newton"
+        display=("number of most recent iterations taken into account "
+                 "for quasi-Newton")
     )
     gbd_round_id = IntField(nullable=True, default=6)
 
@@ -338,10 +397,13 @@ class SettingsConfiguration(Form):
     model = Model(display="Model", validation_priority=5)
     policies = Policies(display="Policies")
     gbd_round_id = IntField(display="GBD Round ID")
-    random_effect = FormList(Smoothing, nullable=True, display="Random effects")
+    random_effect = FormList(
+        Smoothing, nullable=True, display="Random effects")
     rate = FormList(Smoothing, display="Rates")
-    country_covariate = FormList(CountryCovariate, display="Country covariates")
-    study_covariate = FormList(StudyCovariate, display="Study covariates", nullable=True)
+    country_covariate = FormList(
+        CountryCovariate, display="Country covariates")
+    study_covariate = FormList(
+        StudyCovariate, display="Study covariates", nullable=True)
     eta = Eta(validation_priority=5)
     students_dof = StudentsDOF(validation_priority=5)
     log_students_dof = StudentsDOF(validation_priority=5)
@@ -355,7 +417,8 @@ class SettingsConfiguration(Form):
     max_num_iter = FixedRandomInt(display="Max ipopt iterations")
     print_level = FixedRandomInt(display="Print level")
     accept_after_max_steps = FixedRandomInt(display="Max backtracking")
-    tolerance = FixedRandomFloat(display="Desired relative convergence tolerance")
+    tolerance = FixedRandomFloat(
+        display="Desired relative convergence tolerance")
     data_cv_by_integrand = FormList(DataCV)
     data_eta_by_integrand = FormList(DataEta)
     data_density_by_integrand = FormList(DataDensity)
