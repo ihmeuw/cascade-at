@@ -30,6 +30,14 @@ class StrField(SimpleTypeField):
         super().__init__(str, *args, **kwargs)
 
 
+class NativeListField(SimpleTypeField):
+    """Because we already have a ListField for space separated
+    strings which become lists, this field type should be used
+    when the .json config returns a native python list."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(list, *args, **kwargs)
+
+
 class FormList(Form):
     """ This represents a homogeneous list of forms. For example, it might be
     used to contain a list of priors within a smoothing grid.

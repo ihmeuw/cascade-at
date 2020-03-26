@@ -3,7 +3,8 @@ import numpy as np
 
 from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.settings.settings import load_settings
-from cascade_at.inputs.measurement_inputs import MeasurementInputs
+from cascade_at.inputs.measurement_inputs import (
+    MeasurementInputs, MeasurementInputsFromSettings)
 
 
 @pytest.mark.parametrize("column,values", [
@@ -47,9 +48,9 @@ def test_data_cv_from_settings_by_integrand():
     settings = BASE_CASE.copy()
     settings.update({
         "data_cv_by_integrand": [{
-                "integrand_measure_id": 5,
-                "value": 0.5
-            }]
+            "integrand_measure_id": 5,
+            "value": 0.5
+        }]
     })
     s = load_settings(settings)
     cv = MeasurementInputs.data_cv_from_settings(settings=s)
@@ -58,3 +59,14 @@ def test_data_cv_from_settings_by_integrand():
             assert v == 0.5
         else:
             assert v == 0.1
+
+
+def test_location_drill_start_only():
+    settings = BASE_CASE.copy()
+    model_settings = settings["model"]
+    model_settings.pop("drill_location_end")
+    model_settings['drill_location_start']
+    settings["model"] = model_settings
+    s = load_settings(settings)
+    mi = MeasurementInputsFromSettings(settings=s)
+    assert len(mi.demographics.location_id) == 33
