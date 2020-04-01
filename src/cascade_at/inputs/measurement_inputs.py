@@ -132,13 +132,16 @@ class MeasurementInputs:
         self.decomp_step = ds.decomp_step_from_decomp_step_id(
             self.decomp_step_id
         )
-        self.demographics = Demographics(gbd_round_id=self.gbd_round_id)
         if location_set_version_id is None:
             self.location_set_version_id = get_location_set_version_id(
                 gbd_round_id=self.gbd_round_id
             )
         else:
             self.location_set_version_id = location_set_version_id
+
+        self.demographics = Demographics(
+            gbd_round_id=self.gbd_round_id,
+            location_set_version_id=self.location_set_version_id)
         self.location_dag = LocationDAG(
             location_set_version_id=self.location_set_version_id,
             gbd_round_id=self.gbd_round_id

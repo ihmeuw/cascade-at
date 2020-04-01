@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from copy import deepcopy
 from random import choice, sample, randint
 
 from cascade_at.settings.base_case import BASE_CASE
@@ -75,12 +76,12 @@ def test_data_cv_from_settings_by_integrand():
 # are being correctly passed to the MeasurementInputs class.
 
 def test_location_drill_start_only():
-    settings = BASE_CASE.copy()
+    these_settings = deepcopy(BASE_CASE)
 
-    model_settings = settings["model"]
+    model_settings = these_settings["model"]
 
-    tree = LocationDAG(settings['location_set_version_id'],
-                       settings['gbd_round_id'])
+    tree = LocationDAG(these_settings['location_set_version_id'],
+                       these_settings['gbd_round_id'])
     region_ids = tree.parent_children(1)
     test_loc = choice(region_ids)
     num_descendants = len(tree.descendants(test_loc))
@@ -88,23 +89,24 @@ def test_location_drill_start_only():
 
     model_settings.pop("drill_location_end")
     model_settings['drill_location_start'] = test_loc
-    settings["model"] = model_settings
-    s = load_settings(settings)
+    these_settings["model"] = model_settings
+    s = load_settings(these_settings)
     mi = MeasurementInputsFromSettings(settings=s)
 
     # with drill_location_end unset, demographics.location_id should
     # be set to all descendants of the test loc, plus the test loc itself
     assert len(mi.demographics.location_id) == num_descendants + 1
     assert len(mi.demographics.mortality_rate_location_id) == num_mr_locs
+    these_settings
 
 
 def test_location_drill_start_end():
-    settings = BASE_CASE.copy()
+    these_settings = deepcopy(BASE_CASE)
 
-    model_settings = settings["model"]
+    model_settings = these_settings["model"]
 
-    tree = LocationDAG(settings['location_set_version_id'],
-                       settings['gbd_round_id'])
+    tree = LocationDAG(these_settings['location_set_version_id'],
+                       these_settings['gbd_round_id'])
     region_ids = tree.parent_children(1)
     parent_test_loc = choice(region_ids)
     test_children = list(tree.parent_children(parent_test_loc))
@@ -117,8 +119,8 @@ def test_location_drill_start_end():
 
     model_settings['drill_location_end'] = children_test_locs
     model_settings['drill_location_start'] = parent_test_loc
-    settings['model'] = model_settings
-    s = load_settings(settings)
+    these_settings['model'] = model_settings
+    s = load_settings(these_settings)
     mi = MeasurementInputsFromSettings(settings=s)
 
     # demographics.location_id shoul be set to all descendants of each
@@ -131,19 +133,19 @@ def test_location_drill_start_end():
 
 
 def test_no_drill():
-    settings = BASE_CASE.copy()
+    these_settings = deepcopy(BASE_CASE)
 
-    model_settings = settings["model"]
+    model_settings = these_settings["model"]
 
-    tree = LocationDAG(settings['location_set_version_id'],
-                       settings['gbd_round_id'])
+    tree = LocationDAG(these_settings['location_set_version_id'],
+                       these_settings['gbd_round_id'])
     num_descendants = len(tree.descendants(1))
 
     model_settings.pop('drill_location_end')
     model_settings.pop('drill_location_start')
 
-    settings['model'] = model_settings
-    s = load_settings(settings)
+    these_settings['model'] = model_settings
+    s = load_settings(these_settings)
     mi = MeasurementInputsFromSettings(settings=s)
 
     # since we haven't set either drill_location_start or
