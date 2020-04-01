@@ -18,7 +18,9 @@ class LocationDAG:
 
         The root of this dag is the global location ID.
         """
-        LOG.info(f"Creating a location DAG for location_set_version_id {location_set_version_id}")
+        LOG.info(
+            f"Creating a location DAG for location_set_version_id "
+            f"{location_set_version_id}")
         self.location_set_version_id = location_set_version_id
 
         self.df = db_queries.get_location_metadata(
@@ -32,7 +34,8 @@ class LocationDAG:
             self.dag.add_node(int(row['location_id']), **row.to_dict())
         self.dag.add_edges_from([
             (int(row.parent_id), int(row.location_id))
-            for row in self.df.loc[self.df.location_id != CascadeConstants.GLOBAL_LOCATION_ID].itertuples()
+            for row in self.df.loc[
+                self.df.location_id != CascadeConstants.GLOBAL_LOCATION_ID].itertuples()
         ])
         self.dag.graph["root"] = CascadeConstants.GLOBAL_LOCATION_ID
 
@@ -51,11 +54,12 @@ class LocationDAG:
         :return:
         """
         return [location_id] + list(self.dag.successors(location_id))
-    
+
     def to_dataframe(self):
         """
-        Converts the location DAG to a data frame with location ID and parent ID
-        and name. Helpful for debugging, and putting into the dismod database.
+        Converts the location DAG to a data frame with location ID and parent
+        ID and name. Helpful for debugging, and putting into the dismod
+        database.
 
         Returns:
             pd.DataFrame
@@ -75,5 +79,3 @@ class LocationDAG:
             parent_id=parents,
             name=names
         ))
-
-

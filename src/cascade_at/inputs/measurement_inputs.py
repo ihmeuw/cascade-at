@@ -144,7 +144,7 @@ class MeasurementInputs:
             gbd_round_id=self.gbd_round_id
         )
 
-        drill_locations = self.locations_by_drill(
+        drill_locations, mr_locations = self.locations_by_drill(
             drill_location_start, drill_location_end)
         if drill_locations:
             self.demographics.location_id = drill_locations
@@ -569,10 +569,11 @@ class MeasurementInputs:
                 f"associated with drill location start "
                 f"{drill_location_start} and its descendants."
             )
-            drill_descendants = list(
-                self.location_dag.descendants(
-                    location_id=drill_location_start))
-            return [drill_location_start] + drill_descendants
+            drill_locations = ([drill_location_start]
+                               + list(self.location_dag.descendants(
+                                    location_id=drill_location_start)))
+            mr_locations = list(
+                self.location_dag.parent_children(drill_location_start))
         elif drill_location_start and drill_location_end:
             LOG.info(
                 f"This is a DRILL model, so only data for "
@@ -584,9 +585,11 @@ class MeasurementInputs:
                 drill_locations.append(child)
                 drill_locations = drill_locations + list(
                     self.location_dag.descendants(location_id=child))
-            return drill_locations
+            mr_locations = [drill_location_start] + drill_location_end
         else:
-            return None
+            drill_locations = None
+            mr_locations = None
+        return drill_locations, mr_locations
 
     def reset_index(self, drop, inplace):
         pass
