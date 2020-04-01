@@ -1,11 +1,12 @@
 import pytest
-import numpy as
+import numpy as np
 from random import choice, sample, randint
 
 from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.settings.settings import load_settings
 from cascade_at.inputs.measurement_inputs import (
     MeasurementInputs, MeasurementInputsFromSettings)
+from cascade_at.inputs.locations import LocationDAG
 
 
 @pytest.mark.parametrize("column,values", [
@@ -72,7 +73,6 @@ def test_data_cv_from_settings_by_integrand():
 # the hierarchies.dbtrees module or hit the database as an independent check.
 # This test at least ensures that drill location start and drill location end
 # are being correctly passed to the MeasurementInputs class.
-
 
 def test_location_drill_start_only():
     settings = BASE_CASE.copy()

@@ -48,7 +48,7 @@ class CSMR(BaseInput):
                 metric_id=gbd.constants.metrics.RATE,
                 measure_id=gbd.constants.measures.DEATH,
                 year_id=self.demographics.year_id,
-                location_id=self.demographics.location_id,
+                location_id=self.demographics.mortality_rate_location_id,
                 sex_id=self.demographics.sex_id,
                 age_group_id=self.demographics.age_group_id,
                 gbd_round_id=self.gbd_round_id,

@@ -148,6 +148,7 @@ class MeasurementInputs:
             drill_location_start, drill_location_end)
         if drill_locations:
             self.demographics.location_id = drill_locations
+            self.demographics.mortality_rate_location_id = mr_locations
 
         self.exclude_outliers = True
         self.asdr = None
@@ -563,6 +564,7 @@ class MeasurementInputs:
             raise ValueError(
                 "A location_drill_start must be specified in order "
                 "to perform a location drill.")
+
         elif drill_location_start and not drill_location_end:
             LOG.info(
                 f"This is a DRILL model, so only going to pull data "

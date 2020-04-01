@@ -54,7 +54,7 @@ def settings_from_model_version_id(model_version_id, conn_def):
     Parameters:
         model_version_id: (int) the model version ID
         conn_def: (str) the connection definition like 'dismod-at-dev'
-    
+
     Usage:
     >>> settings = settings_from_model_version_id(model_version_id=395837,
     >>>                                           conn_def='dismod-at-dev')

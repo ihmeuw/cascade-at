@@ -2,7 +2,6 @@ from typing import Optional
 
 from cascade_at.core.db import db_queries
 from cascade_at.inputs.locations import LocationDAG
-from cascade_at.inputs.utilites.gbd_ids import CascadeConstants
 
 
 class Demographics:
