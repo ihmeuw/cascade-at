@@ -75,7 +75,7 @@ def test_data_cv_from_settings_by_integrand():
 # This test at least ensures that drill location start and drill location end
 # are being correctly passed to the MeasurementInputs class.
 
-def test_location_drill_start_only():
+def test_location_drill_start_only(ihme):
     these_settings = deepcopy(BASE_CASE)
 
     model_settings = these_settings["model"]
@@ -100,7 +100,7 @@ def test_location_drill_start_only():
     these_settings
 
 
-def test_location_drill_start_end():
+def test_location_drill_start_end(ihme):
     these_settings = deepcopy(BASE_CASE)
 
     model_settings = these_settings["model"]
@@ -132,7 +132,7 @@ def test_location_drill_start_end():
         len(children_test_locs) + 1)
 
 
-def test_no_drill():
+def test_no_drill(ihme):
     these_settings = deepcopy(BASE_CASE)
 
     model_settings = these_settings["model"]
