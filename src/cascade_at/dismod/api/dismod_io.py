@@ -23,7 +23,7 @@ class DismodIO(DismodSQLite):
     @age.setter
     def age(self, df):
         self.write_table('age', df)
-    
+
     # AVGINT TABLE
     @property
     def avgint(self):
@@ -32,7 +32,7 @@ class DismodIO(DismodSQLite):
     @avgint.setter
     def avgint(self, df):
         self.write_table('avgint', df)
-    
+
     # COVARIATE TABLE
     @property
     def covariate(self):
@@ -50,7 +50,7 @@ class DismodIO(DismodSQLite):
     @constraint.setter
     def constraint(self, df):
         self.write_table('constraint', df)
-    
+
     # DATA TABLE
     @property
     def data(self):
@@ -59,7 +59,7 @@ class DismodIO(DismodSQLite):
     @data.setter
     def data(self, df):
         self.write_table('data', df)
-    
+
     # DATA SUBSET TABLE
     @property
     def data_subset(self):
@@ -68,7 +68,7 @@ class DismodIO(DismodSQLite):
     @data_subset.setter
     def data_subset(self, df):
         raise RuntimeError("Cannot set data_subset table.")
-    
+
     # DATA SIM TABLE
     @property
     def data_sim(self):
@@ -86,7 +86,7 @@ class DismodIO(DismodSQLite):
     @density.setter
     def density(self, df):
         self.write_table('density', df)
-    
+
     # DEPEND VAR TABLE
     @property
     def depend_var(self):
@@ -95,7 +95,7 @@ class DismodIO(DismodSQLite):
     @depend_var.setter
     def depend_var(self, df):
         self.write_table('depend_var', df)
-    
+
     # FIT VAR TABLE
     @property
     def fit_var(self):
@@ -104,7 +104,7 @@ class DismodIO(DismodSQLite):
     @fit_var.setter
     def fit_var(self, df):
         self.write_table('fit_var', df)
-    
+
     # FIT DATA SUBSET TABLE
     @property
     def fit_data_subset(self):
@@ -122,7 +122,7 @@ class DismodIO(DismodSQLite):
     @integrand.setter
     def integrand(self, df):
         self.write_table('integrand', df)
-    
+
     # LOG TABLE
     @property
     def log(self):
@@ -131,7 +131,7 @@ class DismodIO(DismodSQLite):
     @log.setter
     def log(self, df):
         raise RuntimeError("Cannot set log table.")
-    
+
     # MULCOV TABLE
     @property
     def mulcov(self):
@@ -140,7 +140,7 @@ class DismodIO(DismodSQLite):
     @mulcov.setter
     def mulcov(self, df):
         self.write_table('mulcov', df)
-    
+
     # NODE TABLE
     @property
     def node(self):
@@ -149,7 +149,7 @@ class DismodIO(DismodSQLite):
     @node.setter
     def node(self, df):
         self.write_table('node', df)
-    
+
     # OPTION TABLE
     @property
     def option(self):
@@ -158,7 +158,7 @@ class DismodIO(DismodSQLite):
     @option.setter
     def option(self, df):
         self.write_table('option', df)
-    
+
     # PRIOR TABLE
     @property
     def prior(self):
@@ -167,7 +167,7 @@ class DismodIO(DismodSQLite):
     @prior.setter
     def prior(self, df):
         self.write_table('prior', df)
-    
+
     # PRIOR SIM TABLE
     @property
     def prior_sim(self):
@@ -185,7 +185,7 @@ class DismodIO(DismodSQLite):
     @predict.setter
     def predict(self, df):
         raise RuntimeError("Cannot set predict table.")
-    
+
     # RATE TABLE
     @property
     def rate(self):
@@ -194,7 +194,7 @@ class DismodIO(DismodSQLite):
     @rate.setter
     def rate(self, df):
         self.write_table('rate', df)
-    
+
     # NSLIST TABLE
     @property
     def nslist(self):
@@ -203,7 +203,7 @@ class DismodIO(DismodSQLite):
     @nslist.setter
     def nslist(self, df):
         self.write_table('nslist', df)
-    
+
     # NSLIST PAIR TABLE
     @property
     def nslist_pair(self):
@@ -212,7 +212,7 @@ class DismodIO(DismodSQLite):
     @nslist_pair.setter
     def nslist_pair(self, df):
         self.write_table('nslist_pair', df)
-    
+
     # SAMPLE TABLE
     @property
     def sample(self):
@@ -221,7 +221,7 @@ class DismodIO(DismodSQLite):
     @sample.setter
     def sample(self, df):
         self.write_table('sample', df)
-    
+
     # SCALE VAR TABLE
     @property
     def scale_var(self):
@@ -230,7 +230,7 @@ class DismodIO(DismodSQLite):
     @scale_var.setter
     def scale_var(self, df):
         self.write_table('scale_var', df)
-    
+
     # SMOOTH TABLE
     @property
     def smooth(self):
@@ -239,7 +239,7 @@ class DismodIO(DismodSQLite):
     @smooth.setter
     def smooth(self, df):
         self.write_table('smooth', df)
-    
+
     # SMOOTH GRID TABLE
     @property
     def smooth_grid(self):
@@ -248,7 +248,7 @@ class DismodIO(DismodSQLite):
     @smooth_grid.setter
     def smooth_grid(self, df):
         self.write_table('smooth_grid', df)
-    
+
     # START VAR TABLE
     @property
     def start_var(self):
@@ -275,7 +275,7 @@ class DismodIO(DismodSQLite):
     @time.setter
     def time(self, df):
         self.write_table('time', df)
-    
+
     # TRUTH VAR TABLE
     @property
     def truth_var(self):
@@ -284,7 +284,7 @@ class DismodIO(DismodSQLite):
     @truth_var.setter
     def truth_var(self, df):
         self.write_table('truth_var', df)
-    
+
     # VAR TABLE
     @property
     def var(self):
@@ -293,7 +293,7 @@ class DismodIO(DismodSQLite):
     @var.setter
     def var(self, df):
         raise RuntimeError("Cannot set var table.")
-    
+
     # WEIGHT
     @property
     def weight(self):
@@ -302,7 +302,7 @@ class DismodIO(DismodSQLite):
     @weight.setter
     def weight(self, df):
         self.write_table('weight', df)
-    
+
     # WEIGHT GRID
     @property
     def weight_grid(self):
@@ -311,3 +311,21 @@ class DismodIO(DismodSQLite):
     @weight_grid.setter
     def weight_grid(self, df):
         self.write_table('weight_grid', df)
+
+    # HESSIAN FIXED TABLE
+    @property
+    def hes_fixed(self):
+        return self.read_table('hes_fixed')
+
+    @hes_fixed.setter
+    def hes_fixed(self, df):
+        self.write_table('hes_fixed', df)
+
+    # HESSIAN RANDOM TABLE
+    @property
+    def hes_random(self):
+        return self.read_table('hes_random')
+
+    @hes_random.setter
+    def hes_random(self, df):
+        self.write_table('hes_random', df)
