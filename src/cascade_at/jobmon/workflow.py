@@ -81,4 +81,3 @@ def jobmon_workflow_from_cascade_command(cc, context):
 
     wf.add_tasks(list(bash_tasks.values()))
     return wf
-
