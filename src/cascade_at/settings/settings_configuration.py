@@ -56,13 +56,11 @@ class SmoothingPrior(Form):
     def _full_form_validation(self, root):
         errors = []
 
-        if not (self.is_field_unset("age_lower") and not
-                self.is_field_unset("age_lower")):
+        if not self.is_field_unset("age_lower") and not self.is_field_unset("age_lower"):
             if self.age_lower > self.age_upper:
                 errors.append(
                     "age_lower must be less than or equal to age_upper")
-        if not (self.is_field_unset("time_lower") and not
-                self.is_field_unset("time_lower")):
+        if not self.is_field_unset("time_lower") and not self.is_field_unset("time_lower"):
             if self.time_lower > self.time_upper:
                 errors.append(
                     "time_lower must be less than or equal to time_upper")
@@ -150,8 +148,7 @@ class Smoothing(Form):
         errors = []
 
         if self.rate == "pini":
-            if not (self.is_field_unset("age_grid") and
-                    len(self.age_grid) != 1):
+            if not self.is_field_unset("age_grid") and len(self.age_grid) != 1:
                 errors.append("Pini must have exactly one age point")
         else:
             age_grid = self.age_grid or root.model.default_age_grid
