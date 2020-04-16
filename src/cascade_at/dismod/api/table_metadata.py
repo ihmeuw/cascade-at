@@ -566,6 +566,26 @@ class SubGroup(Base):
     group_name = Column(String(), nullable=False)
 
 
+class HesFixed(Base):
+
+    __tablename__ = "hes_fixed"
+
+    hes_fixed_id = Column(Integer(), primary_key=True, autoincrement=False)
+    row_var_id = Column(Integer(), nullable=False)
+    col_var_id = Column(Integer(), nullable=False)
+    hes_fixed_value = Column(Float(), nullable=True)
+
+
+class HesRandom(Base):
+
+    __tablename__ = "hes_random_value"
+
+    hes_random_id = Column(Integer(), primary_key=True, autoincrement=False)
+    row_var_id = Column(Integer(), nullable=False)
+    col_var_id = Column(Integer(), nullable=False)
+    hes_random_value = Column(Float(), nullable=True)
+
+
 _TYPE_MAP = {
     np.dtype("O"): String,
     str: String,
