@@ -23,7 +23,7 @@ def run_dismod(dm_file, command):
     info.exit_status = process.returncode
     info.stdout = process.stdout.decode()
     info.stderr = process.stderr.decode()
-    
+
     return info
 
 

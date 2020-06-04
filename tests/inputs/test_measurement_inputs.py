@@ -1,9 +1,13 @@
 import pytest
 import numpy as np
+from copy import deepcopy
+from random import choice, sample, randint
 
 from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.settings.settings import load_settings
-from cascade_at.inputs.measurement_inputs import MeasurementInputs
+from cascade_at.inputs.measurement_inputs import (
+    MeasurementInputs, MeasurementInputsFromSettings)
+from cascade_at.inputs.locations import LocationDAG
 
 
 @pytest.mark.parametrize("column,values", [
@@ -47,9 +51,9 @@ def test_data_cv_from_settings_by_integrand():
     settings = BASE_CASE.copy()
     settings.update({
         "data_cv_by_integrand": [{
-                "integrand_measure_id": 5,
-                "value": 0.5
-            }]
+            "integrand_measure_id": 5,
+            "value": 0.5
+        }]
     })
     s = load_settings(settings)
     cv = MeasurementInputs.data_cv_from_settings(settings=s)
@@ -58,3 +62,94 @@ def test_data_cv_from_settings_by_integrand():
             assert v == 0.5
         else:
             assert v == 0.1
+
+
+# Commenting here to promote discussion.  These tests are a little silly,
+# since I've basically recreated the logic implemented in the
+# measurement_inputs module, meaning that if a bug is introduced into the
+# LocationDAG class we won't necessarily catch it. I could have used
+# hard-coded test locations and number of descendants to test the underlying
+# logic but that would open up the test to failure if the
+# location_set_version_id cited by the BASE_CASE is changed. We could import
+# the hierarchies.dbtrees module or hit the database as an independent check.
+# This test at least ensures that drill location start and drill location end
+# are being correctly passed to the MeasurementInputs class.
+
+def test_location_drill_start_only(ihme):
+    these_settings = deepcopy(BASE_CASE)
+
+    model_settings = these_settings["model"]
+
+    tree = LocationDAG(these_settings['location_set_version_id'],
+                       these_settings['gbd_round_id'])
+    region_ids = tree.parent_children(1)
+    test_loc = choice(region_ids)
+    num_descendants = len(tree.descendants(test_loc))
+    num_mr_locs = len(tree.parent_children(test_loc))
+
+    model_settings.pop("drill_location_end")
+    model_settings['drill_location_start'] = test_loc
+    these_settings["model"] = model_settings
+    s = load_settings(these_settings)
+    mi = MeasurementInputsFromSettings(settings=s)
+
+    # with drill_location_end unset, demographics.location_id should
+    # be set to all descendants of the test loc, plus the test loc itself
+    assert len(mi.demographics.location_id) == num_descendants + 1
+    assert len(mi.demographics.mortality_rate_location_id) == num_mr_locs
+    these_settings
+
+
+def test_location_drill_start_end(ihme):
+    these_settings = deepcopy(BASE_CASE)
+
+    model_settings = these_settings["model"]
+
+    tree = LocationDAG(these_settings['location_set_version_id'],
+                       these_settings['gbd_round_id'])
+    region_ids = tree.parent_children(1)
+    parent_test_loc = choice(region_ids)
+    test_children = list(tree.parent_children(parent_test_loc))
+    num_test_children = randint(2, len(test_children))
+
+    children_test_locs = sample(test_children, num_test_children)
+    num_descendants = 0
+    for child in children_test_locs:
+        num_descendants += len(tree.descendants(child))
+
+    model_settings['drill_location_end'] = children_test_locs
+    model_settings['drill_location_start'] = parent_test_loc
+    these_settings['model'] = model_settings
+    s = load_settings(these_settings)
+    mi = MeasurementInputsFromSettings(settings=s)
+
+    # demographics.location_id shoul be set to all descendants of each
+    # location in drill_location_end, plus drill_location_end locations
+    # themselves, plus the drill_location_start location
+    assert len(mi.demographics.location_id) == (
+        num_descendants + len(children_test_locs) + 1)
+    assert len(mi.demographics.mortality_rate_location_id) == (
+        len(children_test_locs) + 1)
+
+
+def test_no_drill(ihme):
+    these_settings = deepcopy(BASE_CASE)
+
+    model_settings = these_settings["model"]
+
+    tree = LocationDAG(these_settings['location_set_version_id'],
+                       these_settings['gbd_round_id'])
+    num_descendants = len(tree.descendants(1))
+
+    model_settings.pop('drill_location_end')
+    model_settings.pop('drill_location_start')
+
+    these_settings['model'] = model_settings
+    s = load_settings(these_settings)
+    mi = MeasurementInputsFromSettings(settings=s)
+
+    # since we haven't set either drill_location_start or
+    # drill_location_end, demographics.location_id should be set
+    # to the entire hierarchy
+    assert len(mi.demographics.location_id) == num_descendants + 1
+    assert len(mi.demographics.mortality_rate_location_id) == num_descendants + 1

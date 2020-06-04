@@ -11,11 +11,14 @@ from cascade_at.core.log import get_loggers, LEVELS
 LOG = get_loggers(__name__)
 
 
-def get_args():
+def get_args(args=None):
     """
     Parse the arguments for creating a dismod sqlite database.
     :return: parsed args, plus additional parsing for
     """
+    if args:
+        return args
+
     parser = ArgumentParser()
     parser.add_argument("-model-version-id", type=int, required=True)
     parser.add_argument("-parent-location-id", type=int, required=True)
@@ -26,7 +29,7 @@ def get_args():
     parser.add_argument("--prior-sex", type=int, required=False, default=None)
     parser.add_argument("--commands", nargs="+", required=False, default=[])
     parser.add_argument("--loglevel", type=str, required=False, default='info')
-
+    parser.add_argument("--test_dir", type=str, required=False, default=None)
     arguments = parser.parse_args()
     # Turn the options argument into a dictionary that can be passed
     #  to the options table rather than a list of "KEY=VALUE=TYPE"
@@ -34,7 +37,7 @@ def get_args():
         arguments.options = parse_options(arguments.options)
     else:
         arguments.options = dict()
-    
+
     # Turn the commands argument into a list than can run on dismod as commands
     # e.g. "fit-fixed" will translate to the command "fit fixed"
     if arguments.commands:
@@ -44,21 +47,26 @@ def get_args():
     return arguments
 
 
-def main():
+def main(args=None):
     """
     Creates a dismod database using the saved inputs and the file
     structure specified in the context.
-    
+
     Then runs an optional set of commands on the database passed
     in the --commands argument.
-    
+
     Also passes an optional argument --options as a dictionary to
     the dismod database to fill/modify the options table.
     """
-    args = get_args()
+    args = get_args(args=args)
     logging.basicConfig(level=LEVELS[args.loglevel])
 
-    context = Context(model_version_id=args.model_version_id)
+    if args.test_dir:
+        context = Context(model_version_id=args.model_version_id,
+                          configure_application=False,
+                          root_directory=args.test_dir)
+    else:
+        context = Context(model_version_id=args.model_version_id)
 
     inputs, alchemy, settings = context.read_inputs()
 
@@ -88,7 +96,6 @@ def main():
         child_prior=child_prior
     )
     df.fill_for_parent_child(**args.options)
-
     run_dismod_commands(dm_file=df.path.absolute(), commands=args.commands)
 
 

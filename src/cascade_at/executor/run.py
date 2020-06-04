@@ -74,7 +74,7 @@ def main():
                 context.update_status(status='Failed')
                 raise RuntimeError(f"Command {c} failed with error"
                                    f"{process.stderr.decode()}")
-    
+
     context.update_status(status='Complete')
 
 

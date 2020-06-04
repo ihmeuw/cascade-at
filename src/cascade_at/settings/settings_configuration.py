@@ -16,6 +16,7 @@ from cascade_at.core.form.fields import (
     IntField,
     FloatField,
     StrField,
+    NativeListField,
     StringListField,
     ListField,
     OptionField,
@@ -247,7 +248,8 @@ class Model(Form):
     drill_location = IntField(display="Drill location", nullable=True)
     drill_location_start = IntField(
         display="Drill location start", nullable=True)
-    drill_location_end = IntField(display="Drill location end", nullable=True)
+    drill_location_end = NativeListField(
+        display="Drill location end", nullable=True)
     drill_sex = OptionField(
         [1, 2], constructor=int, nullable=True, display="Drill sex")
     birth_prev = OptionField(
