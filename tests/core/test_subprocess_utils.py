@@ -3,7 +3,7 @@ from subprocess import run
 
 import pytest
 
-from cascade.core.subprocess_utils import (
+from cascade_at.core.subprocess_utils import (
     run_with_logging, add_gross_timing, read_gross_timing
 )
 

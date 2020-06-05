@@ -9,11 +9,11 @@ import pandas as pd
 import pytest
 from numpy import isclose
 
-from cascade.dismod.constants import IntegrandEnum
-from cascade.model import (
+from cascade_at.dismod.constants import IntegrandEnum
+from cascade_at.model import (
     Model, SmoothGrid, Covariate, Uniform, Gaussian
 )
-from cascade.model.object_wrapper import ObjectWrapper
+from cascade_at.model.object_wrapper import ObjectWrapper
 
 
 @pytest.fixture

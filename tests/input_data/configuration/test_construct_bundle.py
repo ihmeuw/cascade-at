@@ -3,10 +3,10 @@ from collections import defaultdict
 import pandas as pd
 from numpy import nan, isnan
 
-from cascade.input_data.configuration.construct_bundle import (
+from cascade_at.inputs.utilities.construct_bundle import (
     bundle_to_observations, normalized_bundle_from_database
 )
-from cascade.executor.execution_context import make_execution_context
+from cascade_at.executor.execution_context import make_execution_context
 
 
 def test_bundle_to_observations__global_eta():

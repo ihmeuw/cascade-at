@@ -3,8 +3,8 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from cascade.stats.estimation import meas_bounds_to_stdev, ess_to_stdev, stdev_from_bundle_data
-from cascade.stats.estimation import wilson_interval, check_bundle_uncertainty_columns
+from cascade_at.inputs.uncertainty import meas_bounds_to_stdev, ess_to_stdev, stdev_from_bundle_data
+from cascade_at.inputs.uncertainty import wilson_interval, check_bundle_uncertainty_columns
 
 
 def test_meas_bounds_to_stdev__bad_bounds():

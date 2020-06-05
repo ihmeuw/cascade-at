@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from cascade.model import Session, Var, DismodGroups
+from cascade_at.model import Session, Var, DismodGroups
 
 
 def test_options(dismod):

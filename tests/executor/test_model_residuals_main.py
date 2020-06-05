@@ -4,8 +4,8 @@ import pytest
 
 import pandas as pd
 
-from cascade.dismod.db.wrapper import DismodFile
-from cascade.executor.model_residuals_main import _get_residuals
+from cascade_at.dismod.api.dismod_sqlite import DismodFile
+from cascade_at.executor.model_residuals_main import _get_residuals
 
 
 @pytest.fixture

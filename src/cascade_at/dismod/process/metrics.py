@@ -9,7 +9,7 @@ from pathlib import Path
 from textwrap import indent
 
 from cascade_at.core.log import getLoggers
-from .constants import INTEGRAND_COHORT_COST
+from cascade_at.dismod.constants import INTEGRAND_COHORT_COST
 from cascade_at.dismod.api.dismod_sqlite import DismodFile, get_engine
 
 CODELOG, MATHLOG = getLoggers(__name__)

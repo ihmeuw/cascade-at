@@ -11,7 +11,7 @@ There are three backends:
     that skips using multiprocessing.
 
 The other key is to be able to run parts of the whole Cascade.
-The whole cascade is constructed from these parts:
+The whole cascade_at is constructed from these parts:
 
  * There is one **estimation** at each location of the location hierarchy.
  * Each estimation contains three kinds of stages,
@@ -44,14 +44,14 @@ import pytest
 from gridengineapp import entry
 from numpy.random import RandomState
 
-from cascade.executor.cascade_plan import (
+from cascade_at.executor.cascade_plan import (
     global_recipe_graph,
     drill_recipe_graph,
 )
-from cascade.executor.create_settings import create_settings
-from cascade.executor.dismodel_main import DismodAT
-from cascade.executor.execution_context import make_execution_context
-from cascade.executor.job_definitions import job_graph_from_settings
+from cascade_at.executor.create_settings import create_settings
+from cascade_at.executor.dismodel_main import DismodAT
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.executor.job_definitions import job_graph_from_settings
 
 
 def assign_levels(locations):

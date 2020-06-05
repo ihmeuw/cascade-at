@@ -6,11 +6,11 @@ import networkx as nx
 import pytest
 from numpy.random import RandomState
 
-from cascade.core import getLoggers
-from cascade.executor.create_settings import create_settings
-from cascade.executor.dismodel_main import DismodAT, execution_context_without_settings
-from cascade.runner.application_config import application_config
-from cascade.runner.job_graph import JobIdentifier, RecipeIdentifier
+from cascade_at.core import getLoggers
+from cascade_at.executor.create_settings import create_settings
+from cascade_at.executor.dismodel_main import DismodAT, execution_context_without_settings
+from cascade_at.context.configuration import application_config
+from cascade_at.runner.job_graph import JobIdentifier, RecipeIdentifier
 
 CODELOG, MATHLOG = getLoggers(__name__)
 
@@ -123,8 +123,8 @@ def test_entry_constructs_logs(monkeypatch, tmp_path):
     # Close all of the loggers so that they flush to disk.
     logger_list = [
         logging.root,
-        logging.getLogger("cascade"),
-        logging.getLogger("cascade.math")
+        logging.getLogger("cascade_at"),
+        logging.getLogger("cascade_at.math")
     ]
     for logger in logger_list:
         for handler in logger.handlers:

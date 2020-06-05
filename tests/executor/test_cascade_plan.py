@@ -2,14 +2,14 @@ import networkx as nx
 import pytest
 from numpy.random import RandomState
 
-from cascade.core.form import Form, FormList, FloatField
-from cascade.executor.cascade_plan import (
+from cascade_at.core.form import Form, FormList, FloatField
+from cascade_at.executor.cascade_plan import (
     make_model_options, )
-from cascade.executor.create_settings import create_settings
-from cascade.executor.dismodel_main import DismodAT
-from cascade.executor.execution_context import make_execution_context
-from cascade.executor.job_definitions import job_graph_from_settings
-from cascade.input_data.configuration.form import RandomEffectBound
+from cascade_at.executor.create_settings import create_settings
+from cascade_at.executor.dismodel_main import DismodAT
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.executor.job_definitions import job_graph_from_settings
+from cascade_at.settings.settings_configuration import RandomEffectBound
 from gridengineapp import execution_ordered
 
 SUBJOBS_PER_LOCATION = 3

@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 from scipy.stats import norm
 
-from cascade.model import (
+from cascade_at.model import (
     Session, Model, SmoothGrid, Covariate, DismodGroups, Var,
     Uniform, Gaussian, LogGaussian)
 

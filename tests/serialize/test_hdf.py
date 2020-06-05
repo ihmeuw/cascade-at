@@ -4,16 +4,16 @@ import networkx as nx
 from numpy import isclose
 import pytest
 
-from cascade.model.dismod_groups import DismodGroups
-from cascade.model.smooth_grid import SmoothGrid
-from cascade.model.model import Model
-from cascade.model.covariates import Covariate
-from cascade.model.var import Var
-from cascade.serialize.hdf import (
+from cascade_at.model.dismod_groups import DismodGroups
+from cascade_at.model.smooth_grid import SmoothGrid
+from cascade_at.model.model import Model
+from cascade_at.model.covariate import Covariate
+from cascade_at.model.var import Var
+from cascade_at.serialize.hdf import (
     write_var, read_var, write_var_group, read_var_group, write_smooth_grid,
     read_smooth_grid, write_grid_group, read_grid_group, write_model, read_model
 )
-from cascade.model.priors import Uniform, Gaussian
+from cascade_at.model.priors import Uniform, Gaussian
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-"""A representation of the configuration form we expect to receive from EpiViz.
+"""A representation of the utilities form we expect to receive from EpiViz.
 The hope is that this form will do as much validation and precondition checking
 as is feasible within the constraint that it must be able to validate a full
 EpiViz parameter document in significantly less than one second. This is
@@ -323,7 +323,7 @@ class Policies(Form):
 
 
 class Configuration(Form):
-    """ The root Form of the whole configuration tree.
+    """ The root Form of the whole utilities tree.
 
     Example:
         >>> inputs = json.loads(json_blob)

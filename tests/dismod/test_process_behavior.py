@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
-from cascade.dismod.process_behavior import check_command, get_fit_output
-from cascade.dismod import DismodATException
+from cascade_at.dismod.process.process_behavior import check_command, get_fit_output
+from cascade_at.dismod import DismodATException
 
 
 def test_successful_completion():

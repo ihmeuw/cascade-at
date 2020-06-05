@@ -5,11 +5,11 @@ import numpy as np
 
 from pandas.testing import assert_frame_equal
 
-from cascade.dismod.constants import DensityEnum
-from cascade.executor.execution_context import make_execution_context
-from cascade.stats import meas_bounds_to_stdev
+from cascade_at.dismod.constants import DensityEnum
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.inputs.stats import meas_bounds_to_stdev
 
-from cascade.input_data.emr import (
+from cascade_at.inputs.emr import (
     _emr_from_sex_and_node_specific_csmr_and_prevalence,
     _make_interpolators,
     _prepare_csmr,
@@ -159,7 +159,7 @@ def test_collapse_ages_unweighted():
 
 
 def test_collapse_ages_weighted(mocker):
-    mock_get_life_table = mocker.patch("cascade.input_data.db.demographics.db_queries").get_life_table
+    mock_get_life_table = mocker.patch("cascade_at.inputs.db.demographics.db_queries").get_life_table
     mock_get_life_table.return_value = pd.DataFrame(
         {
             "age_group_id": [1, 2, 3, 4, 5, 6],
@@ -200,7 +200,7 @@ def test_prepare_csmr(mocker):
             "meas_upper": [0.006, 0.007, 0.008, 0.009, 0.01] * 2,
         }
     )
-    mock_age_groups_to_ranges = mocker.patch("cascade.input_data.emr.age_groups_to_ranges")
+    mock_age_groups_to_ranges = mocker.patch("cascade_at.inputs.emr.age_groups_to_ranges")
     mock_age_groups_to_ranges.side_effect = lambda ec, df, keep_age_group_id: df
     ec = make_execution_context()
 

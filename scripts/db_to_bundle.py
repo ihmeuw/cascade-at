@@ -6,9 +6,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from cascade.dismod.constants import DensityEnum, IntegrandEnum
-from cascade.dismod.db.wrapper import get_engine
-from cascade.input_data.configuration.id_map import make_integrand_map
+from cascade_at.dismod.constants import DensityEnum, IntegrandEnum
+from cascade_at.dismod.api.dismod_sqlite import get_engine
+from cascade_at.dismod.integrand_mappings import make_integrand_map
 
 MEASURES_ACCEPTABLE_TO_ELMO = {
     "prevalence",

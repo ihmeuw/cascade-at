@@ -8,7 +8,7 @@ from subprocess import run
 
 from graphviz import Digraph
 
-from cascade.testing_utilities.component_dependencies import module_dependencies
+from cascade_at.testing_utilities.component_dependencies import module_dependencies
 
 LOGGER = logging.getLogger("pystructure.graphviz_plot")
 

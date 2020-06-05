@@ -1,4 +1,4 @@
-from cascade.input_data.db.asdr import get_asdr_data
+from cascade_at.inputs.asdr import get_asdr_data
 
 
 def test_asdr_columns(ihme):

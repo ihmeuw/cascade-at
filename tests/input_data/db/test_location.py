@@ -1,7 +1,7 @@
 import networkx as nx
 import pytest
 
-from cascade.input_data.db.locations import (
+from cascade_at.inputs.locations import (
     get_descendants, location_id_from_location_and_level, location_hierarchy,
     location_id_from_start_and_finish, all_locations_with_these_parents
 )

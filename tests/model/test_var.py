@@ -1,7 +1,7 @@
 from numpy import isclose, isnan
 import pytest
 
-from cascade.model.var import Var
+from cascade_at.model.var import Var
 
 
 def test_var_returns_a_float():

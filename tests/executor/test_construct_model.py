@@ -8,23 +8,23 @@ from gridengineapp import execution_ordered
 from numpy import isclose, inf
 from numpy.random import RandomState
 
-from cascade.executor.construct_model import construct_model
-from cascade.executor.construct_model import matching_knots
-from cascade.executor.covariate_description import create_covariate_specifications
-from cascade.executor.create_settings import (
+from cascade_at.executor.construct_model import construct_model
+from cascade_at.executor.construct_model import matching_knots
+from cascade_at.executor.covariate_description import create_covariate_specifications
+from cascade_at.executor.create_settings import (
     create_local_settings, create_settings, SettingsChoices
 )
-from cascade.executor.dismodel_main import DismodAT
-from cascade.executor.estimate_location import modify_input_data
-from cascade.executor.execution_context import make_execution_context
-from cascade.executor.session_options import make_options
-from cascade.input_data.configuration.form import SmoothingPrior
-from cascade.input_data.db.locations import location_hierarchy, location_hierarchy_to_dataframe
-from cascade.model.session import Session
-from cascade.testing_utilities.compare_dismod_db import (
+from cascade_at.executor.dismodel_main import DismodAT
+from cascade_at.executor.estimate_location import modify_input_data
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.executor.session_options import make_options
+from cascade_at.settings.settings_configuration import SmoothingPrior
+from cascade_at.inputs.locations import location_hierarchy, location_hierarchy_to_dataframe
+from cascade_at.model.session import Session
+from cascade_at.testing_utilities.compare_dismod_db import (
     CompareDatabases, pull_covariate, pull_covariate_multiplier
 )
-from cascade.testing_utilities.fake_data import retrieve_fake_data
+from cascade_at.testing_utilities.fake_data import retrieve_fake_data
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 import pandas as pd
 
-from cascade.dismod.constants import IntegrandEnum
-from cascade.model.integrands import make_average_integrand_cases_from_gbd
+from cascade_at.dismod.constants import IntegrandEnum
+from cascade_at.model.integrands import make_average_integrand_cases_from_gbd
 
 
 def test_make_average_integrand_cases_from_gbd():

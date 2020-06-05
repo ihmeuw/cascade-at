@@ -1,4 +1,4 @@
-from cascade_at.model.covariates import Covariate
+from cascade_at.model.covariate import Covariate
 from cascade_at.model.dismod_groups import DismodGroups
 from cascade_at.model.model import Model
 from cascade_at.model.object_wrapper import ObjectWrapper

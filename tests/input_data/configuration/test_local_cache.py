@@ -1,4 +1,4 @@
-from cascade.input_data.configuration.local_cache import LocalCache
+from cascade_at.inputs.utilities.local_cache import LocalCache
 
 
 def test_holds_two():

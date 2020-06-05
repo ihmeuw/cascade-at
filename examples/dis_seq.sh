@@ -28,7 +28,7 @@ docker pull reg.ihme.washington.edu/dismod/dismod_at
 DISPREFIX="docker run -it --mount ${MOUNT} reg.ihme.washington.edu/dismod/dismod_at"
 
 
-# Runs the simple application that's in the cascade repository.
+# Runs the simple application that's in the cascade_at repository.
 dmcsv2db
 FIT=/app/fit.db
 ${DISPREFIX} bash -c "${DISMOD} ${FIT} set option quasi_fixed false"

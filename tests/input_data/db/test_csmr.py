@@ -1,5 +1,5 @@
-from cascade.executor.execution_context import make_execution_context
-from cascade.input_data.db.csmr import _csmr_in_t3
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.inputs.csmr import _csmr_in_t3
 
 
 def test_csmr_check_in_t3_by_location(ihme):

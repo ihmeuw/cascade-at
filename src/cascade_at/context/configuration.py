@@ -11,7 +11,7 @@ CODELOG, MATHLOG = getLoggers(__name__)
 
 @lru_cache(maxsize=1)
 def application_config():
-    """Returns a configuration dictionary.
+    """Returns a utilities dictionary.
     If something passes in an object of type ConfigParser,
     then we use that.
 
@@ -28,12 +28,12 @@ def application_config():
     parser.read_string(bytes_data.decode())
     config_sources = list()
     for entry_point in iter_entry_points("ihmeuw.config", "cascade_at"):
-        CODELOG.debug(f"Found configuration in distribution {entry_point.dist}")
+        CODELOG.debug(f"Found utilities in distribution {entry_point.dist}")
         config_sources.append(entry_point.dist)
         parser.read_dict(entry_point.load()())
     if len(config_sources) > 1:
         MATHLOG.info(
-            f"More than one configuration, loaded in the order {linesep}"
+            f"More than one utilities, loaded in the order {linesep}"
             f"{linesep.join(str(cs) for cs in config_sources)}"
         )
     return parser

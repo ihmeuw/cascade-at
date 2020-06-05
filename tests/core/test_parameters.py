@@ -5,7 +5,7 @@ import pytest
 from hypothesis import given
 import hypothesis.strategies as st
 
-from cascade.core.parameters import _ParameterHierarchy, ParameterProperty
+from cascade_at.core.parameters import _ParameterHierarchy, ParameterProperty
 
 valid_attribute_names = st.text(string.ascii_letters + string.digits + "_", min_size=1)
 

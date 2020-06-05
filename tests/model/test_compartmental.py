@@ -2,7 +2,7 @@ import numpy as np
 
 from scipy.stats import gamma
 
-from cascade.stats import (
+from cascade_at.inputs.stats import (
     DemographicInterval,
     build_derivative_prevalence,
     build_derivative_full,

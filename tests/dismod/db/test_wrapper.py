@@ -10,10 +10,10 @@ import pytest
 from sqlalchemy import Column, Integer, String, Float, Enum
 from sqlalchemy.ext.declarative import declarative_base
 
-from cascade.dismod.constants import DensityEnum
-from cascade.dismod.db import DismodFileError
-from cascade.dismod.db.metadata import Base as DismodFileBase
-from cascade.dismod.db.wrapper import DismodFile, get_engine, _validate_data, _ordered_by_foreign_key_dependency
+from cascade_at.dismod.constants import DensityEnum
+from cascade_at.dismod.db import DismodFileError
+from cascade_at.dismod.api.table_metadata import Base as DismodFileBase
+from cascade_at.dismod.api.dismod_sqlite import DismodFile, get_engine, _validate_data, _ordered_by_foreign_key_dependency
 
 
 @pytest.fixture

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 
-from cascade.model.data_read_write import (
+from cascade_at.model.data_read_write import (
     read_simulation_data
 )
 

@@ -2,8 +2,8 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from cascade.model.var import Var
-from cascade.executor.construct_model import rectangular_data_to_var
+from cascade_at.model.var import Var
+from cascade_at.executor.construct_model import rectangular_data_to_var
 
 
 @pytest.fixture

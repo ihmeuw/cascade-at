@@ -30,16 +30,16 @@ import numpy as np
 import pandas as pd
 from scipy.stats import gamma
 
-from cascade.model import (
+from cascade_at.model import (
     siler_default,
     prevalence_solution,
     integrands_from_function,
     omega_from_mu,
     DemographicInterval,
 )
-from cascade.input_data.configuration.construct_bundle import \
+from cascade_at.inputs.utilities.construct_bundle import \
     normalized_bundle_from_database
-from cascade.dismod.constants import IntegrandEnum
+from cascade_at.dismod.constants import IntegrandEnum
 
 LOGGER = logging.getLogger("fit_no_covariates")
 

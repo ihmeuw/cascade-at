@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.interpolate import SmoothBivariateSpline
 from scipy.stats import norm
 
-from cascade.model.operations import (
+from cascade_at.model.operations import (
     _estimates_from_one_grid, _dataframe_to_bivariate_spline
 )
 

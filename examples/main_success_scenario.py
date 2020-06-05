@@ -26,11 +26,11 @@ import numpy as np
 import pandas as pd
 from numpy.random import RandomState
 
-from cascade.core import getLoggers
-from cascade.dismod import DismodATException
-from cascade.dismod.constants import INTEGRAND_COHORT_COST
-from cascade.dismod.process_behavior import get_fit_output
-from cascade.model import (
+from cascade_at.core import getLoggers
+from cascade_at.dismod import DismodATException
+from cascade_at.dismod.constants import INTEGRAND_COHORT_COST
+from cascade_at.dismod.process.process_behavior import get_fit_output
+from cascade_at.model import (
     Model, SmoothGrid, Covariate, DismodGroups, Var,
     ObjectWrapper, Gaussian, Uniform
 )

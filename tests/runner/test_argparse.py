@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from gridengineapp import ArgumentError
 
-from cascade.executor.dismodel_main import DismodAT
-from cascade.runner.cascade_logging import logging_config
+from cascade_at.executor.dismodel_main import DismodAT
+from cascade_at.runner.cascade_logging import logging_config
 
 
 def test_argparse_happy():
@@ -39,7 +39,7 @@ def test_argparse_fail():
 
 def close_all_handlers():
     """Close handlers in order to ensure they have written files."""
-    loggers = [logging.root, logging.getLogger("cascade"), logging.getLogger("cascade.math")]
+    loggers = [logging.root, logging.getLogger("cascade_at"), logging.getLogger("cascade_at.math")]
     for logger in loggers:
         for close_root in logger.handlers:
             close_root.flush()
@@ -56,7 +56,7 @@ def test_math_log(tmpdir):
         "--mvid", mvid,  # Must have an mvid for math log to happen.
     ])
     logging_config(args)
-    mathlog = logging.getLogger("cascade.math.complicated")
+    mathlog = logging.getLogger("cascade_at.math.complicated")
     mathlog.debug("debugfi")
     mathlog.info("infofum")
     mathlog.warning("warningfo")
@@ -81,7 +81,7 @@ def test_code_log(tmpdir):
     ])
     logging_config(args)
 
-    codelog = logging.getLogger("cascade.whatever.complicated")
+    codelog = logging.getLogger("cascade_at.whatever.complicated")
     codelog.debug("debugfil")
     codelog.info("infofuml")
     codelog.warning("warningfol")
@@ -109,7 +109,7 @@ def test_reduced_code_log(tmpdir):
         ["-q", "--epiviz-log", str(tmp_dir), "--code-log", str(tmp_dir)])
     logging_config(args)
 
-    codelog = logging.getLogger("cascade.whatever.complicated")
+    codelog = logging.getLogger("cascade_at.whatever.complicated")
     codelog.debug("debugfic")
     codelog.info("infofumc")
     codelog.warning("warningfoc")
@@ -135,7 +135,7 @@ def test_math_log_fail_bad_dir(tmpdir, capsys):
     logging_config(args)
     close_all_handlers()
 
-    logging.getLogger("cascade.whatever.complicated")
+    logging.getLogger("cascade_at.whatever.complicated")
     assert "no epiviz log dir" in capsys.readouterr().err
 
 
@@ -151,5 +151,5 @@ def test_math_log_fail_subdir_fail(tmpdir, capsys):
     ])
     logging_config(args)
 
-    logging.getLogger("cascade.whatever.complicated")
+    logging.getLogger("cascade_at.whatever.complicated")
     assert "Could not make" in capsys.readouterr().err

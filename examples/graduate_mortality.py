@@ -13,11 +13,11 @@ import numpy as np
 import pandas as pd
 from numpy import nan
 
-from cascade.model import (
+from cascade_at.model import (
     Model, Session, DismodGroups, Var, SmoothGrid,
     Uniform, Gaussian
 )
-from cascade.input_data.db.asdr import asdr_as_fit_input
+from cascade_at.inputs.asdr import asdr_as_fit_input
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def rectangular_data_to_var(gridded_data):
 
 def estimate_mortality_hazard(mtother, initial_mtother_guess, weights, params):
     # We will want to set the weight for "total".
-    # The weight used for mtother is listed in cascade.dismod.constants.INTEGRAND_TO_WEIGHT
+    # The weight used for mtother is listed in cascade_at.dismod.constants.INTEGRAND_TO_WEIGHT
     ages = params["ages"]
     times = params["times"]
     model = Model(nonzero_rates=["omega"], parent_location=params["location_id"], child_location=[],

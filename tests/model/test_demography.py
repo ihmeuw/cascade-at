@@ -1,5 +1,5 @@
 import numpy as np
-from cascade.stats import DemographicInterval
+from cascade_at.inputs.stats import DemographicInterval
 
 
 def test_demog_interval_basic():

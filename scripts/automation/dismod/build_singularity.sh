@@ -23,7 +23,7 @@ while getopts "i::f::t::" opt; do
 done
 
 
-# function to set environmental variables for build-time configuration
+# function to set environmental variables for build-time utilities
 # Mostly to constrain the number of python threads and to ensure that Singularity does not save cached images to a user's H drive.
 function set_env_variables {
   echo "Setting environmental variables"

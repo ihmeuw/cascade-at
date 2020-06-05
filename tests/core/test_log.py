@@ -1,12 +1,12 @@
 import pytest
 
-from cascade.core import getLoggers
+from cascade_at.core import getLoggers
 
 
 @pytest.mark.parametrize("module,code,math", [
-    ("cascade", "cascade", "cascade.math"),
-    ("cascade.core", "cascade.core", "cascade.math.core"),
-    ("cascade.core.log", "cascade.core.log", "cascade.math.core.log"),
+    ("cascade_at", "cascade_at", "cascade_at.math"),
+    ("cascade_at.core", "cascade_at.core", "cascade_at.math.core"),
+    ("cascade_at.core.log", "cascade_at.core.log", "cascade_at.math.core.log"),
     ("__main__", "__main__", "__main__.math"),
     ("", "root", "root.math"),
 ])

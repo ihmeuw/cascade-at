@@ -7,11 +7,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cascade.model import (
+from cascade_at.model import (
     Session, Model, DismodGroups, SmoothGrid, Var, Covariate,
     Uniform, Gaussian
 )
-from cascade.stats.compartmental import siler_default, total_mortality_solution
+from cascade_at.inputs.stats.compartmental import siler_default, total_mortality_solution
 
 
 @pytest.fixture

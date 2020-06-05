@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from cascade.dismod.constants import INTEGRAND_TO_WEIGHT
+from cascade_at.dismod.constants import INTEGRAND_TO_WEIGHT
 
 
 RENAME_HEADER = {

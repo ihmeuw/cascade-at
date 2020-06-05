@@ -1,6 +1,6 @@
 import pandas as pd
 from numpy import nan
-from cascade.input_data.configuration.construct_study import (
+from cascade_at.inputs.utilities.construct_study import (
     add_study_covariate_to_observations
 )
 

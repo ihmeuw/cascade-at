@@ -1,9 +1,9 @@
 from setuptools import setup, PEP420PackageFinder
 
 setup(
-    name="cascade",
+    name="cascade_at",
     packages=PEP420PackageFinder.find("src"),
-    package_data={"cascade.executor": ["data/*.cfg"]},
+    package_data={"cascade_at.executor": ["data/*.cfg"]},
     package_dir={"": "src"},
     use_scm_version=True,
     setup_requires=["setuptools_scm"],
@@ -26,13 +26,13 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            ["dismodel=cascade.executor.dismodel_main:cascade_entry"],
-            ["dmchat=cascade.executor.chatter:chatter"],
-            ["dmdummy=cascade.executor.chatter:dismod_dummy"],
-            ["dmres2csv=cascade.executor.model_residuals_main:entry"],
-            ["dmsr2csv=cascade.executor.model_results_main:entry"],
-            ["dmgetsettings=cascade.executor.epiviz_json:entry"],
-            ["dmmetrics=cascade.dismod.metrics:entry"],
+            ["dismodel=cascade_at.executor.dismodel_main:cascade_entry"],
+            ["dmchat=cascade_at.executor.chatter:chatter"],
+            ["dmdummy=cascade_at.executor.chatter:dismod_dummy"],
+            ["dmres2csv=cascade_at.executor.model_residuals_main:entry"],
+            ["dmsr2csv=cascade_at.executor.model_results_main:entry"],
+            ["dmgetsettings=cascade_at.executor.epiviz_json:entry"],
+            ["dmmetrics=cascade_at.dismod.metrics:entry"],
         ]
     },
     scripts=["scripts/dmdismod", "scripts/dmdismodpy"],

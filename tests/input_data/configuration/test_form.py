@@ -1,6 +1,6 @@
-from cascade.core.form import Form
-from cascade.input_data.configuration.form import SmoothingPrior, Eta, StudentsDOF
-from cascade.model import priors
+from cascade_at.core.form import Form
+from cascade_at.settings.settings_configuration import SmoothingPrior, Eta, StudentsDOF
+from cascade_at.model import priors
 
 
 class DummyForm(Form):

@@ -1,12 +1,12 @@
 from types import SimpleNamespace
-from cascade.input_data.configuration.construct_mortality import (
+from cascade_at.inputs.utilities.construct_mortality import (
     normalize_csmr
 )
-from cascade.input_data.db.csmr import get_csmr_location
+from cascade_at.inputs.csmr import get_csmr_location
 import pytest
-from cascade.executor.execution_context import make_execution_context
-from cascade.core.db import age_spans
-from cascade.input_data.configuration.construct_country import (
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.core.db import age_spans
+from cascade_at.inputs.utilities.construct_country import (
     convert_gbd_ids_to_dismod_values
 )
 

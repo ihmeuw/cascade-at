@@ -1,6 +1,6 @@
 import pytest
 
-from cascade.input_data.db.data_iterator import grouped_by_count
+from cascade_at.inputs.data_iterator import grouped_by_count
 
 
 @pytest.mark.parametrize("in_string,count", [

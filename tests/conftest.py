@@ -5,10 +5,10 @@ from uuid import UUID
 import networkx as nx
 import pytest
 
-import cascade.core.db
-from cascade.runner.application_config import application_config
+import cascade_at.core.db
+from cascade_at.context.configuration import application_config
 
-cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
+cascade_at.core.db.BLOCK_SHARED_FUNCTION_ACCESS = True
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def mock_execution_context(mocker):
 
 @pytest.fixture
 def mock_locations(mocker):
-    locations = mocker.patch("cascade.input_data.db.locations.location_hierarchy")
+    locations = mocker.patch("cascade_at.inputs.db.locations.location_hierarchy")
     G = nx.DiGraph()
     G.add_nodes_from(list(range(8)))
     G.add_edges_from([(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6), (6, 7)])
@@ -33,7 +33,7 @@ def mock_locations(mocker):
 
 @pytest.fixture
 def mock_ezfuncs(mocker):
-    return mocker.patch("cascade.core.db.ezfuncs")
+    return mocker.patch("cascade_at.core.db.ezfuncs")
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def mock_database_access(mock_ezfuncs):
 
 
 def pytest_addoption(parser):
-    group = parser.getgroup("cascade")
+    group = parser.getgroup("cascade_at")
     group.addoption("--ihme", action="store_true",
                     help="run functions requiring access to central comp and Dismod-AT")
     group.addoption("--signals", action="store_true",
@@ -66,7 +66,7 @@ class IhmeDbFuncArg:
         if not request.config.getoption("ihme"):
             pytest.skip(f"specify --ihme to run tests requiring Central Comp databases")
 
-        cascade.core.db.BLOCK_SHARED_FUNCTION_ACCESS = False
+        cascade_at.core.db.BLOCK_SHARED_FUNCTION_ACCESS = False
 
 
 @pytest.fixture

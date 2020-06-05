@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
-from cascade.executor.execution_context import make_execution_context
-from cascade.runner.data_passing import FileEntity
-from cascade.runner.job_graph import CascadeJob, RecipeIdentifier
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.runner.data_passing import FileEntity
+from cascade_at.runner.job_graph import CascadeJob, RecipeIdentifier
 
 
 class FitFixed(CascadeJob):

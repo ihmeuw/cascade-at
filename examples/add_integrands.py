@@ -10,9 +10,9 @@ from pathlib import Path
 
 import numpy as np
 
-from cascade.dismod.db.wrapper import DismodFile, get_engine
-from cascade.dismod.metrics import data_records
-from cascade.dismod.constants import INTEGRAND_COHORT_COST
+from cascade_at.dismod.api.dismod_sqlite import DismodFile, get_engine
+from cascade_at.dismod.process.metrics import data_records
+from cascade_at.dismod.constants import INTEGRAND_COHORT_COST
 
 INTEGRANDS = list(INTEGRAND_COHORT_COST.keys())
 

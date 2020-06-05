@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from cascade.executor.model_results_main import _get_model_results
+from cascade_at.executor.model_results_main import _get_model_results
 
 
 def test_get_model_results_inputs_ok(ihme):
@@ -22,7 +22,7 @@ def test_get_model_results_inputs_ok(ihme):
     table = "fit"
 
     # Right now there are no results uploaded to the database,
-    # so this should fail with a ValueError from cascade.executor.model_results_main
+    # so this should fail with a ValueError from cascade_at.executor.model_results_main
     with pytest.raises(ValueError):
         at_results = _get_model_results(at_model_version_id, db, table)
 

@@ -5,7 +5,7 @@ import pandas as pd
 
 from scipy.stats import norm
 
-from cascade.saver.save_prediction import uncertainty_from_prediction_draws, _predicted_to_uploadable_format
+from cascade_at.saver.save_prediction import uncertainty_from_prediction_draws, _predicted_to_uploadable_format
 
 
 def test_uncertainty_from_prediction_draws():
@@ -93,7 +93,7 @@ def test_uncertainty_from_prediction_draws():
     ],
 )
 def test_predicted_to_uploadable_format(s_sex, sex_id, mocker):
-    fake_age_to_group = mocker.patch("cascade.saver.save_prediction.age_ranges_to_groups")
+    fake_age_to_group = mocker.patch("cascade_at.saver.save_prediction.age_ranges_to_groups")
     fake_age_to_group.side_effect = lambda _, df: df
 
     predicted = pd.DataFrame(

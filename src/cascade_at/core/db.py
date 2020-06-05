@@ -13,7 +13,7 @@ import sqlalchemy
 
 from cascade_at.core import CascadeError
 from cascade_at.core.log import getLoggers
-from cascade_at.runner.application_config import application_config
+from cascade_at.context.configuration import application_config
 
 CODELOG, MATHLOG = getLoggers(__name__)
 

@@ -1,12 +1,12 @@
 import pandas as pd
 import pytest
 
-from cascade.input_data.db.country_covariates import country_covariates
+from cascade_at.inputs.country_covariates import country_covariates
 
 
 @pytest.fixture
 def mock_db_queries(mocker):
-    return mocker.patch("cascade.input_data.db.country_covariates.db_queries")
+    return mocker.patch("cascade_at.inputs.db.country_covariates.db_queries")
 
 
 @pytest.fixture

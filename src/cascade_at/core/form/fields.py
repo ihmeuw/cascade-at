@@ -84,7 +84,7 @@ class FormList(Form):
 
 class Dummy(Field):
     """ A black hole which consumes all values without error. Use to mark
-    sections of the configuration which have yet to be implemented and should
+    sections of the utilities which have yet to be implemented and should
     be ignored.
     """
 

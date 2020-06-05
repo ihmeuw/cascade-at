@@ -3,8 +3,8 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from cascade.core.context import ExecutionContext
-from cascade.input_data.configuration.construct_country import (
+from cascade_at.core.context import ExecutionContext
+from cascade_at.inputs.utilities.construct_country import (
     assign_interpolated_covariate_values,
     compute_covariate_age_interval,
     compute_covariate_age_time_dimensions,

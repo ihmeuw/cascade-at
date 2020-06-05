@@ -4,9 +4,9 @@ import pytest
 
 import pandas as pd
 
-from cascade.input_data.db.bundle import _get_bundle_id, freeze_bundle
-from cascade.input_data.db.study_covariates import covariate_ids_to_names
-from cascade.input_data import InputDataError
+from cascade_at.inputs.bundle import _get_bundle_id, freeze_bundle
+from cascade_at.inputs.study_covariates import covariate_ids_to_names
+from cascade_at.inputs import InputDataError
 
 
 def test_get_bundle_id__success(mock_execution_context, mock_database_access):
@@ -42,17 +42,17 @@ def test_get_bundle_id__multiple_bundles(mock_execution_context, mock_database_a
 
 
 def test_freeze_bundle__did_freeze(mock_execution_context, mock_database_access, mocker):
-    mock_check = mocker.patch("cascade.input_data.db.bundle._bundle_is_frozen")
+    mock_check = mocker.patch("cascade_at.inputs.db.bundle._bundle_is_frozen")
     mock_check.return_value = False
 
-    mock_bundle_id = mocker.patch("cascade.input_data.db.bundle._get_bundle_id")
+    mock_bundle_id = mocker.patch("cascade_at.inputs.db.bundle._get_bundle_id")
     mock_bundle_id.return_value = 123
 
-    mock_get_bundle_data = mocker.patch("cascade.input_data.db.bundle._get_bundle_data")
-    mock_put_bundle_data = mocker.patch("cascade.input_data.db.bundle._upload_bundle_data_to_tier_3")
+    mock_get_bundle_data = mocker.patch("cascade_at.inputs.db.bundle._get_bundle_data")
+    mock_put_bundle_data = mocker.patch("cascade_at.inputs.db.bundle._upload_bundle_data_to_tier_3")
     mock_get_covariate_data = mocker.patch(
-        "cascade.input_data.db.bundle.get_study_covariates")
-    mock_put_covariate_data = mocker.patch("cascade.input_data.db.bundle._upload_study_covariates_to_tier_3")
+        "cascade_at.inputs.db.bundle.get_study_covariates")
+    mock_put_covariate_data = mocker.patch("cascade_at.inputs.db.bundle._upload_study_covariates_to_tier_3")
 
     mvid = 12345
     assert freeze_bundle(mock_execution_context, mvid)
@@ -65,11 +65,11 @@ def test_freeze_bundle__did_freeze(mock_execution_context, mock_database_access,
 
 
 def test_freeze_bundle__did_not_freeze(mock_execution_context, mock_database_access, mocker):
-    mock_check = mocker.patch("cascade.input_data.db.bundle._bundle_is_frozen")
+    mock_check = mocker.patch("cascade_at.inputs.db.bundle._bundle_is_frozen")
     mock_check.return_value = True
 
-    mock_put_bundle_data = mocker.patch("cascade.input_data.db.bundle._upload_bundle_data_to_tier_3")
-    mock_put_covariate_data = mocker.patch("cascade.input_data.db.bundle._upload_study_covariates_to_tier_3")
+    mock_put_bundle_data = mocker.patch("cascade_at.inputs.db.bundle._upload_bundle_data_to_tier_3")
+    mock_put_covariate_data = mocker.patch("cascade_at.inputs.db.bundle._upload_study_covariates_to_tier_3")
 
     mvid = 234
     assert not freeze_bundle(mock_execution_context, mvid)

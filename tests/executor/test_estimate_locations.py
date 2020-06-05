@@ -6,10 +6,10 @@ import pytest
 from gridengineapp import entry
 from numpy.random import RandomState
 
-from cascade.executor.create_settings import SettingsChoices, create_settings
-from cascade.executor.dismodel_main import DismodAT
-from cascade.executor.execution_context import make_execution_context
-from cascade.input_data.db.locations import location_hierarchy
+from cascade_at.executor.create_settings import SettingsChoices, create_settings
+from cascade_at.executor.dismodel_main import DismodAT
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.inputs.locations import location_hierarchy
 
 
 @pytest.mark.parametrize("meid,mvid", [

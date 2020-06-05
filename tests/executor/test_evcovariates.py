@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from cascade.executor.covariate_description import create_covariate_specifications, EpiVizCovariate
+from cascade_at.executor.covariate_description import create_covariate_specifications, EpiVizCovariate
 
 
 @pytest.fixture

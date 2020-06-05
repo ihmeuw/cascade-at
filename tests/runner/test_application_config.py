@@ -1,4 +1,4 @@
-from cascade.runner.application_config import application_config
+from cascade_at.context.configuration import application_config
 
 
 def test_parameter_file_proper_format():

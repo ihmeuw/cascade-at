@@ -6,14 +6,14 @@ import pytest
 from numpy import inf
 from numpy.random import RandomState
 
-import cascade.executor.priors_from_draws
-from cascade.executor.cascade_plan import (
+import cascade_at.executor.priors_from_draws
+from cascade_at.executor.cascade_plan import (
     recipe_graph_from_settings, location_specific_settings
 )
-from cascade.executor.construct_model import construct_model
-from cascade.executor.create_settings import create_settings, make_locations
-from cascade.model.priors import Uniform, Gaussian
-from cascade.model.smooth_grid import SmoothGrid
+from cascade_at.executor.construct_model import construct_model
+from cascade_at.executor.create_settings import create_settings, make_locations
+from cascade_at.model.priors import Uniform, Gaussian
+from cascade_at.model.smooth_grid import SmoothGrid
 from gridengineapp import execution_ordered
 
 
@@ -39,7 +39,7 @@ def test_priors_from_draws_fair(monkeypatch):
         a = np.full((len(ages), len(times), len(grid_draws)), 0.01, dtype=np.float)
         return a, a[:-1, :, :], a[:, :-1, :]
 
-    monkeypatch.setattr(cascade.executor.priors_from_draws, "gather_draws_for_grid", _gather)
+    monkeypatch.setattr(cascade_at.executor.priors_from_draws, "gather_draws_for_grid", _gather)
 
     rng = RandomState(2340238)
     draw_cnt = 3  # Can be long-running. Increase for focused testing.
@@ -63,7 +63,7 @@ def test_priors_from_draws_fair(monkeypatch):
 
             # We aren't asking whether the values are correct but whether
             # the logic paths work.
-            cascade.executor.priors_from_draws.set_priors_from_parent_draws(model, draws)
+            cascade_at.executor.priors_from_draws.set_priors_from_parent_draws(model, draws)
 
             if draws is not None:
                 base_rate_set = False
@@ -81,7 +81,7 @@ def test_priors_from_draws_fair(monkeypatch):
                 draws.append(var)
             parent_model_has_random_effects = len(model.random_effect) > 0
 
-            cascade.executor.priors_from_draws.set_priors_from_draws(model, draws)
+            cascade_at.executor.priors_from_draws.set_priors_from_draws(model, draws)
 
             seen.clear()
 
@@ -102,9 +102,9 @@ def test_estimate_grid_parameters_fair():
             loc=ages[age_idx] * 0.01 + (times[time_idx] - 2000) * 0.025,
             scale=0.01
         )
-    cascade.executor.priors_from_draws.estimate_grid_parameters(priors.value, draws, ages, times)
-    cascade.executor.priors_from_draws.estimate_grid_parameters(priors.dage, draws, ages[:-1], times)
-    cascade.executor.priors_from_draws.estimate_grid_parameters(priors.dtime, draws, ages, times[:-1])
+    cascade_at.executor.priors_from_draws.estimate_grid_parameters(priors.value, draws, ages, times)
+    cascade_at.executor.priors_from_draws.estimate_grid_parameters(priors.dage, draws, ages[:-1], times)
+    cascade_at.executor.priors_from_draws.estimate_grid_parameters(priors.dtime, draws, ages, times[:-1])
 
     for grid in [priors.value, priors.dage, priors.dtime]:
         for age_idx, time_idx in product(range(len(ages) - 1), range(len(times) - 1)):

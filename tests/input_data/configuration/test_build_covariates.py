@@ -3,8 +3,8 @@ import pytest
 import numpy as np
 import pandas as pd
 
-import cascade.input_data.configuration.construct_country
-from cascade.input_data import InputDataError
+import cascade_at.inputs.utilities.construct_country
+from cascade_at.inputs import InputDataError
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def sample_covariate():
 
 def test_covariate_nearest(sample_measurements, sample_covariate):
     m = sample_measurements.copy()
-    name = cascade.input_data.configuration.construct_country.covariate_to_measurements_nearest_favoring_same_year(
+    name = cascade_at.inputs.utilities.construct_country.covariate_to_measurements_nearest_favoring_same_year(
         sample_measurements, sample_measurements.sex_id, sample_covariate
     )
     m["cov_name"] = name
@@ -65,7 +65,7 @@ def test_convert_age_groups():
         "sex_id": [1, 1, 1, 2, 2, 2],
         "value": [0, 1, 2, 3, 4, 5],
     })
-    with_ranges = cascade.input_data.configuration.construct_country.convert_gbd_ids_to_dismod_values(by_id, age_groups)
+    with_ranges = cascade_at.inputs.utilities.construct_country.convert_gbd_ids_to_dismod_values(by_id, age_groups)
     for column in ["age_lower", "age_upper", "time_lower", "time_upper"]:
         assert column in with_ranges.columns
 
@@ -86,4 +86,4 @@ def test_convert_age_groups_failure():
         "value": [0, 1, 2, 3, 4, 5],
     })
     with pytest.raises(InputDataError):
-        cascade.input_data.configuration.construct_country.convert_gbd_ids_to_dismod_values(by_id, groups)
+        cascade_at.inputs.utilities.construct_country.convert_gbd_ids_to_dismod_values(by_id, groups)

@@ -1,4 +1,4 @@
-from cascade.core.db import cursor, connection
+from cascade_at.core.db import cursor, connection
 
 import pytest
 

@@ -4,13 +4,13 @@ import networkx as nx
 import pytest
 from numpy.random import RandomState
 
-from cascade.executor.cascade_plan import global_recipe_graph
-from cascade.executor.create_settings import create_settings
-from cascade.executor.execution_context import make_execution_context
-from cascade.executor.job_definitions import (
+from cascade_at.executor.cascade_plan import global_recipe_graph
+from cascade_at.executor.create_settings import create_settings
+from cascade_at.executor.execution_context import make_execution_context
+from cascade_at.executor.job_definitions import (
     GlobalPrepareData, FitSingleMAP, add_job_list
 )
-from cascade.runner.job_graph import RecipeIdentifier, recipe_graph_to_job_graph
+from cascade_at.runner.job_graph import RecipeIdentifier, recipe_graph_to_job_graph
 
 
 @pytest.fixture
