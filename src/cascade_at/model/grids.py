@@ -1,11 +1,12 @@
-"""Support for dismod concepts that are expressed over grids: age-time, smoothings and value priors.
+"""Support for dismod concepts that are expressed over grids: age-time,
+smoothings and value priors.
 """
 
 import numpy as np
 
-from cascade_at.core.log import getLoggers
+from cascade_at.core.log import get_loggers
 
-CODELOG, MATHLOG = getLoggers(__name__)
+LOG = get_loggers(__name__)
 
 GRID_SNAP_DISTANCE = 2e-16
 

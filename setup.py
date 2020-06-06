@@ -2,46 +2,45 @@ from setuptools import setup, PEP420PackageFinder
 
 setup(
     name="cascade_at",
-    packages=PEP420PackageFinder.find("src"),
-    package_data={"cascade_at.executor": ["data/*.cfg"]},
+    version='0.0.1',
+    description='DisMod AT Wrapper',
     package_dir={"": "src"},
-    use_scm_version=True,
-    setup_requires=["setuptools_scm"],
+    packages=PEP420PackageFinder.find("src"),
     install_requires=[
         "numpy==1.17.2",
         "pandas==0.25.1",
         "scipy",
         "sqlalchemy",
-        "networkx==2.3",
-        "tables==3.5.2",
-        "python-intervals",
-        "rocketsonde @ git+https://github.com/ihmeuw/rocketsonde.git",
-        "gridengineapp @ git+https://github.com/ihmeuw/gridengineapp.git",
-        "h5py",
+        "dill",
+        "intervaltree",
+        "pytest",
+        "tables",
+        "networkx",
+        "hypothesis"
     ],
-    extras_require={
-        "testing": ["hypothesis", "pytest", "pytest-mock"],
-        "documentation": ["sphinx", "sphinx_rtd_theme", "sphinx-autobuild", "sphinxcontrib-napoleon"],
-        "ihme_databases": ["db_tools", "db_queries"],
-    },
-    entry_points={
-        "console_scripts": [
-            ["dismodel=cascade_at.executor.dismodel_main:cascade_entry"],
-            ["dmchat=cascade_at.executor.chatter:chatter"],
-            ["dmdummy=cascade_at.executor.chatter:dismod_dummy"],
-            ["dmres2csv=cascade_at.executor.model_residuals_main:entry"],
-            ["dmsr2csv=cascade_at.executor.model_results_main:entry"],
-            ["dmgetsettings=cascade_at.executor.epiviz_json:entry"],
-            ["dmmetrics=cascade_at.dismod.metrics:entry"],
-        ]
-    },
-    scripts=["scripts/dmdismod", "scripts/dmdismodpy"],
     zip_safe=False,
+    extras_require={
+        "ihme": [
+            "db-tools==0.9.0",
+            "db-queries==21.0.0",
+            "gbd==2.1.0",
+            "jobmon==1.1.1",
+            "elmo==1.6.18",
+            "ihme-rules==2.1.0"]
+    },
     classifiers=[
         "Intended Audience :: Science/Research",
-        "Development Status :: 3 - Alpha",
-        "License :: OSI Approved :: MIT License",
+        "Licence :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.6",
-        "Topic :: Scientific/Engineering :: Statistics",
+        "Topic :: Scientific/Engineering :: Statistics"
     ],
+    entry_points={'console_scripts': [
+        'configure_inputs=cascade_at.executor.configure_inputs:main',
+        'dismod_db=cascade_at.executor.dismod_db:main',
+        'sample_simulate=cascade_at.executor.sample_simulate:main',
+        'format_upload=cascade_at.executor.format_upload:main',
+        'cleanup=cascade_at.executor.cleanup:main',
+        'run_cascade=cascade_at.executor.run:main',
+        'run_dmdismod=cascade_at.executor.run_dmdismod:main'
+    ]}
 )

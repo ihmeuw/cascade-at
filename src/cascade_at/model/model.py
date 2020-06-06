@@ -1,6 +1,8 @@
 from collections import Counter
 from collections.abc import Mapping
 
+import numpy as np
+
 from cascade_at.dismod.constants import WeightEnum
 from cascade_at.model.covariate import Covariate
 from cascade_at.model.dismod_groups import DismodGroups
@@ -18,8 +20,9 @@ class Model(DismodGroups):
     """
     def __init__(self, nonzero_rates, parent_location, child_location=None, covariates=None, weights=None):
         """
-        >>> locations = location_hierarchy(6, location_set_version_id=429)
-        >>> m = Model(["chi", "omega", "iota"], 6, locations.successors(6))
+        >>> from cascade_at.inputs.locations import LocationDAG
+        >>> locations = LocationDAG(location_set_version_id=429)
+        >>> m = Model(["chi", "omega", "iota"], 6, locations.dag.successors(6))
 
         Args:
             nonzero_rates (List[str]): A list of rates, using the Dismod-AT
@@ -87,30 +90,45 @@ class Model(DismodGroups):
             model._scale = self._scale
         return model
 
-    def write(self, writer):
-        self._ensure_weights()
-        self._check()
-        writer.start_model(self.nonzero_rates, self.child_location)
+    def get_age_array(self):
+        """
+        Gets an array of ages used across grids in the model.
+
+        Returns:
+            ages: (np.array)
+        """
+        ages = np.empty((0,), dtype=np.float)
         for group in self.values():
             for grid in group.values():
-                writer.write_ages_and_times(grid.ages, grid.times)
-        for weight_value in self.weights.values():
-            writer.write_ages_and_times(weight_value.ages, weight_value.times)
+                ages = np.append(ages, grid.ages)
+        return ages
 
-        writer.write_covariate(self.covariates)
-        writer.write_weights(self.weights)
-        for group_name, group in self.items():
-            if group_name == "rate":
-                for rate_name, grid in group.items():
-                    writer.write_rate(rate_name, grid)
-            elif group_name == "random_effect":
-                for (rate_name, child), grid in group.items():
-                    writer.write_random_effect(rate_name, child, grid)
-            elif group_name in {"alpha", "beta", "gamma"}:
-                for (covariate, target), grid in group.items():
-                    writer.write_mulcov(group_name, covariate, target, grid)
-            else:
-                raise RuntimeError(f"Unknown kind of field {group_name}")
+    def get_time_array(self):
+        """
+        Gets an array of times used across grids in the model.
+
+        Returns:
+            times: (np.array)
+        """
+        times = np.empty((0,), dtype=np.float)
+        for group in self.values():
+            for grid in group.values():
+                times = np.append(times, grid.times)
+        return times
+    
+    def get_weights(self):
+        """
+        Gets the weights to be written for the model.
+        """
+        weights = self.weights.copy()
+        arbitrary_grid = next(iter(self.rate.values()))
+        one_age_time = (arbitrary_grid.ages[0:1], arbitrary_grid.times[0:1])
+
+        for kind in (weight.name for weight in WeightEnum):
+            if kind not in self.weights:
+                weights[kind] = Var(*one_age_time)
+                weights[kind].grid.loc[:, "mean"] = 1.0
+        return weights
 
     def var_from_mean(self):
         # Call the mean mu because mean is a function.

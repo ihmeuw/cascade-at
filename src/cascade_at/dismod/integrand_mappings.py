@@ -1,9 +1,29 @@
 from functools import lru_cache
 
 from cascade_at.dismod.constants import IntegrandEnum
+from cascade_at.core.log import get_loggers
 
-from cascade_at.core.log import getLoggers
-CODELOG, MATHLOG = getLoggers(__name__)
+LOG = get_loggers(__name__)
+
+
+RATE_TO_INTEGRAND = {
+    "iota": IntegrandEnum.Sincidence,
+    "rho": IntegrandEnum.remission,
+    "chi": IntegrandEnum.mtexcess,
+    "omega": IntegrandEnum.mtother,
+    "pini": IntegrandEnum.prevalence
+}
+
+
+PRIMARY_INTEGRANDS_TO_RATES = {
+    "prevalence": "pini",
+    "Sincidence": "iota",
+    "Tincidence": "iota",
+    "incidence": "iota",
+    "remission": "rho",
+    "mtexcess": "chi",
+    "mtother": "omega"
+}
 
 
 INTEGRAND_ENCODED = """
@@ -13,7 +33,7 @@ idx measure_id                                     measure_name
 2            3               YLDs (Years Lived with Disability)
 3            4                        YLLs (Years of Life Lost)
 4            5                                       Prevalence prevalence
-5            6                                        Incidence Tincidence
+5            6                                        Incidence incidence
 6            7                                        Remission remission
 7            8                                         Duration
 8            9                            Excess mortality rate mtexcess
@@ -63,29 +83,28 @@ happens when decoding the data, not here.
 """
 
 
-@lru_cache(maxsize=1)
 def make_integrand_map():
     """Makes dict where key=GBD measure_id, value=IntegrandEnum member"""
     split_column = 64
-    return {int(line.split()[1]): IntegrandEnum[line[split_column:].strip()]
+    mapp = {int(line.split()[1]): IntegrandEnum[line[split_column:].strip()]
             for line in INTEGRAND_ENCODED.splitlines()
             if len(line) > split_column}
+    return mapp
 
 
-RATE_TO_INTEGRAND = dict(
-    iota=IntegrandEnum.Sincidence,
-    rho=IntegrandEnum.remission,
-    chi=IntegrandEnum.mtexcess,
-    omega=IntegrandEnum.mtother,
-    pini=IntegrandEnum.prevalence,
-)
-PRIMARY_INTEGRANDS_TO_RATES = {
-    "prevalence": "pini",
-    "Sincidence": "iota",
-    "Tincidence": "iota",
-    "incidence": "iota",
-    "remission": "rho",
-    "mtexcess": "chi",
-    "mtother": "omega",
-}
+INTEGRAND_MAP = make_integrand_map()
+
+
 """From Dismod integrand to Dismod primary rate name"""
+
+
+def reverse_integrand_map():
+    """
+    Makes a dictionary where key=integrand_name, value=GBD measure_id
+
+    NOTE: Over-rides the birth prevalence measure because birth prevalence is
+    defined by age_group_id in IHME databases, not measure in DisMod.
+    """
+    mapping = {v.name: k for k, v in make_integrand_map().items()}
+    mapping['prevalence'] = 5
+    return mapping

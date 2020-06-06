@@ -1,5 +1,6 @@
-from cascade_at.core.log import getLoggers
-CODELOG, MATHLOG = getLoggers(__name__)
+from cascade_at.core.log import get_loggers
+
+LOG = get_loggers(__name__)
 
 
 class _ParameterHierarchy:

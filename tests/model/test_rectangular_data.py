@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 from cascade_at.model.var import Var
-from cascade_at.executor.construct_model import rectangular_data_to_var
+from cascade_at.model.utilities.grid_helpers import rectangular_data_to_var
 
 
 @pytest.fixture
@@ -39,6 +39,3 @@ def test_rectangular_data_to_var(rectangular_data, shuffle):
     assert rectangular[0.5, 1951.5] == 0.04
     assert rectangular[3.0, 1951.5] == 0.05
     assert rectangular[7.5, 1951.5] == 0.06
-
-
-

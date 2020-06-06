@@ -1,12 +1,5 @@
-""" Functions for creating internal model representations of settings from EpiViz
-"""
 import numpy as np
 from scipy.special import logit
-
-from cascade_at.core.log import getLoggers
-from cascade_at.inputs import InputDataError
-
-CODELOG, MATHLOG = getLoggers(__name__)
 
 
 def identity(x):
@@ -27,9 +20,20 @@ These functions transform covariate data, as specified in EpiViz.
 """
 
 
-class SettingsToModelError(InputDataError):
-    """Error creating a model from the settings"""
-
-
-def policies_from_settings(settings):
-    return dict(settings.policies.items())
+RELABEL_INCIDENCE_MAP = {
+    1: {
+        'incidence': 'Sincidence',
+        'Sincidence': 'Sincidence',
+        'Tincidence': 'Tincidence'
+    },
+    2: {
+        'incidence': 'Tincidence',
+        'Sincidence': 'Sincidence',
+        'Tincidence': 'Tincidence'
+    },
+    3: {
+        'incidence': 'Sincidence',
+        'Sincidence': 'Sincidence',
+        'Tincidence': 'Tincidence'
+    }
+}

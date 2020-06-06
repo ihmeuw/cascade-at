@@ -79,7 +79,8 @@ class SmoothGrid:
         The Smooth Grid is a set of priors on an age-time grid.
 
         Args:
-            age_time_grid (Tuple(set,set)): The supporting grid.
+            ages:
+            times:
         """
         self.ages = np.sort(np.array(ages, dtype=np.float))
         self.times = np.sort(np.array(times, dtype=np.float))

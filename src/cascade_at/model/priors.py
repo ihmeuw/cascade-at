@@ -4,8 +4,8 @@ from functools import total_ordering
 import numpy as np
 import scipy.stats as stats
 
-from cascade_at.core import getLoggers
-CODELOG, MATHLOG = getLoggers(__name__)
+from cascade_at.core.log import get_loggers
+LOG = get_loggers(__name__)
 
 # A description of how dismod interprets these distributions and their parameters can be found here:
 # https://bradbell.github.io/dismod_at/doc/prior_table.htm

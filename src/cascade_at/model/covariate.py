@@ -4,9 +4,9 @@ Represents covariates in the model.
 from numbers import Number
 from numpy import isnan
 
-from cascade_at.core import getLoggers
+from cascade_at.core.log import get_loggers
 
-CODELOG, MATHLOG = getLoggers(__name__)
+LOG = get_loggers(__name__)
 
 
 class Covariate:

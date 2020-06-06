@@ -11,10 +11,10 @@ class Var(AgeTimeGrid):
     rectangular grid of age and time.
 
     This is a single age-time grid. It is usually found in
-    :py:class:`cascade_at.model.DismodGroups`
+    :py:class:`cascade.model.DismodGroups`
     object which is a set of age-time grids. The following are
     ``DismodGroups`` containing
-    :py:class:`cascade_at.model.Var`: the fit, initial guess, truth var,
+    :py:class:`cascade.model.Var`: the fit, initial guess, truth var,
     and scale var.
 
     Args:

@@ -1,11 +1,13 @@
 """ This module defines specializations of the general tools in abstract_form,
 mostly useful field types.
 """
-from cascade_at.core.form.abstract_form import Form, Field, SimpleTypeField, NO_VALUE
+from re import split
 
-from cascade_at.core.log import getLoggers
+from cascade_at.core.form.abstract_form import (
+    Form, Field, SimpleTypeField, NO_VALUE)
+from cascade_at.core.log import get_loggers
 
-CODELOG, MATHLOG = getLoggers(__name__)
+LOG = get_loggers(__name__)
 
 
 class BoolField(SimpleTypeField):
@@ -26,6 +28,14 @@ class FloatField(SimpleTypeField):
 class StrField(SimpleTypeField):
     def __init__(self, *args, **kwargs):
         super().__init__(str, *args, **kwargs)
+
+
+class NativeListField(SimpleTypeField):
+    """Because we already have a ListField for space separated
+    strings which become lists, this field type should be used
+    when the .json config returns a native python list."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(list, *args, **kwargs)
 
 
 class FormList(Form):
@@ -84,7 +94,7 @@ class FormList(Form):
 
 class Dummy(Field):
     """ A black hole which consumes all values without error. Use to mark
-    sections of the utilities which have yet to be implemented and should
+    sections of the configuration which have yet to be implemented and should
     be ignored.
     """
 
@@ -161,7 +171,8 @@ class ListField(SimpleTypeField):
 class StringListField(ListField):
     def _validate_and_normalize(self, instance, value):
         if isinstance(value, str):
-            values = value.split(self.separator)
+            values = [val.strip() for val in split(
+                rf'{self.separator}+', value.strip())]
         else:
             # This case hits when there's only a single numerical value in the
             # list because Epiviz switches from strings to the actual numerical

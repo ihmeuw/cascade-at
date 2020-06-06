@@ -2,7 +2,7 @@ from numpy import isclose
 
 import pytest
 
-from cascade_at.model import SmoothGrid
+from cascade_at.model.smooth_grid import SmoothGrid
 from cascade_at.model.priors import Gaussian
 
 

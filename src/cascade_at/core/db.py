@@ -11,11 +11,10 @@ from time import sleep
 
 import sqlalchemy
 
-from cascade_at.core import CascadeError
-from cascade_at.core.log import getLoggers
-from cascade_at.context.configuration import application_config
+from cascade_at.core.errors import CascadeError
+from cascade_at.core.log import get_loggers
 
-CODELOG, MATHLOG = getLoggers(__name__)
+LOG = get_loggers(__name__)
 
 BLOCK_SHARED_FUNCTION_ACCESS = False
 """
@@ -68,98 +67,7 @@ db_queries = ModuleProxy("db_queries")
 age_spans = ModuleProxy("db_queries.get_age_metadata")
 db_tools = ModuleProxy("db_tools")
 ezfuncs = ModuleProxy("db_tools.ezfuncs")
-
-
-def use_local_odbc_ini():
-    """The password vault is an odbc.ini file that's on a drive that
-    isn't accessible from all nodes, so copy it to a place it
-    can be found and point the connection generation to it."""
-    path = application_config()["Database"]
-    local_odbc = Path(path["local-odbc"])
-    have_default = (Path(path["corporate-odbc"]).exists()
-                    or Path(path["personal-odbc"]).expanduser().exists())
-    if local_odbc.exists() and not have_default:
-        CODELOG.info(f"Using odbc.ini at {local_odbc}")
-        db_tools.config.DBConfig(odbc_filepath=str(local_odbc))
-    else:
-        CODELOG.debug(f"Using default odbc.ini")
-
-
-@contextmanager
-def cursor(execution_context=None, database=None):
-    """A context manager which exposes a database cursor connected to the database specified by
-    either the execution_context or database if that is specified. The cursor will be closed when
-    the manager exits and if it exits without raising an exception the connection will also be committed.
-    """
-
-    with connection(execution_context, database) as c:
-        cursor = c.cursor()
-
-        try:
-            yield cursor
-        finally:
-            cursor.close()
-
-
-@contextmanager
-def connection(execution_context=None, database=None):
-    if execution_context is None:
-        if database is None:
-            raise ValueError("Must supply either execution_context or database")
-    else:
-        if database is not None:
-            raise ValueError("Must not supply both execution_context and database")
-        database = execution_context.parameters.database
-
-    CODELOG.debug(f"Calling ezfuncs.get_connection({database})")
-    connection = ezfuncs.get_connection(database)
-    yield connection
-    connection.commit()
-    connection.close()
-
-
-def repeat_request(query_function):
-    """
-    This retries the given function if the function fails with one of
-    a known set of exceptions. If it's any other exception, then it re-raises
-    that exception.
-
-    Use as::
-
-        from cascade_at.core.api import db_queries, query_function
-        query_function(db_queries.get_demographics)(gbd_team="epi",
-                       gbd_round_id=6)
-
-    Using this function means you would rather the program retry forever
-    than that it fail when a database is down.
-    """
-    def repeat(*args, **kwargs):
-        if hasattr(query_function, "__name__"):
-            name = query_function.__name__
-        else:
-            name = str(query_function)
-
-        could_work_eventually = True
-        while could_work_eventually:
-            try:
-                result = query_function(*args, **kwargs)
-            except sqlalchemy.exc.OperationalError as op_err:
-                if "Lost connection" in str(op_err):
-                    CODELOG.warning(f"Query {name} failed with err {op_err}. Retrying.")
-                else:
-                    CODELOG.warning(f"Query {name} failed with err {op_err}. Not retrying.")
-                    raise
-            except Exception as err:
-                CODELOG.warning(
-                    f"Query {name} failed with err {err}. Quitting. "
-                    "If this exception looks recoverable, then add it to the list "
-                    "of recoverable exceptions"
-                )
-                raise
-            else:
-                return result
-            # Long sleep times because we want this to work eventually and not
-            # overload the database. These failures should be rare.
-            sleep(randint(60, 600))
-
-    return repeat
+gbd = ModuleProxy("gbd")
+decomp_step = ModuleProxy("gbd.decomp_step")
+elmo = ModuleProxy("elmo")
+swarm = ModuleProxy("jobmon.client.swarm")

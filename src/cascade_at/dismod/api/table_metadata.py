@@ -1,19 +1,19 @@
 """
 This describes the tables in the sqlite file that Dismod reads.
 
-Use this interface instead of raw SQL queries becasue
+Use this interface instead of raw SQL queries because
 
  * It controls the data type for each column. The Sqlite
-   api doesn't say what the data type should be in Python.
+   db doesn't say what the data type should be in Python.
 
- * It verifies that the api has what we think it has and
+ * It verifies that the db has what we think it has and
    warns us when database tables change names or when
    columns change names.
 
- * It lets us change a column name in the api table without
+ * It lets us change a column name in the db table without
    changing the column name we use to read it. This
    protects us against column name changes, which are
-   freuqent.
+   frequent.
 
  * It records which tables depend on which other tables
    which is necessary in order to write Pandas versions
@@ -29,8 +29,8 @@ from sqlalchemy import Column, Integer, String, Float, Enum, ForeignKey
 from sqlalchemy import BigInteger
 from sqlalchemy.ext.compiler import compiles
 
-from cascade_at.core.log import getLoggers
-CODELOG, MATHLOG = getLoggers(__name__)
+from cascade_at.core.log import get_loggers
+LOG = get_loggers(__name__)
 
 
 # Sqlite matches names to types. Brad checks exact names against a set
@@ -294,7 +294,9 @@ class MulCov(Base):
     If mulcov_type is of type meas_value or meas_std, this must be null."""
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=True)
     covariate_id = Column(None, ForeignKey("covariate.covariate_id"), nullable=False)
-    smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
+    group_smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)
+    group_id = Column(None, ForeignKey("subgroup.subgroup_id"), nullable=False)
+    subgroup_smooth_id = Column(Integer(), nullable=True)
     """If this is null, the covariate multiplier is always zero and no
     model_variables are allocated for it."""
 
@@ -311,6 +313,7 @@ class AvgInt(Base):
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=False)
     node_id = Column(None, ForeignKey("node.node_id"), nullable=False)
     weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=False)
+    subgroup_id = Column(None, ForeignKey("subgroup.subgroup_id"), nullable=False)
     age_lower = Column(Float(), nullable=False)
     age_upper = Column(Float(), nullable=False)
     time_lower = Column(Float(), nullable=False)
@@ -334,7 +337,8 @@ class Data(Base):
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=False)
     density_id = Column(None, ForeignKey("density.density_id"), nullable=False)
     node_id = Column(None, ForeignKey("node.node_id"), nullable=False)
-    weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=False)
+    weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=True)
+    subgroup_id = Column(None, ForeignKey("subgroup.subgroup_id"), nullable=False)
     hold_out = Column(Integer(), nullable=False)
     """Zero or one for hold outs during fit command"""
     meas_value = Column(Float(), nullable=False)
@@ -505,7 +509,7 @@ class Simulate(Base):
 
     simulate_id = Column(Integer(), primary_key=True, autoincrement=False)
     simulate_index = Column(Integer(), nullable=False)
-    data_subset_id = Column(None, ForeignKey("data_subset_table.data_subset_id"), nullable=False)
+    data_subset_id = Column(None, ForeignKey("data_subset.data_subset_id"), nullable=False)
     simulate_value = Column(Float(), nullable=False)  # Greg's has meas_value
     simulate_delta = Column(Float(), nullable=False)  # Greg's has meas_std
 
@@ -518,7 +522,7 @@ class DataSim(Base):
 
     data_sim_id = Column(Integer(), primary_key=True, autoincrement=False)
     simulate_index = Column(Integer(), nullable=False)
-    data_subset_id = Column(Integer(), ForeignKey("data_subset_table.data_subset_id"), nullable=False)
+    data_subset_id = Column(Integer(), ForeignKey("data_subset.data_subset_id"), nullable=False)
     data_sim_value = Column(Float(), nullable=False)
     data_sim_delta = Column(Float(), nullable=False)
     data_sim_stdcv = Column(Float(), nullable=False)
@@ -552,6 +556,36 @@ class Var(Base):
     mulcov_id = Column(Integer(), nullable=True)
 
 
+class SubGroup(Base):
+    """Input"""
+    __tablename__ = "subgroup"
+
+    subgroup_id = Column(Integer(), primary_key=True, autoincrement=False)
+    subgroup_name = Column(String(), nullable=False)
+    group_id = Column(Integer(), nullable=False)
+    group_name = Column(String(), nullable=False)
+
+
+class HesFixed(Base):
+
+    __tablename__ = "hes_fixed"
+
+    hes_fixed_id = Column(Integer(), primary_key=True, autoincrement=False)
+    row_var_id = Column(Integer(), nullable=False)
+    col_var_id = Column(Integer(), nullable=False)
+    hes_fixed_value = Column(Float(), nullable=True)
+
+
+class HesRandom(Base):
+
+    __tablename__ = "hes_random_value"
+
+    hes_random_id = Column(Integer(), primary_key=True, autoincrement=False)
+    row_var_id = Column(Integer(), nullable=False)
+    col_var_id = Column(Integer(), nullable=False)
+    hes_random_value = Column(Float(), nullable=True)
+
+
 _TYPE_MAP = {
     np.dtype("O"): String,
     str: String,
@@ -569,6 +603,6 @@ def add_columns_to_table(table, column_identifiers):
         column_identifiers: dict(name -> type) where type
             is one of int, float, str
     """
-    CODELOG.debug(f"Adding columns to {table.name} table {list(column_identifiers.keys())}")
+    LOG.debug(f"Adding columns to {table.name} table {list(column_identifiers.keys())}")
     for name, python_type in column_identifiers.items():
         table.append_column(Column(name, _TYPE_MAP[python_type]()))
