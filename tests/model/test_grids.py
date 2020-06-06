@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from cascade.model.grids import AgeTimeGrid, unique_floats
+from cascade_at.model.grids import AgeTimeGrid, unique_floats
 
 
 @pytest.fixture

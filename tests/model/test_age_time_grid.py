@@ -6,7 +6,7 @@ import pytest
 from numpy import isclose
 import pandas as pd
 
-from cascade.model.age_time_grid import AgeTimeGrid
+from cascade_at.model.age_time_grid import AgeTimeGrid
 
 
 def test_create():

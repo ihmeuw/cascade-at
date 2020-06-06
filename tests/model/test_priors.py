@@ -3,7 +3,7 @@ import numpy as np
 from numpy import isclose
 from numpy.random import RandomState
 
-from cascade.model.priors import (
+from cascade_at.model.priors import (
     Constant,
     Gaussian,
     Uniform,

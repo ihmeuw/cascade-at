@@ -2,8 +2,8 @@ from numpy import isclose
 
 import pytest
 
-from cascade.model import SmoothGrid
-from cascade.model.priors import Gaussian
+from cascade_at.model.smooth_grid import SmoothGrid
+from cascade_at.model.priors import Gaussian
 
 
 def test_smooth_grid__development_target():
