@@ -185,7 +185,7 @@ def parser():
 
 def entry():
     """This is installed as a script in the Python environment
-    so that you can print metrics on any db file."""
+    so that you can print metrics on any api file."""
     args = parser().parse_args()
     if args.v:
         level = logging.DEBUG

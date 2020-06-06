@@ -126,7 +126,7 @@ def repeat_request(query_function):
 
     Use as::
 
-        from cascade_at.core.db import db_queries, query_function
+        from cascade_at.core.api import db_queries, query_function
         query_function(db_queries.get_demographics)(gbd_team="epi",
                        gbd_round_id=6)
 

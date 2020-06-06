@@ -6,7 +6,7 @@ output is edited.
  * Dismod-AT writes "end <command>" to the log just before exit(0).
    All other error messages are on stderr.
 
- * Many errors use error_exit, so that they write to the db log,
+ * Many errors use error_exit, so that they write to the api log,
    print to stderr, and then exit(1).
 
  * The only non-zero exit code chosen by Dismod-AT is exit(1),

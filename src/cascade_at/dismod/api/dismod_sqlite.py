@@ -291,7 +291,7 @@ class DismodFile:
             return data
         else:
             raise AttributeError(
-                f"Tried to write to {table_name} in Dismod db file but no such table is listed in the schema.")
+                f"Tried to write to {table_name} in Dismod api file but no such table is listed in the schema.")
 
     def __setattr__(self, table_name, df):
         if table_name in self.__dict__.get("_table_definitions", {}):
@@ -301,7 +301,7 @@ class DismodFile:
                 df = df.assign(**{f"{table_name}_id": df.index})
             self._table_data[table_name] = df
         elif isinstance(df, pd.DataFrame):
-            raise KeyError(f"Tried to set table {table_name} but it isn't in the db specification")
+            raise KeyError(f"Tried to set table {table_name} but it isn't in the api specification")
         else:
             super().__setattr__(table_name, df)
 
@@ -333,7 +333,7 @@ class DismodFile:
         it was last written is not re-written.
         """
         if self.engine is None:
-            raise RuntimeError("Cannot flush db file tables before an engine is set "
+            raise RuntimeError("Cannot flush api file tables before an engine is set "
                                "and the engine is None.")
         with self.engine.begin() as connection:
             CODELOG.debug(f"DismodFile has table data for {', '.join(sorted(self._table_data.keys()))}")
