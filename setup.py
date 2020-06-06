@@ -15,8 +15,7 @@ setup(
         "intervaltree",
         "pytest",
         "tables",
-        "networkx",
-        "hypothesis"
+        "networkx"
     ],
     zip_safe=False,
     extras_require={
