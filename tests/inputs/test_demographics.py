@@ -11,7 +11,7 @@ def D(ihme):
 
 @pytest.fixture(scope='module')
 def D_with_loc_set(ihme):
-    d = Demographics(gbd_round_id=6, location_set_version_id=544)
+    d = Demographics(gbd_round_id=6, location_set_version_id=684)
     return d
 
 

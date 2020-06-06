@@ -214,7 +214,7 @@ BASE_CASE = {
     "gbd_round_id": 6,
     "csmr_cod_output_version_id": 84,
     "csmr_mortality_output_version_id": 8003,
-    "location_set_version_id": 544,
+    "location_set_version_id": 684,
     "tolerance": {
         "fixed": 1.0e-6,
         "random": 1.0e-6

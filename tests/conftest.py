@@ -96,7 +96,7 @@ def Demographics():
 
 @pytest.fixture(scope='session')
 def dag(ihme):
-    d = LocationDAG(location_set_version_id=544, gbd_round_id=6)
+    d = LocationDAG(location_set_version_id=684, gbd_round_id=6)
     return d
 
 

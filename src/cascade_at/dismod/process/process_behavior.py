@@ -20,9 +20,9 @@ output is edited.
 """
 import re
 from cascade_at.dismod import DismodATException
-from cascade_at.core import getLoggers
+from cascade_at.core.log import get_loggers
 
-CODELOG, MATHLOG = getLoggers(__name__)
+LOG = get_loggers(__name__)
 
 RE_EXIT = re.compile(r"EXIT: (.*)")
 RE_ITERATIONS = re.compile(r"Number of Iterations\W+ (\d+)")
@@ -80,7 +80,7 @@ def get_fit_output(stdout):
         try:
             iteration_cnt = int(iter_match.group(1))
         except ValueError:
-            CODELOG.warning(f"Failed to translate {iter_match} to int")
+            LOG.warning(f"Failed to translate {iter_match} to int")
     return ipopt_class, ipopt_exit, iteration_cnt
 
 
@@ -111,7 +111,7 @@ def check_command(command, log, return_code, stdout, stderr):
         if ipopt_class != "examine":
             _claimed_to_be_complete(log, "fit", stderr)
         else:
-            CODELOG.info(f'Fit ended with "{ipopt_exit}" so not failing.')
+            LOG.info(f'Fit ended with "{ipopt_exit}" so not failing.')
     else:
         _claimed_to_be_complete(log, base_command, stderr)
 
