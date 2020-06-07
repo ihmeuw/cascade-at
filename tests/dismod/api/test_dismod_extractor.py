@@ -9,7 +9,7 @@ from cascade_at.dismod.api.dismod_extractor import DismodExtractorError
 
 def test_empty_database():
     with pytest.raises(DismodExtractorError):
-        DismodExtractor('temp.db')
+        DismodExtractor('temp-2.db')
 
 
 def test_run_dismod_fit_predict(dismod, ihme, df):
