@@ -5,8 +5,8 @@ from random import choice, sample, randint
 
 from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.settings.settings import load_settings
-from cascade_at.inputs.measurement_inputs import (
-    MeasurementInputs, MeasurementInputsFromSettings)
+from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
+from cascade_at.settings.convert import data_cv_from_settings
 from cascade_at.inputs.locations import LocationDAG
 
 
@@ -42,7 +42,7 @@ def test_pickle(mi, context):
 def test_data_cv_from_settings():
     settings = BASE_CASE.copy()
     s = load_settings(settings)
-    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    cv = data_cv_from_settings(settings=s)
     for k, v in cv.items():
         assert v == 0.1
 
@@ -56,7 +56,7 @@ def test_data_cv_from_settings_by_integrand():
         }]
     })
     s = load_settings(settings)
-    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    cv = data_cv_from_settings(settings=s)
     for k, v in cv.items():
         if k == 'prevalence':
             assert v == 0.5
@@ -97,7 +97,6 @@ def test_location_drill_start_only(ihme):
     # be set to all descendants of the test loc, plus the test loc itself
     assert len(mi.demographics.location_id) == num_descendants + 1
     assert len(mi.demographics.mortality_rate_location_id) == num_mr_locs
-    these_settings
 
 
 def test_location_drill_start_end(ihme):

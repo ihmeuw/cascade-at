@@ -1,5 +1,6 @@
 from cascade_at.inputs.utilities.covariate_specifications import create_covariate_specifications
 from cascade_at.model.covariate import Covariate
+from cascade_at.settings.settings_config import CountryCovariate, StudyCovariate
 from cascade_at.inputs.utilities.gbd_ids import get_study_level_covariate_ids, get_country_level_covariate_ids
 from cascade_at.core.log import get_loggers
 
@@ -7,11 +8,8 @@ LOG = get_loggers(__name__)
 
 
 class CovariateSpecs:
-    def __init__(self, country_covariates, study_covariates):
-        """
-        :param study_covariates: (cascade_at.settings.settings.Configuration.study_covariate)
-        :param country_covariates: (cascade_at.settings.settings.Configuration.country_covariate)
-        """
+    def __init__(self, country_covariates: CountryCovariate, study_covariates: StudyCovariate):
+
         self.covariate_list = []
         self.country_covariates = country_covariates
         self.study_covariates = study_covariates
