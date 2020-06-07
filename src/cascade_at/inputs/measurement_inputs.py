@@ -129,6 +129,9 @@ class MeasurementInputs:
         self.crosswalk_version_id = crosswalk_version_id
         self.country_covariate_id = country_covariate_id
         self.conn_def = conn_def
+        self.drill_location_start = drill_location_start
+        self.drill_location_end = drill_location_end
+
         self.decomp_step = ds.decomp_step_from_decomp_step_id(
             self.decomp_step_id
         )
@@ -148,7 +151,7 @@ class MeasurementInputs:
         )
 
         drill_locations, mr_locations = self.locations_by_drill(
-            drill_location_start, drill_location_end)
+            self.drill_location_start, self.drill_location_end)
         if drill_locations:
             self.demographics.location_id = drill_locations
             self.demographics.mortality_rate_location_id = mr_locations
@@ -309,10 +312,13 @@ class MeasurementInputs:
         LOG.info(f"Getting grid for the avgint table "
                  f"for parent location ID {parent_location_id} "
                  f"and sex_id {sex_id}.")
+        if self.drill_location_start is not None:
+            locations = self.demographics.location_id
+        else:
+            locations = self.location_dag.parent_children(parent_location_id)
         grid = expand_grid({
             'sex_id': [sex_id],
-            'location_id': self.location_dag.parent_children(
-                parent_location_id),
+            'location_id': locations,
             'year_id': self.demographics.year_id,
             'age_group_id': self.demographics.age_group_id
         })
