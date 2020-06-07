@@ -97,7 +97,6 @@ def test_location_drill_start_only(ihme):
     # be set to all descendants of the test loc, plus the test loc itself
     assert len(mi.demographics.location_id) == num_descendants + 1
     assert len(mi.demographics.mortality_rate_location_id) == num_mr_locs
-    these_settings
 
 
 def test_location_drill_start_end(ihme):

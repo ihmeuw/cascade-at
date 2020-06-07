@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
 from copy import copy
-from typing import List, Optional
+from typing import List, Optional, Dict, Union
 
 from cascade_at.core.db import decomp_step as ds
 
+from cascade_at.settings.settings import SettingsConfig
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
 from cascade_at.inputs.asdr import ASDR
@@ -13,7 +14,7 @@ from cascade_at.inputs.covariate_data import CovariateData
 from cascade_at.inputs.covariate_specs import CovariateSpecs
 from cascade_at.inputs.data import CrosswalkVersion
 from cascade_at.inputs.demographics import Demographics
-from cascade_at.inputs.locations import LocationDAG
+from cascade_at.inputs.locations import LocationDAG, locations_by_drill
 from cascade_at.inputs.population import Population
 from cascade_at.inputs.utilities.covariate_weighting import (
     get_interpolated_covariate_values
@@ -39,13 +40,13 @@ class MeasurementInputs:
 
     def __init__(self, model_version_id: int,
                  gbd_round_id: int, decomp_step_id: int,
-                 csmr_process_version_id: int,
-                 csmr_cause_id: int, crosswalk_version_id: int,
-                 country_covariate_id: int,
                  conn_def: str,
-                 location_set_version_id: Optional[int]=None,
-                 drill_location_start: Optional[int]=None,
-                 drill_location_end: Optional[List[int]]=None):
+                 country_covariate_id: List[int],
+                 csmr_cause_id: int, crosswalk_version_id: int,
+                 csmr_process_version_id: Optional[int] = None,
+                 location_set_version_id: Optional[int] = None,
+                 drill_location_start: Optional[int] = None,
+                 drill_location_end: Optional[List[int]] = None):
         """
         The class that constructs all of the measurement inputs. Pulls ASDR,
         CSMR, crosswalk versions, and country covariates, and puts them into
@@ -53,78 +54,87 @@ class MeasurementInputs:
         Performs covariate value interpolation if age and year ranges
         don't match up with GBD age and year ranges.
 
-        Parameters:
-            model_version_id: (int) the model version ID
-            gbd_round_id: (int) the GBD round ID
-            decomp_step_id: (int) the decomp step ID
-            csmr_process_version_id: (int) process version ID for CSMR
-            csmr_cause_id: (int) cause to pull CSMR from
-            crosswalk_version_id: (int) crosswalk version to use
-            country_covariate_id: (list of int) list of covariate IDs
-            conn_def: (str) connection definition from .odbc file (e.g. 'epi')
-            location_set_version_id: (int) can be None, if it's none, get the
-            best location_set_version_id for estimation hierarchy of this
-                GBD round.
-            drill_location_start: (int) optional, which location ID to drill
-                from as the parent
-            drill_location_end: (intlist) optional, which immediate children
-                of the drill_location_start parent to include in the drill
+        Parameters
+        ==========
 
-        Attributes:
-            self.decomp_step: (str) the decomp step in string form
-            self.demographics: (cascade_at.inputs.demographics.Demographics) a
-                demographics object that specifies the age group, sex,
-                location, and year IDs to grab
-            self.integrand_map: (dict) dictionary mapping from GBD measure IDs
-                to DisMod IDs
-            self.asdr: (cascade_at.inputs.asdr.ASDR) all-cause mortality input
-                object
-            self.csmr: (cascade_at.inputs.csmr.CSMR) cause-specific mortality
-                input object from cause csmr_cause_id
-            self.data: (cascade_at.inputs.data.CrosswalkVersion) crosswalk
-                version data from IHME database
-            self.covariate_data: (List[
-                cascade_at.inputs.covariate_data.CovariateData]) list of
-                covariate data objects that contains the raw covariate data
-                mapped to IDs
-            self.location_dag: (cascade_at.inputs.locations.LocationDAG) DAG
-                of locations to be used
-            self.population: (cascade_at.inputs.population.Population)
-                population object that is used for covariate weighting
-            self.data_eta: (Dict[str, float]): dictionary of eta value to be
-                applied to each measure
-            self.density: (Dict[str, str]): dictionary of density to be
-                applied to each measure
-            self.nu: (Dict[str, float]): dictionary of nu value to be applied
-                to each measure
-            self.dismod_data: (pd.DataFrame) resulting dismod data formatted
-                to be used in the dismod database
+        model_version_id
+            the model version ID
+        gbd_round_id
+            the GBD round ID
+        decomp_step_id
+            the decomp step ID
+        csmr_process_version_id
+            process version ID for CSMR
+        csmr_cause_id: (int) cause to pull CSMR from
+        crosswalk_version_id
+            crosswalk version to use
+        country_covariate_id
+            list of covariate IDs
+        conn_def
+            connection definition from .odbc file (e.g. 'epi') to connect to the IHME databases
+        location_set_version_id
+            can be None, if it's none, get the best location_set_version_id for estimation hierarchy of this GBD round
+        drill_location_start
+            which location ID to drill from as the parent
+        drill_location_end
+            which immediate children of the drill_location_start parent to include in the drill
 
-        Usage:
+        Attributes
+        ==========
+        self.decomp_step : str
+            the decomp step in string form
+        self.demographics : cascade_at.inputs.demographics.Demographics
+            a demographics object that specifies the age group, sex,
+            location, and year IDs to grab
+        self.integrand_map : Dict[int, int]
+            dictionary mapping from GBD measure IDs to DisMod IDs
+        self.asdr : cascade_at.inputs.asdr.ASDR
+            all-cause mortality input object
+        self.csmr : cascade_at.inputs.csmr.CSMR
+            cause-specific mortality input object from cause csmr_cause_id
+        self.data : cascade_at.inputs.data.CrosswalkVersion
+            crosswalk version data from IHME database
+        self.covariate_data : List[cascade_at.inputs.covariate_data.CovariateData]
+            list of covariate data objects that contains the raw covariate data mapped to IDs
+        self.location_dag : cascade_at.inputs.locations.LocationDAG
+            DAG of locations to be used
+        self.population: (cascade_at.inputs.population.Population)
+            population object that is used for covariate weighting
+        self.data_eta: (Dict[str, float]): dictionary of eta value to be
+            applied to each measure
+        self.density: (Dict[str, str]): dictionary of density to be
+            applied to each measure
+        self.nu: (Dict[str, float]): dictionary of nu value to be applied
+            to each measure
+        self.dismod_data: (pd.DataFrame) resulting dismod data formatted
+            to be used in the dismod database
+
+        Examples
+        ========
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
-
+        >>>
         >>> settings = load_settings(BASE_CASE)
-        >>> covariate_ids = [i.country_covariate_id for i in
-        >>>                  settings.country_covariate]
-
+        >>> covariate_id = [i.country_covariate_id for i in settings.country_covariate]
+        >>>
         >>> i = MeasurementInputs(
         >>>    model_version_id=settings.model.model_version_id,
-        >>>            gbd_round_id=settings.gbd_round_id,
-        >>>            decomp_step_id=settings.model.decomp_step_id,
-        >>>            csmr_process_version_id=None,
-        >>>            csmr_cause_id = settings.model.add_csmr_cause,
+        >>>    gbd_round_id=settings.gbd_round_id,
+        >>>    decomp_step_id=settings.model.decomp_step_id,
+        >>>    csmr_process_version_id=None,
+        >>>    csmr_cause_id = settings.model.add_csmr_cause,
         >>>    crosswalk_version_id=settings.model.crosswalk_version_id,
-        >>>            country_covariate_id=covariate_ids,
-        >>>            conn_def='epi',
-        >>>    location_set_version_id=settings.location_set_version_id)
+        >>>    country_covariate_id=covariate_id,
+        >>>    conn_def='epi',
+        >>>    location_set_version_id=settings.location_set_version_id
+        >>> )
         >>> i.get_raw_inputs()
-        >>> i.configure_inputs_for_dismod()
+        >>> i.configure_inputs_for_dismod(settings)
         """
-        LOG.info(f"Initializing input object for model version ID "
-                 f"{model_version_id}.")
+        LOG.info(f"Initializing input object for model version ID {model_version_id}.")
         LOG.info(f"GBD Round ID {gbd_round_id}.")
         LOG.info(f"Pulling from connection {conn_def}.")
+
         self.model_version_id = model_version_id
         self.gbd_round_id = gbd_round_id
         self.decomp_step_id = decomp_step_id
@@ -133,13 +143,10 @@ class MeasurementInputs:
         self.crosswalk_version_id = crosswalk_version_id
         self.country_covariate_id = country_covariate_id
         self.conn_def = conn_def
-        self.decomp_step = ds.decomp_step_from_decomp_step_id(
-            self.decomp_step_id
-        )
+        self.decomp_step = ds.decomp_step_from_decomp_step_id(self.decomp_step_id)
+
         if location_set_version_id is None:
-            self.location_set_version_id = get_location_set_version_id(
-                gbd_round_id=self.gbd_round_id
-            )
+            self.location_set_version_id = get_location_set_version_id(gbd_round_id=self.gbd_round_id)
         else:
             self.location_set_version_id = location_set_version_id
 
@@ -150,9 +157,11 @@ class MeasurementInputs:
             location_set_version_id=self.location_set_version_id,
             gbd_round_id=self.gbd_round_id
         )
-
-        drill_locations, mr_locations = self.locations_by_drill(
-            drill_location_start, drill_location_end)
+        drill_locations, mr_locations = locations_by_drill(
+            drill_location_start=drill_location_start,
+            drill_location_end=drill_location_end,
+            dag=self.location_dag
+        )
         if drill_locations:
             self.demographics.location_id = drill_locations
             self.demographics.mortality_rate_location_id = mr_locations
@@ -215,15 +224,17 @@ class MeasurementInputs:
             gbd_round_id=self.gbd_round_id
         ).get_population()
 
-    def configure_inputs_for_dismod(self, settings,
-                                    mortality_year_reduction=5):
+    def configure_inputs_for_dismod(self, settings: SettingsConfig,
+                                    mortality_year_reduction: int = 5):
         """
         Modifies the inputs for DisMod based on model-specific settings.
 
-        :param settings: (cascade.settings.configuration.Configuration)
-        :param mortality_year_reduction: (int) number of years to
-            decimate csmr and asdr
-        :return: self
+        Arguments
+        ==========
+        settings
+            Settings for the model
+        mortality_year_reduction
+            number of years to decimate csmr and asdr
         """
         self.data_eta = data_eta_from_settings(settings)
         self.density = density_from_settings(settings)
@@ -281,7 +292,7 @@ class MeasurementInputs:
 
         return self
 
-    def add_covariates_to_data(self, df):
+    def add_covariates_to_data(self, df: pd.DataFrame):
         """
         Add on covariates to a data frame that has age_group_id, year_id
         or time-age upper / lower, and location_id and sex_id. Adds both
@@ -304,7 +315,7 @@ class MeasurementInputs:
 
         return df
 
-    def to_gbd_avgint(self, parent_location_id, sex_id):
+    def to_gbd_avgint(self, parent_location_id: int, sex_id: int):
         """
         Converts the demographics of the model to the avgint table.
         :return:
@@ -327,14 +338,11 @@ class MeasurementInputs:
         grid = self.add_covariates_to_data(df=grid)
         return grid
 
-    def interpolate_country_covariate_values(self, df, cov_dict):
+    def interpolate_country_covariate_values(self, df: pd.DataFrame, cov_dict: Dict[Union[float, str], pd.DataFrame]):
         """
         Interpolates the covariate values onto the data
         so that the non-standard ages and years match up to meaningful
         covariate values.
-
-        :param df: (pd.DataFrame)
-        :param cov_dict: (Dict)
         """
         LOG.info(f"Interpolating and merging the country covariates.")
         interp_df = get_interpolated_covariate_values(
@@ -359,9 +367,7 @@ class MeasurementInputs:
                 )
         return df
 
-    def calculate_country_covariate_reference_values(self,
-                                                     parent_location_id,
-                                                     sex_id):
+    def calculate_country_covariate_reference_values(self, parent_location_id: int, sex_id: int) -> List[CovariateSpecs]:
         """
         Gets the country covariate reference value for a covariate ID and a
         parent location ID. Also gets the maximum difference between the
@@ -438,53 +444,18 @@ class MeasurementInputs:
         covariate_specs.create_covariate_list()
         return covariate_specs
 
-    def locations_by_drill(self, drill_location_start, drill_location_end):
-        if not drill_location_start and drill_location_end:
-            raise ValueError(
-                "A location_drill_start must be specified in order "
-                "to perform a location drill.")
-
-        elif drill_location_start and not drill_location_end:
-            LOG.info(
-                f"This is a DRILL model, so only going to pull data "
-                f"associated with drill location start "
-                f"{drill_location_start} and its descendants."
-            )
-            drill_locations = ([drill_location_start]
-                               + list(self.location_dag.descendants(
-                                    location_id=drill_location_start)))
-            mr_locations = list(
-                self.location_dag.parent_children(drill_location_start))
-        elif drill_location_start and drill_location_end:
-            LOG.info(
-                f"This is a DRILL model, so only data for "
-                f"{drill_location_start} (the parent) and descendents "
-                f"of {drill_location_end} (the children) will be pulled."
-            )
-            drill_locations = [drill_location_start]
-            for child in drill_location_end:
-                drill_locations.append(child)
-                drill_locations = drill_locations + list(
-                    self.location_dag.descendants(location_id=child))
-            mr_locations = [drill_location_start] + drill_location_end
-        else:
-            drill_locations = None
-            mr_locations = None
-        return drill_locations, mr_locations
-
     def reset_index(self, drop, inplace):
         pass
 
 
 class MeasurementInputsFromSettings(MeasurementInputs):
-    def __init__(self, settings):
+    def __init__(self, settings: SettingsConfig):
         """
         Wrapper for MeasurementInputs that takes a settings object rather
         than the individual arguments. For convenience.
-        :param settings: (
-            cascade.collector.settings_configuration.SettingsConfig)
 
-        Example:
+        Examples
+        ========
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
 

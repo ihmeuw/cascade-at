@@ -1,6 +1,7 @@
 import networkx as nx
 import numpy as np
 import pandas as pd
+from typing import List
 
 from cascade_at.inputs.utilities.gbd_ids import CascadeConstants
 from cascade_at.core.db import db_queries
@@ -67,15 +68,50 @@ class LocationDAG:
         sorted_locations = list(nx.lexicographical_topological_sort(self.dag))
         parents = list()
         names = list()
-        for l in sorted_locations:
-            parent = list(self.dag.predecessors(l))
+        for loc in sorted_locations:
+            parent = list(self.dag.predecessors(loc))
             if parent:
                 parents.append(int(parent[0]))
             else:
                 parents.append(np.nan)
-            names.append(self.dag.nodes[l]["location_name"])
+            names.append(self.dag.nodes[loc]["location_name"])
         return pd.DataFrame(dict(
             location_id=sorted_locations,
             parent_id=parents,
             name=names
         ))
+
+
+def locations_by_drill(drill_location_start: int, drill_location_end: List[int], dag: LocationDAG):
+    if not drill_location_start and drill_location_end:
+        raise ValueError(
+            "A location_drill_start must be specified in order "
+            "to perform a location drill.")
+
+    elif drill_location_start and not drill_location_end:
+        LOG.info(
+            f"This is a DRILL model, so only going to pull data "
+            f"associated with drill location start "
+            f"{drill_location_start} and its descendants."
+        )
+        drill_locations = ([drill_location_start]
+                           + list(dag.descendants(
+                                location_id=drill_location_start)))
+        mr_locations = list(
+            dag.parent_children(drill_location_start))
+    elif drill_location_start and drill_location_end:
+        LOG.info(
+            f"This is a DRILL model, so only data for "
+            f"{drill_location_start} (the parent) and descendents "
+            f"of {drill_location_end} (the children) will be pulled."
+        )
+        drill_locations = [drill_location_start]
+        for child in drill_location_end:
+            drill_locations.append(child)
+            drill_locations = drill_locations + list(
+                dag.descendants(location_id=child))
+        mr_locations = [drill_location_start] + drill_location_end
+    else:
+        drill_locations = None
+        mr_locations = None
+    return drill_locations, mr_locations
