@@ -1,12 +1,19 @@
 import pandas as pd
 import numpy as np
+import os
 
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.integrand_mappings import reverse_integrand_map
 from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES
+from cascade_at.dismod.api import DismodAPIError
 
 LOG = get_loggers(__name__)
+
+
+class DismodExtractorError(DismodAPIError):
+    """Errors raised when there are issues with DismodExtractor."""
+    pass
 
 
 class DismodExtractor(DismodIO):
@@ -18,6 +25,8 @@ class DismodExtractor(DismodIO):
     """
     def __init__(self, path):
         super().__init__(path=path)
+        if not os.path.isfile(path):
+            raise DismodExtractorError(f"SQLite file {str(path)} has not been created or filled yet.")
 
     def get_predictions(self, location_id=None, sex_id=None):
         """

@@ -1,13 +1,18 @@
 import pytest
 from pathlib import Path
 import numpy as np
-import os
 
 from cascade_at.dismod.api.run_dismod import run_dismod
 from cascade_at.dismod.api.dismod_extractor import DismodExtractor
+from cascade_at.dismod.api.dismod_extractor import DismodExtractorError
 
 
-def test_run_dismod_fit_predict(dismod, ihme):
+def test_empty_database():
+    with pytest.raises(DismodExtractorError):
+        DismodExtractor('temp.db')
+
+
+def test_run_dismod_fit_predict(dismod, ihme, df):
     run = run_dismod(dm_file='temp.db', command='init')
     if run.exit_status:
         print(run.stderr)
@@ -22,7 +27,7 @@ def test_run_dismod_fit_predict(dismod, ihme):
     assert run.exit_status == 0
 
 
-def test_get_predictions(ihme, dismod):
+def test_get_predictions(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
     pred = d.get_predictions()
     assert len(pred) == 33
@@ -42,7 +47,7 @@ def test_get_predictions(ihme, dismod):
     assert all(pred.c_sex_id == 2)
 
 
-def test_format_for_ihme(ihme, dismod):
+def test_format_for_ihme(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
     pred = d.format_predictions_for_ihme()
     assert len(pred) == 36

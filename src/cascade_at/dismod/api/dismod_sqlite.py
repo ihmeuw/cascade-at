@@ -11,6 +11,8 @@ to write them to a very specific format that Dismod-AT is able to read.
 """
 from copy import deepcopy
 from textwrap import dedent
+from pathlib import Path
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -66,14 +68,17 @@ class DismodSQLite:
     >>> dm.write_table('time', time)
     """
 
-    def __init__(self, path):
+    def __init__(self, path: Union[str, Path]):
         """
-        The columns arguments add columns to the avgint and data
-        tables.
+        Initiates an SQLite reader from the path.
 
-        Args:
-            pathlib.Path: A path to the database
+        Arguments
+        =========
+        path
+            A string or Path pointing to the DisMod database file.
         """
+        if isinstance(path, str):
+            path = Path(path)
         self.path = path
         LOG.debug(f"Creating an engine at {path.absolute()}.")
         self.engine = get_engine(path)
