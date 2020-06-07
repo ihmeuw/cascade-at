@@ -5,8 +5,8 @@ from random import choice, sample, randint
 
 from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.settings.settings import load_settings
-from cascade_at.inputs.measurement_inputs import (
-    MeasurementInputs, MeasurementInputsFromSettings)
+from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
+from cascade_at.settings.convert import data_cv_from_settings
 from cascade_at.inputs.locations import LocationDAG
 
 
@@ -42,7 +42,7 @@ def test_pickle(mi, context):
 def test_data_cv_from_settings():
     settings = BASE_CASE.copy()
     s = load_settings(settings)
-    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    cv = data_cv_from_settings(settings=s)
     for k, v in cv.items():
         assert v == 0.1
 
@@ -56,7 +56,7 @@ def test_data_cv_from_settings_by_integrand():
         }]
     })
     s = load_settings(settings)
-    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    cv = data_cv_from_settings(settings=s)
     for k, v in cv.items():
         if k == 'prevalence':
             assert v == 0.5

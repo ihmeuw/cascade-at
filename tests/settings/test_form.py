@@ -1,5 +1,5 @@
 from cascade_at.core.form.fields import Form
-from cascade_at.settings.settings_configuration import SmoothingPrior, Eta, StudentsDOF
+from cascade_at.settings.settings_config import SmoothingPrior, Eta, StudentsDOF
 from cascade_at.model import priors
 
 

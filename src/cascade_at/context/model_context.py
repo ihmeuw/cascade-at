@@ -117,7 +117,7 @@ class Context:
         :return: (
             cascade_at.collector.measurement_inputs.MeasurementInputs,
             cascade_at.collector.grid_alchemy.Alchemy,
-            cascade_at.collector.settings_configuration.SettingsConfiguration
+            cascade_at.collector.settings_configuration.SettingsConfig
         )
         """
         with open(self.inputs_file, "rb") as f:

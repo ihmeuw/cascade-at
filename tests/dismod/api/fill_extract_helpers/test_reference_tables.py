@@ -7,7 +7,7 @@ from cascade_at.dismod.api.fill_extract_helpers.reference_tables import (
 )
 from cascade_at.settings.settings import load_settings
 from cascade_at.settings.base_case import BASE_CASE
-from cascade_at.inputs.measurement_inputs import MeasurementInputs
+from cascade_at.settings.convert import data_cv_from_settings
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ def test_construct_integrand_table_from_settings():
         }]
     })
     s = load_settings(settings)
-    cv = MeasurementInputs.data_cv_from_settings(settings=s)
+    cv = data_cv_from_settings(settings=s)
     df = construct_integrand_table(data_cv_from_settings=cv)
     changed = df.loc[df.integrand_name == 'prevalence']
     unchanged = df.loc[df.integrand_name != 'prevalence']

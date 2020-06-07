@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from copy import copy
-from collections import defaultdict
 from typing import List, Optional
 
 from cascade_at.core.db import decomp_step as ds
@@ -17,16 +16,21 @@ from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.inputs.population import Population
 from cascade_at.inputs.utilities.covariate_weighting import (
-    get_interpolated_covariate_values)
+    get_interpolated_covariate_values
+)
 from cascade_at.inputs.utilities.gbd_ids import get_location_set_version_id
-from cascade_at.dismod.integrand_mappings import INTEGRAND_MAP
-from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
-from cascade_at.inputs.utilities.gbd_ids import SEX_ID_TO_NAME, SEX_NAME_TO_ID
+from cascade_at.inputs.utilities.gbd_ids import SEX_ID_TO_NAME
 from cascade_at.inputs.utilities.reduce_data_volume import decimate_years
-from cascade_at.inputs.utilities.gbd_ids import (
-    CascadeConstants, StudyCovConstants)
 from cascade_at.model.utilities.grid_helpers import expand_grid
+from cascade_at.inputs.utilities.data import calculate_omega
+from cascade_at.inputs.utilities.gbd_ids import (
+    CascadeConstants, StudyCovConstants
+)
+from cascade_at.settings.convert import (
+    measures_to_exclude_from_settings, data_eta_from_settings,
+    nu_from_settings, density_from_settings
+)
 
 LOG = get_loggers(__name__)
 
@@ -221,11 +225,10 @@ class MeasurementInputs:
             decimate csmr and asdr
         :return: self
         """
-        self.data_eta = self.data_eta_from_settings(settings)
-        self.density = self.density_from_settings(settings)
-        self.nu = self.nu_from_settings(settings)
-        self.measures_to_exclude = self.measures_to_exclude_from_settings(
-            settings)
+        self.data_eta = data_eta_from_settings(settings)
+        self.density = density_from_settings(settings)
+        self.nu = nu_from_settings(settings)
+        self.measures_to_exclude = measures_to_exclude_from_settings(settings)
 
         # If we are constraining omega, then we want to hold out the data
         # from the DisMod fit for ASDR (but never CSMR -- always want to fit
@@ -239,7 +242,7 @@ class MeasurementInputs:
         csmr = self.csmr.configure_for_dismod(hold_out=0)
 
         if settings.model.constrain_omega:
-            self.omega = self.calculate_omega(asdr=asdr, csmr=csmr)
+            self.omega = calculate_omega(asdr=asdr, csmr=csmr)
         else:
             self.omega = None
 
@@ -323,37 +326,6 @@ class MeasurementInputs:
         LOG.info("Adding covariates to avgint grid.")
         grid = self.add_covariates_to_data(df=grid)
         return grid
-
-    @staticmethod
-    def calculate_omega(asdr, csmr):
-        """
-        Calculates other cause mortality (omega) from ASDR (mtall -- all-cause
-        mortality) and CSMR (mtspecific -- cause-specific mortality). For most
-        diseases, mtall is a good approximation to omega, but we calculate
-        omega = mtall - mtspecific in case it isn't. For diseases without CSMR
-        (self.csmr_cause_id = None), then omega = mtall.
-        """
-        join_columns = ['location_id', 'time_lower', 'time_upper',
-                        'age_lower', 'age_upper', 'sex_id']
-        mtall = asdr[join_columns + ['meas_value']].copy()
-        mtall.rename(columns={'meas_value': 'mtall'}, inplace=True)
-
-        if csmr.empty:
-            omega = mtall.copy()
-            omega.rename(columns={'mtall': 'mean'}, inplace=True)
-        else:
-            mtspecific = csmr[join_columns + ['meas_value']].copy()
-            mtspecific.rename(
-                columns={'meas_value': 'mtspecific'}, inplace=True)
-            omega = mtall.merge(mtspecific, on=join_columns)
-            omega['mean'] = omega['mtall'] - omega['mtspecific']
-            omega.drop(columns=['mtall', 'mtspecific'], inplace=True)
-
-        negative_omega = omega['mean'] < 0
-        if any(negative_omega):
-            raise ValueError("There are negative values for omega. Must fix.")
-
-        return omega
 
     def interpolate_country_covariate_values(self, df, cov_dict):
         """
@@ -466,102 +438,6 @@ class MeasurementInputs:
         covariate_specs.create_covariate_list()
         return covariate_specs
 
-    @staticmethod
-    def measures_to_exclude_from_settings(settings):
-        """
-        Gets the measures to exclude from the data from the model
-        settings configuration.
-        :param settings: (cascade.settings.configuration.Configuration)
-        :return:
-        """
-        if not settings.model.is_field_unset("exclude_data_for_param"):
-            measures_to_exclude = [
-                INTEGRAND_MAP[m].name
-                for m in settings.model.exclude_data_for_param
-                if m in INTEGRAND_MAP]
-        else:
-            measures_to_exclude = list()
-        if settings.policies.exclude_relative_risk:
-            measures_to_exclude.append("relrisk")
-        return measures_to_exclude
-
-    @staticmethod
-    def data_eta_from_settings(settings):
-        """
-        Gets the data eta from the settings Configuration.
-        The default data eta is np.nan.
-        settings.eta.data: (Dict[str, float]): Default value for eta parameter
-            on distributions
-            as a dictionary from measure name to float
-
-        :param settings: (cascade.settings.configuration.Configuration)
-        :return:
-        """
-        data_eta = defaultdict(lambda: np.nan)
-        if not settings.eta.is_field_unset("data") and settings.eta.data:
-            data_eta = defaultdict(lambda: float(settings.eta.data))
-        for set_eta in settings.data_eta_by_integrand:
-            data_eta[INTEGRAND_MAP[set_eta.integrand_measure_id].name] = float(set_eta.value)
-        return data_eta
-
-    @staticmethod
-    def density_from_settings(settings):
-        """
-        Gets the density from the settings Configuration.
-        The default density is "gaussian".
-        settings.model.data_density: (Dict[str, float]): Default values for density parameter on distributions
-            as a dictionary from measure name to string
-
-        :param settings: (cascade.settings.configuration.Configuration)
-        :return:
-        """
-        density = defaultdict(lambda: "gaussian")
-        if not settings.model.is_field_unset("data_density") and settings.model.data_density:
-            density = defaultdict(lambda: settings.model.data_density)
-        for set_density in settings.data_density_by_integrand:
-            density[INTEGRAND_MAP[set_density.integrand_measure_id].name] = set_density.value
-        return density
-
-    @staticmethod
-    def data_cv_from_settings(settings, default=0.0):
-        """
-        Gets the data min coefficient of variation from the settings Configuration
-
-        Args:
-            settings: (cascade.settings.configuration.Configuration)
-            default: (float) default data cv
-
-        Returns:
-            dictionary of data cv's from settings
-        """
-        data_cv = defaultdict(lambda: default)
-        if not settings.model.is_field_unset("minimum_meas_cv") and settings.model.minimum_meas_cv:
-            data_cv = defaultdict(
-                lambda: float(settings.model.minimum_meas_cv))
-        for set_data_cv in settings.data_cv_by_integrand:
-            data_cv[INTEGRAND_MAP[
-                set_data_cv.integrand_measure_id].name] = float(
-                    set_data_cv.value)
-        return data_cv
-
-    @staticmethod
-    def nu_from_settings(settings):
-        """
-        Gets nu from the settings Configuration.
-        The default nu is np.nan.
-        settings.students_dof.data: (Dict[str, float]): The parameter for
-            students-t distributions
-        settings.log_students_dof.data: (Dict[str, float]): The parameter for
-            students-t distributions in log-space
-
-        :param settings: (cascade.settings.configuration.Configuration)
-        :return:
-        """
-        nu = defaultdict(lambda: np.nan)
-        nu["students"] = settings.students_dof.data
-        nu["log_students"] = settings.log_students_dof.data
-        return nu
-
     def locations_by_drill(self, drill_location_start, drill_location_end):
         if not drill_location_start and drill_location_end:
             raise ValueError(
@@ -606,7 +482,7 @@ class MeasurementInputsFromSettings(MeasurementInputs):
         Wrapper for MeasurementInputs that takes a settings object rather
         than the individual arguments. For convenience.
         :param settings: (
-            cascade.collector.settings_configuration.SettingsConfiguration)
+            cascade.collector.settings_configuration.SettingsConfig)
 
         Example:
         >>> from cascade_at.settings.base_case import BASE_CASE

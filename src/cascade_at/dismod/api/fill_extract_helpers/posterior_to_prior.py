@@ -15,7 +15,7 @@ def get_prior_avgint_grid(settings, integrands, sexes, locations, midpoint=False
     before it can be input into the avgint table in a database.
 
     Args:
-        settings: (cascade_at.settings.settings_configuration.SettingsConfiguration)
+        settings: (cascade_at.settings.settings_configuration.SettingsConfig)
         integrands: (list of str)
         sexes: (list of int)
         locations: (list of int)

@@ -3,6 +3,7 @@ import pandas as pd
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers import reference_tables, data_tables, grid_tables
+from cascade_at.settings.convert import data_cv_from_settings
 
 LOG = get_loggers(__name__)
 
@@ -16,7 +17,7 @@ class DismodFiller(DismodIO):
 
     Parameters:
         path: (pathlib.Path)
-        settings_configuration: (cascade_at.collector.settings_configuration.SettingsConfiguration)
+        settings_configuration: (cascade_at.collector.settings_configuration.SettingsConfig)
         measurement_inputs: (cascade_at.collector.measurement_inputs.MeasurementInputs)
         grid_alchemy: (cascade_at.collector.grid_alchemy.GridAlchemy)
         parent_location_id: (int) which parent location to construct the database for
@@ -151,7 +152,7 @@ class DismodFiller(DismodIO):
             data_min=self.min_time, data_max=self.max_time
         )
         self.integrand = reference_tables.construct_integrand_table(
-            data_cv_from_settings=self.inputs.data_cv_from_settings(settings=self.settings)
+            data_cv_from_settings=data_cv_from_settings(settings=self.settings)
         )
         return self
 
