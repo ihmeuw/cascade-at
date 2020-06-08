@@ -96,7 +96,7 @@ def test_location_drill_start_only(ihme):
     # with drill_location_end unset, demographics.location_id should
     # be set to all descendants of the test loc, plus the test loc itself
     assert len(mi.demographics.location_id) == num_descendants + 1
-    assert len(mi.demographics.mortality_rate_location_id) == num_mr_locs
+    assert len(mi.demographics.drill_locations) == num_mr_locs
 
 
 def test_location_drill_start_end(ihme):
@@ -127,7 +127,7 @@ def test_location_drill_start_end(ihme):
     # themselves, plus the drill_location_start location
     assert len(mi.demographics.location_id) == (
         num_descendants + len(children_test_locs) + 1)
-    assert len(mi.demographics.mortality_rate_location_id) == (
+    assert len(mi.demographics.drill_locations) == (
         len(children_test_locs) + 1)
 
 
@@ -151,4 +151,4 @@ def test_no_drill(ihme):
     # drill_location_end, demographics.location_id should be set
     # to the entire hierarchy
     assert len(mi.demographics.location_id) == num_descendants + 1
-    assert len(mi.demographics.mortality_rate_location_id) == num_descendants + 1
+    assert len(mi.demographics.drill_locations) == num_descendants + 1

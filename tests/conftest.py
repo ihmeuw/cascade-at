@@ -91,6 +91,7 @@ def Demographics():
     d.location_id = [70]
     d.sex_id = [2]
     d.year_id = [1990]
+    d.drill_locations = [70, 72]
     return d
 
 

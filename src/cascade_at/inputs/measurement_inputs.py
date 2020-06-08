@@ -157,14 +157,18 @@ class MeasurementInputs:
             location_set_version_id=self.location_set_version_id,
             gbd_round_id=self.gbd_round_id
         )
-        drill_locations, mr_locations = locations_by_drill(
+        # Need to subset the locations to only those needed for
+        # the drill. drill_locations_all is the set of locations
+        # to pull data for, including all descendents. drill_locations
+        # is the set of locations just parent-children in the drill.
+        drill_locations_all, drill_locations = locations_by_drill(
             drill_location_start=self.drill_location_start,
             drill_location_end=self.drill_location_end,
             dag=self.location_dag
         )
-        if drill_locations:
-            self.demographics.location_id = drill_locations
-            self.demographics.mortality_rate_location_id = mr_locations
+        if drill_locations_all:
+            self.demographics.location_id = drill_locations_all
+            self.demographics.drill_locations = drill_locations
 
         self.exclude_outliers = True
         self.asdr = None
