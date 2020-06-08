@@ -30,7 +30,7 @@ def test_run_dismod_fit_predict(dismod, ihme, df):
 def test_get_predictions(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
     pred = d.get_predictions()
-    assert len(pred) == 33
+    assert len(pred) == 22
     assert all(pred.columns == [
         'predict_id', 'sample_index', 'avgint_id', 'avg_integrand',
         'integrand_id', 'node_id', 'weight_id', 'subgroup_id', 'age_lower',
