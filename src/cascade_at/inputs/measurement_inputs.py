@@ -328,7 +328,7 @@ class MeasurementInputs:
                  f"for parent location ID {parent_location_id} "
                  f"and sex_id {sex_id}.")
         if self.drill_location_start is not None:
-            locations = self.demographics.location_id
+            locations = self.demographics.drill_locations
         else:
             locations = self.location_dag.parent_children(parent_location_id)
         grid = expand_grid({

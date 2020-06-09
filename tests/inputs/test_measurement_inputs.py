@@ -64,6 +64,16 @@ def test_data_cv_from_settings_by_integrand():
             assert v == 0.1
 
 
+def test_to_gbd_avgint(mi):
+    df = mi.to_gbd_avgint(parent_location_id=70, sex_id=1)
+    assert len(df) == 2
+    np.testing.assert_array_equal(df.location_id.values, np.array([70, 72]))
+    assert all(df.columns == [
+        'sex_id', 'location_id', 'year_id', 'age_group_id',
+        'time_lower', 'time_upper', 'age_lower', 'age_upper',
+        'c_diabetes_fpg', 's_sex', 's_one'
+    ])
+
 # Commenting here to promote discussion.  These tests are a little silly,
 # since I've basically recreated the logic implemented in the
 # measurement_inputs module, meaning that if a bug is introduced into the
