@@ -18,7 +18,7 @@ def df_for_dismod(covariate_data, population, dag):
 def test_square_covariates(df_for_dismod, Demographics):
     assert len(df_for_dismod) == (
         3 *  # for the 3 sexes, always
-        len(Demographics.location_id) *
+        len(Demographics.drill_locations) *
         len(Demographics.age_group_id)
     )
 

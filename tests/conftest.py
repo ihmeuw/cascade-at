@@ -91,6 +91,7 @@ def Demographics():
     d.location_id = [70]
     d.sex_id = [2]
     d.year_id = [1990]
+    d.drill_locations = [70, 72]
     return d
 
 
@@ -204,12 +205,12 @@ def population(Demographics, ihme):
                      gbd_round_id=6)
     pop.raw = pd.DataFrame({
         'age_group_id': 2.0,
-        'location_id': 70.0,
+        'location_id': [70.0, 70., 72.0, 72.0],
         'year_id': 1990.0,
-        'sex_id': 2.0,
+        'sex_id': [1., 2., 1., 2.],
         'population': 3711.,
         'run_id': np.nan
-    }, index=[0])
+    })
     return pop
 
 
@@ -220,7 +221,7 @@ def covariate_data(Demographics, ihme):
         'model_version_id': 28964,
         'covariate_id': 28,
         'covariate_name_short': 'ANC4_coverage_prop',
-        'location_id': 70,
+        'location_id': [70, 72],
         'location_name': 'Canada',
         'year_id': 1990,
         'age_group_id': 22,
@@ -230,7 +231,7 @@ def covariate_data(Demographics, ihme):
         'mean_value': 0.96,
         'lower_value': 0.96,
         'upper_value': 0.96
-    }, index=[0])
+    })
     return cov
 
 

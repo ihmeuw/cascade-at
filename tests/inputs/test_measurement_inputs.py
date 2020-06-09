@@ -64,6 +64,16 @@ def test_data_cv_from_settings_by_integrand():
             assert v == 0.1
 
 
+def test_to_gbd_avgint(mi):
+    df = mi.to_gbd_avgint(parent_location_id=70, sex_id=1)
+    assert len(df) == 2
+    np.testing.assert_array_equal(df.location_id.values, np.array([70, 72]))
+    assert all(df.columns == [
+        'sex_id', 'location_id', 'year_id', 'age_group_id',
+        'time_lower', 'time_upper', 'age_lower', 'age_upper',
+        'c_diabetes_fpg', 's_sex', 's_one'
+    ])
+
 # Commenting here to promote discussion.  These tests are a little silly,
 # since I've basically recreated the logic implemented in the
 # measurement_inputs module, meaning that if a bug is introduced into the
@@ -74,6 +84,7 @@ def test_data_cv_from_settings_by_integrand():
 # the hierarchies.dbtrees module or hit the database as an independent check.
 # This test at least ensures that drill location start and drill location end
 # are being correctly passed to the MeasurementInputs class.
+
 
 def test_location_drill_start_only(ihme):
     these_settings = deepcopy(BASE_CASE)
@@ -96,7 +107,7 @@ def test_location_drill_start_only(ihme):
     # with drill_location_end unset, demographics.location_id should
     # be set to all descendants of the test loc, plus the test loc itself
     assert len(mi.demographics.location_id) == num_descendants + 1
-    assert len(mi.demographics.mortality_rate_location_id) == num_mr_locs
+    assert len(mi.demographics.drill_locations) == num_mr_locs
 
 
 def test_location_drill_start_end(ihme):
@@ -127,7 +138,7 @@ def test_location_drill_start_end(ihme):
     # themselves, plus the drill_location_start location
     assert len(mi.demographics.location_id) == (
         num_descendants + len(children_test_locs) + 1)
-    assert len(mi.demographics.mortality_rate_location_id) == (
+    assert len(mi.demographics.drill_locations) == (
         len(children_test_locs) + 1)
 
 
@@ -151,4 +162,4 @@ def test_no_drill(ihme):
     # drill_location_end, demographics.location_id should be set
     # to the entire hierarchy
     assert len(mi.demographics.location_id) == num_descendants + 1
-    assert len(mi.demographics.mortality_rate_location_id) == num_descendants + 1
+    assert len(mi.demographics.drill_locations) == num_descendants + 1
