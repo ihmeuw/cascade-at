@@ -40,7 +40,7 @@ def test_get_predictions(ihme, dismod, df):
     ])
     assert all(pred.age_lower == 0.0)
     assert all(pred.age_upper == 0.01917808)
-    assert all(pred.integrand_id == np.repeat(list(range(0, 11)), 3))
+    assert all(pred.integrand_id == np.repeat(list(range(0, 11)), 2))
     assert all(pred.time_lower == 1990.)
     assert all(pred.time_upper == 1991.)
     assert all(pred.c_age_group_id == 2)
@@ -50,12 +50,14 @@ def test_get_predictions(ihme, dismod, df):
 def test_format_for_ihme(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
     pred = d.format_predictions_for_ihme()
-    assert len(pred) == 36
+    # This prediction data frame is one longer for every location than the prediction
+    # dataframe in `test_get_predictions` because there is an extra measure.
+    assert len(pred) == 24
     assert all(pred.columns == [
         'location_id', 'age_group_id', 'year_id', 'sex_id', 'measure_id',
         'mean', 'upper', 'lower'
     ])
-    assert all(pred.location_id == np.tile(list(range(70, 73)), 12))
+    assert all(pred.location_id == np.tile(list(range(70, 72)), 12))
     assert all(pred.sex_id == 2)
     assert all(pred.age_group_id == 2)
     assert all(pred.year_id == 1990)

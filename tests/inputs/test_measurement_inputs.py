@@ -85,6 +85,7 @@ def test_to_gbd_avgint(mi):
 # This test at least ensures that drill location start and drill location end
 # are being correctly passed to the MeasurementInputs class.
 
+
 def test_location_drill_start_only(ihme):
     these_settings = deepcopy(BASE_CASE)
 
