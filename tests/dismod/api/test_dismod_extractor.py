@@ -57,7 +57,7 @@ def test_format_for_ihme(ihme, dismod, df):
         'location_id', 'age_group_id', 'year_id', 'sex_id', 'measure_id',
         'mean', 'upper', 'lower'
     ])
-    assert all(pred.location_id == np.tile(list(range(70, 72)), 12))
+    assert all(pred.location_id == np.tile(list([70, 72]), 12))
     assert all(pred.sex_id == 2)
     assert all(pred.age_group_id == 2)
     assert all(pred.year_id == 1990)
