@@ -130,13 +130,19 @@ def test_exact_values_age_time(covariate_interpolator, age_lower, age_upper, tim
     (2010.0, 2011.0),
     (2010.0, 2011.5),
     (2010.1, 2011.5),
-    (2011.0, 2011.5)
+    (2011.0, 2011.5),
+    (2011.0, 2013.0),
+    (2012.0, 2018.0)
 ])
 def test_covariate_interpolation_over_time(covariate_interpolator, y0, y1, test_cov, test_pop, test_data):
     data = test_data.copy()
     data[['time_lower', 'time_upper']] = y0, y1
     cov = test_cov[(test_cov.age_group_id == 32)]
     pop = test_pop[(test_pop.age_group_id == 32)]
+
+    y0 = covariate_interpolator._restrict_time(y0, 2010, 2012)
+    y1 = covariate_interpolator._restrict_time(y1, 2010, 2012)
+
     time_wt = np.asarray([(2011 - y0) / (2012 - 2011), (y1 - 2011) / (2012 - 2011)])
     pop_wt = time_wt * pop.population.values
     weighted_cov = np.sum(cov.mean_value.values * pop_wt/pop_wt.sum())
@@ -215,3 +221,9 @@ def test_covariate_interpolation_over_age_and_time(covariate_interpolator, y0, y
             float(data.time_upper)),
         weighted_cov, atol=1e-10, rtol=1e-10
     )
+
+
+def test_restrict_year(covariate_interpolator):
+    assert covariate_interpolator._restrict_time(1970, time_min=1980, time_max=1990) == 1980
+    assert covariate_interpolator._restrict_time(1991, time_min=1980, time_max=1990) == 1990
+    assert covariate_interpolator._restrict_time(1985, time_min=1980, time_max=1990) == 1985

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from math import ceil
 import itertools
 from intervaltree import IntervalTree
 
@@ -47,7 +48,7 @@ class CovariateInterpolator:
 
         self.location_ids = self.covariate.location_id.unique()
         self.year_min = self.covariate.year_id.min()
-        self.year_max = self.covariate.year_id.max()
+        self.year_max = self.covariate.year_id.max() + 1
 
         self.age_intervals = IntervalTree.from_tuples(
             self.covariate[['age_lower', 'age_upper', 'age_group_id']].values
@@ -63,8 +64,9 @@ class CovariateInterpolator:
             map(tuple, self.population[indices].values.tolist()), self.population['population'].values
         ))
 
-    def _restrict_time(self, year):
-        return max(min(year, self.year_max), self.year_min)
+    @staticmethod
+    def _restrict_time(time, time_min, time_max):
+        return max(min(time, time_max), time_min)
 
     def _weighting(self, age_lower, age_upper, time_lower, time_upper):
         if age_lower == age_upper:
@@ -74,8 +76,8 @@ class CovariateInterpolator:
         age_group_ids = [a[-1] for a in age_groups]
         age_wts = interval_weighting(tuple(age_groups), age_lower, age_upper)
 
-        time_lower = self._restrict_time(time_lower)
-        time_upper = self._restrict_time(time_upper)
+        time_lower = self._restrict_time(time_lower, time_min=self.year_min, time_max=self.year_max)
+        time_upper = self._restrict_time(time_upper, time_min=self.year_min, time_max=self.year_max)
 
         if time_lower == time_upper:
             time_groups = sorted(map(values, self.time_intervals[time_lower]))
