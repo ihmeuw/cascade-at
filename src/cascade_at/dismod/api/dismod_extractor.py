@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from typing import List, Optional, Dict
 
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.dismod_io import DismodIO
@@ -28,13 +29,10 @@ class DismodExtractor(DismodIO):
         if not os.path.isfile(path):
             raise DismodExtractorError(f"SQLite file {str(path)} has not been created or filled yet.")
 
-    def get_predictions(self, location_id=None, sex_id=None):
+    def get_predictions(self, location_id: Optional[int] = None, sex_id: Optional[int] = None) -> pd.DataFrame:
         """
         Get the predictions from the predict table for a specific
         location (rather than node) and sex ID.
-
-        Returns:
-            pd.DataFrame
         """
         predictions = self.predict.merge(self.avgint, on=['avgint_id'])
         predictions = predictions.merge(self.integrand, on=['integrand_id'])
@@ -45,25 +43,35 @@ class DismodExtractor(DismodIO):
             predictions = predictions.loc[predictions.c_sex_id == sex_id].copy()
         return predictions
 
-    def gather_draws_for_prior_grid(self, location_id, sex_id, rates, value=True, dage=True, dtime=True):
+    def gather_draws_for_prior_grid(self,
+                                    location_id: int,
+                                    sex_id: int,
+                                    rates: List[str],
+                                    value: bool = True,
+                                    dage: bool = True,
+                                    dtime: bool = True) -> Dict[str, Dict[str, np.ndarray]]:
         """
         Takes draws and formats them for a prior grid for values, dage, and dtime.
         Assumes that age_lower == age_upper and time_lower == time_upper for all
         data rows. We might not want to do all value, dage, and dtime, so pass False
         if you want to skip those.
 
-        Args:
-            location_id: (int)
-            sex_id: (int)
-            rates: List[str] list of rates to get the draws for
-            value: (bool) calculate value priors
-            dage: (bool) calculate dage priors
-            dtime: (bool) calculate dtime priors
+        Arguments
+        ---------
+        location_id
+        sex_id
+        rates
+            list of rates to get the draws for
+        value
+            whether to calculate value priors
+        dage
+            whether to calculate dage priors
+        dtime
+            whether to calculate dtime priors
 
-        Returns:
-            draw_data: (np.ndarray) 3-d array of value draws over age and time for this loc and sex
-            draw_dage: (np.ndarray) 3-d array of draws for dage over age and time for this loc and sex
-            draw_dtime: (np.ndarray) 3-d array of draws for dtime over age and time for this loc and sex
+        Returns
+        -------
+        Dictionary of 3-d arrays of value, dage, and dtime draws over age and time for this loc and sex
         """
         rate_dict = dict()
         for r in rates:
@@ -112,7 +120,7 @@ class DismodExtractor(DismodIO):
 
         return rate_dict
 
-    def format_predictions_for_ihme(self):
+    def format_predictions_for_ihme(self) -> pd.DataFrame:
         """
         Gets the predictions from the predict table and transforms them
         into the GBD ids that we expect.
@@ -144,4 +152,3 @@ class DismodExtractor(DismodIO):
             'location_id', 'age_group_id', 'year_id', 'sex_id',
             'measure_id', 'mean', 'upper', 'lower'
         ]]
-

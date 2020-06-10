@@ -5,14 +5,13 @@ Helper functions for Model and ConstructModel
 import numpy as np
 import pandas as pd
 import itertools
-from typing import List
+from typing import Dict, Tuple
 
-from cascade_at.model.covariate import Covariate
 from cascade_at.model.var import Var
 from cascade_at.model.smooth_grid import SmoothGrid
 from cascade_at.model.priors import Constant
 from cascade_at.core.log import get_loggers
-from cascade_at.settings.settings_config import SmoothingPrior
+from cascade_at.settings.settings_config import SmoothingPrior, Smoothing
 
 LOG = get_loggers(__name__)
 
@@ -50,17 +49,25 @@ def constraint_from_rectangular_data(rate_var, default_age_time):
     return omega_grid
 
 
-def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
+def smooth_grid_from_smoothing_form(default_age_time: Dict[str, np.array],
+                                    single_age_time: Tuple[np.array, np.array],
+                                    smooth: Smoothing) -> SmoothGrid:
     """
     Create a new SmoothGrid from the settings in EpiViz-AT at the Smoothing
     level.
 
-    Args:
-        default_age_time (List[ages, times]): Two members, the ages and the time.
-        single_age_time (List[float]): Two members, an age and a time.
-        smooth (cascade.input_data.configuration.form.Smoothing): The form element.
-    Returns:
-        SmoothGrid: A new smooth grid.
+    Arguments
+    ---------
+    default_age_time
+        Two members, the ages and the time, with "age" and "time" keys
+    single_age_time
+        Two members, an age and a time.
+    smooth
+        A smoothing form from the settings.
+
+    Returns
+    -------
+    SmoothGrid: A new smooth grid.
     """
     ages, times = construct_grid_ages_times(default_age_time, single_age_time, smooth)
     rate_grid = SmoothGrid(ages=ages, times=times)
@@ -76,7 +83,7 @@ def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
     return rate_grid
 
 
-def matching_knots(rate_grid, smoothing_prior: SmoothingPrior):
+def matching_knots(rate_grid: SmoothGrid, smoothing_prior: SmoothingPrior):
     """
     Get lower and upper out of the smoothing prior. This uses the age, time,
     and "born" lower and upper bounds to return
@@ -116,7 +123,9 @@ def matching_knots(rate_grid, smoothing_prior: SmoothingPrior):
     yield from zip(ages[cover], times[cover])
 
 
-def construct_grid_ages_times(default_age_time, single_age_time, smooth):
+def construct_grid_ages_times(default_age_time: Dict[str, np.ndarray],
+                              single_age_time: Tuple[np.ndarray, np.ndarray],
+                              smooth: Smoothing) -> Tuple[np.ndarray, np.ndarray]:
     if not smooth.is_field_unset("age_time_specific") and smooth.age_time_specific == 0:
         return single_age_time
 
@@ -135,31 +144,6 @@ def construct_grid_ages_times(default_age_time, single_age_time, smooth):
     else:
         times = np.sort(np.array(times, dtype=np.float))
     return ages, times
-
-
-def construct_model_covariates(default_age_time, single_age_time, covariate_multipliers, model):
-    """The covariate multipliers are of all types: alpha, beta, and gamma. This adds
-    their priors to the Model.
-
-    Args:
-        default_age_time (Tuple[ndarray, ndarray]): ages and times
-        single_age_time (float, float): The single age and time to use if it's
-            a point value.
-        covariate_multipliers (List[EpiVizCovariateMultiplier): A list of specifications
-            for covariate multipliers. This assumes data has already been read,
-            because that data determines names for the multipliers.
-    """
-    for mulcov in covariate_multipliers:
-        grid = smooth_grid_from_smoothing_form(default_age_time, single_age_time, mulcov.grid_spec)
-        model[mulcov.group][mulcov.key] = grid
-
-
-def covariates_list(covariate_data_spec):
-    covariate_list = list()
-    for c in covariate_data_spec:
-        LOG.debug(f"Adding covariate reference {c.name}.reference={c.reference}")
-        covariate_list.append(Covariate(c.name, c.reference, c.max_difference))
-    return covariate_list
 
 
 def expand_grid(data_dict):

@@ -1,29 +1,35 @@
 from collections import defaultdict
 import itertools as it
-
+from typing import Dict, Tuple, Optional
 import numpy as np
+import pandas as pd
 
 from cascade_at.core.log import get_loggers
 from cascade_at.model.model import Model
+from cascade_at.settings.settings import SettingsConfig
+from cascade_at.inputs.locations import LocationDAG
+from cascade_at.inputs.covariate_specs import CovariateSpecs
 from cascade_at.model.utilities.grid_helpers import smooth_grid_from_smoothing_form
 from cascade_at.model.utilities.grid_helpers import rectangular_data_to_var
 from cascade_at.model.utilities.grid_helpers import constraint_from_rectangular_data
+from cascade_at.settings.settings_config import Smoothing
+from cascade_at.model.smooth_grid import _PriorGrid
+from cascade_at.model.var import Var
+from cascade_at.model.smooth_grid import SmoothGrid
 
 LOG = get_loggers(__name__)
 
 
 class Alchemy:
-    def __init__(self, settings):
+    def __init__(self, settings: SettingsConfig):
         """
         An object initialized with model settings from
         cascade.settings.configuration.Configuration that can be used
         to construct parent-child location-specific models with
         the attribute ModelConstruct.construct_two_level_model().
 
-        Parameters:
-            settings (cascade_at.settings.settings.Configuration):
-        
-        Usage:
+        Examples
+        --------
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
         >>> from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
@@ -44,12 +50,10 @@ class Alchemy:
 
         self.model = None
 
-    def construct_age_time_grid(self):
+    def construct_age_time_grid(self) -> Dict[str, np.ndarray]:
         """
         Construct a DEFAULT age-time grid,
         to be updated when we initialize the model.
-
-        :return:
         """
         default_age_time = dict()
         default_age_time["age"] = np.linspace(0, 100, 21)
@@ -62,7 +66,7 @@ class Alchemy:
 
         return default_age_time
 
-    def construct_single_age_time_grid(self):
+    def construct_single_age_time_grid(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Construct a single age-time grid.
         Use this age and time when a smooth grid doesn't depend on age and time.
@@ -70,18 +74,23 @@ class Alchemy:
         :return:
         """
         single_age = self.age_time_grid["age"][:1]
-        single_time = [self.age_time_grid["time"][len(self.age_time_grid["time"]) // 2]]
+        single_time = np.array([self.age_time_grid["time"][len(self.age_time_grid["time"]) // 2]])
         single_age_time = (single_age, single_time)
         return single_age_time
 
-    def get_smoothing_grid(self, rate):
+    def get_smoothing_grid(self, rate: Smoothing) -> SmoothGrid:
         """
         Construct a smoothing grid for any rate in the model.
 
-        Parameters:
-            rate: (cascade_at.settings.settings_configuration.Smoothing)
+        Parameters
+        ----------
+        rate
+            Some smoothing form for a rate.
 
-        Returns: (cascade_at.model.smooth_grid.SmoothGrid)
+        Returns
+        -------
+            The rate translated into a SmoothGrid based on the model settings'
+            default age and time grids.
 
         """
         return smooth_grid_from_smoothing_form(
@@ -90,26 +99,29 @@ class Alchemy:
             smooth=rate
         )
 
-    def get_all_rates_grids(self):
+    def get_all_rates_grids(self) -> Dict[str, SmoothGrid]:
         """
         Get a dictionary of all the rates and their grids in the model.
-
-        Returns: dict[str: SmoothGrid]
-
         """
         return {c.rate: self.get_smoothing_grid(rate=c) for c in self.settings.rate}
 
     @staticmethod
-    def estimate_grid_parameters(grid_priors, draws, ages, times):
+    def estimate_grid_parameters(grid_priors: _PriorGrid, draws: np.ndarray,
+                                 ages: np.ndarray, times: np.ndarray):
         """
         Estimates using MLE the parameters for the grid using prior draws.
-        Updates the grid_priors object in place, so returns nothing.
+        Updates the grid_priors _PriorGrid object in place, so returns nothing.
 
-        Args:
-            grid_priors: (cascade_at...)
-            draws: (np.ndarray) 3-d array coming out of `DismodExtractor.gather_draws_for_prior_grid()`
-            ages: (np.array)
-            times: (np.array)
+        Arguments
+        ---------
+        grid_priors
+            Prior grids that have the .mle() method that can be used to estimate
+        draws
+            3-d array coming out of `DismodExtractor.gather_draws_for_prior_grid()`
+        ages
+            Array of ages
+        times
+            Array of times
         """
         assert isinstance(draws, np.ndarray)
         assert len(draws.shape) == 3
@@ -120,19 +132,27 @@ class Alchemy:
             time = times[time_idx]
             grid_priors[age, time] = grid_priors[age, time].mle(draws[age_idx, time_idx, :])
     
-    def construct_two_level_model(self, location_dag, parent_location_id, covariate_specs, weights=None,
-                                  omega_df=None, update_prior=None):
+    def construct_two_level_model(self, location_dag: LocationDAG, parent_location_id: int,
+                                  covariate_specs: CovariateSpecs,
+                                  weights: Optional[Dict[str, Var]] = None,
+                                  omega_df: Optional[pd.DataFrame] = None,
+                                  update_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None):
         """
         Construct a Model object for a parent location and its children.
 
-        Parameters:
-            location_dag: (cascade.inputs.locations.LocationDAG)
-            parent_location_id: (int)
-            covariate_specs (cascade_at.inputs.covariate_specs.CovariateSpecs): covariate
-                specifications, specifically will use covariate_specs.covariate_multipliers
-            weights:
-            omega_df: (pd.DataFrame)
-            update_prior: (dict) of (dict)
+        Parameters
+        ----------
+        location_dag
+            Location DAG specifying the location hierarchy
+        parent_location_id
+            Parent location to build the model for
+        covariate_specs
+            covariate specifications, specifically will use covariate_specs.covariate_multipliers
+        weights
+        omega_df
+            data frame with omega values in it (other cause mortality)
+        update_prior
+            dictionary of dictionary for prior updates to rates
         """
         children = list(location_dag.dag.successors(parent_location_id))
         model = Model(

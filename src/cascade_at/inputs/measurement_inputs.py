@@ -371,7 +371,7 @@ class MeasurementInputs:
         return df
 
     def calculate_country_covariate_reference_values(
-            self, parent_location_id: int, sex_id: int) -> List[CovariateSpecs]:
+            self, parent_location_id: int, sex_id: int) -> CovariateSpecs:
         """
         Gets the country covariate reference value for a covariate ID and a
         parent location ID. Also gets the maximum difference between the

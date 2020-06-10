@@ -1,5 +1,6 @@
 from collections import Counter
 from collections.abc import Mapping
+from typing import List, Optional, Dict
 
 import numpy as np
 
@@ -18,24 +19,29 @@ class Model(DismodGroups):
     Uses ages and times as given and translates them into ``age_id``
     and ``time_id`` for Dismod-AT.
     """
-    def __init__(self, nonzero_rates, parent_location, child_location=None, covariates=None, weights=None):
+    def __init__(self, nonzero_rates: List[str],
+                 parent_location: int, child_location: Optional[List[int]] = None,
+                 covariates: Optional[List[Covariate]] = None,
+                 weights: Optional[Dict[str, Var]] = None):
         """
         >>> from cascade_at.inputs.locations import LocationDAG
         >>> locations = LocationDAG(location_set_version_id=429)
         >>> m = Model(["chi", "omega", "iota"], 6, locations.dag.successors(6))
 
-        Args:
-            nonzero_rates (List[str]): A list of rates, using the Dismod-AT
-                terms for the rates, so they are "iota", "chi", "omega",
-                "rho", and "pini".
-            parent_location (int): The location ID for the parent.
-            child_location (List[int]): List of the children.
-            covariates (List[Covariate]): A list of covariate objects.
-                This supplies the reference values and max differences,
-                used to exclude data by covariate value.
-            weights (Dict[str,Var]): There are four kinds of weights:
-                "constant", "susceptible", "with_condition", and "total".
-                No other weights are used.
+        Parameters
+        ----------
+        nonzero_rates
+            A list of rates, using the Dismod-AT
+            terms for the rates, so they are "iota", "chi", "omega", "rho", and "pini".
+        parent_location
+            The location ID for the parent.
+        child_location
+            List of the children.
+        covariates A list of covariate objects. This supplies the reference values and max differences,
+            used to exclude data by covariate value.
+        weights
+            There are four kinds of weights:
+            "constant", "susceptible", "with_condition", and "total". No other weights are used.
         """
         super().__init__()
         self.nonzero_rates = nonzero_rates
@@ -63,7 +69,7 @@ class Model(DismodGroups):
         self.scale_set_by_user = False
 
     @property
-    def scale(self):
+    def scale(self) -> Var:
         """The scale is a Var, so it has a value for every model variable.
         It is the value of the model variable at which to evaluate the
         derivative of its base log-likelihood. This derivative sets the
@@ -90,12 +96,9 @@ class Model(DismodGroups):
             model._scale = self._scale
         return model
 
-    def get_age_array(self):
+    def get_age_array(self) -> np.ndarray:
         """
         Gets an array of ages used across grids in the model.
-
-        Returns:
-            ages: (np.array)
         """
         ages = np.empty((0,), dtype=np.float)
         for group in self.values():
@@ -103,12 +106,9 @@ class Model(DismodGroups):
                 ages = np.append(ages, grid.ages)
         return ages
 
-    def get_time_array(self):
+    def get_time_array(self) -> np.ndarray:
         """
         Gets an array of times used across grids in the model.
-
-        Returns:
-            times: (np.array)
         """
         times = np.empty((0,), dtype=np.float)
         for group in self.values():
