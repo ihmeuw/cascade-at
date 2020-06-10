@@ -132,7 +132,9 @@ def test_exact_values_age_time(covariate_interpolator, age_lower, age_upper, tim
     (2010.1, 2011.5),
     (2011.0, 2011.5),
     (2011.0, 2013.0),
-    (2012.0, 2018.0)
+    (2012.0, 2018.0),
+    (2009.0, 2010.0),
+    (2007.0, 2009.0)
 ])
 def test_covariate_interpolation_over_time(covariate_interpolator, y0, y1, test_cov, test_pop, test_data):
     data = test_data.copy()
@@ -144,6 +146,7 @@ def test_covariate_interpolation_over_time(covariate_interpolator, y0, y1, test_
     y1 = covariate_interpolator._restrict_time(y1, 2010, 2012)
 
     time_wt = np.asarray([(2011 - y0) / (2012 - 2011), (y1 - 2011) / (2012 - 2011)])
+    time_wt[time_wt < 0] = 0.
     pop_wt = time_wt * pop.population.values
     weighted_cov = np.sum(cov.mean_value.values * pop_wt/pop_wt.sum())
     assert np.allclose(
