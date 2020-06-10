@@ -94,10 +94,9 @@ def locations_by_drill(drill_location_start: int, drill_location_end: List[int],
             f"associated with drill location start "
             f"{drill_location_start} and its descendants."
         )
-        drill_locations = ([drill_location_start]
-                           + list(dag.descendants(
+        drill_locations_all = ([drill_location_start] + list(dag.descendants(
                                 location_id=drill_location_start)))
-        mr_locations = list(
+        drill_locations = list(
             dag.parent_children(drill_location_start))
     elif drill_location_start and drill_location_end:
         LOG.info(
@@ -105,13 +104,13 @@ def locations_by_drill(drill_location_start: int, drill_location_end: List[int],
             f"{drill_location_start} (the parent) and descendents "
             f"of {drill_location_end} (the children) will be pulled."
         )
-        drill_locations = [drill_location_start]
+        drill_locations_all = [drill_location_start]
         for child in drill_location_end:
-            drill_locations.append(child)
-            drill_locations = drill_locations + list(
+            drill_locations_all.append(child)
+            drill_locations_all = drill_locations_all + list(
                 dag.descendants(location_id=child))
-        mr_locations = [drill_location_start] + drill_location_end
+        drill_locations = [drill_location_start] + drill_location_end
     else:
+        drill_locations_all = None
         drill_locations = None
-        mr_locations = None
-    return drill_locations, mr_locations
+    return drill_locations_all, drill_locations

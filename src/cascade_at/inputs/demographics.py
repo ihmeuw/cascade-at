@@ -25,7 +25,7 @@ class Demographics:
                 location_set_version_id=location_set_version_id,
                 gbd_round_id=gbd_round_id)
             self.location_id = list(location_dag.dag.nodes)
-            self.mortality_rate_location_id = list(location_dag.dag.nodes)
+            self.drill_locations = list(location_dag.dag.nodes)
         else:
             self.location_id = []
-            self.mortality_rate_location_id = []
+            self.drill_locations = []

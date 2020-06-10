@@ -1,11 +1,15 @@
 import numpy as np
-import pandas as pd
-import itertools
 from intervaltree import IntervalTree
 
 from cascade_at.core.log import get_loggers
+from cascade_at.inputs import InputsError
 
 LOG = get_loggers(__name__)
+
+
+class CovariateInterpolationError(InputsError):
+    """Raised when there is an issue with covariate interpolation."""
+    pass
 
 
 def values(interval):
@@ -46,6 +50,8 @@ class CovariateInterpolator:
         self.population = population.sort_values(by=sort_order)
 
         self.location_ids = self.covariate.location_id.unique()
+        self.year_min = self.covariate.year_id.min()
+        self.year_max = self.covariate.year_id.max() + 1
 
         self.age_intervals = IntervalTree.from_tuples(
             self.covariate[['age_lower', 'age_upper', 'age_group_id']].values
@@ -61,18 +67,48 @@ class CovariateInterpolator:
             map(tuple, self.population[indices].values.tolist()), self.population['population'].values
         ))
 
+    @staticmethod
+    def _restrict_time(time, time_min, time_max):
+        return max(min(time, time_max), time_min)
+
     def _weighting(self, age_lower, age_upper, time_lower, time_upper):
         if age_lower == age_upper:
             age_groups = sorted(map(values, self.age_intervals[age_lower]))
         else:
             age_groups = sorted(map(values, self.age_intervals[age_lower: age_upper]))
+
+        if not age_groups:
+            raise CovariateInterpolationError(
+                f"There is no covariate age group for age lower {age_lower} and age upper {age_upper}."
+            )
         age_group_ids = [a[-1] for a in age_groups]
         age_wts = interval_weighting(tuple(age_groups), age_lower, age_upper)
+
+        # We are *not* linearly interpolating past the covariate time
+        # ranges -- instead we carry over the values from the left
+        # or rightmost time point.
+        time_lower = self._restrict_time(time_lower, time_min=self.year_min, time_max=self.year_max)
+        time_upper = self._restrict_time(time_upper, time_min=self.year_min, time_max=self.year_max)
+
+        # This is to ensure that the time_lower can actually subset
+        # an interval. For example, if time_lower = 2012 and time_upper = 2012,
+        # but the max interval goes from 2011-2012, it will not be able
+        # to select that interval until we decrease time_lower.
+        # We don't have to do this on the leftmost end, however,
+        # because that's already taken care of by _restrict_time,
+        # and the leftmost point of the interval *is* the key for IntervalTrees.
+        if not self.time_intervals.at(time_lower):
+            time_lower -= 1
 
         if time_lower == time_upper:
             time_groups = sorted(map(values, self.time_intervals[time_lower]))
         else:
             time_groups = sorted(map(values, self.time_intervals[time_lower: time_upper]))
+
+        if not time_groups:
+            raise CovariateInterpolationError(
+                f"There is no covariate time group for time lower {time_lower} and time upper {time_upper}."
+            )
         year_ids = [t[-1] for t in time_groups]
         time_wts = interval_weighting(tuple(time_groups), time_lower, time_upper)
 
@@ -128,11 +164,12 @@ def get_interpolated_covariate_values(data_df, covariate_dict,
     cov_objects = {cov_name: CovariateInterpolator(covariate=raw_cov, population=pop)
                    for cov_name, raw_cov in covariate_dict.items()}
     num_groups = len(data_groups)
-    for i, (k, v) in enumerate(data_groups):
-        if i % 1000 == 0:
-            LOG.info(f"Processed {i} of {num_groups} data groups.")
-        [loc_id, sex_id, age_lower, age_upper, time_lower, time_upper] = k
-        for cov_id, cov_obj in cov_objects.items():
+    for cov_id, cov_obj in cov_objects.items():
+        LOG.info(f"Interpolating covariate {cov_id}.")
+        for i, (k, v) in enumerate(data_groups):
+            if i % 1000 == 0:
+                LOG.info(f"Processed {i} of {num_groups} data groups.")
+            [loc_id, sex_id, age_lower, age_upper, time_lower, time_upper] = k
             cov_value = cov_obj.interpolate(
                 loc_id=loc_id, sex_id=sex_id,
                 age_lower=age_lower, age_upper=age_upper,
