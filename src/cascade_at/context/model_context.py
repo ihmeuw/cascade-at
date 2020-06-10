@@ -105,7 +105,7 @@ class Context:
         )
 
     def db_folder(self, location_id: int, sex_id: int):
-        os.makedirs(self.db_folder(location_id, sex_id), exist_ok=True)
+        os.makedirs(self.database_dir / str(location_id) / str(sex_id), exist_ok=True)
         return self.database_dir / str(location_id) / str(sex_id)
 
     def db_file(self, location_id: int, sex_id: int) -> Path:

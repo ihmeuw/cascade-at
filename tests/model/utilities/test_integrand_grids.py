@@ -4,7 +4,7 @@ import numpy as np
 from cascade_at.settings.settings import load_settings
 from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.model.grid_alchemy import Alchemy
-from cascade_at.model.utilities.grid_helpers import integrand_grids
+from cascade_at.model.utilities.integrand_grids import integrand_grids
 
 
 @pytest.fixture(scope='module')

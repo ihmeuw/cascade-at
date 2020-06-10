@@ -2,13 +2,11 @@
 Helper functions for Model and ConstructModel
 """
 
-from copy import deepcopy
 import numpy as np
 import pandas as pd
 import itertools
-from typing import List, Dict
+from typing import List
 
-from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.model.covariate import Covariate
 from cascade_at.model.var import Var
 from cascade_at.model.smooth_grid import SmoothGrid
@@ -172,34 +170,3 @@ def expand_grid(data_dict):
     """
     rows = itertools.product(*data_dict.values())
     return pd.DataFrame.from_records(rows, columns=data_dict.keys())
-
-
-def integrand_grids(alchemy: Alchemy, integrands: List[str]) -> Dict[str, Dict[str, np.ndarray]]:
-    """
-    Get the age-time grids associated with a list of integrands.
-    Should be used for converting priors to posteriors. Uses the default grid unless
-    another one has been specified.
-
-    Parameters:
-    ----------
-    alchemy
-        An alchemy object for the model
-    integrands
-        A list of integrands
-
-    Returns
-    -------
-    A dictionary of grids with keys for each integrand, which are dictionaries for "age" and "time".
-    """
-    grids = dict()
-
-    default_grid = alchemy.construct_age_time_grid()
-    for integrand in integrands:
-        grids[integrand] = deepcopy(default_grid)
-
-    rate_grids = alchemy.get_all_rates_grids()
-    for k, v in rate_grids.items():
-        if k in integrands:
-            grids[k].update({'age': v.ages})
-            grids[k].update({'time': v.times})
-    return grids

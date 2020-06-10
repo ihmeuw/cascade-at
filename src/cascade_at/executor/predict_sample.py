@@ -8,7 +8,7 @@ from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers.data_tables import prep_data_avgint
 from cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior import get_prior_avgint_grid
 from cascade_at.core.log import get_loggers, LEVELS
-from cascade_at.model.utilities.grid_helpers import integrand_grids
+from cascade_at.model.utilities.integrand_grids import integrand_grids
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.settings.settings import SettingsConfig
 from cascade_at.model.grid_alchemy import Alchemy

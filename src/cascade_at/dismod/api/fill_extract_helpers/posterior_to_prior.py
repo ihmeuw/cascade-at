@@ -1,12 +1,19 @@
 import pandas as pd
+from typing import Dict, List
+import numpy as np
 
 from cascade_at.dismod.api.fill_extract_helpers.utils import vec_to_midpoint
+from cascade_at.model.utilities.grid_helpers import expand_grid
 from cascade_at.dismod.constants import RateToIntegrand, IntegrandEnum, INTEGRAND_TO_WEIGHT
 
 
-def get_prior_avgint_grid(grids, sexes, locations, midpoint=False):
+def get_prior_avgint_grid(grids: Dict[str, Dict[str, np.ndarray]],
+                          sexes: List[int],
+                          locations: List[int],
+                          midpoint: bool = False) -> pd.DataFrame:
     """
     Get a data frame to use for setting up posterior predictions on a grid.
+    The grids are specified in the grids parameter.
 
     Will still need to have covariates added to it, and prep data from
     dismod.api.data_tables.prep_data_avgint to convert nodes and covariate names
@@ -14,12 +21,19 @@ def get_prior_avgint_grid(grids, sexes, locations, midpoint=False):
 
     Parameters
     ---------
-    grids : (cascade_at.settings.settings_configuration.SettingsConfig)
-    sexes: (list of int)
-    locations: (list of int)
-    midpoint: (bool)
+    grids
+        A dictionary of grids with keys for each integrand,
+        which are dictionaries for "age" and "time".
+    sexes
+        A list of sexes
+    locations
+        A list of locations
+    midpoint
+        Whether to midpoint the grid lower and upper values (recommended for rates).
 
-    Returns: (pd.DataFrame) with columns
+    Returns
+    -------
+    Dataframe with columns
         "avgint_id", "integrand_id", "location_id", "weight_id", "subgroup_id",
         "age_lower", "age_upper", "time_lower", "time_upper", "sex_id"
 
