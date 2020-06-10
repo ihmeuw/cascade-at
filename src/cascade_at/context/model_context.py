@@ -2,12 +2,16 @@ import os
 import dill
 import json
 from pathlib import Path
+from typing import Optional
 
+from cascade_at.context import ContextError
 from cascade_at.context.configuration import application_config
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.covariate_specs import CovariateSpecs
+from cascade_at.inputs.measurement_inputs import MeasurementInputs
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.settings.settings import load_settings
+from cascade_at.settings.settings_config import SettingsConfig
 from cascade_at.executor.utils.utils import MODEL_STATUS, update_model_status
 from cascade_at.core.db import db_tools
 
@@ -15,15 +19,27 @@ LOG = get_loggers(__name__)
 
 
 class Context:
-    def __init__(self, model_version_id,
-                 make=False, configure_application=True, root_directory=None):
+    def __init__(self, model_version_id: int,
+                 make: bool = False, configure_application: bool = True, root_directory: str = None):
         """
-        Context for running a model. Needs a
-        :param model_version_id: (int)
-        :param make: whether to make the directories for the model
-        :param configure_application: configure the production application.
-            If False, this can be used for testing when on a local machine.
+        Context for running a model.
+
+        Arguments
+        ---------
+        model_version_id
+            The model version ID for this context.
+            If you're not configuring the application, doesn't matter what this is.
+        make
+            Whether or not the make the directory tree for the model.
+        configure_application
+            Configure the production application. If False, this can be used for testing on a local machine.
         """
+
+        self.app = None
+        self.model_connection = None
+        self.data_connection = None
+        self.odbc_file = None
+
         LOG.info(f"Configuring inputs for model version {model_version_id}.")
         if configure_application:
             self.app = application_config()
@@ -76,29 +92,55 @@ class Context:
             os.makedirs(self.database_dir, exist_ok=True)
             os.makedirs(self.log_dir, exist_ok=True)
     
-    def update_status(self, status):
+    def update_status(self, status: int):
         """
         Updates status in the database.
         """
+        if self.odbc_file is None:
+            raise ContextError()
         update_model_status(
             model_version_id=self.model_version_id,
             conn_def=self.model_connection,
             status_id=MODEL_STATUS[status]
         )
 
-    def db_file(self, location_id, sex_id, make=True, index=None):
-        """
-        Makes the database folder for a given location and sex.
-        """
-        folder = self.database_dir / str(location_id) / str(sex_id)
-        if make:
-            os.makedirs(folder, exist_ok=True)
-        if index is None:
-            return folder / 'dismod.db'
-        else:
-            return folder / 'dismod_{index}.db'
+    def db_folder(self, location_id: int, sex_id: int):
+        os.makedirs(self.db_folder(location_id, sex_id), exist_ok=True)
+        return self.database_dir / str(location_id) / str(sex_id)
 
-    def write_inputs(self, inputs=None, settings=None):
+    def db_file(self, location_id: int, sex_id: int) -> Path:
+        """
+        Gets the database file for a given location and sex.
+
+        Parameters
+        ---------
+        location_id
+            Location ID for the database (parent).
+        sex_id
+            Sex ID for the database, as the reference.
+        """
+        return self.db_folder(location_id, sex_id) / 'dismod.db'
+
+    def db_index_file_pattern(self, location_id: int, sex_id: int) -> str:
+        """
+        Gets the database file pattern for databases with indices. Used
+        in sample simulate when it's done in parallel.
+
+        Parameters
+        ----------
+        location_id
+            Location ID for the database (parent).
+        sex_id
+            Sex ID for the database, as the reference.
+
+        Returns
+        -------
+        String representing the absolute path to the index database.
+        """
+        return str(self.db_folder(location_id, sex_id)) + 'dismod_{index}.db'
+
+    def write_inputs(self, inputs: Optional[MeasurementInputs] = None,
+                     settings: Optional[SettingsConfig] = None):
         """
         Write the inputs objects to disk.
         """
@@ -111,14 +153,9 @@ class Context:
                 LOG.info(f"Writing settings obj to {self.settings_file}.")
                 json.dump(settings, f)
 
-    def read_inputs(self):
+    def read_inputs(self) -> (MeasurementInputs, Alchemy, SettingsConfig):
         """
         Read the inputs from disk.
-        :return: (
-            cascade_at.collector.measurement_inputs.MeasurementInputs,
-            cascade_at.collector.grid_alchemy.Alchemy,
-            cascade_at.collector.settings_configuration.SettingsConfig
-        )
         """
         with open(self.inputs_file, "rb") as f:
             LOG.info(f"Reading input obj from {self.inputs_file}.")
@@ -130,12 +167,10 @@ class Context:
 
         # For some reason the pickling process makes it so that there is a 
         # key error in FormList when trying to access CovariateSpecs
-
         # This re-creates the covariate specs for the inputs, but ideally
         # we don't have to do this if we can figure out why pickling makes it error.
         inputs.covariate_specs = CovariateSpecs(
             country_covariates=settings.country_covariate,
             study_covariates=settings.study_covariate
         )
-
         return inputs, alchemy, settings

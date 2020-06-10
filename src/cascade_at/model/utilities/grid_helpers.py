@@ -6,12 +6,15 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 import itertools
+from typing import List, Dict
 
+from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.model.covariate import Covariate
 from cascade_at.model.var import Var
 from cascade_at.model.smooth_grid import SmoothGrid
 from cascade_at.model.priors import Constant
 from cascade_at.core.log import get_loggers
+from cascade_at.settings.settings_config import SmoothingPrior
 
 LOG = get_loggers(__name__)
 
@@ -75,20 +78,23 @@ def smooth_grid_from_smoothing_form(default_age_time, single_age_time, smooth):
     return rate_grid
 
 
-def matching_knots(rate_grid, smoothing_prior):
+def matching_knots(rate_grid, smoothing_prior: SmoothingPrior):
     """
     Get lower and upper out of the smoothing prior. This uses the age, time,
     and "born" lower and upper bounds to return
     ages and times in the grid that are within those bounds.
     The goal is to apply a prior selectively to those knots.
 
-    Args:
-        rate_grid:
-        smoothing_prior (cascade.input_data.configuration.form.SmoothingPrior):
-            A single smoothing prior.
+    Parameters
+    ----------
+    rate_grid
+        A grid of rates
+    smoothing_prior
+        A single smoothing prior
 
-    Returns:
-        Iterator over (a, t) that match. Can be nothing.
+    Returns
+    -------
+    Iterator over (a, t) that match. Can be nothing.
     """
     extents = dict()
     for extent in ["age", "time", "born"]:
@@ -168,17 +174,22 @@ def expand_grid(data_dict):
     return pd.DataFrame.from_records(rows, columns=data_dict.keys())
 
 
-def integrand_grids(alchemy, integrands):
+def integrand_grids(alchemy: Alchemy, integrands: List[str]) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Get the age-time grids associated with a list of integrands.
-    Should be used for converting priors to posteriors.
+    Should be used for converting priors to posteriors. Uses the default grid unless
+    another one has been specified.
 
-    Args:
-        alchemy:
-        integrands:
+    Parameters:
+    ----------
+    alchemy
+        An alchemy object for the model
+    integrands
+        A list of integrands
 
-    Returns:
-
+    Returns
+    -------
+    A dictionary of grids with keys for each integrand, which are dictionaries for "age" and "time".
     """
     grids = dict()
 

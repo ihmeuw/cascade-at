@@ -55,7 +55,7 @@ class MeasurementInputs:
         don't match up with GBD age and year ranges.
 
         Parameters
-        ==========
+        ----------
 
         model_version_id
             the model version ID
@@ -80,7 +80,7 @@ class MeasurementInputs:
             which immediate children of the drill_location_start parent to include in the drill
 
         Attributes
-        ==========
+        ----------
         self.decomp_step : str
             the decomp step in string form
         self.demographics : cascade_at.inputs.demographics.Demographics
@@ -110,7 +110,7 @@ class MeasurementInputs:
             to be used in the dismod database
 
         Examples
-        ========
+        --------
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
         >>>
@@ -189,8 +189,6 @@ class MeasurementInputs:
         """
         Get the raw inputs that need to be used
         in the modeling.
-
-        :return:
         """
         LOG.info("Getting all raw inputs.")
         self.asdr = ASDR(
@@ -230,7 +228,7 @@ class MeasurementInputs:
         Modifies the inputs for DisMod based on model-specific settings.
 
         Arguments
-        ==========
+        ---------
         settings
             Settings for the model
         mortality_year_reduction
@@ -292,12 +290,11 @@ class MeasurementInputs:
 
         return self
 
-    def add_covariates_to_data(self, df: pd.DataFrame):
+    def add_covariates_to_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Add on covariates to a data frame that has age_group_id, year_id
         or time-age upper / lower, and location_id and sex_id. Adds both
         country-level and study-level covariates.
-        :return:
         """
         cov_dict_for_interpolation = {
             c.name: self.country_covariate_data[c.covariate_id]
@@ -315,10 +312,9 @@ class MeasurementInputs:
 
         return df
 
-    def to_gbd_avgint(self, parent_location_id: int, sex_id: int):
+    def to_gbd_avgint(self, parent_location_id: int, sex_id: int) -> pd.DataFrame:
         """
         Converts the demographics of the model to the avgint table.
-        :return:
         """
         LOG.info(f"Getting grid for the avgint table "
                  f"for parent location ID {parent_location_id} "
@@ -367,7 +363,8 @@ class MeasurementInputs:
                 )
         return df
 
-    def calculate_country_covariate_reference_values(self, parent_location_id: int, sex_id: int) -> List[CovariateSpecs]:
+    def calculate_country_covariate_reference_values(
+            self, parent_location_id: int, sex_id: int) -> List[CovariateSpecs]:
         """
         Gets the country covariate reference value for a covariate ID and a
         parent location ID. Also gets the maximum difference between the
@@ -455,7 +452,7 @@ class MeasurementInputsFromSettings(MeasurementInputs):
         than the individual arguments. For convenience.
 
         Examples
-        ========
+        --------
         >>> from cascade_at.settings.base_case import BASE_CASE
         >>> from cascade_at.settings.settings import load_settings
 
