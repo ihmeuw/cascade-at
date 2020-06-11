@@ -135,12 +135,12 @@ def main():
 
     LOG.info(f"Will pull from the {table_name} table from each database.")
     mulcov_estimates = get_mulcovs(
-        dbs=db_files, covs=common_covariates, table=args.sample
+        dbs=db_files, covs=common_covariates, table=table_name
     )
     mulcov_statistics = compute_statistics(
         df=mulcov_estimates, mean=args.mean, std=args.std, quantile=args.quantile
     )
-    LOG.info()
+    LOG.info('Write to output file.')
     mulcov_statistics.to_csv(context.outputs_dir / f'{args.outfile_name}.csv', index=False)
 
 
