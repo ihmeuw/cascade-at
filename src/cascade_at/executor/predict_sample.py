@@ -51,7 +51,7 @@ def predict_sample(inputs: MeasurementInputs, alchemy: Alchemy, settings: Settin
     posterior_grid.rename(columns={'sex_id': 'c_sex_id'}, inplace=True)
     sourceDB.avgint = posterior_grid
     run_dismod_commands(
-        dm_file=sourceDB,
+        dm_file=source_db_path,
         commands=['predict sample']
     )
 

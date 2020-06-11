@@ -84,8 +84,11 @@ def test_predict_sample(mi, settings, dismod):
     alchemy = Alchemy(settings)
     predict_sample(
         inputs=mi, alchemy=alchemy, settings=settings,
-        source_db_path=NAME, target_locations=[72], target_sexes=[1, 2]
+        source_db_path=NAME, target_locations=[72], target_sexes=[2]
     )
+    di = DismodIO(NAME)
+    assert len(di.predict) == 2 * len(di.avgint)
+    assert all(di.predict.c_sex_id == 2)
 
 
 def test_gather_child_draws(mi, settings, dismod):
