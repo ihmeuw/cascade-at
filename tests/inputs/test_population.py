@@ -12,7 +12,9 @@ def df_for_dismod(population):
     ("age_group_id", 2),
     ("location_id", 70),
     ("year_id", 1990),
-    ("population", 3711.)
+    ("population", 3000.)
 ])
 def test_all_columns(df_for_dismod, column, value):
+    # This is just testing the very first
+    # row of the population dataset.
     assert df_for_dismod[column].iloc[0] == value

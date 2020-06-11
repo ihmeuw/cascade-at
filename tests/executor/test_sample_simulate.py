@@ -42,24 +42,24 @@ def filler(mi, settings):
     return d
 
 
-def test_sample_simulate_empty(filler):
+def test_sample_simulate_empty(filler, dismod):
     with pytest.raises(SampleSimulateError):
         simulate(NAME, n_sim=1)
 
 
-def test_sample_simulate(filler):
+def test_sample_simulate(filler, dismod):
     run_dismod_commands(NAME, commands=['init', 'fit fixed'])
     simulate(NAME, n_sim=2)
 
 
-def test_fit_sample(filler):
+def test_fit_sample(filler, dismod):
     fit = FitSample(main_db=NAME, index_file_pattern='sample_{index}.db', fit_type='fixed')
     result = fit(1)
     assert all(result.sample_index) == 1
     assert len(result) == 250
 
 
-def test_sample_simulate_sequence(filler):
+def test_sample_simulate_sequence(filler, dismod):
     sample_simulate_sequence(NAME, n_sim=2)
     di = DismodIO(NAME)
     assert len(di.sample) == 500
@@ -69,7 +69,7 @@ def test_sample_simulate_sequence(filler):
     assert all(~np.isnan(di.sample.var_value))
 
 
-def test_sample_simulate_pool(filler):
+def test_sample_simulate_pool(filler, dismod):
     sample_simulate_pool(NAME, 'sample_{index}.db', fit_type='fixed', n_pool=1, n_sim=2)
     di = DismodIO(NAME)
     assert len(di.sample) == 500
@@ -79,7 +79,7 @@ def test_sample_simulate_pool(filler):
     assert all(~np.isnan(di.sample.var_value))
 
 
-def test_predict_sample(mi, settings):
+def test_predict_sample(mi, settings, dismod):
     alchemy = Alchemy(settings)
     predict_sample(
         inputs=mi, alchemy=alchemy, settings=settings,
