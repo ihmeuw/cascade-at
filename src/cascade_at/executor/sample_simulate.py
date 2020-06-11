@@ -50,14 +50,18 @@ def simulate(path: Union[str, Path], n_sim: int):
         Number of simulations to create.
     """
     d = DismodIO(path=path)
-    if d.fit_var.empty:
-        raise SampleSimulateError("Cannot run sample simulate on a database without fit_var!")
+    try:
+        if d.fit_var.empty:
+            raise SampleSimulateError("Cannot run sample simulate on a database without fit_var!")
+    except ValueError:
+        raise SampleSimulateError("Cannot run sample simulate on a database without fit_var!"
+                                  "Does not have the fit_var table yet.")
 
     # Create n_sim simulation datasets based on the fitted parameters
     run_dismod_commands(
         dm_file=path,
         commands=[
-            'set start_var fit_var'
+            'set start_var fit_var',
             'set truth_var fit_var',
             'set scale_var fit_var',
             f'simulate {n_sim}'

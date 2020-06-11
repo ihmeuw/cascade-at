@@ -46,3 +46,12 @@ def test_sample_simulate(filler):
 def test_fit_sample(filler):
     fit = FitSample(main_db=NAME, index_file_pattern='sample_{index}.db', fit_type='fixed')
     result = fit(1)
+    assert all(result.sample_index) == 1
+
+
+def test_sample_simulate_sequence(filler):
+    sample_simulate_sequence(NAME, n_sim=2)
+
+
+def test_sample_simulate_pool(filler):
+    sample_simulate_pool(NAME, 'sample_{index}.db', fit_type='fixed', n_pool=1, n_sim=2)
