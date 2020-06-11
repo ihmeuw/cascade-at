@@ -9,7 +9,8 @@ from cascade_at.executor.sample_simulate import sample_simulate_pool, sample_sim
 from cascade_at.executor.sample_simulate import SampleSimulateError
 
 NAME = 'sample.db'
-os.remove(NAME)
+if os.path.isfile(NAME):
+    os.remove(NAME)
 
 
 @pytest.fixture
@@ -42,7 +43,6 @@ def test_sample_simulate(filler):
     simulate(NAME, n_sim=2)
 
 
-def test_fit_sample():
-    import pdb; pdb.set_trace()
+def test_fit_sample(filler):
     fit = FitSample(main_db=NAME, index_file_pattern='sample_{index}.db', fit_type='fixed')
     result = fit(1)
