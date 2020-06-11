@@ -1,6 +1,6 @@
 import logging
 from argparse import ArgumentParser
-from typing import List
+from typing import List, Union
 from pathlib import Path
 
 from cascade_at.context.model_context import Context
@@ -30,7 +30,7 @@ def get_args():
 
 
 def predict_sample(inputs: MeasurementInputs, alchemy: Alchemy, settings: SettingsConfig,
-                   source_db_path: Path, target_locations: List[int], target_sexes: List[int]):
+                   source_db_path: Union[str, Path], target_locations: List[int], target_sexes: List[int]):
 
     sourceDB = DismodIO(path=source_db_path)
     rates = [r.rate for r in settings.rate]

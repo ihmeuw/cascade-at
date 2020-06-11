@@ -1,3 +1,8 @@
+"""
+These are tests for both executor/sample_simulate and executor/predict_sample since they will
+typically be executed in sequence on the same database.
+"""
+
 import pytest
 import os
 import numpy as np
@@ -9,6 +14,8 @@ from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.executor.sample_simulate import simulate, FitSample
 from cascade_at.executor.sample_simulate import sample_simulate_pool, sample_simulate_sequence
 from cascade_at.executor.sample_simulate import SampleSimulateError
+from cascade_at.executor.predict_sample import predict_sample
+
 
 NAME = 'sample.db'
 if os.path.isfile(NAME):
@@ -71,3 +78,10 @@ def test_sample_simulate_pool(filler):
     assert all(di.sample.iloc[250:500].sample_index == 1)
     assert all(~np.isnan(di.sample.var_value))
 
+
+def test_predict_sample(mi, settings):
+    alchemy = Alchemy(settings)
+    predict_sample(
+        inputs=mi, alchemy=alchemy, settings=settings,
+        source_db_path=NAME, target_locations=[72], target_sexes=[1, 2]
+    )
