@@ -8,6 +8,7 @@ import os
 import numpy as np
 
 from cascade_at.dismod.api.dismod_io import DismodIO
+from cascade_at.dismod.api.dismod_extractor import DismodExtractor
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
@@ -84,4 +85,12 @@ def test_predict_sample(mi, settings, dismod):
     predict_sample(
         inputs=mi, alchemy=alchemy, settings=settings,
         source_db_path=NAME, target_locations=[72], target_sexes=[1, 2]
+    )
+
+
+def test_gather_child_draws(mi, settings, dismod):
+    de = DismodExtractor(NAME)
+    de.gather_draws_for_prior_grid(
+        location_id=72, sex_id=2,
+        rates=['iota', 'chi', 'pini']
     )
