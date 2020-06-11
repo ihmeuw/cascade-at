@@ -66,8 +66,9 @@ def test_data_cv_from_settings_by_integrand():
 
 def test_to_gbd_avgint(mi):
     df = mi.to_gbd_avgint(parent_location_id=70, sex_id=1)
-    assert len(df) == 2
-    np.testing.assert_array_equal(df.location_id.values, np.array([70, 72]))
+    # Two locations * 23 age groups
+    assert len(df) == 46
+    np.testing.assert_array_equal(np.array(df.location_id.unique()), np.array([70, 72]))
     assert all(df.columns == [
         'sex_id', 'location_id', 'year_id', 'age_group_id',
         'time_lower', 'time_upper', 'age_lower', 'age_upper',

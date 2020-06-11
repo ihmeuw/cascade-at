@@ -88,7 +88,7 @@ def temp_directory():
 @pytest.fixture(scope='session')
 def Demographics():
     d = SimpleNamespace()
-    d.age_group_id = [2]
+    d.age_group_id = np.concatenate([np.arange(2, 21), np.array([30, 31, 32, 235])])
     d.location_id = [70]
     d.sex_id = [2]
     d.year_id = [1990]
@@ -205,7 +205,7 @@ def population(Demographics, ihme):
     pop = Population(demographics=Demographics, decomp_step='step3',
                      gbd_round_id=6)
     raw = expand_grid({
-        'age_group_id': np.concatenate([np.arange(2, 21), np.array([30, 31, 32, 235])]),
+        'age_group_id': Demographics.age_group_id,
         'location_id': np.array([70., 72.]),
         'year_id': np.array([1990.]),
         'sex_id': np.array([1., 2.])
