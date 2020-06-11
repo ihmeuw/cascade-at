@@ -62,7 +62,7 @@ def main():
 
     context = Context(model_version_id=args.model_version_id)
     inputs, alchemy, settings = context.read_inputs()
-    path = context.db_file(location_id=args.source_location, sex_id=args.source_sex, make=False)
+    path = context.db_file(location_id=args.source_location, sex_id=args.source_sex)
 
     predict_sample(
         inputs=inputs,

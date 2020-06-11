@@ -5,7 +5,7 @@ Helper functions for Model and ConstructModel
 import numpy as np
 import pandas as pd
 import itertools
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 from cascade_at.model.var import Var
 from cascade_at.model.smooth_grid import SmoothGrid
@@ -126,6 +126,7 @@ def matching_knots(rate_grid: SmoothGrid, smoothing_prior: SmoothingPrior):
 def construct_grid_ages_times(default_age_time: Dict[str, np.ndarray],
                               single_age_time: Tuple[np.ndarray, np.ndarray],
                               smooth: Smoothing) -> Tuple[np.ndarray, np.ndarray]:
+
     if not smooth.is_field_unset("age_time_specific") and smooth.age_time_specific == 0:
         return single_age_time
 
@@ -146,11 +147,9 @@ def construct_grid_ages_times(default_age_time: Dict[str, np.ndarray],
     return ages, times
 
 
-def expand_grid(data_dict):
+def expand_grid(data_dict: Dict[str, Union[int, float, np.ndarray]]) -> pd.DataFrame:
     """
     Takes lists and turns them into a dictionary of
-    :param data_dict:
-    :return:
     """
     rows = itertools.product(*data_dict.values())
     return pd.DataFrame.from_records(rows, columns=data_dict.keys())

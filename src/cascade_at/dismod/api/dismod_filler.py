@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 import numpy as np
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 
 from cascade_at.settings.settings_config import SettingsConfig
 from cascade_at.inputs.measurement_inputs import MeasurementInputs
@@ -49,7 +49,7 @@ class DismodFiller(DismodIO):
     >>>                    sex_id=3)
     >>> da.fill_for_parent_child()
     """
-    def __init__(self, path: Path, settings_configuration: SettingsConfig,
+    def __init__(self, path: Union[str, Path], settings_configuration: SettingsConfig,
                  measurement_inputs: MeasurementInputs, grid_alchemy: Alchemy,
                  parent_location_id: int, sex_id: int,
                  child_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None):

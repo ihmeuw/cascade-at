@@ -20,7 +20,7 @@ def integrand_grids(alchemy: Alchemy, integrands: List[str]) -> Dict[str, Dict[s
 
     Returns
     -------
-    A dictionary of grids with keys for each integrand, which are dictionaries for "age" and "time".
+    Dict, a dictionary of grids with keys for each integrand, which are dictionaries for "age" and "time".
     """
     grids = dict()
 

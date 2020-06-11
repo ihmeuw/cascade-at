@@ -16,10 +16,11 @@ def test_get_prior_avgint_grid():
 
     grids = integrand_grids(alchemy=alchemy, integrands=rates)
 
-    prior_avgint_grid = get_prior_avgint_grid(
+    df = get_prior_avgint_grid(
         grids=grids,
         sexes=[1, 2],
         locations=[1]
     )
-    assert type(prior_avgint_grid) == pd.DataFrame
-    assert sorted(prior_avgint_grid['integrand_id'].unique()) == [0, 2, 7]
+    assert type(df) == pd.DataFrame
+    assert sorted(df['integrand_id'].unique()) == [0, 2, 7]
+    assert all(df.location_id == 1)
