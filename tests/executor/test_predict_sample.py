@@ -1,6 +1,8 @@
 import pytest
 import os
+import numpy as np
 
+from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
@@ -47,11 +49,25 @@ def test_fit_sample(filler):
     fit = FitSample(main_db=NAME, index_file_pattern='sample_{index}.db', fit_type='fixed')
     result = fit(1)
     assert all(result.sample_index) == 1
+    assert len(result) == 250
 
 
 def test_sample_simulate_sequence(filler):
     sample_simulate_sequence(NAME, n_sim=2)
+    di = DismodIO(NAME)
+    assert len(di.sample) == 500
+    assert all(di.sample.columns == ['sample_id', 'sample_index', 'var_id', 'var_value'])
+    assert all(di.sample.iloc[0:250].sample_index == 0)
+    assert all(di.sample.iloc[250:500].sample_index == 1)
+    assert all(~np.isnan(di.sample.var_value))
 
 
 def test_sample_simulate_pool(filler):
     sample_simulate_pool(NAME, 'sample_{index}.db', fit_type='fixed', n_pool=1, n_sim=2)
+    di = DismodIO(NAME)
+    assert len(di.sample) == 500
+    assert all(di.sample.columns == ['sample_id', 'sample_index', 'var_id', 'var_value'])
+    assert all(di.sample.iloc[0:250].sample_index == 0)
+    assert all(di.sample.iloc[250:500].sample_index == 1)
+    assert all(~np.isnan(di.sample.var_value))
+

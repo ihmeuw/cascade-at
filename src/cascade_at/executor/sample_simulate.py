@@ -132,7 +132,7 @@ def sample_simulate_pool(main_db, index_file_pattern, fit_type, n_sim, n_pool):
     sample.rename(columns={'fit_var_id': 'var_id', 'fit_var_value': 'var_value'}, inplace=True)
     
     d = DismodIO(path=main_db)
-    d.sample = sample[['var_id', 'var_value']]
+    d.sample = sample[['sample_index', 'var_id', 'var_value']]
 
 
 def sample_simulate_sequence(path: Union[str, Path], n_sim: int):
