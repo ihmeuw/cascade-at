@@ -7,6 +7,7 @@ import tempfile
 from types import SimpleNamespace
 
 import cascade_at.core.db
+from cascade_at.model.utilities.grid_helpers import expand_grid
 from cascade_at.inputs.data import CrosswalkVersion
 from cascade_at.settings.base_case import BASE_CASE
 from cascade_at.inputs.csmr import CSMR
@@ -87,7 +88,7 @@ def temp_directory():
 @pytest.fixture(scope='session')
 def Demographics():
     d = SimpleNamespace()
-    d.age_group_id = [2]
+    d.age_group_id = np.concatenate([np.arange(2, 21), np.array([30, 31, 32, 235])])
     d.location_id = [70]
     d.sex_id = [2]
     d.year_id = [1990]
@@ -203,14 +204,15 @@ def asdr(Demographics, ihme):
 def population(Demographics, ihme):
     pop = Population(demographics=Demographics, decomp_step='step3',
                      gbd_round_id=6)
-    pop.raw = pd.DataFrame({
-        'age_group_id': 2.0,
-        'location_id': [70.0, 70., 72.0, 72.0],
-        'year_id': 1990.0,
-        'sex_id': [1., 2., 1., 2.],
-        'population': 3711.,
-        'run_id': np.nan
+    raw = expand_grid({
+        'age_group_id': Demographics.age_group_id,
+        'location_id': np.array([70., 72.]),
+        'year_id': np.array([1990.]),
+        'sex_id': np.array([1., 2.])
     })
+    raw['population'] = 3000.
+    raw['run_id'] = np.nan
+    pop.raw = raw
     return pop
 
 

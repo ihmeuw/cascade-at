@@ -1,5 +1,11 @@
 import pandas as pd
+from pathlib import Path
+import numpy as np
+from typing import Optional, Dict, Union
 
+from cascade_at.settings.settings_config import SettingsConfig
+from cascade_at.inputs.measurement_inputs import MeasurementInputs
+from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers import reference_tables, data_tables, grid_tables
@@ -15,42 +21,49 @@ class DismodFiller(DismodIO):
     and puts them into the Dismod database tables
     in the correct construction.
 
-    Parameters:
-        path: (pathlib.Path)
-        settings_configuration: (cascade_at.collector.settings_configuration.SettingsConfig)
-        measurement_inputs: (cascade_at.collector.measurement_inputs.MeasurementInputs)
-        grid_alchemy: (cascade_at.collector.grid_alchemy.GridAlchemy)
-        parent_location_id: (int) which parent location to construct the database for
-        sex_id: (int) the sex that this database will be run for
+    Attributes
+    ----------
+    self.parent_child_model
+        Model that was constructed from grid_alchemy parameters for one specific parent and its descendents
 
-    Attributes:
-        self.parent_child_model: (cascade_at.model.model.Model) that was constructed from grid_alchemy parameter
-            for one specific parent and its descendents
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> from cascade_at.model.grid_alchemy import Alchemy
+    >>> from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
+    >>> from cascade_at.settings.base_case import BASE_CASE
+    >>> from cascade_at.settings.settings import load_settings
 
-    Example:
-        >>> from pathlib import Path
-        >>> from cascade_at.model.grid_alchemy import Alchemy
-        >>> from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
-        >>> from cascade_at.settings.base_case import BASE_CASE
-        >>> from cascade_at.settings.settings import load_settings
+    >>> settings = load_settings(BASE_CASE)
+    >>> inputs = MeasurementInputsFromSettings(settings)
+    >>> inputs.demographics.location_id = [102, 555] # subset the locations to make it go faster
+    >>> inputs.get_raw_inputs()
+    >>> inputs.configure_inputs_for_dismod(settings)
+    >>> alchemy = Alchemy(settings)
 
-        >>> settings = load_settings(BASE_CASE)
-        >>> inputs = MeasurementInputsFromSettings(settings)
-        >>> inputs.demographics.location_id = [102, 555] # subset the locations to make it go faster
-        >>> inputs.get_raw_inputs()
-        >>> inputs.configure_inputs_for_dismod(settings)
-        >>> alchemy = Alchemy(settings)
-
-        >>> da = DismodFiller(path=Path('temp.db'),
-        >>>                    settings_configuration=settings,
-        >>>                    measurement_inputs=inputs,
-        >>>                    grid_alchemy=alchemy,
-        >>>                    parent_location_id=1,
-        >>>                    sex_id=3)
-        >>> da.fill_for_parent_child()
+    >>> da = DismodFiller(path=Path('temp.db'),
+    >>>                    settings_configuration=settings,
+    >>>                    measurement_inputs=inputs,
+    >>>                    grid_alchemy=alchemy,
+    >>>                    parent_location_id=1,
+    >>>                    sex_id=3)
+    >>> da.fill_for_parent_child()
     """
-    def __init__(self, path, settings_configuration, measurement_inputs, grid_alchemy, parent_location_id, sex_id,
-                 child_prior=None):
+    def __init__(self, path: Union[str, Path], settings_configuration: SettingsConfig,
+                 measurement_inputs: MeasurementInputs, grid_alchemy: Alchemy,
+                 parent_location_id: int, sex_id: int,
+                 child_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None):
+        """
+        Parameters
+        ----------
+        path
+        settings_configuration
+        measurement_inputs
+        grid_alchemy
+        parent_location_id
+        sex_id
+        child_prior
+        """
         super().__init__(path=path)
 
         self.settings = settings_configuration
@@ -125,7 +138,7 @@ class DismodFiller(DismodIO):
         self.fill_data_tables()
         self.option = self.construct_option_table(**additional_option_kwargs)
 
-    def node_id_from_location_id(self, location_id):
+    def node_id_from_location_id(self, location_id: int):
         """
         Get the node ID from a location ID in an already created node table.
         """
