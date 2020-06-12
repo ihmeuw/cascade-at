@@ -87,7 +87,7 @@ class DismodExtractor(DismodIO):
             df2 = df.loc[df.rate == r].copy()
 
             ages = np.asarray(sorted(df2.age_lower.unique().tolist()))
-            times = np.asarray(sorted(df2.age_lower.unique().tolist()))
+            times = np.asarray(sorted(df2.time_lower.unique().tolist()))
             n_draws = int(len(df2) / (len(ages) * len(times)))
 
             # Save these for later for quality checks
@@ -96,7 +96,7 @@ class DismodExtractor(DismodIO):
             rate_dict[r]['n_draws'] = n_draws
 
             # Create template for filling in the draws
-            draw_data = np.zeros((n_draws, len(ages), len(times)))
+            draw_data = np.zeros((len(ages), len(times), n_draws))
             for age_idx, age in enumerate(ages):
                 for time_idx, time in enumerate(times):
                     # Subset to the draws that we want from avg_integrand
