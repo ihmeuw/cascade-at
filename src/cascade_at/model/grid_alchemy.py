@@ -1,5 +1,4 @@
 from collections import defaultdict
-import itertools as it
 from typing import Dict, Tuple, Optional
 import numpy as np
 import pandas as pd
@@ -12,8 +11,8 @@ from cascade_at.inputs.covariate_specs import CovariateSpecs
 from cascade_at.model.utilities.grid_helpers import smooth_grid_from_smoothing_form
 from cascade_at.model.utilities.grid_helpers import rectangular_data_to_var
 from cascade_at.model.utilities.grid_helpers import constraint_from_rectangular_data
+from cascade_at.model.utilities.grid_helpers import estimate_grid_from_draws
 from cascade_at.settings.settings_config import Smoothing
-from cascade_at.model.smooth_grid import _PriorGrid
 from cascade_at.model.var import Var
 from cascade_at.model.smooth_grid import SmoothGrid
 
@@ -106,31 +105,50 @@ class Alchemy:
         return {c.rate: self.get_smoothing_grid(rate=c) for c in self.settings.rate}
 
     @staticmethod
-    def estimate_grid_parameters(grid_priors: _PriorGrid, draws: np.ndarray,
-                                 ages: np.ndarray, times: np.ndarray):
+    def override_priors(rate_grid: SmoothGrid, update_dict=Dict[str, np.ndarray],
+                        new_prior_distribution: Optional[str] = 'gaussian'):
         """
-        Estimates using MLE the parameters for the grid using prior draws.
-        Updates the grid_priors _PriorGrid object in place, so returns nothing.
+        Override priors for rates.
 
-        Arguments
-        ---------
-        grid_priors
-            Prior grids that have the .mle() method that can be used to estimate
-        draws
-            3-d array coming out of `DismodExtractor.gather_draws_for_prior_grid()`
-        ages
-            Array of ages
-        times
-            Array of times
+        Parameters
+        ----------
+        rate_grid
+            SmoothGrid object for a rate
+        update_dict
+            Dictionary with ages and times vectors and draws for values, dage, and dtime
+            to use in overriding the prior.
+        new_prior_distribution
+            The new prior distribution to override the existing priors.
+
+        Returns
+        -------
+
         """
-        assert isinstance(draws, np.ndarray)
-        assert len(draws.shape) == 3
-        assert draws.shape[0] == len(ages), "Not the same number of ages in the prior as the grid"
-        assert draws.shape[1] == len(times), "Not the same number of times in the prior as the grid"
-        for age_idx, time_idx in it.product(range(len(ages)), range(len(times))):
-            age = ages[age_idx]
-            time = times[time_idx]
-            grid_priors[age, time] = grid_priors[age, time].mle(draws[age_idx, time_idx, :])
+        # Check that the prior grid lines up with this rate
+        # grid. If it doesn't, we have a problem.
+        assert all(update_dict['ages'] == rate_grid.ages)
+        assert all(update_dict['times'] == rate_grid.times)
+        # For each of the types of priors, update rate_grid
+        # with the new prior information from the update_prior
+        # object that has info from a different model fit
+        if 'value' in update_dict:
+            estimate_grid_from_draws(
+                grid_priors=rate_grid.value, draws=update_dict['value'],
+                ages=rate_grid.ages, times=rate_grid.times,
+                new_prior_distribution=new_prior_distribution
+            )
+        if 'dage' in update_dict:
+            estimate_grid_from_draws(
+                grid_priors=rate_grid.dage, draws=update_dict['dage'],
+                ages=rate_grid.ages[:-1], times=rate_grid.times,
+                new_prior_distribution=new_prior_distribution
+            )
+        if 'dtime' in update_dict:
+            estimate_grid_from_draws(
+                grid_priors=rate_grid.dtime, draws=update_dict['dtime'],
+                ages=rate_grid.ages, times=rate_grid.times[:-1],
+                new_prior_distribution=new_prior_distribution
+            )
     
     def construct_two_level_model(self, location_dag: LocationDAG, parent_location_id: int,
                                   covariate_specs: CovariateSpecs,
@@ -169,29 +187,7 @@ class Alchemy:
             rate_grid = self.get_smoothing_grid(rate=smooth)
             if update_prior is not None:
                 if smooth.rate in update_prior:
-                    prior = update_prior[smooth.rate]
-                    # Check that the prior grid lines up with this rate
-                    # grid. If it doesn't, we have a problem.
-                    assert (prior['ages'] == rate_grid.ages)
-                    assert (prior['times'] == rate_grid.times)
-                    # For each of the types of priors, update rate_grid
-                    # with the new prior information from the update_prior
-                    # object that has info from a different model fit
-                    if 'value' in prior:
-                        self.estimate_grid_parameters(
-                            grid_priors=rate_grid.value, draws=prior['value'],
-                            ages=rate_grid.ages, times=rate_grid.times
-                        )
-                    if 'dage' in prior:
-                        self.estimate_grid_parameters(
-                            grid_priors=rate_grid.dage, draws=prior['dage'],
-                            ages=rate_grid.ages[:-1], times=rate_grid.times
-                        )
-                    if 'dtime' in prior:
-                        self.estimate_grid_parameters(
-                            grid_priors=rate_grid.dtime, draws=prior['dtime'],
-                            ages=rate_grid.ages, times=rate_grid.times[:-1]
-                        )
+                    self.override_priors(rate_grid=rate_grid, update_dict=update_prior[smooth.rate])
             model.rate[smooth.rate] = rate_grid
         
         # Second construct the covariate grids

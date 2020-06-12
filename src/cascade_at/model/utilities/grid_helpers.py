@@ -4,12 +4,12 @@ Helper functions for Model and ConstructModel
 
 import numpy as np
 import pandas as pd
-import itertools
-from typing import Dict, Tuple, Union
+import itertools as it
+from typing import Dict, Tuple, Union, Optional
 
 from cascade_at.model.var import Var
-from cascade_at.model.smooth_grid import SmoothGrid
-from cascade_at.model.priors import Constant
+from cascade_at.model.smooth_grid import SmoothGrid, _PriorGrid
+from cascade_at.model.priors import Constant, prior_distribution
 from cascade_at.core.log import get_loggers
 from cascade_at.settings.settings_config import SmoothingPrior, Smoothing
 
@@ -151,5 +151,46 @@ def expand_grid(data_dict: Dict[str, Union[int, float, np.ndarray]]) -> pd.DataF
     """
     Takes lists and turns them into a dictionary of
     """
-    rows = itertools.product(*data_dict.values())
+    rows = it.product(*data_dict.values())
     return pd.DataFrame.from_records(rows, columns=data_dict.keys())
+
+
+def estimate_grid_from_draws(grid_priors: _PriorGrid, draws: np.ndarray,
+                             ages: np.ndarray, times: np.ndarray,
+                             new_prior_distribution: Optional[str] = 'gaussian'):
+    """
+    Estimates using MLE the parameters for the grid using prior draws.
+    Updates the grid_priors _PriorGrid object in place, so returns nothing.
+    Also overrides existing prior distributions with another one, defaulting
+    to Gaussian. Will skip if the age or time didn't exist in the draws (
+    for example with dage and dtime for one age/time point).
+
+    Arguments
+    ---------
+    grid_priors
+        Prior grids that have the .mle() method that can be used to estimate
+    draws
+        3-d array coming out of `DismodExtractor.gather_draws_for_prior_grid()`
+    ages
+        Array of ages
+    times
+        Array of times
+    new_prior_distribution
+        The new prior distribution to override the existing priors.
+    """
+    assert isinstance(draws, np.ndarray)
+    assert len(draws.shape) == 3
+    for idx, row in grid_priors.grid.loc[:, grid_priors.columns + ["age", "time"]].iterrows():
+        if row.age in ages:
+            age_idx = ages.tolist().index(row.age)
+        else:
+            continue
+        if row.time in times:
+            time_idx = times.tolist().index(row.time)
+        else:
+            continue
+        if new_prior_distribution is not None:
+            grid_priors.grid['density'] = new_prior_distribution
+        grid_priors[row.age, row.time] = grid_priors[row.age, row.time].mle(
+            draws[age_idx, time_idx, :]
+        )
