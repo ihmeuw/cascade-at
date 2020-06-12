@@ -66,6 +66,7 @@ def get_mulcovs(dbs, covs, table='fit_var'):
 
             df = df.merge(db.integrand, on='integrand_id', how='left')
             df = df.merge(db.rate, on='rate_id', how='left')
+            mulcov = mulcov.astype({'integrand_id': 'float64'})
             df = mulcov.merge(df)
             df.rename(columns={val_col: 'mulcov_value'}, inplace=True)
             df = df[[
