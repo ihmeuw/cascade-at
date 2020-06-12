@@ -88,12 +88,11 @@ def test_predict_sample(mi, settings, dismod):
     )
     di = DismodIO(NAME)
     assert len(di.predict) == 2 * len(di.avgint)
-    assert all(di.predict.c_sex_id == 2)
 
 
 def test_gather_child_draws(mi, settings, dismod):
     de = DismodExtractor(NAME)
-    de.gather_draws_for_prior_grid(
+    df = de.gather_draws_for_prior_grid(
         location_id=72, sex_id=2,
         rates=['iota', 'chi', 'pini']
     )
