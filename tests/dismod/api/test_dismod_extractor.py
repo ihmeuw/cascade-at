@@ -30,7 +30,7 @@ def test_run_dismod_fit_predict(dismod, ihme, df):
 def test_get_predictions(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
     pred = d.get_predictions()
-    assert len(pred) == 22
+    assert len(pred) == 484
     assert all(pred.columns == [
         'predict_id', 'sample_index', 'avgint_id', 'avg_integrand',
         'integrand_id', 'node_id', 'weight_id', 'subgroup_id', 'age_lower',
@@ -38,13 +38,6 @@ def test_get_predictions(ihme, dismod, df):
         'c_location_id', 'c_sex_id', 'c_year_id', 'x_0', 'x_1', 'x_2',
         'integrand_name', 'minimum_meas_cv', 'rate'
     ])
-    assert all(pred.age_lower == 0.0)
-    assert all(pred.age_upper == 0.01917808)
-    assert all(pred.integrand_id == np.repeat(list(range(0, 11)), 2))
-    assert all(pred.time_lower == 1990.)
-    assert all(pred.time_upper == 1991.)
-    assert all(pred.c_age_group_id == 2)
-    assert all(pred.c_sex_id == 2)
 
 
 def test_format_for_ihme(ihme, dismod, df):
@@ -52,13 +45,9 @@ def test_format_for_ihme(ihme, dismod, df):
     pred = d.format_predictions_for_ihme()
     # This prediction data frame is one longer for every location than the prediction
     # dataframe in `test_get_predictions` because there is an extra measure.
-    assert len(pred) == 24
+    assert len(pred) == 528
     assert all(pred.columns == [
         'location_id', 'age_group_id', 'year_id', 'sex_id', 'measure_id',
         'mean', 'upper', 'lower'
     ])
-    assert all(pred.location_id == np.tile(list([70, 72]), 12))
-    assert all(pred.sex_id == 2)
-    assert all(pred.age_group_id == 2)
-    assert all(pred.year_id == 1990)
 
