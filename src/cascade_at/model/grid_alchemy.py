@@ -15,6 +15,7 @@ from cascade_at.model.utilities.grid_helpers import estimate_grid_from_draws
 from cascade_at.settings.settings_config import Smoothing
 from cascade_at.model.var import Var
 from cascade_at.model.smooth_grid import SmoothGrid
+from cascade_at.model.priors import _Prior
 
 LOG = get_loggers(__name__)
 
@@ -154,7 +155,8 @@ class Alchemy:
                                   covariate_specs: CovariateSpecs,
                                   weights: Optional[Dict[str, Var]] = None,
                                   omega_df: Optional[pd.DataFrame] = None,
-                                  update_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None):
+                                  update_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None,
+                                  update_mulcov_prior: Optional[Dict[Tuple(str), _Prior]] = None):
         """
         Construct a Model object for a parent location and its children.
 
@@ -197,6 +199,10 @@ class Alchemy:
                     single_age_time=self.single_age_time_grid,
                     smooth=mulcov.grid_spec
                 )
+            assert len(grid.ages) == len(grid.times) == 1 # covariate value constant over age and time
+            age = grid.ages[0]
+            time = grid.times[0]
+            grid.value[age, time] = update_mulcov_prior[(mulcov.group, *mulcov.key)]
             model[mulcov.group][mulcov.key] = grid
 
         # Construct the random effect grids, based on the parent location
