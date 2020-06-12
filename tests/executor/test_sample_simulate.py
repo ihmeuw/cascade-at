@@ -93,7 +93,15 @@ def test_predict_sample(mi, settings, dismod):
 
 def test_gather_child_draws(mi, settings, dismod):
     de = DismodExtractor(NAME)
-    de.gather_draws_for_prior_grid(
+    draws = de.gather_draws_for_prior_grid(
         location_id=72, sex_id=2,
         rates=['iota', 'chi', 'pini']
     )
+    for rate in ['iota', 'chi', 'pini']:
+        assert rate in draws
+        assert draws[rate]['value'].shape[-1] == 2
+
+    # pini will not have any dage or dtime draws because it only has one age and time
+    for rate in ['iota', 'chi']:
+        assert draws[rate]['dage'].shape[-1] == 2
+        assert draws[rate]['dtime'].shape[-1] == 2
