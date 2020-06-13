@@ -86,3 +86,4 @@ def encode_commands(command_list) -> List:
     -------
 
     """
+    return ['-'.join(x.split(' ')) for x in command_list]

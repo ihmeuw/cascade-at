@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from cascade_at.context.arg_utils import parse_options, parse_commands, encode_options, OptionParsingError
+from cascade_at.context.arg_utils import parse_options, parse_commands
+from cascade_at.context.arg_utils import encode_options, encode_commands, OptionParsingError
 
 
 def test_options():
@@ -33,6 +34,15 @@ def test_invalid_parse_options():
         parse_options(options)
 
 
-def test_commands():
+def test_parse_commands():
     assert parse_commands(['init']) == ['init']
     assert parse_commands(['init', 'fit-fixed']) == ['init', 'fit fixed']
+
+
+def test_encode_commands():
+    commands = ['init', 'fit fixed', 'set scale_var']
+    new = encode_commands(commands)
+    assert new[0] == 'init'
+    assert new[1] == 'fit-fixed'
+    assert new[2] == 'set-scale_var'
+
