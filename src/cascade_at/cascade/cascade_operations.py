@@ -2,26 +2,48 @@
 Sequences of dismod_at commands that work together to create a cascade operation
 that can be performed on a single DisMod-AT database.
 """
-import inspect
 from typing import List, Optional, Dict, Union
 
 from cascade_at.jobmon.resources import DEFAULT_EXECUTOR_PARAMETERS
 from cascade_at.context.arg_utils import encode_commands, encode_options, list2string
+from cascade_at.executor._args import ARG_DICT
+from cascade_at.core import CascadeATError
 
 
-def _retrieve_name(var):
+class CascadeOperationValidationError(CascadeATError):
+    pass
+
+
+def _arg_to_flag(name: str) -> str:
+    arg = '-'.join(name.split('_'))
+    return f'--{arg}'
+
+
+def _arg_to_command(k: str, v: Optional[Union[str, int, float]] = None):
     """
-    Gets the name of var. Does it from the out most frame inner-wards.
-
-    Parameters
-    ----------
-    var
-        Some variable to retrieve name from.
+    Takes a key (k) and a value (v) and turns it into a command-line
+    argument like k=model_version v=1 and returns --model-version 1.
     """
-    for fi in reversed(inspect.stack()):
-        names = [var_name for var_name, var_val in fi.frame.f_locals.items() if var_val is var]
-        if len(names) > 0:
-            return names[0]
+    command = _arg_to_flag(k)
+    if v is not None:
+        command += f' {v}'
+    return command
+
+
+def _args_to_command(**kwargs):
+    commands = []
+    for k, v in kwargs.items():
+        if type(v) == bool:
+            if v:
+                command = _arg_to_command(k=k)
+            else:
+                continue
+        elif type(v) == list:
+            command = _arg_to_command(k=k, v=list2string(v))
+        else:
+            command = _arg_to_command(k=k, v=v)
+        commands.append(command)
+    return ' '.join(commands)
 
 
 class _CascadeOperation:
@@ -39,36 +61,31 @@ class _CascadeOperation:
     def _script():
         raise NotImplementedError
 
-    @staticmethod
-    def _arg_to_command(k: str, v: Optional[Union[str, int, float]] = None):
-        """
-        Takes a key (k) and a value (v) and turns it into a command-line
-        argument like k=model_version v=1 and returns --model-version 1.
-        """
-        k = _retrieve_name(k)
-        k = '-'.join(k.split('_'))
-        args = f'--{k}'
-        if v is not None:
-            args += f' {v}'
-        return args
+    def _make_command(self, **kwargs):
+        return self._script() + ' ' + _args_to_command(**kwargs)
 
-    def _args_to_command(self, **kwargs):
-        commands = []
+    def _validate(self, **kwargs):
+        if self._script() not in ARG_DICT:
+            raise CascadeOperationValidationError(f"Cannot find script args for {self._script()}."
+                                                  f"Valid scripts are {ARG_DICT.keys()}.")
+        arg_list = ARG_DICT[self._script()]
+        kwargs = {
+            _arg_to_flag(k): v for k, v in kwargs.items()
+        }
+        for k, v in arg_list.argument_dict.items():
+            if v['required']:
+                if k not in kwargs:
+                    raise CascadeATError(f"Missing argument {k} for script {self._script()}.")
+                if 'type' in v:
+                    assert type(kwargs[k]) == v['type']
         for k, v in kwargs.items():
-            if type(v) == bool:
-                if v:
-                    command = self._arg_to_command(k=k)
-                else:
-                    continue
-            elif type(v) == list:
-                command = self._arg_to_command(k=k, v=list2string(v))
-            else:
-                command = self._arg_to_command(k=k, v=v)
-            commands.append(command)
-        return ' '.join(commands)
+            if k not in arg_list.argument_dict:
+                raise CascadeATError(f"Tried to pass argument {k} but that is not in the allowed list"
+                                     f"of arguments for {self._script()}: {list(arg_list.argument_dict.keys())}.")
 
-    def _command(self, **kwargs):
-        return self._script() + ' ' + self._args_to_command(**kwargs)
+    def _configure(self, **command_args):
+        self._validate(**command_args)
+        self.command = self._make_command(**command_args)
 
 
 class ConfigureInputs(_CascadeOperation):
@@ -76,7 +93,7 @@ class ConfigureInputs(_CascadeOperation):
         super().__init__(**kwargs)
         self.j_resource = True
 
-        self.command = self._command(
+        self._configure(
             model_version_id=model_version_id,
             make=True,
             configure=True
@@ -99,7 +116,7 @@ class _DismodDB(_CascadeOperation):
         options = encode_options(options)
         dm_commands = encode_commands(dm_commands)
 
-        self.command = self._command(
+        self._configure(
             model_version_id=model_version_id,
             parent_location_id=parent_location_id,
             sex_id=sex_id,
@@ -146,7 +163,7 @@ class SampleSimulate(_CascadeOperation):
                  n_sim: int, n_pool: int, fit_type: str, **kwargs):
         super().__init__(**kwargs)
 
-        self.command = self._command(
+        self._configure(
             model_version_id=model_version_id,
             parent_location_id=parent_location_id,
             sex_id=sex_id,
@@ -165,7 +182,7 @@ class PredictSample(_CascadeOperation):
                  target_locations: List[int], target_sexes: List[int], **kwargs):
         super().__init__(**kwargs)
 
-        self.command = self._command(
+        self._configure(
             model_version_id=model_version_id,
             source_location=source_location,
             source_sex=source_sex,
@@ -184,7 +201,7 @@ class MulcovStatistics(_CascadeOperation):
                  mean: bool, std: bool, quantile: Optional[List[float]], **kwargs):
         super().__init__(**kwargs)
 
-        self.command = self._command(
+        self._configure(
             model_version_id=model_version_id,
             locations=locations,
             sexes=sexes,
@@ -204,7 +221,7 @@ class FormatAndUpload(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int, **kwargs):
         super().__init__(**kwargs)
 
-        self.command = self._command(
+        self._configure(
             model_version_id=model_version_id,
             parent_location_id=parent_location_id,
             sex_id=sex_id
@@ -219,7 +236,7 @@ class CleanUp(_CascadeOperation):
     def __init__(self, model_version_id: int, **kwargs):
         super().__init__(**kwargs)
 
-        self.command = self._command(
+        self._configure(
             model_version_id=model_version_id
         )
 

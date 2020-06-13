@@ -1,6 +1,11 @@
-from typing import Dict, Any, List, Union
+from typing import Dict, List, Union
+from argparse import ArgumentParser, Namespace
 
+from cascade_at.core.log import get_loggers
 from cascade_at.core import CascadeATError
+from cascade_at.context.args import _Argument
+
+LOG = get_loggers(__name__)
 
 
 type_mappings = {
@@ -42,7 +47,7 @@ def parse_options(option_list: List[str]) -> Dict[str, Union[int, float, str]]:
     return d
 
 
-def encode_options(options: Dict[str, Any]) -> List[str]:
+def encode_options(options: Dict[str, Union[str, float, int]]) -> List[str]:
     """
     Encode an option dict into a command line string that cascade_at can understand.
 
@@ -73,17 +78,52 @@ def parse_commands(command_list: List[str]) -> List[str]:
     return [' '.join(x.split('-')) for x in command_list]
 
 
-def encode_commands(command_list) -> List:
+def encode_commands(command_list: List[str]) -> List[str]:
     """
     Encode the commands to a DisMod database so they can be
     passed to the command line.
-
-    Parameters
-    ----------
-    command_list
-
-    Returns
-    -------
-
     """
     return ['-'.join(x.split(' ')) for x in command_list]
+
+
+def _arg_list_to_parser(arg_list: List[_Argument]) -> ArgumentParser:
+    """
+    Converts a list of arguments to an ArgumentParser.
+    """
+    parser = ArgumentParser()
+    for arg in arg_list:
+        parser.add_argument(arg._arg, **arg._kwargs)
+    return parser
+
+
+class ArgumentList:
+    def __init__(self, arg_list: List[_Argument]):
+        self.arg_list = arg_list
+
+    def parse_args(self) -> Namespace:
+        """
+        Parses arguments from a list of arguments into an argument
+        namespace using ArgumentParser.parse_args(). Also
+        decodes potential dismod commands and options.
+        """
+        parser = _arg_list_to_parser(self.arg_list)
+        args = parser.parse_args()
+        if hasattr(args, 'dm_commands'):
+            if args.dm_commands is not None:
+                args.dm_commands = parse_commands(args.dm_commands)
+            else:
+                args.dm_commands = list()
+        if hasattr(args, 'dm_options'):
+            if args.dm_options is not None:
+                args.dm_options = parse_options(args.dm_options)
+            else:
+                args.dm_options = dict()
+        LOG.debug(f"Arguments: {args}.")
+        return args
+
+    @property
+    def argument_dict(self):
+        d = dict()
+        for arg in self.arg_list:
+            d.update(arg._to_dict())
+        return d
