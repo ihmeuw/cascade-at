@@ -21,7 +21,7 @@ def get_args():
     parser.add_argument("-model-version-id", type=int, required=True)
     parser.add_argument("-locations", nargs="+", required=True, default=[], type=int)
     parser.add_argument("-sexes", nargs="+", required=True, default=[], type=int)
-    parser.add_argument("-outfile-name", type=str, required=True)
+    parser.add_argument("-outfile-name", type=str, required=True, default='mulcov_stats')
     parser.add_argument("--sample", action='store_true', required=False,
                         help="Are the results in the sample table or fit_var -- False = fit_var")
     parser.add_argument("--mean", action='store_true', required=False)
