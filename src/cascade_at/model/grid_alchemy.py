@@ -199,10 +199,8 @@ class Alchemy:
                     single_age_time=self.single_age_time_grid,
                     smooth=mulcov.grid_spec
                 )
-            import pdb; pdb.set_trace()
             if update_mulcov_prior is not None and (mulcov.group, *mulcov.key) in update_mulcov_prior:
                 assert len(grid.ages) == len(grid.times) == 1 # covariate value constant over age and time
-                import pdb; pdb.set_trace()
                 age = grid.ages[0]
                 time = grid.times[0]
                 grid.value[age, time] = update_mulcov_prior[(mulcov.group, *mulcov.key)]
