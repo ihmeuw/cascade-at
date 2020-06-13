@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import logging
 from argparse import ArgumentParser
 import os
@@ -91,22 +92,24 @@ def main(args=None):
         child_prior = None
 
     if args.prior_mulcov is not None:
-        mulcov_priors = {}
+        convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_std': 'gamma'}
+        mulcov_prior = {}
         ctx = Context(model_version_id=args.prior_mulcov)
         path = os.path.join(ctx.outputs_dir, 'mulcov_stats.csv')
-        mulcov_stats_df = pd.read_csv(path, index=False)
-        for row in mulcov_stats_df.iterrows():
+        mulcov_stats_df = pd.read_csv(path)
+        import pdb; pdb.set_trace()
+        for _,  row in mulcov_stats_df.iterrows():
             if row['rate_name'] is not None:
-                mulcov_priors[
-                    (row['mulcov_type'], row['c_covariate_name'], row['rate_name'])
+                mulcov_prior[
+                    (convert_type[row['mulcov_type']], row['c_covariate_name'], row['rate_name'])
                 ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
             if row['integrand_name'] is not None:
-                mulcov_priors[
-                    (row['mulcov_type'], row['c_covariate_name'], row['integrand_name'])
+                mulcov_prior[
+                    (convert_type[row['mulcov_type']], row['c_covariate_name'], row['integrand_name'])
                 ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
     else:
-        mulcov_priors = None
-
+        mulcov_prior = None
+    import pdb; pdb.set_trace()
     df = DismodFiller(
         path=context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id),
         settings_configuration=settings,
