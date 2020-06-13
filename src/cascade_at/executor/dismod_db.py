@@ -97,7 +97,6 @@ def main(args=None):
         ctx = Context(model_version_id=args.prior_mulcov)
         path = os.path.join(ctx.outputs_dir, 'mulcov_stats.csv')
         mulcov_stats_df = pd.read_csv(path)
-        import pdb; pdb.set_trace()
         for _,  row in mulcov_stats_df.iterrows():
             if row['rate_name'] is not None:
                 mulcov_prior[
@@ -109,7 +108,7 @@ def main(args=None):
                 ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
     else:
         mulcov_prior = None
-    import pdb; pdb.set_trace()
+
     df = DismodFiller(
         path=context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id),
         settings_configuration=settings,

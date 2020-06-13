@@ -64,10 +64,8 @@ def get_mulcovs(dbs, covs, table='fit_var'):
         try:
             df = db.var.merge(getattr(db, table), left_on='var_id', right_on=id_col)
             df = df.fillna(np.nan)
-
             df = df.merge(db.integrand, on='integrand_id', how='left')
             df = df.merge(db.rate, on='rate_id', how='left')
-            import pdb; pdb.set_trace()
             mulcov = mulcov.astype({'integrand_id': 'float64', 'rate_id': 'float64'})
             df = mulcov.merge(df)
             df.rename(columns={val_col: 'mulcov_value'}, inplace=True)
@@ -97,7 +95,6 @@ def compute_statistics(df, mean=True, std=True, quantile=None):
     group_cols = ['c_covariate_name', 'mulcov_type', 'rate_name', 'integrand_name']
     df_groups = df.fillna('none').copy().groupby(group_cols, sort=False)
     stats_df = df_groups.count().reset_index()[group_cols]
-    import pdb; pdb.set_trace()
     if mean:
         ds = df_groups.mean().reset_index()
         stats_df['mean'] = ds['mulcov_value']
