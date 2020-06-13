@@ -2,7 +2,8 @@ import logging
 import sys
 from pathlib import Path
 from typing import Union, List, Dict, Any, Optional
-
+import os
+import pandas as pd
 import numpy as np
 
 from cascade_at.core import CascadeATError
@@ -18,6 +19,7 @@ from cascade_at.inputs.measurement_inputs import MeasurementInputs
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.saver.results_handler import ResultsHandler
 from cascade_at.settings.settings_config import SettingsConfig
+from cascade_at.model.priors import Gaussian
 
 LOG = get_loggers(__name__)
 
@@ -31,6 +33,7 @@ ARG_LIST = ArgumentList([
     BoolArg('--fill', help='whether or not to fill the dismod database with data'),
     IntArg('--prior-parent', help='the location ID of the parent database to grab the prior for'),
     IntArg('--prior-sex', help='the sex ID of the parent database to grab prior for'),
+    IntArg('--prior-mulcov', help='the model version id where mulcov stats is passed in', required=False),
     BoolArg('--save-fit', help='whether or not to save the fit'),
     BoolArg('--save-prior', help='whether or not to save the prior'),
     LogLevel(),
@@ -208,7 +211,7 @@ def main():
         prior_sex=args.prior_sex,
         test_dir=args.test_dir,
         save_fit=args.save_fit,
-        save_prior=args.save_prior
+        save_prior=args.save_prior,
     )
 
 

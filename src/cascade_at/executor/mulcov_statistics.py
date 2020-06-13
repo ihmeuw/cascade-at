@@ -18,7 +18,7 @@ ARG_LIST = ArgumentList([
     ModelVersionID(),
     ListArg('--locations', help='The locations to pull mulcov statistics from', type=int, required=True),
     ListArg('--sexes', help='The sexes to pull mulcov statistics from', type=int, required=True),
-    StrArg('--outfile-name', help='Filepath where mulcov statistics will be saved', required=True),
+    StrArg('--outfile-name', help='Filepath where mulcov statistics will be saved', required=False, default='mulcov_stats'),
     BoolArg('--sample', help='If true, the results will be pulled from the sample table rather'
                              'than the fit_var table'),
     BoolArg('--mean', help='Whether or not to compute the mean'),
