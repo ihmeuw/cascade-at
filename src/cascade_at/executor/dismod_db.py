@@ -1,7 +1,8 @@
+#!/usr/bin/env python
 import logging
 import sys
 from pathlib import Path
-from typing import Union, List, Dict, Any, Optional
+from typing import Union, List, Dict, Any, Optional, Tuple
 import os
 import pandas as pd
 import numpy as np
@@ -19,7 +20,7 @@ from cascade_at.inputs.measurement_inputs import MeasurementInputs
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.saver.results_handler import ResultsHandler
 from cascade_at.settings.settings_config import SettingsConfig
-from cascade_at.model.priors import Gaussian
+from cascade_at.model.priors import Gaussian, _Prior
 
 LOG = get_loggers(__name__)
 
@@ -59,9 +60,29 @@ def get_prior(path: Union[str, Path], location_id: int, sex_id: int,
     return child_prior
 
 
+def get_mulcov_priors(model_version_id: int):
+    convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_std': 'gamma'}
+    mulcov_prior = {}
+    ctx = Context(model_version_id=model_version_id)
+    path = os.path.join(ctx.outputs_dir, 'mulcov_stats.csv')
+    mulcov_stats_df = pd.read_csv(path)
+
+    for _,  row in mulcov_stats_df.iterrows():
+        if row['rate_name'] is not None:
+            mulcov_prior[
+                (convert_type[row['mulcov_type']], row['c_covariate_name'], row['rate_name'])
+            ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
+        if row['integrand_name'] is not None:
+            mulcov_prior[
+                (convert_type[row['mulcov_type']], row['c_covariate_name'], row['integrand_name'])
+            ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
+    return mulcov_prior
+
+
 def fill_database(path: Union[str, Path], settings: SettingsConfig,
                   inputs: MeasurementInputs, alchemy: Alchemy,
                   parent_location_id: int, sex_id: int, child_prior: Dict[str, Dict[str, np.ndarray]],
+                  mulcov_prior: Dict[Tuple[str, str, str], _Prior],
                   options: Dict[str, Any]) -> None:
     """
     Fill a DisMod database at the specified path with the inputs, model, and settings
@@ -70,7 +91,7 @@ def fill_database(path: Union[str, Path], settings: SettingsConfig,
     df = DismodFiller(
         path=path, settings_configuration=settings, measurement_inputs=inputs,
         grid_alchemy=alchemy, parent_location_id=parent_location_id, sex_id=sex_id,
-        child_prior=child_prior
+        child_prior=child_prior, mulcov_prior=mulcov_prior,
     )
     df.fill_for_parent_child(**options)
 
@@ -97,6 +118,7 @@ def save_predictions(db_file: Union[str, Path], location_id: int, sex_id: int,
 def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
               dm_commands: List[str], dm_options: Dict[str, Union[int, str, float]],
               prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
+              prior_mulcov_model_version_id: Optional[int] = None,
               test_dir: Optional[str] = None, fill: bool = False,
               save_fit: bool = True, save_prior: bool = True) -> None:
     """
@@ -175,11 +197,15 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
             raise DismodDBError("Cannot save the prior because there was no argument"
                                 "passed in for the prior_parent or prior_sex.")
 
+    if prior_mulcov_model_version_id:
+        mulcov_priors = get_mulcov_priors(prior_mulcov_model_version_id)
+
     if fill:
         fill_database(
             path=db_path, inputs=inputs, alchemy=alchemy, settings=settings,
             parent_location_id=parent_location_id, sex_id=sex_id,
-            child_prior=child_prior, options=dm_options
+            child_prior=child_prior, options=dm_options,
+            mulcov_prior=mulcov_priors,
         )
 
     if dm_commands:
@@ -209,6 +235,7 @@ def main():
         fill=args.fill,
         prior_parent=args.prior_parent,
         prior_sex=args.prior_sex,
+        prior_mulcov_model_version_id=args.prior_mulcov,
         test_dir=args.test_dir,
         save_fit=args.save_fit,
         save_prior=args.save_prior,

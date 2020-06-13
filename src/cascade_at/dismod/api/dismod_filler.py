@@ -54,7 +54,7 @@ class DismodFiller(DismodIO):
                  measurement_inputs: MeasurementInputs, grid_alchemy: Alchemy,
                  parent_location_id: int, sex_id: int,
                  child_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None,
-                 mulcov_prior: Optional[Dict[Tuple(str), _Prior]] = None):
+                 mulcov_prior: Optional[Dict[Tuple[str, str, str], _Prior]] = None):
         """
         Parameters
         ----------
