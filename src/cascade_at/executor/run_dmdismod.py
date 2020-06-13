@@ -14,7 +14,7 @@ def get_args():
     :return: parsed args, plus additional parsing for
     """
     parser = ArgumentParser()
-    parser.add_argument("-file", type=str, required=True)
+    parser.add_argument("--file", type=str, required=True)
     parser.add_argument("--commands", nargs="+", required=False, default=[])
     parser.add_argument("--loglevel", type=str, required=False, default='info')
 

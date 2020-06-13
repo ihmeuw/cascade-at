@@ -10,7 +10,7 @@ LOG = get_loggers(__name__)
 
 def get_args():
     parser = ArgumentParser()
-    parser.add_argument("-model-version-id", type=int, required=True)
+    parser.add_argument("--model-version-id", type=int, required=True)
     parser.add_argument("--loglevel", type=str, required=False, default='info')
     return parser.parse_args()
 

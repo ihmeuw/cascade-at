@@ -18,7 +18,7 @@ def get_args(args):
     if args:
         return args
     parser = ArgumentParser()
-    parser.add_argument("-model-version-id", type=int, required=True,
+    parser.add_argument("--model-version-id", type=int, required=True,
                         help="model version ID (need this from database entry)")
     parser.add_argument("--make", action='store_true',
                         help="whether or not to make the file structure for cascade")

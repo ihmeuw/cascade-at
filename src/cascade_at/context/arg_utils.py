@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 
 from cascade_at.core import CascadeATError
 
@@ -10,12 +10,16 @@ type_mappings = {
 }
 
 
+def list2string(x: List[Union[int, str, float]]) -> str:
+    return " ".join([str(x) for x in x])
+
+
 class OptionParsingError(CascadeATError):
     """Raised when there is an issue parsing an option dict for the command line."""
     pass
 
 
-def parse_options(option_list: List[str]):
+def parse_options(option_list: List[str]) -> Dict[str, Union[int, float, str]]:
     """
     Parse a key=value=type command line arg
     that comes in a list.
@@ -38,7 +42,7 @@ def parse_options(option_list: List[str]):
     return d
 
 
-def encode_options(options: Dict[str, Any]):
+def encode_options(options: Dict[str, Any]) -> List[str]:
     """
     Encode an option dict into a command line string that cascade_at can understand.
 
@@ -57,12 +61,28 @@ def encode_options(options: Dict[str, Any]):
     return d
 
 
-def parse_commands(command_list):
+def parse_commands(command_list: List[str]) -> List[str]:
     """
     Parse the dismod commands that come from command line arguments
     in a list.
 
-    :param command_list: List[str]
-    :return: list of commands that dismod can understand
+    Returns
+    -------
+    list of commands that dismod can understand
     """
     return [' '.join(x.split('-')) for x in command_list]
+
+
+def encode_commands(command_list) -> List:
+    """
+    Encode the commands to a DisMod database so they can be
+    passed to the command line.
+
+    Parameters
+    ----------
+    command_list
+
+    Returns
+    -------
+
+    """

@@ -18,7 +18,7 @@ def get_args():
     :return: parsed args
     """
     parser = ArgumentParser()
-    parser.add_argument("-model-version-id", type=int, required=True)
+    parser.add_argument("--model-version-id", type=int, required=True)
     parser.add_argument("--jobmon", action='store_true',
                         help="whether or not to use jobmon to run the cascade or just"
                              "run as a sequence of command line tasks")
