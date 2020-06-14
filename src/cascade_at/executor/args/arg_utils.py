@@ -3,7 +3,7 @@ from argparse import ArgumentParser, Namespace
 
 from cascade_at.core.log import get_loggers
 from cascade_at.core import CascadeATError
-from cascade_at.context.args import _Argument
+from cascade_at.executor.args.args import _Argument
 
 LOG = get_loggers(__name__)
 
@@ -100,14 +100,14 @@ class ArgumentList:
     def __init__(self, arg_list: List[_Argument]):
         self.arg_list = arg_list
 
-    def parse_args(self) -> Namespace:
+    def parse_args(self, args) -> Namespace:
         """
         Parses arguments from a list of arguments into an argument
         namespace using ArgumentParser.parse_args(). Also
         decodes potential dismod commands and options.
         """
         parser = _arg_list_to_parser(self.arg_list)
-        args = parser.parse_args()
+        args = parser.parse_args(args)
         if hasattr(args, 'dm_commands'):
             if args.dm_commands is not None:
                 args.dm_commands = parse_commands(args.dm_commands)

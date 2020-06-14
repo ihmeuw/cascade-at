@@ -1,13 +1,14 @@
-import logging
 import json
+import logging
+import sys
 from typing import Optional
 
-from cascade_at.context.arg_utils import ArgumentList
-from cascade_at.context.args import ModelVersionID, BoolArg, LogLevel, StrArg
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg
 from cascade_at.context.model_context import Context
-from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
-from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
 from cascade_at.core.log import get_loggers, LEVELS
+from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
+from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
 
 LOG = get_loggers(__name__)
 
@@ -24,14 +25,30 @@ ARG_LIST = ArgumentList([
 ])
 
 
-def create_inputs(model_version_id: int, make: bool, configure: bool,
-                  test_dir: Optional[str] = None, json_file: Optional[str] = None) -> None:
+def configure_inputs(model_version_id: int, make: bool, configure: bool,
+                     test_dir: Optional[str] = None, json_file: Optional[str] = None) -> None:
     """
     Grabs the inputs for a specific model version ID, sets up the folder
     structure, and pickles the inputs object plus writes the settings json
     for use later on.
 
     Optionally use a json file for settings instead of a model version ID's json file.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID to configure inputs for
+    make
+        Whether or not to make the directory structure for the model version ID
+    configure
+        Configure the application for the IHME cluster, otherwise will use the
+        test_dir for the directory tree instead.
+    test_dir
+        A test directory to use rather than the directory specified by the
+        model version context in the IHME file system.
+    json_file
+        An optional filepath pointing to a different json than is attached to the
+        model_version_id. Will use this instead for settings.
     """
     LOG.info(f"Configuring inputs for model version ID {model_version_id}.")
 
@@ -50,6 +67,7 @@ def create_inputs(model_version_id: int, make: bool, configure: bool,
             model_version_id=model_version_id,
             conn_def=context.model_connection
         )
+
     settings = load_settings(settings_json=parameter_json)
 
     inputs = MeasurementInputsFromSettings(settings=settings)
@@ -60,10 +78,11 @@ def create_inputs(model_version_id: int, make: bool, configure: bool,
 
 
 def main():
-    args = ARG_LIST.parse_args()
-    logging.basicConfig(level=LEVELS[args.loglevel])
 
-    create_inputs(
+    args = ARG_LIST.parse_args(sys.argv[1:])
+    logging.basicConfig(level=LEVELS[args.log_level])
+
+    configure_inputs(
         model_version_id=args.model_version_id,
         make=args.make,
         configure=args.configure,

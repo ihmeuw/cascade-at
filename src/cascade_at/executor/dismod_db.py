@@ -1,21 +1,24 @@
 import logging
+import sys
 from pathlib import Path
-import numpy as np
 from typing import Union, List, Dict, Any, Optional
 
-from cascade_at.context.arg_utils import ArgumentList
-from cascade_at.context.args import ModelVersionID, BoolArg, LogLevel, StrArg, IntArg
-from cascade_at.context.args import DmCommands, DmOptions, ParentLocationID, SexID
+import numpy as np
+
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import DmCommands, DmOptions, ParentLocationID, SexID
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg, IntArg
 from cascade_at.context.model_context import Context
-from cascade_at.settings.settings_config import SettingsConfig
-from cascade_at.dismod.api.dismod_filler import DismodFiller
-from cascade_at.dismod.api.dismod_extractor import DismodExtractor
-from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.core.log import get_loggers, LEVELS
+from cascade_at.dismod.api.dismod_extractor import DismodExtractor
+from cascade_at.dismod.api.dismod_filler import DismodFiller
+from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.inputs.measurement_inputs import MeasurementInputs
 from cascade_at.model.grid_alchemy import Alchemy
+from cascade_at.settings.settings_config import SettingsConfig
 
 LOG = get_loggers(__name__)
+
 
 ARG_LIST = ArgumentList([
     ModelVersionID(),
@@ -75,6 +78,32 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
 
     Also passes an optional argument --options as a dictionary to
     the dismod database to fill/modify the options table.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID
+    parent_location_id
+        The parent location for the database
+    sex_id
+        The parent sex for the database
+    dm_commands
+        A list of commands to pass to the run_dismod_commands function, executed
+        directly on the dismod database
+    dm_options
+        A dictionary of options to pass to the the dismod option table
+    prior_parent
+        An optional parent location ID that specifies where to pull the prior
+        information from.
+    prior_sex
+        An optional parent sex ID that specifies where to pull the prior information from.
+    test_dir
+        A test directory to create the database in rather than the database
+        specified by the IHME file system context.
+    fill
+        Whether or not to fill the database with new inputs based on the model_version_id,
+        parent_location_id, and sex_id. If not filling, this script can be used
+        to just execute commands on the database instead.
     """
     if test_dir is not None:
         context = Context(model_version_id=model_version_id,
@@ -114,8 +143,9 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
 
 
 def main():
-    args = ARG_LIST.parse_args()
-    logging.basicConfig(level=LEVELS[args.loglevel])
+
+    args = ARG_LIST.parse_args(sys.argv[1:])
+    logging.basicConfig(level=LEVELS[args.log_level])
 
     dismod_db(
         model_version_id=args.model_version_id,

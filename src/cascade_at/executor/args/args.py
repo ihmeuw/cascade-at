@@ -127,7 +127,7 @@ class DmOptions(ListArg):
     def __init__(self):
         super().__init__()
 
-        self._arg = '--options'
+        self._arg = '--dm-options'
         self._kwargs.update({
             'metavar': 'KEY=VALUE=TYPE',
             'help': 'options to fill in the dismod database',
@@ -139,7 +139,7 @@ class LogLevel(StrArg):
     def __init__(self):
         super().__init__()
 
-        self._arg = '--loglevel'
+        self._arg = '--log-level'
         self._kwargs.update({
             'default': 'info'
         })

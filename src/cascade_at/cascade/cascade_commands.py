@@ -7,9 +7,7 @@ Sequences of cascade operations that work together to create a cascade command
 that will run the whole cascade (or a drill -- which is a version of the cascade).
 """
 from cascade_at.core.log import get_loggers
-from cascade_at.cascade.cascade_stacks import single_fit, top_level_prior
-from cascade_at.cascade.cascade_operations import ConfigureInputs
-from cascade_at.inputs.utilities.gbd_ids import CascadeConstants
+from cascade_at.cascade.cascade_stacks import single_fit
 
 
 LOG = get_loggers(__name__)
@@ -55,16 +53,4 @@ class TraditionalCascade(_CascadeCommand):
     def __init__(self, model_version_id):
         super().__init__()
 
-        configure = ConfigureInputs(model_version_id=model_version_id)
-        tasks = top_level_prior(
-            model_version_id=model_version_id,
-            location_id=CascadeConstants.GLOBAL_LOCATION_ID,
-            sex_id=CascadeConstants.NON_SEX_SPECIFIC_ID,
-            upstream_commands=[configure.command]
-        )
-
-
-CASCADE_COMMANDS = {
-    'drill': Drill,
-    'cascade': TraditionalCascade
-}
+        raise NotImplementedError

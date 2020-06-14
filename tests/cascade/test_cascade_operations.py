@@ -1,20 +1,7 @@
 from cascade_at.cascade.cascade_operations import (
-    ConfigureInputs, FillFitFixed, FillFitBoth,
-    FormatAndUpload, CleanUp, SampleSimulate,
-    MulcovStatistics, PredictSample
+    ConfigureInputs, FitFixed, FitBoth,
+    FormatAndUpload, CleanUp, SampleSimulate
 )
-from cascade_at.cascade.cascade_operations import CASCADE_OPERATIONS
-
-
-def test_cascade_dict():
-    assert type(CASCADE_OPERATIONS) == dict
-    assert CASCADE_OPERATIONS['configure_inputs'] == ConfigureInputs
-    assert CASCADE_OPERATIONS['fill_fit_fixed'] == FillFitFixed
-    assert CASCADE_OPERATIONS['fill_fit_both'] == FillFitBoth
-    assert CASCADE_OPERATIONS['sample_simulate'] == SampleSimulate
-    assert CASCADE_OPERATIONS['mulcov_statistics'] == MulcovStatistics
-    assert CASCADE_OPERATIONS['predict_sample'] == PredictSample
-    assert CASCADE_OPERATIONS['format_upload'] == FormatAndUpload
 
 
 def test_configure_inputs():
@@ -27,35 +14,37 @@ def test_configure_inputs():
     )
 
 
-def test_fill_fit_fixed():
-    obj = FillFitFixed(
+def test_fit_fixed():
+    obj = FitFixed(
         model_version_id=0,
         parent_location_id=1,
-        sex_id=1
+        sex_id=1,
+        fill=True
     )
     assert obj.command == (
         f'dismod_db '
         f'--model-version-id 0 '
         f'--parent-location-id 1 '
         f'--sex-id 1 '
-        f'--commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var '
-        f'--fill'
+        f'--fill '
+        f'--dm-commands init fit-fixed predict-fit_var'
     )
 
 
-def test_fill_fit_both():
-    obj = FillFitBoth(
+def test_fit_both():
+    obj = FitBoth(
         model_version_id=0,
         parent_location_id=1,
-        sex_id=1
+        sex_id=1,
+        fill=True
     )
     assert obj.command == (
         f'dismod_db '
         f'--model-version-id 0 '
         f'--parent-location-id 1 '
         f'--sex-id 1 '
-        f'--commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var '
-        f'--fill'
+        f'--fill '
+        f'--dm-commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var'
     )
 
 
@@ -64,8 +53,8 @@ def test_sample_simulate():
         model_version_id=0,
         parent_location_id=1,
         sex_id=1,
-        n_simulations=5,
-        n_pools=1,
+        n_sim=5,
+        n_pool=1,
         fit_type='both'
     )
     assert obj.command == (

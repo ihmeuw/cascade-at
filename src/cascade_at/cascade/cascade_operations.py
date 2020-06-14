@@ -5,8 +5,8 @@ that can be performed on a single DisMod-AT database.
 from typing import List, Optional, Dict, Union
 
 from cascade_at.jobmon.resources import DEFAULT_EXECUTOR_PARAMETERS
-from cascade_at.context.arg_utils import encode_commands, encode_options, list2string
-from cascade_at.executor._args import ARG_DICT
+from cascade_at.executor.args.arg_utils import encode_commands, encode_options, list2string
+from cascade_at.executor.args.executor_args import ARG_DICT
 from cascade_at.core import CascadeATError
 
 
@@ -33,6 +33,8 @@ def _arg_to_command(k: str, v: Optional[Union[str, int, float]] = None):
 def _args_to_command(**kwargs):
     commands = []
     for k, v in kwargs.items():
+        if v is None:
+            continue
         if type(v) == bool:
             if v:
                 command = _arg_to_command(k=k)
@@ -66,7 +68,7 @@ class _CascadeOperation:
 
     def _validate(self, **kwargs):
         if self._script() not in ARG_DICT:
-            raise CascadeOperationValidationError(f"Cannot find script args for {self._script()}."
+            raise CascadeOperationValidationError(f"Cannot find script args for {self._script()}. "
                                                   f"Valid scripts are {ARG_DICT.keys()}.")
         arg_list = ARG_DICT[self._script()]
         kwargs = {
@@ -77,6 +79,8 @@ class _CascadeOperation:
                 if k not in kwargs:
                     raise CascadeATError(f"Missing argument {k} for script {self._script()}.")
                 if 'type' in v:
+                    if v['type'] == str:
+                        import pdb; pdb.set_trace()
                     assert type(kwargs[k]) == v['type']
         for k, v in kwargs.items():
             if k not in arg_list.argument_dict:
@@ -108,13 +112,15 @@ class _DismodDB(_CascadeOperation):
     def __init__(self, model_version_id: int,
                  parent_location_id: int, sex_id: int, fill: bool,
                  prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
-                 options: Optional[Dict[str, Union[int, str, float]]] = None,
+                 dm_options: Optional[Dict[str, Union[int, str, float]]] = None,
                  dm_commands: Optional[List[str]] = None, **kwargs):
 
         super().__init__(**kwargs)
 
-        options = encode_options(options)
-        dm_commands = encode_commands(dm_commands)
+        if dm_options is not None:
+            dm_options = encode_options(dm_options)
+        if dm_commands is not None:
+            dm_commands = encode_commands(dm_commands)
 
         self._configure(
             model_version_id=model_version_id,
@@ -123,7 +129,7 @@ class _DismodDB(_CascadeOperation):
             fill=fill,
             prior_parent=prior_parent,
             prior_sex=prior_sex,
-            options=options,
+            dm_options=dm_options,
             dm_commands=dm_commands
         )
 
@@ -178,14 +184,14 @@ class SampleSimulate(_CascadeOperation):
 
 
 class PredictSample(_CascadeOperation):
-    def __init__(self, model_version_id: int, source_location: int, source_sex: int,
+    def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
                  target_locations: List[int], target_sexes: List[int], **kwargs):
         super().__init__(**kwargs)
 
         self._configure(
             model_version_id=model_version_id,
-            source_location=source_location,
-            source_sex=source_sex,
+            parent_location_id=parent_location_id,
+            sex_id=sex_id,
             target_locations=target_locations,
             target_sexes=target_sexes,
         )
@@ -247,7 +253,7 @@ class CleanUp(_CascadeOperation):
 
 CASCADE_OPERATIONS = {
     cls._script(): cls for cls in [
-        ConfigureInputs, FitBoth, FitFixed, SampleSimulate, MulcovStatistics,
+        ConfigureInputs, _DismodDB, SampleSimulate, MulcovStatistics,
         PredictSample, FormatAndUpload, CleanUp
     ]
 }

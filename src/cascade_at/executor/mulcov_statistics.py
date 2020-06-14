@@ -1,34 +1,31 @@
 import logging
-from argparse import ArgumentParser
-import pandas as pd
+import sys
+from typing import List, Optional
+
 import numpy as np
+import pandas as pd
 
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, ListArg, StrArg, LogLevel
 from cascade_at.context.model_context import Context
-from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.core.log import get_loggers, LEVELS
-
+from cascade_at.dismod.api.dismod_io import DismodIO
 
 LOG = get_loggers(__name__)
 
 
-def get_args():
-    """
-
-    Returns:
-
-    """
-    parser = ArgumentParser()
-    parser.add_argument("--model-version-id", type=int, required=True)
-    parser.add_argument("--locations", nargs="+", required=True, default=[], type=int)
-    parser.add_argument("--sexes", nargs="+", required=True, default=[], type=int)
-    parser.add_argument("--outfile-name", type=str, required=True)
-    parser.add_argument("--sample", action='store_true', required=False,
-                        help="Are the results in the sample table or fit_var -- False = fit_var")
-    parser.add_argument("--mean", action='store_true', required=False)
-    parser.add_argument("--std", action='store_true', required=False)
-    parser.add_argument("--quantile", required=False, nargs="+", type=float)
-    parser.add_argument("--loglevel", type=str, required=False, default='info')
-    return parser.parse_args()
+ARG_LIST = ArgumentList([
+    ModelVersionID(),
+    ListArg('--locations', help='The locations to pull mulcov statistics from', type=int, required=True),
+    ListArg('--sexes', help='The sexes to pull mulcov statistics from', type=int, required=True),
+    StrArg('--outfile-name', help='Filepath where mulcov statistics will be saved', required=True),
+    BoolArg('--sample', help='If true, the results will be pulled from the sample table rather'
+                             'than the fit_var table'),
+    BoolArg('--mean', help='Whether or not to compute the mean'),
+    BoolArg('--std', help='Whether or not to compute the standard deviation'),
+    ListArg('--quantile', help='Quantiles to compute', type=float),
+    LogLevel()
+])
 
 
 def common_covariate_names(dbs):
@@ -112,24 +109,44 @@ def compute_statistics(df, mean=True, std=True, quantile=None):
     return stats_df
 
 
-def main():
+def mulcov_statistics(model_version_id: int, locations: List[int], sexes: List[int],
+                      outfile_name: str, sample: bool = True,
+                      mean: bool = True, std: bool = True,
+                      quantile: Optional[List[float]] = None) -> None:
+    """
+    Compute statistics for the covariate multipliers.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID
+    locations
+        A list of locations that, when used in combination with sexes, point to the databases
+        to pull covariate multiplier estimates from
+    sexes
+        A list of sexes that, when used in combination with locations, point to the databases
+        to pull covariate multiplier estimates from
+    outfile_name
+        A filepath specifying where to save the covariate multiplier statistics.
+    sample
+        Whether or not the results are stored in the sample table or the fit_var table.
+    mean
+        Whether or not to compute the mean
+    std
+        Whether or not to compute the standard deviation
+    quantile
+        An optional list of quantiles to compute
     """
 
-    Returns:
-
-    """
-    args = get_args()
-    logging.basicConfig(level=LEVELS[args.loglevel])
-
-    context = Context(model_version_id=args.model_version_id)
+    context = Context(model_version_id=model_version_id)
     db_files = [DismodIO(context.db_file(location_id=loc, sex_id=sex))
-                for loc in args.locations for sex in args.sexes]
+                for loc in locations for sex in sexes]
     LOG.info(f"There are {len(db_files)} databases that will be aggregated.")
 
     common_covariates = common_covariate_names(db_files)
     LOG.info(f"The common covariates in the passed databases are {common_covariates}.")
 
-    if args.sample:
+    if sample:
         table_name = 'sample'
     else:
         table_name = 'fit_var'
@@ -138,11 +155,28 @@ def main():
     mulcov_estimates = get_mulcovs(
         dbs=db_files, covs=common_covariates, table=table_name
     )
-    mulcov_statistics = compute_statistics(
-        df=mulcov_estimates, mean=args.mean, std=args.std, quantile=args.quantile
+    stats = compute_statistics(
+        df=mulcov_estimates, mean=mean, std=std, quantile=quantile
     )
     LOG.info('Write to output file.')
-    mulcov_statistics.to_csv(context.outputs_dir / f'{args.outfile_name}.csv', index=False)
+    stats.to_csv(context.outputs_dir / f'{outfile_name}.csv', index=False)
+
+
+def main():
+
+    args = ARG_LIST.parse_args(sys.argv[1:])
+    logging.basicConfig(level=LEVELS[args.log_level])
+
+    mulcov_statistics(
+        model_version_id=args.model_version_id,
+        locations=args.locations,
+        sexes=args.sexes,
+        outfile_name=args.outfile_name,
+        sample=args.sample,
+        mean=args.mean,
+        std=args.std,
+        quantile=args.quantile
+    )
 
 
 if __name__ == '__main__':

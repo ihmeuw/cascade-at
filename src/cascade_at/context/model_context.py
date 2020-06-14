@@ -92,7 +92,7 @@ class Context:
             os.makedirs(self.database_dir, exist_ok=True)
             os.makedirs(self.log_dir, exist_ok=True)
     
-    def update_status(self, status: int):
+    def update_status(self, status: str):
         """
         Updates status in the database.
         """
