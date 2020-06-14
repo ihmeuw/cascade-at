@@ -1,102 +1,163 @@
 import logging
-from argparse import ArgumentParser
+import sys
+from pathlib import Path
+from typing import Union, List, Dict, Any, Optional
 
+import numpy as np
+
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import DmCommands, DmOptions, ParentLocationID, SexID
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg, IntArg
 from cascade_at.context.model_context import Context
-from cascade_at.dismod.api.dismod_filler import DismodFiller
-from cascade_at.dismod.api.dismod_extractor import DismodExtractor
-from cascade_at.context.arg_utils import parse_options, parse_commands
-from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.core.log import get_loggers, LEVELS
+from cascade_at.dismod.api.dismod_extractor import DismodExtractor
+from cascade_at.dismod.api.dismod_filler import DismodFiller
+from cascade_at.dismod.api.run_dismod import run_dismod_commands
+from cascade_at.inputs.measurement_inputs import MeasurementInputs
+from cascade_at.model.grid_alchemy import Alchemy
+from cascade_at.settings.settings_config import SettingsConfig
 
 LOG = get_loggers(__name__)
 
 
-def get_args(args=None):
+ARG_LIST = ArgumentList([
+    ModelVersionID(),
+    ParentLocationID(),
+    SexID(),
+    DmCommands(),
+    DmOptions(),
+    BoolArg('--fill', help='whether or not to fill the dismod database with data'),
+    IntArg('--prior-parent', help='the location ID of the parent database to grab the prior for'),
+    IntArg('--prior-sex', help='the sex ID of the parent database to grab prior for'),
+    LogLevel(),
+    StrArg('--test-dir', help='if set, will save files to the directory specified')
+])
+
+
+def get_prior(path: Union[str, Path], location_id: int, sex_id: int,
+              rates: List[str]) -> Dict[str, Dict[str, np.ndarray]]:
     """
-    Parse the arguments for creating a dismod sqlite database.
-    :return: parsed args, plus additional parsing for
+    Gets priors from a path to a database for a given location ID and sex ID.
     """
-    if args:
-        return args
-
-    parser = ArgumentParser()
-    parser.add_argument("-model-version-id", type=int, required=True)
-    parser.add_argument("-parent-location-id", type=int, required=True)
-    parser.add_argument("-sex-id", type=int, required=True)
-    parser.add_argument("--options", metavar="KEY=VALUE=TYPE", nargs="+", required=False,
-                        help="optional key-value-type pairs to set in the option table of dismod")
-    parser.add_argument("--prior-parent", type=int, required=False, default=None)
-    parser.add_argument("--prior-sex", type=int, required=False, default=None)
-    parser.add_argument("--commands", nargs="+", required=False, default=[])
-    parser.add_argument("--loglevel", type=str, required=False, default='info')
-    parser.add_argument("--test_dir", type=str, required=False, default=None)
-    arguments = parser.parse_args()
-    # Turn the options argument into a dictionary that can be passed
-    #  to the options table rather than a list of "KEY=VALUE=TYPE"
-    if arguments.options:
-        arguments.options = parse_options(arguments.options)
-    else:
-        arguments.options = dict()
-
-    # Turn the commands argument into a list than can run on dismod as commands
-    # e.g. "fit-fixed" will translate to the command "fit fixed"
-    if arguments.commands:
-        arguments.commands = parse_commands(arguments.commands)
-    else:
-        arguments.commands = list()
-    return arguments
+    child_prior = DismodExtractor(path=path).gather_draws_for_prior_grid(
+        location_id=location_id,
+        sex_id=sex_id,
+        rates=rates
+    )
+    return child_prior
 
 
-def main(args=None):
+def fill_database(path: Union[str, Path], settings: SettingsConfig,
+                  inputs: MeasurementInputs, alchemy: Alchemy,
+                  parent_location_id: int, sex_id: int, child_prior: Dict[str, Dict[str, np.ndarray]],
+                  options: Dict[str, Any]) -> None:
+    """
+    Fill a DisMod database at the specified path with the inputs, model, and settings
+    specified, for a specific parent and sex ID, with options to override the priors.
+    """
+    df = DismodFiller(
+        path=path, settings_configuration=settings, measurement_inputs=inputs,
+        grid_alchemy=alchemy, parent_location_id=parent_location_id, sex_id=sex_id,
+        child_prior=child_prior
+    )
+    df.fill_for_parent_child(**options)
+
+
+def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
+              dm_commands: List[str], dm_options: Dict[str, Union[int, str, float]],
+              prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
+              test_dir: Optional[str] = None, fill: bool = False) -> None:
     """
     Creates a dismod database using the saved inputs and the file
-    structure specified in the context.
+    structure specified in the context. Alternatively it will
+    skip the filling stage and move straight to the command
+    stage if you don't pass --fill.
 
     Then runs an optional set of commands on the database passed
     in the --commands argument.
 
     Also passes an optional argument --options as a dictionary to
     the dismod database to fill/modify the options table.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID
+    parent_location_id
+        The parent location for the database
+    sex_id
+        The parent sex for the database
+    dm_commands
+        A list of commands to pass to the run_dismod_commands function, executed
+        directly on the dismod database
+    dm_options
+        A dictionary of options to pass to the the dismod option table
+    prior_parent
+        An optional parent location ID that specifies where to pull the prior
+        information from.
+    prior_sex
+        An optional parent sex ID that specifies where to pull the prior information from.
+    test_dir
+        A test directory to create the database in rather than the database
+        specified by the IHME file system context.
+    fill
+        Whether or not to fill the database with new inputs based on the model_version_id,
+        parent_location_id, and sex_id. If not filling, this script can be used
+        to just execute commands on the database instead.
     """
-    args = get_args(args=args)
-    logging.basicConfig(level=LEVELS[args.loglevel])
-
-    if args.test_dir:
-        context = Context(model_version_id=args.model_version_id,
+    if test_dir is not None:
+        context = Context(model_version_id=model_version_id,
                           configure_application=False,
-                          root_directory=args.test_dir)
+                          root_directory=test_dir)
     else:
-        context = Context(model_version_id=args.model_version_id)
+        context = Context(model_version_id=model_version_id)
 
+    db_path = context.db_file(location_id=parent_location_id, sex_id=sex_id)
     inputs, alchemy, settings = context.read_inputs()
 
     # If we want to override the rate priors with posteriors from a previous
     # database, pass them in here.
-    if args.prior_parent or args.prior_sex:
-        if not (args.prior_parent and args.prior_sex):
+    if prior_parent or prior_sex:
+        if not (prior_parent and prior_sex):
             raise RuntimeError("Need to pass both prior parent and sex or neither.")
-        child_prior = DismodExtractor(path=context.db_file(
-            location_id=args.prior_parent,
-            sex_id=args.prior_sex
-        )).gather_draws_for_prior_grid(
-            location_id=args.parent_location_id,
-            sex_id=args.sex_id,
+        child_prior = get_prior(
+            path=context.db_file(
+                location_id=prior_parent,
+                sex_id=prior_sex
+            ),
+            location_id=parent_location_id, sex_id=sex_id,
             rates=[r.rate for r in settings.rate]
         )
     else:
         child_prior = None
 
-    df = DismodFiller(
-        path=context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id),
-        settings_configuration=settings,
-        measurement_inputs=inputs,
-        grid_alchemy=alchemy,
+    if fill:
+        fill_database(
+            path=db_path, inputs=inputs, alchemy=alchemy, settings=settings,
+            parent_location_id=parent_location_id, sex_id=sex_id,
+            child_prior=child_prior, options=dm_options
+        )
+
+    if dm_commands:
+        run_dismod_commands(dm_file=str(db_path), commands=dm_commands)
+
+
+def main():
+
+    args = ARG_LIST.parse_args(sys.argv[1:])
+    logging.basicConfig(level=LEVELS[args.log_level])
+
+    dismod_db(
+        model_version_id=args.model_version_id,
         parent_location_id=args.parent_location_id,
         sex_id=args.sex_id,
-        child_prior=child_prior
+        dm_commands=args.dm_commands,
+        dm_options=args.dm_options,
+        fill=args.fill,
+        prior_parent=args.prior_parent,
+        prior_sex=args.prior_sex,
+        test_dir=args.test_dir
     )
-    df.fill_for_parent_child(**args.options)
-    run_dismod_commands(dm_file=df.path.absolute(), commands=args.commands)
 
 
 if __name__ == '__main__':

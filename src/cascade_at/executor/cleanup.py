@@ -1,28 +1,28 @@
 import logging
 import os
-from argparse import ArgumentParser
+import sys
 
-from cascade_at.core.log import get_loggers, LEVELS
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import ModelVersionID, LogLevel
 from cascade_at.context.model_context import Context
+from cascade_at.core.log import get_loggers, LEVELS
 
 LOG = get_loggers(__name__)
 
 
-def get_args():
-    parser = ArgumentParser()
-    parser.add_argument("-model-version-id", type=int, required=True)
-    parser.add_argument("--loglevel", type=str, required=False, default='info')
-    return parser.parse_args()
+ARG_LIST = ArgumentList([ModelVersionID(), LogLevel()])
 
 
-def main():
+def cleanup(model_version_id: int) -> None:
     """
-    Cleans up all dismod databases (.db files) associated with the model version ID.
-    :return:
+    Delete all databases (.db) files attached to a model version.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID to delete databases for
     """
-    args = get_args()
-    logging.basicConfig(level=LEVELS[args.loglevel])
-    context = Context(model_version_id=args.model_version_id)
+    context = Context(model_version_id=model_version_id)
 
     for root, dirs, files in os.walk(context.database_dir):
         for f in files:
@@ -30,6 +30,14 @@ def main():
                 file = context.database_dir / root / f
                 LOG.info(f"Deleting {file}.")
                 os.remove(file)
+
+
+def main():
+
+    args = ARG_LIST.parse_args(sys.argv[1:])
+    logging.basicConfig(level=LEVELS[args.log_level])
+
+    cleanup(model_version_id=args.model_version_id)
 
 
 if __name__ == '__main__':
