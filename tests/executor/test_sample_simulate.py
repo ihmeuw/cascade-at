@@ -15,7 +15,7 @@ from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.executor.sample_simulate import simulate, FitSample
 from cascade_at.executor.sample_simulate import sample_simulate_pool, sample_simulate_sequence
 from cascade_at.executor.sample_simulate import SampleSimulateError
-from cascade_at.executor.predict_sample import predict_sample
+from cascade_at.executor.predict_sample import create_samples
 
 
 NAME = 'sample.db'
@@ -82,9 +82,9 @@ def test_sample_simulate_pool(filler, dismod):
 
 def test_predict_sample(mi, settings, dismod):
     alchemy = Alchemy(settings)
-    predict_sample(
+    create_samples(
         inputs=mi, alchemy=alchemy, settings=settings,
-        source_db_path=NAME, target_locations=[72], target_sexes=[2]
+        source_db_path=NAME, child_locations=[72], child_sexes=[2]
     )
     di = DismodIO(NAME)
     assert len(di.predict) == 2 * len(di.avgint)
