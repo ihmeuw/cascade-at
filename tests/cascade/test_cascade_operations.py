@@ -1,6 +1,6 @@
 from cascade_at.cascade.cascade_operations import (
     ConfigureInputs, FitFixed, FitBoth,
-    FormatAndUpload, CleanUp, SampleSimulate
+    Upload, CleanUp, SampleSimulate
 )
 
 
@@ -69,16 +69,16 @@ def test_sample_simulate():
 
 
 def test_format_upload():
-    obj = FormatAndUpload(
+    obj = Upload(
         model_version_id=0,
-        parent_location_id=1,
-        sex_id=1
+        fit=True,
+        prior=True,
+        final=True
     )
     assert obj.command == (
-        f'format_upload '
+        f'upload '
         f'--model-version-id 0 '
-        f'--parent-location-id 1 '
-        f'--sex-id 1'
+        f'--final --fit --prior'
     )
 
 

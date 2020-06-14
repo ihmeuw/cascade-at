@@ -22,6 +22,6 @@ def test_drill():
         CASCADE_OPERATIONS['dismod_db']
     )
     assert isinstance(
-        cascade_command.task_dict['format_upload --model-version-id 0 --parent-location-id 1 --sex-id 1'],
-        CASCADE_OPERATIONS['format_upload']
+        cascade_command.task_dict['upload --model-version-id 0 --fit'],
+        CASCADE_OPERATIONS['upload']
     )

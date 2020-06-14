@@ -120,7 +120,7 @@ class DismodExtractor(DismodIO):
 
         return rate_dict
 
-    def format_predictions_for_ihme(self) -> pd.DataFrame:
+    def format_predictions_for_ihme(self, locations: List[int], sexes: List[int]) -> pd.DataFrame:
         """
         Gets the predictions from the predict table and transforms them
         into the GBD ids that we expect.
@@ -136,6 +136,12 @@ class DismodExtractor(DismodIO):
         predictions.rename(columns={'c_' + x: x for x in gbd_id_cols}, inplace=True)
         for col in gbd_id_cols:
             predictions[col] = predictions[col].astype(int)
+
+        predictions = predictions.loc[
+            (predictions['location_id'].isin(locations)) &
+            (predictions['sex_id'].isin(sexes))
+        ].copy()
+
         predictions.rename(columns={'avg_integrand': 'mean'}, inplace=True)
         predictions['lower'] = predictions['mean']
         predictions['upper'] = predictions['mean']
@@ -147,7 +153,7 @@ class DismodExtractor(DismodIO):
         predictions_2 = predictions.loc[predictions.measure_id == 41].copy()
         predictions_2['measure_id'] = 6
         predictions = pd.concat([predictions, predictions_2], axis=0)
-        
+
         return predictions[[
             'location_id', 'age_group_id', 'year_id', 'sex_id',
             'measure_id', 'mean', 'upper', 'lower'

@@ -1,7 +1,7 @@
 from cascade_at.executor import cleanup
 from cascade_at.executor import configure_inputs
 from cascade_at.executor import dismod_db
-from cascade_at.executor import format_upload
+from cascade_at.executor import upload
 from cascade_at.executor import mulcov_statistics
 from cascade_at.executor import predict_sample
 from cascade_at.executor import run_dmdismod
@@ -16,7 +16,7 @@ SCRIPT_LIST = [
     cleanup,
     configure_inputs,
     dismod_db,
-    format_upload,
+    upload,
     mulcov_statistics,
     predict_sample,
     run_dmdismod,
