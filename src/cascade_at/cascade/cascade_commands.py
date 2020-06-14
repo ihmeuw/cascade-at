@@ -37,6 +37,11 @@ class Drill(_CascadeCommand):
     def __init__(self, model_version_id,
                  drill_parent_location_id, drill_sex):
         super().__init__()
+
+        self.model_version_id = model_version_id
+        self.drill_parent_id = drill_parent_location_id
+        self.drill_sex = drill_sex
+
         tasks = single_fit(
             model_version_id=model_version_id,
             location_id=drill_parent_location_id,
