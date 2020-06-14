@@ -43,13 +43,13 @@ def single_fit(model_version_id: int, location_id: int, sex_id: int) -> List[_Ca
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
-        upstream_commands=t1.command
+        upstream_commands=[t1.command]
     )
     t3 = FormatAndUpload(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
-        upstream_commands=t2.command
+        upstream_commands=[t2.command]
     )
     return [t1, t2, t3]
 
