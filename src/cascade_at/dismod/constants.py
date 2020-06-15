@@ -135,6 +135,10 @@ RateToIntegrand = {
     "pini": "prevalence"
 }
 
+IntegrandToRate = {
+    v: k for k, v in RateToIntegrand.items()
+}
+
 """Each integrand has a natural association with a particular weight because
 it is a count of events with one of four denominators: constant, susceptibles,
 with-condition, or the total population. For instance, if you supply
