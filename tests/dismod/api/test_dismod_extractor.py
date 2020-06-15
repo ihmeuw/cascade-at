@@ -1,8 +1,5 @@
 from pathlib import Path
-import pytest
 
-import numpy as np
-import pandas as pd
 import pytest
 
 from cascade_at.dismod.api.dismod_extractor import DismodExtractor
@@ -10,12 +7,11 @@ from cascade_at.dismod.api.dismod_extractor import DismodExtractorError
 from cascade_at.dismod.api.run_dismod import run_dismod
 
 
-@pytest.mark.skip
 def test_empty_database():
     with pytest.raises(DismodExtractorError):
         DismodExtractor('temp-2.db')
 
-@pytest.mark.skip
+
 def test_run_dismod_fit_predict(dismod, ihme, df):
     run = run_dismod(dm_file='temp.db', command='init')
     if run.exit_status:
@@ -30,7 +26,7 @@ def test_run_dismod_fit_predict(dismod, ihme, df):
         print(run.stderr)
     assert run.exit_status == 0
 
-@pytest.mark.skip
+
 def test_get_predictions(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
     pred = d._extract_raw_predictions()
