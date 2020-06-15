@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
+from cascade_at.inputs.utilities.gbd_ids import map_id_from_interval_tree
 
 
 @pytest.fixture
@@ -23,7 +24,6 @@ def age_df():
 
 def test_make_age_intervals(age_df):
     ints = make_age_intervals(df=age_df)
-    import pdb; pdb.set_trace()
     for age in age_df.age_lower.unique():
         assert ints.overlaps(age)
 
@@ -44,3 +44,10 @@ def test_make_time_intervals_gbd():
     ints = make_time_intervals()
     for time in np.arange(1980, 2020):
         assert ints.overlaps(time)
+
+
+def test_map_id_from_interval_tree(age_df):
+    ints = make_time_intervals()
+    assert map_id_from_interval_tree(1990, ints) == 1990
+    ints = make_age_intervals(df=age_df)
+    assert map_id_from_interval_tree(5, ints) == 6

@@ -160,6 +160,16 @@ def make_time_intervals(df: Optional[pd.DataFrame] = None) -> IntervalTree:
     return time_intervals
 
 
+def map_id_from_interval_tree(index, tree):
+    i = None
+    iset = tree.at(index)
+    if len(iset) > 1:
+        raise IhmeIDError("More than one overlap with intervaltree for index {index}.")
+    for i in iset:
+        break
+    return i.data
+
+
 def get_study_level_covariate_ids():
     """
     Grabs the covariate names for study-level
