@@ -143,33 +143,24 @@ class _DismodDB(_CascadeOperation):
         return 'dismod_db'
 
 
-class FitFixed(_DismodDB):
+class Fit(_DismodDB):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 predict: bool = True, fill: bool = True, save: bool = False, **kwargs):
+                 predict: bool = True, fill: bool = True, both: bool = False,
+                 save_fit: bool = False, save_prior: bool = False, **kwargs):
+
         dm_commands = ['init', 'fit fixed']
+        if both:
+            dm_commands += [
+                'set start_var fit_var', 'set scale_var fit_var', 'fit both'
+            ]
         if predict:
             dm_commands.append('predict fit_var')
-        if save and not predict:
+        if save_fit and not predict:
             raise CascadeOperationValidationError("Can't save results if you don't predict first.")
         super().__init__(
             model_version_id=model_version_id, parent_location_id=parent_location_id,
-            sex_id=sex_id, dm_commands=dm_commands, fill=fill, save=save, **kwargs
-        )
-
-
-class FitBoth(_DismodDB):
-    def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 predict: bool = True, fill: bool = True, save: bool = False, **kwargs):
-        dm_commands = [
-            'init', 'fit fixed', 'set start_var fit_var', 'set scale_var fit_var', 'fit both'
-        ]
-        if predict:
-            dm_commands.append('predict fit_var')
-        if save and not predict:
-            raise CascadeOperationValidationError("Can't save results if you don't predict first.")
-        super().__init__(
-            model_version_id=model_version_id, parent_location_id=parent_location_id,
-            sex_id=sex_id, dm_commands=dm_commands, fill=fill, save=save, **kwargs
+            sex_id=sex_id, dm_commands=dm_commands, fill=fill,
+            save_fit=save_fit, save_prior=save_prior, **kwargs
         )
 
 

@@ -106,7 +106,7 @@ def test_gather_child_draws(mi, settings, dismod):
         assert draws[rate]['dtime'].shape[-1] == 2
 
 
-def test_format_prior(fake_prior):
+def test_format_prior(mi, settings, dismod):
     d = DismodExtractor(path=NAME)
     pred = d.format_predictions_for_ihme(locations=[72], sexes=[2], gbd_round_id=6)
     assert all(pred.columns == [

@@ -1,5 +1,5 @@
 from cascade_at.cascade.cascade_operations import (
-    ConfigureInputs, FitFixed, FitBoth,
+    ConfigureInputs, Fit,
     Upload, CleanUp, SampleSimulate
 )
 
@@ -15,11 +15,12 @@ def test_configure_inputs():
 
 
 def test_fit_fixed():
-    obj = FitFixed(
+    obj = Fit(
         model_version_id=0,
         parent_location_id=1,
         sex_id=1,
-        fill=True
+        fill=True,
+        both=False
     )
     assert obj.command == (
         f'dismod_db '
@@ -32,11 +33,12 @@ def test_fit_fixed():
 
 
 def test_fit_both():
-    obj = FitBoth(
+    obj = Fit(
         model_version_id=0,
         parent_location_id=1,
         sex_id=1,
-        fill=True
+        fill=True,
+        both=True
     )
     assert obj.command == (
         f'dismod_db '
