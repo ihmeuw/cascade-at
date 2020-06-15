@@ -1,5 +1,6 @@
 import os
 from typing import List, Optional, Dict
+from copy import copy
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,7 @@ LOG = get_loggers(__name__)
 
 class ExtractorCols:
     REQUIRED_DEMOGRAPHIC_COLS = ['location_id', 'sex_id']
+    OPTIONAL_DEMOGRAPHIC_COLS = ['year_id', 'age_group_id']
     RESULT_COL = 'avg_integrand'
     SAMPLE_COL = 'sample_index'
     VALUE_COL_SAMPLES = 'draw'
@@ -75,12 +77,13 @@ class DismodExtractor(DismodIO):
         df.rename(
             columns={'c_' + x: x for x in DEMOGRAPHIC_ID_COLS}, inplace=True
         )
-        DEMOGRAPHIC_COLS = []
+        DEMOGRAPHIC_COLS = copy(ExtractorCols.REQUIRED_DEMOGRAPHIC_COLS)
         for col in ExtractorCols.REQUIRED_DEMOGRAPHIC_COLS:
             if col not in df.columns:
                 raise DismodExtractorError(f"Cannot find required col {col} in the"
                                            "predictions columns: {predictions.columns}.")
-            else:
+        for col in ExtractorCols.OPTIONAL_DEMOGRAPHIC_COLS:
+            if col in df.columns:
                 DEMOGRAPHIC_COLS.append(col)
 
         if samples:
@@ -219,9 +222,17 @@ class DismodExtractor(DismodIO):
 
         # Duplicates the Sincidence results, if they exist, so that they
         # show up as incidence in the visualization tool
-        if integrand_map['Sincidence'] in pred.integrand_name.unique():
+        if integrand_map['Sincidence'] in pred.measure_id.unique():
             incidence = pred.loc[pred.measure_id == integrand_map['Sincidence']].copy()
             incidence['measure_id'] = integrand_map['incidence']
             pred = pd.concat([pred, incidence], axis=0).reset_index()
 
-        return pred
+        if samples:
+            VALUE_COL = ExtractorCols.VALUE_COL_SAMPLES
+        else:
+            VALUE_COL = ExtractorCols.VALUE_COL_FIT
+
+        return pred[[
+            'location_id', 'year_id', 'age_group_id', 'sex_id',
+            'measure_id', VALUE_COL
+        ]]

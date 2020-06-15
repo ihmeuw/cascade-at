@@ -108,8 +108,10 @@ def test_gather_child_draws(mi, settings, dismod):
 
 def test_format_prior(mi, settings, dismod):
     d = DismodExtractor(path=NAME)
-    pred = d.format_predictions_for_ihme(locations=[72], sexes=[2], gbd_round_id=6)
+    pred = d.format_predictions_for_ihme(
+        locations=[72], sexes=[2], gbd_round_id=6,
+        samples=True
+    )
     assert all(pred.columns == [
-        'location_id', 'age_group_id', 'year_id', 'sex_id', 'measure_id',
-        'draw', 'upper', 'lower'
+        'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id', 'draw'
     ])
