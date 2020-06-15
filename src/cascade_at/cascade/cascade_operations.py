@@ -113,7 +113,10 @@ class _DismodDB(_CascadeOperation):
                  parent_location_id: int, sex_id: int, fill: bool,
                  prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
                  dm_options: Optional[Dict[str, Union[int, str, float]]] = None,
-                 dm_commands: Optional[List[str]] = None, save: bool = False, **kwargs):
+                 dm_commands: Optional[List[str]] = None,
+                 save_prior: bool = False,
+                 save_fit: bool = False,
+                 **kwargs):
 
         super().__init__(**kwargs)
 
@@ -131,7 +134,8 @@ class _DismodDB(_CascadeOperation):
             prior_sex=prior_sex,
             dm_options=dm_options,
             dm_commands=dm_commands,
-            save=save
+            save_prior=save_prior,
+            save_fit=save_fit
         )
 
     @staticmethod

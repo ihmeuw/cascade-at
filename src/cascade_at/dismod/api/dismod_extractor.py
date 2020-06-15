@@ -1,15 +1,26 @@
-import pandas as pd
-import numpy as np
 import os
 from typing import List, Optional, Dict
 
+import numpy as np
+import pandas as pd
+
 from cascade_at.core.log import get_loggers
-from cascade_at.dismod.api.dismod_io import DismodIO
-from cascade_at.dismod.integrand_mappings import reverse_integrand_map
-from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES
 from cascade_at.dismod.api import DismodAPIError
+from cascade_at.dismod.api.dismod_io import DismodIO
+from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES, reverse_integrand_map
+from cascade_at.inputs.utilities.gbd_ids import DEMOGRAPHIC_ID_COLS
+from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
+from cascade_at.inputs.utilities.gbd_ids import map_id_from_interval_tree
 
 LOG = get_loggers(__name__)
+
+
+class ExtractorCols:
+    REQUIRED_DEMOGRAPHIC_COLS = ['location_id', 'sex_id']
+    RESULT_COL = 'avg_integrand'
+    SAMPLE_COL = 'sample_index'
+    VALUE_COL_SAMPLES = 'draw'
+    VALUE_COL_FIT = 'mean'
 
 
 class DismodExtractorError(DismodAPIError):
@@ -29,19 +40,63 @@ class DismodExtractor(DismodIO):
         if not os.path.isfile(path):
             raise DismodExtractorError(f"SQLite file {str(path)} has not been created or filled yet.")
 
-    def get_predictions(self, location_id: Optional[int] = None, sex_id: Optional[int] = None) -> pd.DataFrame:
+    def _extract_raw_predictions(self) -> pd.DataFrame:
         """
-        Get the predictions from the predict table for a specific
-        location (rather than node) and sex ID.
+        Grab raw predictions from the predict table.
         """
-        predictions = self.predict.merge(self.avgint, on=['avgint_id'])
-        predictions = predictions.merge(self.integrand, on=['integrand_id'])
-        predictions['rate'] = predictions['integrand_name'].map(PRIMARY_INTEGRANDS_TO_RATES)
-        if location_id is not None:
-            predictions = predictions.loc[predictions.c_location_id == location_id].copy()
-        if sex_id is not None:
-            predictions = predictions.loc[predictions.c_sex_id == sex_id].copy()
-        return predictions
+        df = self.predict.merge(self.avgint, on=['avgint_id'])
+        df = df.merge(self.integrand, on=['integrand_id'])
+        df['rate'] = df['integrand_name'].map(
+            PRIMARY_INTEGRANDS_TO_RATES
+        )
+        return df
+
+    def get_predictions(self, locations: Optional[List[int]] = None,
+                        sexes: Optional[List[int]] = None,
+                        samples: bool = False) -> pd.DataFrame:
+        """
+        Get the predictions from the predict table for locations and sexes.
+        Will either return a column of 'mean' if not samples, otherwise 'draw', which can then
+        be reshaped wide if necessary.
+        """
+        df = self._extract_raw_predictions()
+        if locations is not None:
+            df = df.loc[df.c_location_id.isin(locations)].copy()
+            if set(df.c_location_id.values) != set(locations):
+                missing_locations = set(df.c_location_id.values) - set(locations)
+                raise DismodExtractorError("The following locations you asked for were missing: "
+                                           f"{missing_locations}.")
+        if sexes is not None:
+            df = df.loc[df.c_sex_id.isin(sexes)].copy()
+            if set(df.c_sex_id.values) != set(sexes):
+                missing_sexes = set(df.c_sex_id.values) - set(sexes)
+                raise DismodExtractorError(f"The following sexes you asked for were missing: {missing_sexes}.")
+
+        df.rename(
+            columns={'c_' + x: x for x in DEMOGRAPHIC_ID_COLS}, inplace=True
+        )
+        DEMOGRAPHIC_COLS = []
+        for col in ExtractorCols.REQUIRED_DEMOGRAPHIC_COLS:
+            if col not in df.columns:
+                raise DismodExtractorError(f"Cannot find required col {col} in the"
+                                           "predictions columns: {predictions.columns}.")
+            else:
+                DEMOGRAPHIC_COLS.append(col)
+
+        if samples:
+            VALUE_COL = ExtractorCols.VALUE_COL_SAMPLES
+            if ExtractorCols.SAMPLE_COL not in df.columns:
+                raise DismodExtractorError("Cannot find sample index column. Are you sure you created samples?")
+            if np.isnan(df[ExtractorCols.SAMPLE_COL]).all():
+                raise DismodExtractorError("All sample index values are null. Are you sure you created samples?")
+        else:
+            VALUE_COL = ExtractorCols.VALUE_COL_FIT
+
+        df.rename(columns={ExtractorCols.RESULT_COL: VALUE_COL}, inplace=True)
+        return df[DEMOGRAPHIC_COLS + [
+            'integrand_id', 'integrand_name', 'rate',
+            'time_lower', 'time_upper', 'age_lower', 'age_upper', VALUE_COL
+        ]]
 
     def gather_draws_for_prior_grid(self,
                                     location_id: int,
@@ -77,7 +132,7 @@ class DismodExtractor(DismodIO):
         for r in rates:
             rate_dict[r] = dict()
 
-        df = self.get_predictions(location_id=location_id, sex_id=sex_id)
+        df = self.get_predictions(locations=[location_id], sexes=[sex_id], samples=True)
 
         assert (df.age_lower.values == df.age_upper.values).all()
         assert (df.time_lower.values == df.time_upper.values).all()
@@ -104,7 +159,7 @@ class DismodExtractor(DismodIO):
                     draws = df2.loc[
                         (df2.age_lower == age) &
                         (df2.time_lower == time)
-                    ]['avg_integrand'].values
+                    ][ExtractorCols.VALUE_COL_SAMPLES].values
 
                     # Check to makes sure that the number of draws corresponds to the number
                     # of draws for the whole thing per age and time
@@ -120,41 +175,53 @@ class DismodExtractor(DismodIO):
 
         return rate_dict
 
-    def format_predictions_for_ihme(self, locations: List[int], sexes: List[int]) -> pd.DataFrame:
+    def format_predictions_for_ihme(self, gbd_round_id: int,
+                                    locations: Optional[List[int]] = None,
+                                    sexes: Optional[List[int]] = None,
+                                    samples: bool = False) -> pd.DataFrame:
         """
-        Gets the predictions from the predict table and transforms them
-        into the GBD ids that we expect.
-        :return:
+        Formats predictions from the prediction table and returns either the mean
+        or draws, based on whether or not samples is False or True.
+
+        Parameters
+        ----------
+        locations
+            A list of locations to extract from the predictions
+        sexes
+            A list of sexes to extract from the predictions
+        gbd_round_id
+            The GBD round ID to format the predictions for
+        samples
+            Whether or not the predictions have draws (samples) or whether
+            it is just one fit.
+
+        Returns
+        -------
+        Data frame with predictions formatted for the IHME databases.
         """
-        predictions = self.get_predictions()[[
-            'c_location_id', 'c_age_group_id', 'c_year_id', 'c_sex_id',
-            'integrand_name', 'time_lower', 'time_upper', 'age_lower', 'age_upper',
-            'avg_integrand'
-        ]]
-        gbd_id_cols = ['location_id', 'sex_id', 'age_group_id', 'year_id']
+        pred = self.get_predictions(locations=locations, sexes=sexes, samples=samples)
+        map_age = 'age_group_id' not in pred.columns
+        map_year = 'year_id' not in pred.columns
 
-        predictions.rename(columns={'c_' + x: x for x in gbd_id_cols}, inplace=True)
-        for col in gbd_id_cols:
-            predictions[col] = predictions[col].astype(int)
-
-        predictions = predictions.loc[
-            (predictions['location_id'].isin(locations)) &
-            (predictions['sex_id'].isin(sexes))
-        ].copy()
-
-        predictions.rename(columns={'avg_integrand': 'mean'}, inplace=True)
-        predictions['lower'] = predictions['mean']
-        predictions['upper'] = predictions['mean']
+        if map_age:
+            age_intervals = make_age_intervals(gbd_round_id=gbd_round_id)
+            pred['age_group_id'] = pred['age_lower'].apply(
+                lambda x: map_id_from_interval_tree(index=x, tree=age_intervals)
+            )
+        if map_year:
+            time_intervals = make_time_intervals()
+            pred['year_id'] = pred['time_lower'].apply(
+                lambda x: map_id_from_interval_tree(index=x, tree=time_intervals)
+            )
 
         integrand_map = reverse_integrand_map()
-        predictions['measure_id'] = predictions.integrand_name.apply(lambda x: integrand_map[x])
+        pred['measure_id'] = pred.integrand_name.apply(lambda x: integrand_map[x])
 
-        # Duplicate the Sincidence results to incidence hazard for the Viz tool
-        predictions_2 = predictions.loc[predictions.measure_id == 41].copy()
-        predictions_2['measure_id'] = 6
-        predictions = pd.concat([predictions, predictions_2], axis=0)
+        # Duplicates the Sincidence results, if they exist, so that they
+        # show up as incidence in the visualization tool
+        if integrand_map['Sincidence'] in pred.integrand_name.unique():
+            incidence = pred.loc[pred.measure_id == integrand_map['Sincidence']].copy()
+            incidence['measure_id'] = integrand_map['incidence']
+            pred = pd.concat([pred, incidence], axis=0).reset_index()
 
-        return predictions[[
-            'location_id', 'age_group_id', 'year_id', 'sex_id',
-            'measure_id', 'mean', 'upper', 'lower'
-        ]]
+        return pred
