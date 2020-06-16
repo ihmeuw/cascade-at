@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Dict, Tuple, Optional
 import numpy as np
 import pandas as pd
+import itertools
 
 from cascade_at.core.log import get_loggers
 from cascade_at.model.model import Model
@@ -202,7 +203,7 @@ class Alchemy:
             if update_mulcov_prior is not None and (mulcov.group, *mulcov.key) in update_mulcov_prior:
                 ages = grid.ages
                 times = grid.times
-                for age, time in zip(ages, times):
+                for age, time in itertools.product(ages, times):
                     grid.value[age, time] = update_mulcov_prior[(mulcov.group, *mulcov.key)]
             
             model[mulcov.group][mulcov.key] = grid
