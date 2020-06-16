@@ -54,7 +54,69 @@ def single_fit(model_version_id: int, location_id: int, sex_id: int) -> List[_Ca
     return [t1, t2, t3]
 
 
-def top_level_prior(model_version_id: int, location_id: int, sex_id: int,
+def leaf_fits(model_version_id: int, location_id: int, sex_id: int,
+              n_sim: int = 100, n_pool: int = 1,
+              upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+    t2 = FitBoth(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        fill=False,
+        upstream_commands=[t1.command]
+    )
+    t3 = SampleSimulate(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        n_sim=n_sim,
+        n_pool=n_pool,
+        fit_type='both',
+        upstream_commands=[t2.command]
+    )
+    t4 = PredictSample(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        target_locations=child_locations,
+        target_sexes=child_sexes,
+        upstream_commands=[t3.command]
+    )
+
+
+def cascade_fits(model_version_id: int, location_id: int, sex_id: int,
+                 child_locations: List[int], child_sexes: List[int],
+                 n_sim: int = 100, n_pool: int = 1,
+                 upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+    t1 = ConfigureInputs(
+        model_version_id=model_version_id
+    )
+    t2 = FitBoth(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        fill=False,
+        upstream_commands=[t1.command]
+    )
+    t3 = SampleSimulate(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        n_sim=n_sim,
+        n_pool=n_pool,
+        fit_type='both',
+        upstream_commands=[t2.command]
+    )
+    t4 = PredictSample(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        target_locations=child_locations,
+        target_sexes=child_sexes,
+        upstream_commands=[t3.command]
+    )
+
+
+def root_fit(model_version_id: int, location_id: int, sex_id: int,
                     child_locations: List[int], child_sexes: List[int],
                     n_sim: int = 100, n_pool: int = 1,
                     upstream_commands: List[str] = None) -> List[_CascadeOperation]:
@@ -86,28 +148,31 @@ def top_level_prior(model_version_id: int, location_id: int, sex_id: int,
     -------
     List of CascadeOperations.
     """
-    t1 = FitBoth(
+    t1 = ConfigureInputs(
+        model_version_id=model_version_id
+    )
+    t2 = FitBoth(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=False,
-        upstream_commands=upstream_commands
+        upstream_commands=[t1.command]
     )
-    t2 = SampleSimulate(
+    t3 = SampleSimulate(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         n_sim=n_sim,
         n_pool=n_pool,
         fit_type='both',
-        upstream_commands=[t1.command]
+        upstream_commands=[t2.command]
     )
-    t3 = PredictSample(
+    t4 = PredictSample(
         model_version_id=model_version_id,
-        source_location=location_id,
-        source_sex=sex_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
         target_locations=child_locations,
         target_sexes=child_sexes,
-        upstream_commands=[t2.command]
+        upstream_commands=[t3.command]
     )
     return [t1, t2, t3]
