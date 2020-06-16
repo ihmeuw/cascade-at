@@ -30,7 +30,8 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool,
     """
     Grabs the inputs for a specific model version ID, sets up the folder
     structure, and pickles the inputs object plus writes the settings json
-    for use later on.
+    for use later on. Also uploads CSMR to the database attached to the model version,
+    if applicable.
 
     Optionally use a json file for settings instead of a model version ID's json file.
 
@@ -73,6 +74,13 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool,
     inputs = MeasurementInputsFromSettings(settings=settings)
     inputs.get_raw_inputs()
     inputs.configure_inputs_for_dismod(settings=settings)
+
+    if not inputs.csmr.raw.empty:
+        LOG.info("Uploading CSMR to t3 table.")
+        inputs.csmr.attach_to_model_version_in_db(
+            model_version_id=model_version_id,
+            conn_def=context.model_connection
+        )
 
     context.write_inputs(inputs=inputs, settings=parameter_json)
 

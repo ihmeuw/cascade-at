@@ -1,9 +1,21 @@
+import pandas as pd
+import numpy as np
+from typing import Optional
+from intervaltree import IntervalTree
+
 from cascade_at.core.db import db_queries
 from cascade_at.core.db import db_tools
-
+from cascade_at.core import CascadeATError
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
+
+
+class IhmeIDError(CascadeATError):
+    pass
+
+
+DEMOGRAPHIC_ID_COLS = ['location_id', 'sex_id', 'age_group_id', 'year_id']
 
 
 SEX_ID_TO_NAME = {
@@ -76,11 +88,9 @@ def get_location_set_version_id(gbd_round_id):
     return location_set_version_id
 
 
-def get_age_group_metadata(gbd_round_id):
+def get_age_group_metadata(gbd_round_id: int) -> pd.DataFrame:
     """
     Gets age group metadata.
-
-    :param gbd_round_id: (int)
     """
     df = db_queries.get_age_metadata(age_group_set_id=CascadeConstants.AGE_GROUP_SET_ID,
                                      gbd_round_id=gbd_round_id)
@@ -91,13 +101,73 @@ def get_age_group_metadata(gbd_round_id):
     return df[['age_group_id', 'age_lower', 'age_upper']]
 
 
-def get_age_id_to_range(gbd_round_id):
+def make_age_intervals(df: Optional[pd.DataFrame] = None,
+                       gbd_round_id: Optional[int] = None) -> IntervalTree:
     """
-    Gets the age group ID to range dictionary.
-    :return: dict[int, tuple(float, float)]
+    Makes an interval tree out of age lower and upper for age group IDs.
+    The interval tree can be made from an existing data frame with those columns
+    or it can be made from getting the full set of age groups from the IHME databases.
+
+    Parameters
+    ----------
+    df
+        Data frame from which to construct the interval tree. Must have the
+        columns ['age_group_id', 'age_lower', 'age_upper']. If passed, ignores gbd_round_id.
+    gbd_round_id
+        The gbd round ID from which to pull the age group metadata which is used
+        to construct the interval tree. Ignored if df is specified instead.
     """
-    df = get_age_group_metadata(gbd_round_id=gbd_round_id)
-    return dict([(t.age_group_id, (t.age_lower, t.age_upper)) for t in df.itertuples()])
+    if df is None and gbd_round_id is None:
+        raise IhmeIDError("Need to pass either a data frame with columns"
+                          "['age_group_id', 'age_lower', 'age_upper' or a valid"
+                          "gbd_round_id to get the full set of age groups.")
+    if df is None:
+        df = get_age_group_metadata(gbd_round_id=gbd_round_id)
+    else:
+        for col in ['age_group_id', 'age_lower', 'age_upper']:
+            if col not in df.columns:
+                raise IhmeIDError(f"The data frame columns {df.columns} do not contain"
+                                  f"the required column {col}.")
+    age_intervals = IntervalTree.from_tuples(
+        df[['age_lower', 'age_upper', 'age_group_id']].values
+    )
+    return age_intervals
+
+
+def make_time_intervals(df: Optional[pd.DataFrame] = None) -> IntervalTree:
+    """
+    Makes an interval tree out of year_id.
+    The interval tree can be made from an existing data frame with that column
+    or it can be made from the knowledge that the year ID == year.
+
+    Parameters
+    ----------
+    df
+        Optional data frame from which to construct the interval tree.
+        Must have 'year_id' as a column.
+    """
+    if df is None:
+        df = pd.DataFrame({
+            'year_id': np.arange(1950, 2050)
+        })
+    else:
+        if 'year_id' not in df.columns:
+            raise IhmeIDError(f"The data frame columns {df.columns} do not contain the"
+                              "one required column year_id.")
+    time_intervals = IntervalTree.from_tuples([
+        (t, t+1, t) for t in df.year_id.unique()
+    ])
+    return time_intervals
+
+
+def map_id_from_interval_tree(index, tree):
+    i = None
+    iset = tree.at(index)
+    if len(iset) > 1:
+        raise IhmeIDError("More than one overlap with intervaltree for index {index}.")
+    for i in iset:
+        break
+    return i.data
 
 
 def get_study_level_covariate_ids():

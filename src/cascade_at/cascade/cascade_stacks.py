@@ -11,8 +11,8 @@ from typing import List
 
 from cascade_at.cascade.cascade_operations import _CascadeOperation
 from cascade_at.cascade.cascade_operations import (
-    ConfigureInputs, FitBoth, FitFixed, SampleSimulate, PredictSample,
-    FormatAndUpload, CleanUp
+    ConfigureInputs, Fit, SampleSimulate, PredictSample,
+    Upload, CleanUp
 )
 
 
@@ -38,17 +38,19 @@ def single_fit(model_version_id: int, location_id: int, sex_id: int) -> List[_Ca
     t1 = ConfigureInputs(
         model_version_id=model_version_id
     )
-    t2 = FitBoth(
+    t2 = Fit(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
+        predict=True,
+        both=True,
+        save_fit=True,
         upstream_commands=[t1.command]
     )
-    t3 = FormatAndUpload(
+    t3 = Upload(
         model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
+        fit=True,
         upstream_commands=[t2.command]
     )
     return [t1, t2, t3]
@@ -86,11 +88,13 @@ def top_level_prior(model_version_id: int, location_id: int, sex_id: int,
     -------
     List of CascadeOperations.
     """
-    t1 = FitBoth(
+    t1 = Fit(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=False,
+        both=True,
+        predict=True,
         upstream_commands=upstream_commands
     )
     t2 = SampleSimulate(

@@ -5,16 +5,18 @@ from typing import Union, List, Dict, Any, Optional
 
 import numpy as np
 
-from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import DmCommands, DmOptions, ParentLocationID, SexID
-from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg, IntArg
+from cascade_at.core import CascadeATError
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.dismod.api.dismod_extractor import DismodExtractor
 from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import DmCommands, DmOptions, ParentLocationID, SexID
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg, IntArg
 from cascade_at.inputs.measurement_inputs import MeasurementInputs
 from cascade_at.model.grid_alchemy import Alchemy
+from cascade_at.saver.results_handler import ResultsHandler
 from cascade_at.settings.settings_config import SettingsConfig
 
 LOG = get_loggers(__name__)
@@ -29,9 +31,16 @@ ARG_LIST = ArgumentList([
     BoolArg('--fill', help='whether or not to fill the dismod database with data'),
     IntArg('--prior-parent', help='the location ID of the parent database to grab the prior for'),
     IntArg('--prior-sex', help='the sex ID of the parent database to grab prior for'),
+    BoolArg('--save-fit', help='whether or not to save the fit'),
+    BoolArg('--save-prior', help='whether or not to save the prior'),
     LogLevel(),
     StrArg('--test-dir', help='if set, will save files to the directory specified')
 ])
+
+
+class DismodDBError(CascadeATError):
+    """Raised when there is an error with running the dismod_db script."""
+    pass
 
 
 def get_prior(path: Union[str, Path], location_id: int, sex_id: int,
@@ -63,10 +72,30 @@ def fill_database(path: Union[str, Path], settings: SettingsConfig,
     df.fill_for_parent_child(**options)
 
 
+def save_predictions(db_file: Union[str, Path], location_id: int, sex_id: int,
+                     model_version_id: int, gbd_round_id: int,
+                     out_dir: Path) -> None:
+    """
+        Save the fit from this dismod database for a specific location and sex to be
+        uploaded later on.
+        """
+    LOG.info("Extracting results from DisMod SQLite Database.")
+    da = DismodExtractor(path=db_file)
+    predictions = da.format_predictions_for_ihme(
+        locations=[location_id], sexes=[sex_id], gbd_round_id=gbd_round_id
+    )
+
+    LOG.info(f"Saving the results for location {location_id} and sex {sex_id} to {out_dir}.")
+    rh = ResultsHandler()
+    rh.save_draw_files(df=predictions, directory=out_dir,
+                       add_summaries=True, model_version_id=model_version_id)
+
+
 def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
               dm_commands: List[str], dm_options: Dict[str, Union[int, str, float]],
               prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
-              test_dir: Optional[str] = None, fill: bool = False) -> None:
+              test_dir: Optional[str] = None, fill: bool = False,
+              save_fit: bool = True, save_prior: bool = True) -> None:
     """
     Creates a dismod database using the saved inputs and the file
     structure specified in the context. Alternatively it will
@@ -104,6 +133,10 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
         Whether or not to fill the database with new inputs based on the model_version_id,
         parent_location_id, and sex_id. If not filling, this script can be used
         to just execute commands on the database instead.
+    save_fit
+        Whether or not to save the fit from this database as the parent fit.
+    save_prior
+        Whether or not to save the prior for the children as the prior fit.
     """
     if test_dir is not None:
         context = Context(model_version_id=model_version_id,
@@ -119,17 +152,25 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
     # database, pass them in here.
     if prior_parent or prior_sex:
         if not (prior_parent and prior_sex):
-            raise RuntimeError("Need to pass both prior parent and sex or neither.")
+            raise DismodDBError("Need to pass both prior parent and sex or neither.")
+        prior_db = context.db_file(location_id=prior_parent, sex_id=prior_sex)
         child_prior = get_prior(
-            path=context.db_file(
-                location_id=prior_parent,
-                sex_id=prior_sex
-            ),
+            path=prior_db,
             location_id=parent_location_id, sex_id=sex_id,
             rates=[r.rate for r in settings.rate]
         )
+        save_predictions(
+            db_file=prior_db,
+            location_id=parent_location_id, sex_id=sex_id,
+            model_version_id=model_version_id,
+            gbd_round_id=settings.gbd_round_id,
+            out_dir=context.prior_dir
+        )
     else:
         child_prior = None
+        if save_prior:
+            raise DismodDBError("Cannot save the prior because there was no argument"
+                                "passed in for the prior_parent or prior_sex.")
 
     if fill:
         fill_database(
@@ -140,6 +181,15 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
 
     if dm_commands:
         run_dismod_commands(dm_file=str(db_path), commands=dm_commands)
+
+    if save_fit:
+        save_predictions(
+            db_file=context.db_file(location_id=parent_location_id, sex_id=sex_id),
+            location_id=parent_location_id, sex_id=sex_id,
+            model_version_id=model_version_id,
+            gbd_round_id=settings.gbd_round_id,
+            out_dir=context.fit_dir
+        )
 
 
 def main():
@@ -156,7 +206,9 @@ def main():
         fill=args.fill,
         prior_parent=args.prior_parent,
         prior_sex=args.prior_sex,
-        test_dir=args.test_dir
+        test_dir=args.test_dir,
+        save_fit=args.save_fit,
+        save_prior=args.save_prior
     )
 
 

@@ -104,3 +104,14 @@ def test_gather_child_draws(mi, settings, dismod):
     for rate in ['iota', 'chi']:
         assert draws[rate]['dage'].shape[-1] == 2
         assert draws[rate]['dtime'].shape[-1] == 2
+
+
+def test_format_prior(mi, settings, dismod):
+    d = DismodExtractor(path=NAME)
+    pred = d.format_predictions_for_ihme(
+        locations=[72], sexes=[2], gbd_round_id=6,
+        samples=True
+    )
+    assert all(pred.columns == [
+        'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id', 'draw_0', 'draw_1'
+    ])
