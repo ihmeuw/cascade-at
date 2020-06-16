@@ -79,8 +79,6 @@ class _CascadeOperation:
                 if k not in kwargs:
                     raise CascadeATError(f"Missing argument {k} for script {self._script()}.")
                 if 'type' in v:
-                    if v['type'] == str:
-                        import pdb; pdb.set_trace()
                     assert type(kwargs[k]) == v['type']
         for k, v in kwargs.items():
             if k not in arg_list.argument_dict:

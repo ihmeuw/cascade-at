@@ -36,7 +36,6 @@ def draws():
 def test_saver_summaries_mean(means):
     rh = ResultsHandler()
     df = rh.summarize_results(df=means)
-    import pdb; pdb.set_trace()
     assert (df.columns == rh.draw_keys + ['mean', 'lower', 'upper']).all()
     assert (df['mean'] == means['mean']).all()
     assert (df['lower'] == means['mean']).all()
