@@ -57,90 +57,13 @@ def single_fit(model_version_id: int,
     return [t1, t2, t3]
 
 
-def leaf_fits(model_version_id: int, location_id: int, sex_id: int,
-              n_sim: int = 100, n_pool: int = 1,
-              upstream_commands: List[str] = None) -> List[_CascadeOperation]:
-    """
-    Performs a fit at a leaf node, only running a fit fixed, no children.
-
-    Parameters
-    ----------
-    model_version_id
-    location_id
-    sex_id
-    n_sim
-    n_pool
-    upstream_commands
-    """
-    t1 = Fit(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        fill=False,
-        both=False,
-        upstream_commands=upstream_commands
-    )
-    t2 = SampleSimulate(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        n_sim=n_sim,
-        n_pool=n_pool,
-        fit_type='fixed',
-        upstream_commands=[t1.command]
-    )
-    t3 = PredictSample(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        target_locations=[location_id],
-        target_sexes=[sex_id],
-        upstream_commands=[t2.command]
-    )
-    return [t1.command, t2.command, t3.command]
-
-
-def cascade_fits(model_version_id: int, location_id: int, sex_id: int,
-                 child_locations: List[int], child_sexes: List[int],
-                 n_sim: int = 100, n_pool: int = 1,
-                 upstream_commands: List[str] = None) -> List[_CascadeOperation]:
-    t1 = Fit(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        fill=True,
-        both=True,
-        predict=True,
-        upstream_commands=upstream_commands
-    )
-    t2 = SampleSimulate(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        n_sim=n_sim,
-        n_pool=n_pool,
-        fit_type='both',
-        upstream_commands=[t1.command]
-    )
-    t3 = PredictSample(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        target_locations=child_locations,
-        target_sexes=child_sexes,
-        upstream_commands=[t2.command]
-    )
-    return [t1, t2, t3]
-
-
 def root_fit(model_version_id: int, location_id: int, sex_id: int,
              child_locations: List[int], child_sexes: List[int],
-             n_sim: int = 100, n_pool: int = 1,
-             upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+             n_sim: int = 100, n_pool: int = 1) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
-    Does a fit fixed, then fit both, then predict and uploads the result.
-    Will fit the model based on the settings attached to the model version ID.
+    Does a fit fixed, then fit both, then sample simulate to create posteriors
+    that can be used as priors later on. Saves its fit to be uploaded.
 
     Parameters
     ----------
@@ -158,8 +81,6 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         The children to fill the avgint table with
     child_sexes
         The sexes to predict for.
-    upstream_commands
-        List of upstream commands for this sequence.
 
     Returns
     -------
@@ -175,7 +96,8 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         fill=True,
         both=True,
         predict=True,
-        upstream_commands=[t1.command]
+        upstream_commands=[t1.command],
+        save_fit=True
     )
     t3 = SampleSimulate(
         model_version_id=model_version_id,
@@ -195,3 +117,137 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         upstream_commands=[t3.command]
     )
     return [t1, t2, t3]
+
+
+def cascade_fits(model_version_id: int, location_id: int, sex_id: int,
+                 prior_parent: int, prior_sex: int,
+                 child_locations: List[int], child_sexes: List[int],
+                 n_sim: int = 100, n_pool: int = 1,
+                 upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+    """
+    Create a sequence of tasks to do a cascade fit (mid-level).
+    Does a fit fixed, then fit both, then sample simulate to create posteriors
+    that can be used as priors later on. Saves its fit to be uploaded.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID.
+    location_id
+        The parent location ID to run the model for.
+    sex_id
+        The sex ID to run the model for.
+    prior_parent
+        The location ID corresponding to a database to pull the prior from
+    prior_sex
+        The sex ID corresponding to a database to pull the prior from
+    n_sim
+        The number of simulations to do to get the posterior fit.
+    n_pool
+        The number of pools to use to do the simulation fits.
+    child_locations
+        The children to fill the avgint table with
+    child_sexes
+        The sexes to predict for.
+    upstream_commands
+        Commands that need to be run before this stack.
+
+    Returns
+    -------
+    List of CascadeOperations.
+    """
+    t1 = Fit(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        fill=True,
+        both=True,
+        predict=True,
+        prior_parent=prior_parent,
+        prior_sex=prior_sex,
+        save_fit=True,
+        save_prior=True,
+        upstream_commands=upstream_commands
+    )
+    t2 = SampleSimulate(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        n_sim=n_sim,
+        n_pool=n_pool,
+        fit_type='both',
+        upstream_commands=[t1.command]
+    )
+    t3 = PredictSample(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        target_locations=child_locations,
+        target_sexes=child_sexes,
+        upstream_commands=[t2.command]
+    )
+    return [t1, t2, t3]
+
+
+def leaf_fits(model_version_id: int, location_id: int, sex_id: int,
+              prior_parent: int, prior_sex: int,
+              n_sim: int = 100, n_pool: int = 1,
+              upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+    """
+    Create a sequence of tasks to do a for a leaf-node fit, no children.
+    Does a fit fixed then sample simulate to create posteriors. Saves its fit to be uploaded.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID.
+    location_id
+        The parent location ID to run the model for.
+    sex_id
+        The sex ID to run the model for.
+    prior_parent
+        The location ID corresponding to a database to pull the prior from
+    prior_sex
+        The sex ID corresponding to a database to pull the prior from
+    n_sim
+        The number of simulations to do to get the posterior fit.
+    n_pool
+        The number of pools to use to do the simulation fits.
+    upstream_commands
+        Commands that need to be run before this stack.
+
+    Returns
+    -------
+    List of CascadeOperations.
+    """
+    t1 = Fit(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        fill=False,
+        both=False,
+        prior_parent=prior_parent,
+        prior_sex=prior_sex,
+        save_fit=False,
+        save_prior=True,
+        upstream_commands=upstream_commands
+    )
+    t2 = SampleSimulate(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        n_sim=n_sim,
+        n_pool=n_pool,
+        fit_type='fixed',
+        upstream_commands=[t1.command]
+    )
+    t3 = PredictSample(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        target_locations=[location_id],
+        target_sexes=[sex_id],
+        save_fit=True,
+        upstream_commands=[t2.command]
+    )
+    return [t1.command, t2.command, t3.command]
