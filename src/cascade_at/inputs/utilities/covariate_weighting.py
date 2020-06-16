@@ -2,6 +2,7 @@ import numpy as np
 from intervaltree import IntervalTree
 
 from cascade_at.core.log import get_loggers
+from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
 from cascade_at.inputs import InputsError
 
 LOG = get_loggers(__name__)
@@ -53,12 +54,8 @@ class CovariateInterpolator:
         self.year_min = self.covariate.year_id.min()
         self.year_max = self.covariate.year_id.max() + 1
 
-        self.age_intervals = IntervalTree.from_tuples(
-            self.covariate[['age_lower', 'age_upper', 'age_group_id']].values
-        )
-        self.time_intervals = IntervalTree.from_tuples([
-            (t, t+1, t) for t in self.covariate.year_id.unique()
-        ])
+        self.age_intervals = make_age_intervals(df=self.covariate)
+        self.time_intervals = make_time_intervals(df=self.covariate)
 
         self.dict_cov = dict(zip(
             map(tuple, self.covariate[indices].values.tolist()), self.covariate['mean_value'].values
@@ -97,7 +94,7 @@ class CovariateInterpolator:
         # We don't have to do this on the leftmost end, however,
         # because that's already taken care of by _restrict_time,
         # and the leftmost point of the interval *is* the key for IntervalTrees.
-        if not self.time_intervals.at(time_lower):
+        if not self.time_intervals.overlaps(time_lower):
             time_lower -= 1
 
         if time_lower == time_upper:

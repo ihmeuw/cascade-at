@@ -11,6 +11,8 @@ from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers.data_tables import prep_data_avgint
 from cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior import get_prior_avgint_grid
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, ListArg, ParentLocationID, SexID, LogLevel
 from cascade_at.inputs.measurement_inputs import MeasurementInputs
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.model.utilities.integrand_grids import integrand_grids
@@ -25,13 +27,14 @@ ARG_LIST = ArgumentList([
     SexID(),
     ListArg('--child-locations', help='child locations to make predictions for', type=int),
     ListArg('--child-sexes', help='sexes to make predictions for', type=int),
+    BoolArg('--prior-grid', help='whether to predict on the prior grid or the regular avgint grid'),
     LogLevel()
 ])
 
 
-def create_samples(inputs: MeasurementInputs, alchemy: Alchemy, settings: SettingsConfig,
-                   source_db_path: Union[str, Path],
-                   child_locations: List[int], child_sexes: List[int]):
+def fill_avgint_with_priors_grid(inputs: MeasurementInputs, alchemy: Alchemy, settings: SettingsConfig,
+                                 source_db_path: Union[str, Path],
+                                 child_locations: List[int], child_sexes: List[int]):
 
     sourceDB = DismodIO(path=source_db_path)
     rates = [r.rate for r in settings.rate]
@@ -51,6 +54,18 @@ def create_samples(inputs: MeasurementInputs, alchemy: Alchemy, settings: Settin
     )
     posterior_grid.rename(columns={'sex_id': 'c_sex_id'}, inplace=True)
     sourceDB.avgint = posterior_grid
+
+
+def create_samples(inputs: MeasurementInputs, alchemy: Alchemy, settings: SettingsConfig,
+                   source_db_path: Union[str, Path],
+                   child_locations: List[int], child_sexes: List[int], prior_grid: bool = True):
+
+    sourceDB = DismodIO(path=source_db_path)
+    if prior_grid:
+        fill_avgint_with_priors_grid(
+            inputs=inputs, alchemy=alchemy, settings=settings, source_db_path=source_db_path,
+            child_locations=child_locations, child_sexes=child_sexes
+        )
     run_dismod_commands(
         dm_file=source_db_path,
         commands=['predict sample']
@@ -58,7 +73,8 @@ def create_samples(inputs: MeasurementInputs, alchemy: Alchemy, settings: Settin
 
 
 def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
-                   child_locations: List[int], child_sexes: List[int]) -> None:
+                   child_locations: List[int], child_sexes: List[int],
+                   prior_grid: bool = True) -> None:
     """
     Takes a database that has already had a fit and simulate sample run on it,
     fills the avgint table for the child_locations and child_sexes you want to make
@@ -77,6 +93,9 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
         The child locations to make predictions for on the rate grid
     child_sexes
         The child sexes to make predictions for on the rate grid
+    prior_grid
+        Whether or not to replace the default gbd-avgint grid with
+        a prior grid for the rates.
     """
     context = Context(model_version_id=model_version_id)
     inputs, alchemy, settings = context.read_inputs()
@@ -88,7 +107,8 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
         settings=settings,
         source_db_path=path,
         child_locations=child_locations,
-        child_sexes=child_sexes
+        child_sexes=child_sexes,
+        prior_grid=prior_grid
     )
 
 
@@ -102,7 +122,8 @@ def main():
         parent_location_id=args.parent_location_id,
         sex_id=args.sex_id,
         child_locations=args.child_locations,
-        child_sexes=args.child_sexes
+        child_sexes=args.child_sexes,
+        prior_grid=args.prior_grid
     )
 
 
