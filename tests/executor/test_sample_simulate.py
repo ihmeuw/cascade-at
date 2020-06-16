@@ -113,5 +113,5 @@ def test_format_prior(mi, settings, dismod):
         samples=True
     )
     assert all(pred.columns == [
-        'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id', 'draw'
+        'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id', 'draw_0', 'draw_1'
     ])

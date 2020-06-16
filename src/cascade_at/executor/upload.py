@@ -80,7 +80,7 @@ def format_upload(model_version_id: int, final: bool = False, fit: bool = False,
                   prior: bool = False) -> None:
 
     context = Context(model_version_id=model_version_id)
-    rh = ResultsHandler(model_version_id=model_version_id)
+    rh = ResultsHandler()
 
     if final:
         upload_final(context=context, rh=rh)

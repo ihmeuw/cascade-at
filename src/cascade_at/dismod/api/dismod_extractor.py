@@ -25,6 +25,12 @@ class ExtractorCols:
     VALUE_COL_FIT = 'mean'
 
 
+INDEX_COLS = [
+    'integrand_id', 'integrand_name', 'rate',
+    'time_lower', 'time_upper', 'age_lower', 'age_upper'
+]
+
+
 class DismodExtractorError(DismodAPIError):
     """Errors raised when there are issues with DismodExtractor."""
     pass
@@ -92,14 +98,22 @@ class DismodExtractor(DismodIO):
                 raise DismodExtractorError("Cannot find sample index column. Are you sure you created samples?")
             if np.isnan(df[ExtractorCols.SAMPLE_COL]).all():
                 raise DismodExtractorError("All sample index values are null. Are you sure you created samples?")
+            df[ExtractorCols.VALUE_COL_SAMPLES] = df[ExtractorCols.SAMPLE_COL].apply(
+                lambda x: f'{ExtractorCols.VALUE_COL_SAMPLES}_{x}'
+            )
+            VALUE_COLS = df[ExtractorCols.VALUE_COL_SAMPLES].unique().tolist()
+            df = df[INDEX_COLS + DEMOGRAPHIC_COLS + [ExtractorCols.VALUE_COL_SAMPLES] + [ExtractorCols.RESULT_COL]]
+            if df[INDEX_COLS + DEMOGRAPHIC_COLS + [ExtractorCols.VALUE_COL_SAMPLES]].duplicated().any():
+                raise DismodExtractorError("There are duplicate entries in the prediction data frame"
+                                           "based on the expected columns. Please check the data.")
+            df.set_index(INDEX_COLS + DEMOGRAPHIC_COLS + [ExtractorCols.VALUE_COL_SAMPLES], inplace=True)
+            df = df.unstack().reset_index()
+            df.columns = INDEX_COLS + DEMOGRAPHIC_COLS + VALUE_COLS
         else:
-            VALUE_COL = ExtractorCols.VALUE_COL_FIT
+            df.rename(columns={ExtractorCols.RESULT_COL: ExtractorCols.VALUE_COL_FIT}, inplace=True)
+            VALUE_COLS = [ExtractorCols.VALUE_COL_FIT]
 
-        df.rename(columns={ExtractorCols.RESULT_COL: VALUE_COL}, inplace=True)
-        return df[DEMOGRAPHIC_COLS + [
-            'integrand_id', 'integrand_name', 'rate',
-            'time_lower', 'time_upper', 'age_lower', 'age_upper', VALUE_COL
-        ]]
+        return df[DEMOGRAPHIC_COLS + INDEX_COLS + VALUE_COLS]
 
     def gather_draws_for_prior_grid(self,
                                     location_id: int,
@@ -136,7 +150,7 @@ class DismodExtractor(DismodIO):
             rate_dict[r] = dict()
 
         df = self.get_predictions(locations=[location_id], sexes=[sex_id], samples=True)
-
+        DRAW_COLS = [col for col in df if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
         assert (df.age_lower.values == df.age_upper.values).all()
         assert (df.time_lower.values == df.time_upper.values).all()
 
@@ -146,7 +160,7 @@ class DismodExtractor(DismodIO):
 
             ages = np.asarray(sorted(df2.age_lower.unique().tolist()))
             times = np.asarray(sorted(df2.time_lower.unique().tolist()))
-            n_draws = int(len(df2) / (len(ages) * len(times)))
+            n_draws = len(DRAW_COLS)
 
             # Save these for later for quality checks
             rate_dict[r]['ages'] = ages
@@ -162,7 +176,7 @@ class DismodExtractor(DismodIO):
                     draws = df2.loc[
                         (df2.age_lower == age) &
                         (df2.time_lower == time)
-                    ][ExtractorCols.VALUE_COL_SAMPLES].values
+                    ][DRAW_COLS].values.ravel()
 
                     # Check to makes sure that the number of draws corresponds to the number
                     # of draws for the whole thing per age and time
@@ -228,11 +242,11 @@ class DismodExtractor(DismodIO):
             pred = pd.concat([pred, incidence], axis=0).reset_index()
 
         if samples:
-            VALUE_COL = ExtractorCols.VALUE_COL_SAMPLES
+            VALUE_COLS = [col for col in pred.columns if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
         else:
-            VALUE_COL = ExtractorCols.VALUE_COL_FIT
+            VALUE_COLS = [ExtractorCols.VALUE_COL_FIT]
 
         return pred[[
             'location_id', 'year_id', 'age_group_id', 'sex_id',
-            'measure_id', VALUE_COL
-        ]]
+            'measure_id'
+        ] + VALUE_COLS]
