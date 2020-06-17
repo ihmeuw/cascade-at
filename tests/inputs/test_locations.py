@@ -1,3 +1,42 @@
+import pytest
+
+import pandas as pd
+import numpy as np
+
+
+from cascade_at.inputs.locations import LocationDAG
+from cascade_at.inputs.locations import LocationDAGError
+
+
+@pytest.fixture
+def df():
+    return pd.DataFrame({
+        'location_id': [1, 2, 3, 4, 5],
+        'parent_id': [0, 1, 1, 2, 2]
+    })
+
+
+def test_dag_from_df(df):
+    dag = LocationDAG(df=df, root=1)
+    assert set(dag.dag.successors(1)) == {2, 3}
+    assert set(dag.dag.successors(2)) == {4, 5}
+    assert set(dag.descendants(1)) == {2, 3, 4, 5}
+
+
+def test_dag_error_noargs():
+    with pytest.raises(LocationDAGError):
+        LocationDAG()
+
+
+def test_dag_error_missing_args():
+    with pytest.raises(LocationDAGError):
+        LocationDAG(location_set_version_id=0)
+
+
+def test_dag_no_root(df):
+    with pytest.raises(LocationDAGError):
+        LocationDAG(df=df)
+
 
 def test_not_empty_df(dag):
     assert not dag.df.empty

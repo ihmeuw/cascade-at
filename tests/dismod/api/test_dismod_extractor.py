@@ -1,10 +1,10 @@
-import pytest
 from pathlib import Path
-import numpy as np
 
-from cascade_at.dismod.api.run_dismod import run_dismod
+import pytest
+
 from cascade_at.dismod.api.dismod_extractor import DismodExtractor
 from cascade_at.dismod.api.dismod_extractor import DismodExtractorError
+from cascade_at.dismod.api.run_dismod import run_dismod
 
 
 def test_empty_database():
@@ -29,7 +29,7 @@ def test_run_dismod_fit_predict(dismod, ihme, df):
 
 def test_get_predictions(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
-    pred = d.get_predictions()
+    pred = d._extract_raw_predictions()
     assert len(pred) == 484
     assert all(pred.columns == [
         'predict_id', 'sample_index', 'avgint_id', 'avg_integrand',
@@ -40,14 +40,12 @@ def test_get_predictions(ihme, dismod, df):
     ])
 
 
-def test_format_for_ihme(ihme, dismod, df):
+def test_format_fit(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
-    pred = d.format_predictions_for_ihme()
-    # This prediction data frame is one longer for every location than the prediction
+    pred = d.format_predictions_for_ihme(gbd_round_id=6, samples=False)
+    # This prediction data frame is longer for each demographic group than the prediction
     # dataframe in `test_get_predictions` because there is an extra measure.
     assert len(pred) == 528
     assert all(pred.columns == [
-        'location_id', 'age_group_id', 'year_id', 'sex_id', 'measure_id',
-        'mean', 'upper', 'lower'
+        'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id', 'mean'
     ])
-

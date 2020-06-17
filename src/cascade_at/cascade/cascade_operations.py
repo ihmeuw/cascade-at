@@ -79,8 +79,6 @@ class _CascadeOperation:
                 if k not in kwargs:
                     raise CascadeATError(f"Missing argument {k} for script {self._script()}.")
                 if 'type' in v:
-                    if v['type'] == str:
-                        import pdb; pdb.set_trace()
                     assert type(kwargs[k]) == v['type']
         for k, v in kwargs.items():
             if k not in arg_list.argument_dict:
@@ -113,7 +111,10 @@ class _DismodDB(_CascadeOperation):
                  parent_location_id: int, sex_id: int, fill: bool,
                  prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
                  dm_options: Optional[Dict[str, Union[int, str, float]]] = None,
-                 dm_commands: Optional[List[str]] = None, **kwargs):
+                 dm_commands: Optional[List[str]] = None,
+                 save_prior: bool = False,
+                 save_fit: bool = False,
+                 **kwargs):
 
         super().__init__(**kwargs)
 
@@ -130,7 +131,9 @@ class _DismodDB(_CascadeOperation):
             prior_parent=prior_parent,
             prior_sex=prior_sex,
             dm_options=dm_options,
-            dm_commands=dm_commands
+            dm_commands=dm_commands,
+            save_prior=save_prior,
+            save_fit=save_fit
         )
 
     @staticmethod
@@ -138,29 +141,24 @@ class _DismodDB(_CascadeOperation):
         return 'dismod_db'
 
 
-class FitFixed(_DismodDB):
+class Fit(_DismodDB):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 predict: bool = True, fill: bool = True, **kwargs):
+                 predict: bool = True, fill: bool = True, both: bool = False,
+                 save_fit: bool = False, save_prior: bool = False, **kwargs):
+
         dm_commands = ['init', 'fit fixed']
+        if both:
+            dm_commands += [
+                'set start_var fit_var', 'set scale_var fit_var', 'fit both'
+            ]
         if predict:
             dm_commands.append('predict fit_var')
+        if save_fit and not predict:
+            raise CascadeOperationValidationError("Can't save results if you don't predict first.")
         super().__init__(
             model_version_id=model_version_id, parent_location_id=parent_location_id,
-            sex_id=sex_id, dm_commands=dm_commands, fill=fill, **kwargs
-        )
-
-
-class FitBoth(_DismodDB):
-    def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 predict: bool = True, fill: bool = True, **kwargs):
-        dm_commands = [
-            'init', 'fit fixed', 'set start_var fit_var', 'set scale_var fit_var', 'fit both'
-        ]
-        if predict:
-            dm_commands.append('predict fit_var')
-        super().__init__(
-            model_version_id=model_version_id, parent_location_id=parent_location_id,
-            sex_id=sex_id, dm_commands=dm_commands, fill=fill, **kwargs
+            sex_id=sex_id, dm_commands=dm_commands, fill=fill,
+            save_fit=save_fit, save_prior=save_prior, **kwargs
         )
 
 
@@ -185,15 +183,19 @@ class SampleSimulate(_CascadeOperation):
 
 class PredictSample(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 target_locations: List[int], target_sexes: List[int], **kwargs):
+                 child_locations: List[int], child_sexes: List[int],
+                 prior_grid: bool = True, save_fit: bool = False, **kwargs):
+
         super().__init__(**kwargs)
 
         self._configure(
             model_version_id=model_version_id,
             parent_location_id=parent_location_id,
             sex_id=sex_id,
-            target_locations=target_locations,
-            target_sexes=target_sexes,
+            child_locations=child_locations,
+            child_sexes=child_sexes,
+            prior_grid=prior_grid,
+            save_fit=save_fit
         )
 
     @staticmethod
@@ -223,19 +225,19 @@ class MulcovStatistics(_CascadeOperation):
         return 'mulcov_statistics'
 
 
-class FormatAndUpload(_CascadeOperation):
-    def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int, **kwargs):
+class Upload(_CascadeOperation):
+    def __init__(self, model_version_id: int, final: bool = False, fit: bool = False,
+                 prior: bool = False, **kwargs):
         super().__init__(**kwargs)
 
         self._configure(
             model_version_id=model_version_id,
-            parent_location_id=parent_location_id,
-            sex_id=sex_id
+            final=final, fit=fit, prior=prior
         )
 
     @staticmethod
     def _script():
-        return 'format_upload'
+        return 'upload'
 
 
 class CleanUp(_CascadeOperation):
@@ -254,6 +256,6 @@ class CleanUp(_CascadeOperation):
 CASCADE_OPERATIONS = {
     cls._script(): cls for cls in [
         ConfigureInputs, _DismodDB, SampleSimulate, MulcovStatistics,
-        PredictSample, FormatAndUpload, CleanUp
+        PredictSample, Upload, CleanUp
     ]
 }
