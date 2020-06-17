@@ -8,6 +8,7 @@ that will run the whole cascade (or a drill -- which is a version of the cascade
 """
 from cascade_at.core.log import get_loggers
 from cascade_at.cascade.cascade_stacks import single_fit
+from cascade_at.cascade.cascade_dags import make_cascade_dag
 
 
 LOG = get_loggers(__name__)
@@ -34,8 +35,8 @@ class Drill(_CascadeCommand):
     """
     Runs a drill!
     """
-    def __init__(self, model_version_id,
-                 drill_parent_location_id, drill_sex):
+    def __init__(self, model_version_id: int,
+                 drill_parent_location_id: int, drill_sex: int):
         super().__init__()
 
         self.model_version_id = model_version_id
@@ -55,7 +56,11 @@ class TraditionalCascade(_CascadeCommand):
     """
     Runs the traditional cascade.
     """
-    def __init__(self, model_version_id):
+    def __init__(self, model_version_id: int, split_sex: bool):
         super().__init__()
+        self.model_version_id = model_version_id
 
-        raise NotImplementedError
+        tasks = make_cascade_dag(
+            model_version_id=model_version_id,
+            split_sex=split_sex
+        )
