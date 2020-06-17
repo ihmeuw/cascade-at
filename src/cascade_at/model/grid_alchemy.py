@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Dict, Tuple, Optional
 import numpy as np
 import pandas as pd
+import itertools
 
 from cascade_at.core.log import get_loggers
 from cascade_at.model.model import Model
@@ -15,6 +16,7 @@ from cascade_at.model.utilities.grid_helpers import estimate_grid_from_draws
 from cascade_at.settings.settings_config import Smoothing
 from cascade_at.model.var import Var
 from cascade_at.model.smooth_grid import SmoothGrid
+from cascade_at.model.priors import _Prior
 
 LOG = get_loggers(__name__)
 
@@ -154,7 +156,8 @@ class Alchemy:
                                   covariate_specs: CovariateSpecs,
                                   weights: Optional[Dict[str, Var]] = None,
                                   omega_df: Optional[pd.DataFrame] = None,
-                                  update_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None):
+                                  update_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None,
+                                  update_mulcov_prior: Optional[Dict[Tuple[str, str, str], _Prior]] = None):
         """
         Construct a Model object for a parent location and its children.
 
@@ -197,6 +200,15 @@ class Alchemy:
                     single_age_time=self.single_age_time_grid,
                     smooth=mulcov.grid_spec
                 )
+            if update_mulcov_prior is not None and (mulcov.group, *mulcov.key) in update_mulcov_prior:
+                ages = grid.ages
+                times = grid.times
+                for age, time in itertools.product(ages, times):
+                    lb = grid.value[age, time].lower
+                    ub = grid.value[age, time].upper
+                    update_mulcov_prior[(mulcov.group, *mulcov.key)].lower = lb
+                    update_mulcov_prior[(mulcov.group, *mulcov.key)].upper = ub
+                    grid.value[age, time] = update_mulcov_prior[(mulcov.group, *mulcov.key)] 
             model[mulcov.group][mulcov.key] = grid
 
         # Construct the random effect grids, based on the parent location
