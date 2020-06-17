@@ -120,8 +120,8 @@ class DismodExtractor(DismodIO):
                                     sex_id: int,
                                     rates: List[str],
                                     value: bool = True,
-                                    dage: bool = True,
-                                    dtime: bool = True) -> Dict[str, Dict[str, np.ndarray]]:
+                                    dage: bool = False,
+                                    dtime: bool = False) -> Dict[str, Dict[str, np.ndarray]]:
         """
         Takes draws and formats them for a prior grid for values, dage, and dtime.
         Assumes that age_lower == age_upper and time_lower == time_upper for all

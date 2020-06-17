@@ -90,11 +90,26 @@ def test_predict_sample(mi, settings, dismod):
     assert len(di.predict) == 2 * len(di.avgint)
 
 
-def test_gather_child_draws(mi, settings, dismod):
+def test_default_gather_child_draws(mi, settings, dismod):
     de = DismodExtractor(NAME)
     draws = de.gather_draws_for_prior_grid(
         location_id=72, sex_id=2,
         rates=['iota', 'chi', 'pini']
+    )
+    for rate in ['iota', 'chi', 'pini']:
+        assert rate in draws
+        assert draws[rate]['value'].shape[-1] == 2
+        assert 'dage' not in draws[rate].keys()
+        assert 'dtime' not in draws[rate].keys()
+
+
+
+def test_gather_child_draws(mi, settings, dismod):
+    de = DismodExtractor(NAME)
+    draws = de.gather_draws_for_prior_grid(
+        location_id=72, sex_id=2,
+        rates=['iota', 'chi', 'pini'],
+        value=True, dage=True, dtime=True
     )
     for rate in ['iota', 'chi', 'pini']:
         assert rate in draws
