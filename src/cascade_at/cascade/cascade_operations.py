@@ -183,7 +183,7 @@ class SampleSimulate(_CascadeOperation):
 
 class PredictSample(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 target_locations: List[int], target_sexes: List[int],
+                 child_locations: List[int], child_sexes: List[int],
                  prior_grid: bool = True, save_fit: bool = False, **kwargs):
 
         super().__init__(**kwargs)
@@ -192,8 +192,8 @@ class PredictSample(_CascadeOperation):
             model_version_id=model_version_id,
             parent_location_id=parent_location_id,
             sex_id=sex_id,
-            target_locations=target_locations,
-            target_sexes=target_sexes,
+            child_locations=child_locations,
+            child_sexes=child_sexes,
             prior_grid=prior_grid,
             save_fit=save_fit
         )

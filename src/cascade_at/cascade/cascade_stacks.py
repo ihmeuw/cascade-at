@@ -112,18 +112,18 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
-        target_locations=child_locations,
-        target_sexes=child_sexes,
+        child_locations=child_locations,
+        child_sexes=child_sexes,
         upstream_commands=[t3.command]
     )
-    return [t1, t2, t3]
+    return [t1, t2, t3, t4]
 
 
-def cascade_fits(model_version_id: int, location_id: int, sex_id: int,
-                 prior_parent: int, prior_sex: int,
-                 child_locations: List[int], child_sexes: List[int],
-                 n_sim: int = 100, n_pool: int = 1,
-                 upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+def branch_fit(model_version_id: int, location_id: int, sex_id: int,
+               prior_parent: int, prior_sex: int,
+               child_locations: List[int], child_sexes: List[int],
+               n_sim: int = 100, n_pool: int = 1,
+               upstream_commands: List[str] = None) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a cascade fit (mid-level).
     Does a fit fixed, then fit both, then sample simulate to create posteriors
@@ -182,17 +182,17 @@ def cascade_fits(model_version_id: int, location_id: int, sex_id: int,
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
-        target_locations=child_locations,
-        target_sexes=child_sexes,
+        child_locations=child_locations,
+        child_sexes=child_sexes,
         upstream_commands=[t2.command]
     )
     return [t1, t2, t3]
 
 
-def leaf_fits(model_version_id: int, location_id: int, sex_id: int,
-              prior_parent: int, prior_sex: int,
-              n_sim: int = 100, n_pool: int = 1,
-              upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
+             prior_parent: int, prior_sex: int,
+             n_sim: int = 100, n_pool: int = 1,
+             upstream_commands: List[str] = None) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a for a leaf-node fit, no children.
     Does a fit fixed then sample simulate to create posteriors. Saves its fit to be uploaded.
@@ -245,9 +245,10 @@ def leaf_fits(model_version_id: int, location_id: int, sex_id: int,
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
-        target_locations=[location_id],
-        target_sexes=[sex_id],
+        child_locations=[location_id],
+        child_sexes=[sex_id],
         save_fit=True,
+        prior_grid=False,
         upstream_commands=[t2.command]
     )
-    return [t1.command, t2.command, t3.command]
+    return [t1, t2, t3]
