@@ -6,8 +6,14 @@ from cascade_at.cascade.cascade_operations import _CascadeOperation, Upload
 from cascade_at.cascade.cascade_stacks import root_fit, branch_fit, leaf_fit
 
 
-def branch_or_leaf(dag, location_id, sex, model_version_id, parent_location, parent_sex,
-                   n_sim, n_pool, upstream, tasks):
+def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_id: int,
+                   parent_location: int, parent_sex: int,
+                   n_sim: int, n_pool: int, upstream: List[str], tasks: List[_CascadeOperation]):
+    """
+    Recursive function that either creates a branch (by calling itself) or a leaf fit depending
+    on whether or not it is at a terminal node. Determines if it's at a terminal node using
+    the dag.successors() method from networkx. Appends tasks onto the tasks parameter.
+    """
     if list(dag.dag.successors(location_id)):
         branch = branch_fit(
             model_version_id=model_version_id,
@@ -38,6 +44,30 @@ def branch_or_leaf(dag, location_id, sex, model_version_id, parent_location, par
 def make_cascade_dag(model_version_id: int, dag: LocationDAG,
                      location_start: int, sex_start: int, split_sex: bool,
                      n_sim: int = 100, n_pool: int = 100) -> List[_CascadeOperation]:
+    """
+    Make a traditional cascade dag for a model version. Relies on a location DAG and a starting
+    point in the DAG for locations and sexes.
+
+    Parameters
+    ----------
+    model_version_id
+        Model version ID
+    dag
+        A location DAG that specifies the location hierarchy
+    location_start
+        Where to start in the location hierarchy
+    sex_start
+        Which sex to start with, can be most detailed or both.
+    split_sex
+        Whether or not to split sex into most detailed. If not, then will just stay at 'both' sex.
+    n_sim
+        Number of simulations to do in sample simulate
+    n_pool
+        Number of multiprocessing pools to create during sample simulate
+    Returns
+    -------
+    List of _CascadeOperation.
+    """
 
     tasks = []
 
