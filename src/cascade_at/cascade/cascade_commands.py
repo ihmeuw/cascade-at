@@ -9,6 +9,8 @@ that will run the whole cascade (or a drill -- which is a version of the cascade
 from cascade_at.core.log import get_loggers
 from cascade_at.cascade.cascade_stacks import single_fit
 from cascade_at.cascade.cascade_dags import make_cascade_dag
+from cascade_at.inputs.locations import LocationDAG
+from cascade_at.inputs.utilities.gbd_ids import SEX_NAME_TO_ID, CascadeConstants
 
 
 LOG = get_loggers(__name__)
@@ -56,11 +58,16 @@ class TraditionalCascade(_CascadeCommand):
     """
     Runs the traditional cascade.
     """
-    def __init__(self, model_version_id: int, split_sex: bool):
+    def __init__(self, model_version_id: int, split_sex: bool,
+                 dag: LocationDAG, n_sim: int):
         super().__init__()
         self.model_version_id = model_version_id
 
         tasks = make_cascade_dag(
             model_version_id=model_version_id,
-            split_sex=split_sex
+            dag=dag,
+            location_start=CascadeConstants.GLOBAL_LOCATION_ID,
+            sex_start=SEX_NAME_TO_ID['Both'],
+            split_sex=split_sex,
+            n_sim=n_sim, n_pool=10
         )
