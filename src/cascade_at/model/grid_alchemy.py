@@ -201,11 +201,10 @@ class Alchemy:
                     smooth=mulcov.grid_spec
                 )
             if update_mulcov_prior is not None and (mulcov.group, *mulcov.key) in update_mulcov_prior:
-            
-            ages = grid.ages
-            times = grid.times
-            for age, time in itertools.product(ages, times):
-                grid.value[age, time] = update_mulcov_prior[(mulcov.group, *mulcov.key)] 
+                ages = grid.ages
+                times = grid.times
+                for age, time in itertools.product(ages, times):
+                    grid.value[age, time] = update_mulcov_prior[(mulcov.group, *mulcov.key)] 
             model[mulcov.group][mulcov.key] = grid
 
         # Construct the random effect grids, based on the parent location
