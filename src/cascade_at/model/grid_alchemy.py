@@ -208,7 +208,6 @@ class Alchemy:
                     ub = grid.value[age, time].upper
                     update_mulcov_prior[(mulcov.group, *mulcov.key)].lower = lb
                     update_mulcov_prior[(mulcov.group, *mulcov.key)].upper = ub
-                    import pdb; pdb.set_trace()
                     grid.value[age, time] = update_mulcov_prior[(mulcov.group, *mulcov.key)] 
             model[mulcov.group][mulcov.key] = grid
 
