@@ -89,7 +89,7 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
         for location1 in dag.dag.successors(location_start):
             branch_or_leaf(
                 dag=dag, location_id=location1, sex=sex, model_version_id=model_version_id,
-                parent_location=location_start, parent_sex=sexes,
+                parent_location=location_start, parent_sex=sex,
                 n_sim=n_sim, n_pool=n_pool, upstream=top_level[-1].command, tasks=tasks
             )
     tasks.append(Upload(
