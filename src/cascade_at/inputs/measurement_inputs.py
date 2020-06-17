@@ -10,6 +10,7 @@ from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
 from cascade_at.inputs.asdr import ASDR
 from cascade_at.inputs.csmr import CSMR
+from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.inputs.covariate_data import CovariateData
 from cascade_at.inputs.covariate_specs import CovariateSpecs
 from cascade_at.inputs.data import CrosswalkVersion
@@ -293,6 +294,21 @@ class MeasurementInputs:
         self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
 
         return self
+
+    def prune_mortality_data(self, parent_location_id: int) -> pd.DataFrame:
+        """
+        Remove mortality data for descendents that are not children of parent_location_id
+        from the configured dismod data before it gets filled into the dismod database.
+        """
+        df = self.dismod_data.copy()
+        direct_children = self.location_dag.parent_children(parent_location_id)
+        direct_children = df.location_id.isin(direct_children)
+        mortality_measures = df.measure.isin([
+            IntegrandEnum.mtall.name, IntegrandEnum.mtspecific.name
+        ])
+        remove_rows = ~direct_children & mortality_measures
+        df = df.loc[~remove_rows].copy()
+        return df
 
     def add_covariates_to_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """

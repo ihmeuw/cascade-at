@@ -91,6 +91,9 @@ class DismodFiller(DismodIO):
         """
         if self.inputs.omega is not None:
             omega_df = self.inputs.omega.loc[self.inputs.omega.sex_id == self.sex_id].copy()
+            omega_df = omega_df[omega_df.location_id.isin(
+                self.inputs.location_dag.parent_children(self.parent_location_id)
+            )].copy()
         else:
             omega_df = None
         return omega_df
@@ -176,7 +179,7 @@ class DismodFiller(DismodIO):
         :return: self
         """
         self.data = data_tables.construct_data_table(
-            df=self.inputs.dismod_data,
+            df=self.inputs.prune_mortality_data(parent_location_id=self.parent_location_id),
             node_df=self.node,
             covariate_df=self.covariate,
             ages=self.parent_child_model.get_age_array(),
