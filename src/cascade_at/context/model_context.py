@@ -74,6 +74,8 @@ class Context:
         self.outputs_dir = self.model_dir / 'outputs'
         self.database_dir = self.model_dir / 'dbs'
         self.draw_dir = self.outputs_dir / 'draws'
+        self.fit_dir = self.outputs_dir / 'fits'
+        self.prior_dir = self.outputs_dir / 'priors'
 
         self.inputs_file = self.inputs_dir / 'inputs.p'
         self.settings_file = self.inputs_dir / 'settings.json'
@@ -89,10 +91,12 @@ class Context:
             os.makedirs(self.inputs_dir, exist_ok=True)
             os.makedirs(self.outputs_dir, exist_ok=True)
             os.makedirs(self.draw_dir, exist_ok=True)
+            os.makedirs(self.fit_dir, exist_ok=True)
+            os.makedirs(self.prior_dir, exist_ok=True)
             os.makedirs(self.database_dir, exist_ok=True)
             os.makedirs(self.log_dir, exist_ok=True)
     
-    def update_status(self, status: int):
+    def update_status(self, status: str):
         """
         Updates status in the database.
         """

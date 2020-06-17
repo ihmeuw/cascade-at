@@ -30,7 +30,7 @@ def bash_task_from_cascade_operation(co):
     """
     Create a bash task from a cascade operation (co for short)
 
-    :param co: (cascade_at.cascade.cascade_operations.CascadeOperation)
+    :param co: (cascade_at.cascade.cascade_operations._CascadeOperation)
     :return: jobmon.client.swarm.workflow.bash_task.BashTask
     """
     name = co.command.split(' ')

@@ -15,7 +15,7 @@ from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.executor.sample_simulate import simulate, FitSample
 from cascade_at.executor.sample_simulate import sample_simulate_pool, sample_simulate_sequence
 from cascade_at.executor.sample_simulate import SampleSimulateError
-from cascade_at.executor.predict_sample import predict_sample
+from cascade_at.executor.predict_sample import create_samples
 
 
 NAME = 'sample.db'
@@ -82,9 +82,9 @@ def test_sample_simulate_pool(filler, dismod):
 
 def test_predict_sample(mi, settings, dismod):
     alchemy = Alchemy(settings)
-    predict_sample(
+    create_samples(
         inputs=mi, alchemy=alchemy, settings=settings,
-        source_db_path=NAME, target_locations=[72], target_sexes=[2]
+        source_db_path=NAME, child_locations=[72], child_sexes=[2]
     )
     di = DismodIO(NAME)
     assert len(di.predict) == 2 * len(di.avgint)
@@ -104,3 +104,14 @@ def test_gather_child_draws(mi, settings, dismod):
     for rate in ['iota', 'chi']:
         assert draws[rate]['dage'].shape[-1] == 2
         assert draws[rate]['dtime'].shape[-1] == 2
+
+
+def test_format_prior(mi, settings, dismod):
+    d = DismodExtractor(path=NAME)
+    pred = d.format_predictions_for_ihme(
+        locations=[72], sexes=[2], gbd_round_id=6,
+        samples=True
+    )
+    assert all(pred.columns == [
+        'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id', 'draw_0', 'draw_1'
+    ])

@@ -1,41 +1,37 @@
 import logging
-from shutil import copy2
-from argparse import ArgumentParser
-import pandas as pd
+import sys
 from multiprocessing import Pool
 from pathlib import Path
+from shutil import copy2
 from typing import Union
 
+import pandas as pd
+
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, IntArg, StrArg, LogLevel
 from cascade_at.context.model_context import Context
-from cascade_at.executor import ExecutorError
+from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
-from cascade_at.core.log import get_loggers, LEVELS
-
+from cascade_at.executor import ExecutorError
 
 LOG = get_loggers(__name__)
+
+
+ARG_LIST = ArgumentList([
+    ModelVersionID(),
+    ParentLocationID(),
+    SexID(),
+    StrArg('--n-sim', help='the number of simulations to create'),
+    IntArg('--n-pool', help='how many multiprocessing pools to use (default to 1 = none)', default=1),
+    StrArg('--fit-type', help='what type of fit to simulate for, fit fixed or both', default='both'),
+    LogLevel()
+])
 
 
 class SampleSimulateError(ExecutorError):
     """Raised when there are issues with sample simulate."""
     pass
-
-
-def get_args():
-    """
-    Parse the arguments for simulating and sampling from a dismod database.
-    """
-    parser = ArgumentParser()
-    parser.add_argument("--model-version-id", type=int, required=True)
-    parser.add_argument("--parent-location-id", type=int, required=True)
-    parser.add_argument("--sex-id", type=int, required=True)
-    parser.add_argument("--n-sim", type=int, required=False, default=5)
-    parser.add_argument("--n-pool", type=int, required=False, default=1,
-                        help="How many multiprocessing pools (1 means not in parallel, so no pools)")
-    parser.add_argument("--fit-type", type=str, required=False, default='both')
-    parser.add_argument("--loglevel", type=str, required=False, default='info')
-
-    return parser.parse_args()
 
 
 def simulate(path: Union[str, Path], n_sim: int):
@@ -154,21 +150,55 @@ def sample_simulate_sequence(path: Union[str, Path], n_sim: int):
     )
 
 
-def main():
-    args = get_args()
-    logging.basicConfig(level=LEVELS[args.loglevel])
+def sample_simulate(model_version_id: int, parent_location_id: int, sex_id: int,
+                    n_sim: int, n_pool: int, fit_type: str) -> None:
+    """
+    Simulates from a dismod database that has already had a fit run on it. Does so
+    optionally in parallel.
 
-    context = Context(model_version_id=args.model_version_id)
-    main_db = context.db_file(location_id=args.parent_location_id, sex_id=args.sex_id)
-    index_file_pattern = context.db_index_file_pattern(location_id=args.parent_location_id, sex_id=args.sex_id)
+    Parameters
+    ----------
+    model_version_id
+        The model version ID
+    parent_location_id
+        The parent location ID specifying location of database
+    sex_id
+        The sex ID specifying location of database
+    n_sim
+        The number of simulations to do
+    n_pool
+        The number of multiprocessing pools to create. If 1, then will not
+        run with pools but just run all simulations together in one dmdismod command.
+    fit_type
+        The type of fit that was performed on this database, one of fixed or both.
+    """
 
-    simulate(path=main_db, n_sim=args.n_sim)
+    context = Context(model_version_id=model_version_id)
+    main_db = context.db_file(location_id=parent_location_id, sex_id=sex_id)
+    index_file_pattern = context.db_index_file_pattern(location_id=parent_location_id, sex_id=sex_id)
 
-    if args.n_pool > 1:
-        sample_simulate_pool(main_db=main_db, index_file_pattern=index_file_pattern, fit_type=args.fit_type,
-                             n_pool=args.n_pool, n_sim=args.n_sim)
+    simulate(path=main_db, n_sim=n_sim)
+
+    if n_pool > 1:
+        sample_simulate_pool(main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type,
+                             n_pool=n_pool, n_sim=n_sim)
     else:
-        sample_simulate_sequence(path=main_db, n_sim=args.n_sim)
+        sample_simulate_sequence(path=main_db, n_sim=n_sim)
+
+
+def main():
+
+    args = ARG_LIST.parse_args(sys.argv[1:])
+    logging.basicConfig(level=LEVELS[args.log_level])
+
+    sample_simulate(
+        model_version_id=args.model_version_id,
+        parent_location_id=args.parent_location_id,
+        sex_id=args.sex_id,
+        n_sim=args.n_sim,
+        n_pool=args.n_pool,
+        fit_type=args.fit_type
+    )
 
 
 if __name__ == '__main__':

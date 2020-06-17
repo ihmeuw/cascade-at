@@ -2,94 +2,260 @@
 Sequences of dismod_at commands that work together to create a cascade operation
 that can be performed on a single DisMod-AT database.
 """
+from typing import List, Optional, Dict, Union
+
 from cascade_at.jobmon.resources import DEFAULT_EXECUTOR_PARAMETERS
+from cascade_at.executor.args.arg_utils import encode_commands, encode_options, list2string
+from cascade_at.executor.args.executor_args import ARG_DICT
+from cascade_at.core import CascadeATError
 
 
-class CascadeOperation:
-    def __init__(self, model_version_id, upstream_commands=None):
+class CascadeOperationValidationError(CascadeATError):
+    pass
+
+
+def _arg_to_flag(name: str) -> str:
+    arg = '-'.join(name.split('_'))
+    return f'--{arg}'
+
+
+def _arg_to_command(k: str, v: Optional[Union[str, int, float]] = None):
+    """
+    Takes a key (k) and a value (v) and turns it into a command-line
+    argument like k=model_version v=1 and returns --model-version 1.
+    """
+    command = _arg_to_flag(k)
+    if v is not None:
+        command += f' {v}'
+    return command
+
+
+def _args_to_command(**kwargs):
+    commands = []
+    for k, v in kwargs.items():
+        if v is None:
+            continue
+        if type(v) == bool:
+            if v:
+                command = _arg_to_command(k=k)
+            else:
+                continue
+        elif type(v) == list:
+            command = _arg_to_command(k=k, v=list2string(v))
+        else:
+            command = _arg_to_command(k=k, v=v)
+        commands.append(command)
+    return ' '.join(commands)
+
+
+class _CascadeOperation:
+    def __init__(self, upstream_commands: Optional[List[str]] = None):
         if upstream_commands is None:
             upstream_commands = list()
 
-        self.model_version_id = model_version_id
         self.executor_parameters = DEFAULT_EXECUTOR_PARAMETERS
         self.upstream_commands = upstream_commands
         self.j_resource = False
 
+        self.command = None
 
-class ConfigureInputs(CascadeOperation):
-    def __init__(self, **kwargs):
+    @staticmethod
+    def _script():
+        raise NotImplementedError
+
+    def _make_command(self, **kwargs):
+        return self._script() + ' ' + _args_to_command(**kwargs)
+
+    def _validate(self, **kwargs):
+        if self._script() not in ARG_DICT:
+            raise CascadeOperationValidationError(f"Cannot find script args for {self._script()}. "
+                                                  f"Valid scripts are {ARG_DICT.keys()}.")
+        arg_list = ARG_DICT[self._script()]
+        kwargs = {
+            _arg_to_flag(k): v for k, v in kwargs.items()
+        }
+        for k, v in arg_list.argument_dict.items():
+            if v['required']:
+                if k not in kwargs:
+                    raise CascadeATError(f"Missing argument {k} for script {self._script()}.")
+                if 'type' in v:
+                    assert type(kwargs[k]) == v['type']
+        for k, v in kwargs.items():
+            if k not in arg_list.argument_dict:
+                raise CascadeATError(f"Tried to pass argument {k} but that is not in the allowed list"
+                                     f"of arguments for {self._script()}: {list(arg_list.argument_dict.keys())}.")
+
+    def _configure(self, **command_args):
+        self._validate(**command_args)
+        self.command = self._make_command(**command_args)
+
+
+class ConfigureInputs(_CascadeOperation):
+    def __init__(self, model_version_id: int, **kwargs):
         super().__init__(**kwargs)
         self.j_resource = True
 
-        self.command = (
-            f'configure_inputs '
-            f'-model-version-id {self.model_version_id} '
-            f'--make --configure'
+        self._configure(
+            model_version_id=model_version_id,
+            make=True,
+            configure=True
         )
 
-
-class FitBoth(CascadeOperation):
-    def __init__(self, parent_location_id, sex_id, **kwargs):
-        super().__init__(**kwargs)
-        self.parent_location_id = parent_location_id
-        self.sex_id = sex_id
-
-        self.command = (
-            f'dismod_db '
-            f'-model-version-id {self.model_version_id} '
-            f'-parent-location-id {self.parent_location_id} '
-            f'-sex-id {self.sex_id} '
-            f'--commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var '
-        )
+    @staticmethod
+    def _script():
+        return 'configure_inputs'
 
 
-class SampleSimulate(CascadeOperation):
-    def __init__(self, parent_location_id, sex_id, n_simulations, n_pools, fit_type, **kwargs):
-        super().__init__(**kwargs)
-        self.parent_location_id = parent_location_id
-        self.sex_id = sex_id
-        self.n_simulations = n_simulations
-        self.n_pools = n_pools
-        self.fit_type = fit_type
+class _DismodDB(_CascadeOperation):
+    def __init__(self, model_version_id: int,
+                 parent_location_id: int, sex_id: int, fill: bool,
+                 prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
+                 dm_options: Optional[Dict[str, Union[int, str, float]]] = None,
+                 dm_commands: Optional[List[str]] = None,
+                 save_prior: bool = False,
+                 save_fit: bool = False,
+                 **kwargs):
 
-        self.command = (
-            f'sample_simulate '
-            f'-model-version-id {self.model_version_id} '
-            f'-parent-location-id {self.parent_location_id} '
-            f'-sex-id {self.sex_id} '
-            f'-n-sim {self.n_simulations} '
-            f'-n-pool {self.n_pools} '
-            f'-fit-type {self.fit_type}'
-        )
-
-
-class FormatAndUpload(CascadeOperation):
-    def __init__(self, parent_location_id, sex_id, **kwargs):
-        super().__init__(**kwargs)
-        self.parent_location_id = parent_location_id
-        self.sex_id = sex_id
-
-        self.command = (
-            f'format_upload '
-            f'-model-version-id {self.model_version_id} '
-            f'-parent-location-id {self.parent_location_id} '
-            f'-sex-id {self.sex_id}'
-        )
-
-
-class CleanUp(CascadeOperation):
-    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.command = (
-            f'cleanup '
-            f'-model-version-id {self.model_version_id}'
+        if dm_options is not None:
+            dm_options = encode_options(dm_options)
+        if dm_commands is not None:
+            dm_commands = encode_commands(dm_commands)
+
+        self._configure(
+            model_version_id=model_version_id,
+            parent_location_id=parent_location_id,
+            sex_id=sex_id,
+            fill=fill,
+            prior_parent=prior_parent,
+            prior_sex=prior_sex,
+            dm_options=dm_options,
+            dm_commands=dm_commands,
+            save_prior=save_prior,
+            save_fit=save_fit
         )
+
+    @staticmethod
+    def _script():
+        return 'dismod_db'
+
+
+class Fit(_DismodDB):
+    def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
+                 predict: bool = True, fill: bool = True, both: bool = False,
+                 save_fit: bool = False, save_prior: bool = False, **kwargs):
+
+        dm_commands = ['init', 'fit fixed']
+        if both:
+            dm_commands += [
+                'set start_var fit_var', 'set scale_var fit_var', 'fit both'
+            ]
+        if predict:
+            dm_commands.append('predict fit_var')
+        if save_fit and not predict:
+            raise CascadeOperationValidationError("Can't save results if you don't predict first.")
+        super().__init__(
+            model_version_id=model_version_id, parent_location_id=parent_location_id,
+            sex_id=sex_id, dm_commands=dm_commands, fill=fill,
+            save_fit=save_fit, save_prior=save_prior, **kwargs
+        )
+
+
+class SampleSimulate(_CascadeOperation):
+    def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
+                 n_sim: int, n_pool: int, fit_type: str, **kwargs):
+        super().__init__(**kwargs)
+
+        self._configure(
+            model_version_id=model_version_id,
+            parent_location_id=parent_location_id,
+            sex_id=sex_id,
+            n_sim=n_sim,
+            n_pool=n_pool,
+            fit_type=fit_type
+        )
+
+    @staticmethod
+    def _script():
+        return 'sample_simulate'
+
+
+class PredictSample(_CascadeOperation):
+    def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
+                 child_locations: List[int], child_sexes: List[int],
+                 prior_grid: bool = True, save_fit: bool = False, **kwargs):
+
+        super().__init__(**kwargs)
+
+        self._configure(
+            model_version_id=model_version_id,
+            parent_location_id=parent_location_id,
+            sex_id=sex_id,
+            child_locations=child_locations,
+            child_sexes=child_sexes,
+            prior_grid=prior_grid,
+            save_fit=save_fit
+        )
+
+    @staticmethod
+    def _script():
+        return 'predict_sample'
+
+
+class MulcovStatistics(_CascadeOperation):
+    def __init__(self, model_version_id: int, locations: List[int], sexes: List[int],
+                 outfile_name: str, sample: bool,
+                 mean: bool, std: bool, quantile: Optional[List[float]], **kwargs):
+        super().__init__(**kwargs)
+
+        self._configure(
+            model_version_id=model_version_id,
+            locations=locations,
+            sexes=sexes,
+            outfile_name=outfile_name,
+            sample=sample,
+            mean=mean,
+            std=std,
+            quantile=quantile
+        )
+
+    @staticmethod
+    def _script():
+        return 'mulcov_statistics'
+
+
+class Upload(_CascadeOperation):
+    def __init__(self, model_version_id: int, final: bool = False, fit: bool = False,
+                 prior: bool = False, **kwargs):
+        super().__init__(**kwargs)
+
+        self._configure(
+            model_version_id=model_version_id,
+            final=final, fit=fit, prior=prior
+        )
+
+    @staticmethod
+    def _script():
+        return 'upload'
+
+
+class CleanUp(_CascadeOperation):
+    def __init__(self, model_version_id: int, **kwargs):
+        super().__init__(**kwargs)
+
+        self._configure(
+            model_version_id=model_version_id
+        )
+
+    @staticmethod
+    def _script():
+        return 'cleanup'
 
 
 CASCADE_OPERATIONS = {
-    'configure_inputs': ConfigureInputs,
-    'fit_both': FitBoth,
-    'format_upload': FormatAndUpload,
-    'cleanup': CleanUp
+    cls._script(): cls for cls in [
+        ConfigureInputs, _DismodDB, SampleSimulate, MulcovStatistics,
+        PredictSample, Upload, CleanUp
+    ]
 }

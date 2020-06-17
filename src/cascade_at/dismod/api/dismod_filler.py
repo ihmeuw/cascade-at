@@ -127,7 +127,7 @@ class DismodFiller(DismodIO):
             sex_id=self.sex_id
         )
 
-    def fill_for_parent_child(self, **additional_option_kwargs):
+    def fill_for_parent_child(self, **options):
         """
         Fills the Dismod database with inputs
         and a model construction for a parent location
@@ -140,7 +140,7 @@ class DismodFiller(DismodIO):
         self.fill_reference_tables()
         self.fill_grid_tables()
         self.fill_data_tables()
-        self.option = self.construct_option_table(**additional_option_kwargs)
+        self.option = self.construct_option_table(**options)
 
     def node_id_from_location_id(self, location_id: int):
         """
