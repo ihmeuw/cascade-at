@@ -200,8 +200,11 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
             raise DismodDBError("Cannot save the prior because there was no argument"
                                 "passed in for the prior_parent or prior_sex.")
 
-    if prior_mulcov_model_version_id:
+    if prior_mulcov_model_version_id is not None:
+        LOG.info(f'Passing mulcov prior from model version id = {prior_mulcov_model_version_id}') 
         mulcov_priors = get_mulcov_priors(prior_mulcov_model_version_id)
+    else:
+        mulcov_priors = None
 
     if fill:
         fill_database(
@@ -221,6 +224,7 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
             model_version_id=model_version_id,
             gbd_round_id=settings.gbd_round_id,
             out_dir=context.fit_dir
+        
         )
 
 
