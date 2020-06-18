@@ -1,10 +1,11 @@
 import logging
 import subprocess
 import sys
+from typing import Optional
 
 from cascade_at.cascade.cascade_commands import Drill, TraditionalCascade
 from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, IntArg
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, IntArg, StrArg
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
@@ -20,11 +21,14 @@ ARG_LIST = ArgumentList([
                              'or just run as a sequence of command line tasks'),
     BoolArg('--make', help='whether or not to make the file structure for the cascade'),
     IntArg('--n-sim', help='number of simulations to do going down the cascade'),
+    StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
+           required=False),
     LogLevel()
 ])
 
 
-def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10) -> None:
+def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10,
+        addl_workflow_args: Optional[str] = None) -> None:
     """
     Runs the whole cascade or drill for a model version (which one is specified
     in the model version settings).
@@ -40,6 +44,7 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
         Whether or not to make the directory structure for the databases, inputs, and outputs.
     n_sim
         Number of simulations to do going down the cascade
+    addl_workflow_args
     """
     LOG.info(f"Starting model for {model_version_id}.")
 
@@ -75,7 +80,8 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
 
     if jobmon:
         LOG.info("Configuring jobmon.")
-        wf = jobmon_workflow_from_cascade_command(cc=cascade_command, context=context)
+        wf = jobmon_workflow_from_cascade_command(cc=cascade_command, context=context,
+                                                  addl_workflow_args=addl_workflow_args)
         error = wf.run()
         if error:
             context.update_status(status='Failed')
@@ -104,7 +110,8 @@ def main():
         model_version_id=args.model_version_id,
         jobmon=args.jobmon,
         make=args.make,
-        n_sim=args.n_sim
+        n_sim=args.n_sim,
+        addl_workflow_args=args.addl_workflow_args
     )
 
 
