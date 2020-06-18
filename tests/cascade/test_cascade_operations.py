@@ -1,6 +1,6 @@
 from cascade_at.cascade.cascade_operations import (
     ConfigureInputs, Fit,
-    Upload, CleanUp, SampleSimulate
+    Upload, CleanUp, SampleSimulate, Predict
 )
 
 
@@ -67,6 +67,29 @@ def test_sample_simulate():
         f'--n-sim 5 '
         f'--n-pool 1 '
         f'--fit-type both'
+    )
+
+
+def test_predict():
+    obj = Predict(
+        model_version_id=0,
+        parent_location_id=1,
+        sex_id=1,
+        prior_grid=True,
+        save_fit=False,
+        sample=True,
+        child_locations=[2],
+        child_sexes=[2]
+    )
+    assert obj.command == (
+        'predict '
+        f'--model-version-id 0 '
+        f'--parent-location-id 1 '
+        f'--sex-id 1 '
+        f'--child-locations 2 '
+        f'--child-sexes 2 '
+        f'--prior-grid '
+        f'--sample'
     )
 
 
