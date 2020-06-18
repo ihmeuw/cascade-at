@@ -2,7 +2,7 @@
 Sequences of dismod_at commands that work together to create a cascade operation
 that can be performed on a single DisMod-AT database.
 """
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Any
 
 from cascade_at.jobmon.resources import DEFAULT_EXECUTOR_PARAMETERS
 from cascade_at.executor.args.arg_utils import encode_commands, encode_options, list2string
@@ -49,11 +49,14 @@ def _args_to_command(**kwargs):
 
 
 class _CascadeOperation:
-    def __init__(self, upstream_commands: Optional[List[str]] = None):
+    def __init__(self, upstream_commands: Optional[List[str]] = None,
+                 executor_parameters: Optional[Dict[str, Any]] = None):
         if upstream_commands is None:
             upstream_commands = list()
 
         self.executor_parameters = DEFAULT_EXECUTOR_PARAMETERS
+        if executor_parameters is not None:
+            self.executor_parameters.update(executor_parameters)
         self.upstream_commands = upstream_commands
         self.j_resource = False
 

@@ -47,7 +47,73 @@ def single_fit(model_version_id: int,
         predict=True,
         both=True,
         save_fit=True,
+        save_prior=False,
         upstream_commands=[t1.command]
+    )
+    t3 = Upload(
+        model_version_id=model_version_id,
+        fit=True,
+        upstream_commands=[t2.command]
+    )
+    return [t1, t2, t3]
+
+
+def single_fit_with_uncertainty(model_version_id: int,
+                                location_id: int, sex_id: int,
+                                n_sim: int = 100, n_pool: int = 20) -> List[_CascadeOperation]:
+    """
+    Create a sequence of tasks to do a single fit both model. Configures
+    inputs, does a fit fixed, then fit both, then predict and uploads the result.
+    Will fit the model based on the settings attached to the model version ID.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID.
+    location_id
+        The parent location ID to run the model for.
+    sex_id
+        The sex ID to run the model for.
+    n_sim
+        The number of simulations to do, number of draws to make
+    n_pool
+        The number of multiprocessing pools to use in creating the draws
+    Returns
+    -------
+    List of CascadeOperations.
+    """
+    t1 = ConfigureInputs(
+        model_version_id=model_version_id
+    )
+    t2 = Fit(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        fill=True,
+        predict=True,
+        both=True,
+        save_fit=False,
+        upstream_commands=[t1.command]
+    )
+    t2 = SampleSimulate(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        n_sim=n_sim,
+        n_pool=n_pool,
+        fit_type='fixed',
+        upstream_commands=[t1.command],
+        executor_parameters={
+            'num_cores': n_pool
+        }
+    )
+    t3 = Predict(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        save_fit=True,
+        prior_grid=False,
+        upstream_commands=[t2.command]
     )
     t3 = Upload(
         model_version_id=model_version_id,
@@ -198,7 +264,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
-        fill=False,
+        fill=True,
         both=False,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
@@ -213,7 +279,10 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         n_sim=n_sim,
         n_pool=n_pool,
         fit_type='fixed',
-        upstream_commands=[t1.command]
+        upstream_commands=[t1.command],
+        executor_parameters={
+            'num_cores': n_pool
+        }
     )
     t3 = Predict(
         model_version_id=model_version_id,

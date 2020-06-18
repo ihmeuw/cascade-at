@@ -72,20 +72,21 @@ def fill_database(path: Union[str, Path], settings: SettingsConfig,
     df.fill_for_parent_child(**options)
 
 
-def save_predictions(db_file: Union[str, Path], location_id: int, sex_id: int,
+def save_predictions(db_file: Union[str, Path],
                      model_version_id: int, gbd_round_id: int,
-                     out_dir: Path) -> None:
+                     out_dir: Path,
+                     locations: Optional[List[int]] = None,
+                     sexes: Optional[List[int]] = None) -> None:
     """
-        Save the fit from this dismod database for a specific location and sex to be
-        uploaded later on.
-        """
+    Save the fit from this dismod database for a specific location and sex to be
+    uploaded later on.
+    """
     LOG.info("Extracting results from DisMod SQLite Database.")
     da = DismodExtractor(path=db_file)
     predictions = da.format_predictions_for_ihme(
-        locations=[location_id], sexes=[sex_id], gbd_round_id=gbd_round_id
+        locations=locations, sexes=sexes, gbd_round_id=gbd_round_id
     )
-
-    LOG.info(f"Saving the results for location {location_id} and sex {sex_id} to {out_dir}.")
+    LOG.info(f"Saving the results to {out_dir}.")
     rh = ResultsHandler()
     rh.save_draw_files(df=predictions, directory=out_dir,
                        add_summaries=True, model_version_id=model_version_id)
@@ -159,13 +160,14 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
             location_id=parent_location_id, sex_id=sex_id,
             rates=[r.rate for r in settings.rate]
         )
-        save_predictions(
-            db_file=prior_db,
-            location_id=parent_location_id, sex_id=sex_id,
-            model_version_id=model_version_id,
-            gbd_round_id=settings.gbd_round_id,
-            out_dir=context.prior_dir
-        )
+        if save_prior:
+            save_predictions(
+                db_file=prior_db,
+                locations=[parent_location_id], sexes=[sex_id],
+                model_version_id=model_version_id,
+                gbd_round_id=settings.gbd_round_id,
+                out_dir=context.prior_dir
+            )
     else:
         child_prior = None
         if save_prior:
@@ -185,7 +187,6 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
     if save_fit:
         save_predictions(
             db_file=context.db_file(location_id=parent_location_id, sex_id=sex_id),
-            location_id=parent_location_id, sex_id=sex_id,
             model_version_id=model_version_id,
             gbd_round_id=settings.gbd_round_id,
             out_dir=context.fit_dir

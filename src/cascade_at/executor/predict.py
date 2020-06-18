@@ -105,9 +105,17 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
         commands=[f'predict {table}']
     )
     if save_fit:
+        if child_locations is None:
+            locations = inputs.location_dag.parent_children()
+        else:
+            locations = child_locations
+        if child_sexes is None:
+            sexes = [sex_id]
+        else:
+            sexes = child_sexes
         save_predictions(
             db_file=path,
-            location_id=parent_location_id, sex_id=sex_id,
+            locations=locations, sexes=sexes,
             model_version_id=model_version_id,
             gbd_round_id=settings.gbd_round_id,
             out_dir=context.fit_dir
