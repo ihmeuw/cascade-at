@@ -7,7 +7,7 @@ Sequences of cascade operations that work together to create a cascade command
 that will run the whole cascade (or a drill -- which is a version of the cascade).
 """
 from cascade_at.core.log import get_loggers
-from cascade_at.cascade.cascade_stacks import single_fit
+from cascade_at.cascade.cascade_stacks import single_fit_with_uncertainty
 from cascade_at.cascade.cascade_dags import make_cascade_dag
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.inputs.utilities.gbd_ids import SEX_NAME_TO_ID, CascadeConstants
@@ -45,7 +45,7 @@ class Drill(_CascadeCommand):
         self.drill_parent_id = drill_parent_location_id
         self.drill_sex = drill_sex
 
-        tasks = single_fit(
+        tasks = single_fit_with_uncertainty(
             model_version_id=model_version_id,
             location_id=drill_parent_location_id,
             sex_id=drill_sex,
