@@ -5,6 +5,7 @@ from typing import Optional, Dict, Union
 
 from cascade_at.settings.settings_config import SettingsConfig
 from cascade_at.inputs.measurement_inputs import MeasurementInputs
+from cascade_at.settings.convert import min_cv_from_settings
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.dismod_io import DismodIO
@@ -74,6 +75,7 @@ class DismodFiller(DismodIO):
         self.child_prior = child_prior
 
         self.omega_df = self.get_omega_df()
+        self.min_cv = min_cv_from_settings(settings=self.settings)
         self.covariate_reference_specs = self.calculate_reference_covariates()
         self.parent_child_model = self.get_parent_child_model()
 
@@ -110,7 +112,8 @@ class DismodFiller(DismodIO):
             parent_location_id=self.parent_location_id,
             covariate_specs=self.covariate_reference_specs,
             omega_df=self.omega_df,
-            update_prior=self.child_prior
+            update_prior=self.child_prior,
+            min_cv=self.min_cv
         )
 
     def calculate_reference_covariates(self):

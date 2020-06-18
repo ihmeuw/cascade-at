@@ -79,6 +79,13 @@ def min_cv_from_settings(settings: SettingsConfig, default: float = 0.0) -> defa
     Gets the minimum coefficient of variation by rate and level
     of the cascade from settings.
     """
+    # This is a hack to over-ride the default value while the visualization
+    # team is fixing the bug in the cascade level drop-down menu.
+    if not settings.is_field_unset("min_cv") and settings.min_cv:
+        cascade_levels = [cv.cascade_level_id for cv in settings.min_cv]
+        values = [cv.value for cv in settings.min_cv]
+        if "most_detailed" in cascade_levels:
+            default = values[cascade_levels.index("most_detailed")]
     inner = defaultdict(lambda: default)
     outer = defaultdict(lambda: deepcopy(inner))
 

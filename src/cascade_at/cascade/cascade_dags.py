@@ -14,16 +14,16 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
     on whether or not it is at a terminal node. Determines if it's at a terminal node using
     the dag.successors() method from networkx. Appends tasks onto the tasks parameter.
     """
-    if list(dag.dag.successors(location_id)):
+    if not dag.is_leaf(location_id=location_id):
         branch = branch_fit(
             model_version_id=model_version_id,
             location_id=location_id, sex_id=sex,
             prior_parent=parent_location, prior_sex=sex,
-            child_locations=list(dag.dag.successors(location_id)), child_sexes=[sex],
+            child_locations=dag.children(location_id), child_sexes=[sex],
             upstream_commands=upstream
         )
         tasks += branch
-        for location in dag.dag.successors(location_id):
+        for location in dag.children(location_id):
             branch_or_leaf(dag=dag, location_id=location, sex=sex, model_version_id=model_version_id,
                            parent_location=location_id, parent_sex=sex,
                            n_sim=n_sim, n_pool=n_pool, upstream=branch[-1].command, tasks=tasks)
