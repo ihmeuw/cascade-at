@@ -186,7 +186,7 @@ class SampleSimulate(_CascadeOperation):
 
 class Predict(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 child_locations: List[int], child_sexes: List[int],
+                 child_locations: Optional[List[int]] = None, child_sexes: Optional[List[int]] = None,
                  prior_grid: bool = True, save_fit: bool = False,
                  sample: bool = True, **kwargs):
 

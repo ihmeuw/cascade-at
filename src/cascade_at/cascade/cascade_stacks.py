@@ -95,32 +95,33 @@ def single_fit_with_uncertainty(model_version_id: int,
         save_fit=False,
         upstream_commands=[t1.command]
     )
-    t2 = SampleSimulate(
+    t3 = SampleSimulate(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         n_sim=n_sim,
         n_pool=n_pool,
-        fit_type='fixed',
-        upstream_commands=[t1.command],
+        fit_type='both',
+        upstream_commands=[t2.command],
         executor_parameters={
             'num_cores': n_pool
         }
     )
-    t3 = Predict(
+    t4 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         save_fit=True,
         prior_grid=False,
-        upstream_commands=[t2.command]
+        sample=True,
+        upstream_commands=[t3.command]
     )
-    t3 = Upload(
+    t5 = Upload(
         model_version_id=model_version_id,
         fit=True,
-        upstream_commands=[t2.command]
+        upstream_commands=[t4.command]
     )
-    return [t1, t2, t3]
+    return [t1, t2, t3, t4, t5]
 
 
 def root_fit(model_version_id: int, location_id: int, sex_id: int,
