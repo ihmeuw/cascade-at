@@ -1,12 +1,11 @@
-import pytest
 from copy import copy
-from collections import defaultdict
+
+import pytest
 
 from cascade_at.settings.base_case import BASE_CASE
-from cascade_at.settings.settings_config import SettingsConfig
-from cascade_at.settings.settings import load_settings
-from cascade_at.settings.convert import min_cv_from_settings
 from cascade_at.settings.convert import data_cv_from_settings
+from cascade_at.settings.convert import min_cv_from_settings
+from cascade_at.settings.settings import load_settings
 
 
 @pytest.fixture
