@@ -20,7 +20,6 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
             location_id=location_id, sex_id=sex,
             prior_parent=parent_location, prior_sex=sex,
             child_locations=list(dag.dag.successors(location_id)), child_sexes=[sex],
-            n_sim=n_sim, n_pool=n_pool,
             upstream_commands=upstream
         )
         tasks += branch

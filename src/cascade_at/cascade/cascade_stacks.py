@@ -58,11 +58,10 @@ def single_fit(model_version_id: int,
 
 
 def root_fit(model_version_id: int, location_id: int, sex_id: int,
-             child_locations: List[int], child_sexes: List[int],
-             n_sim: int = 100, n_pool: int = 1) -> List[_CascadeOperation]:
+             child_locations: List[int], child_sexes: List[int]) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
-    Does a fit fixed, then fit both, then sample simulate to create posteriors
+    Does a fit fixed, then fit both, then creates posteriors
     that can be used as priors later on. Saves its fit to be uploaded.
 
     Parameters
@@ -73,10 +72,6 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         The parent location ID to run the model for.
     sex_id
         The sex ID to run the model for.
-    n_sim
-        The number of simulations to do to get the posterior fit.
-    n_pool
-        The number of pools to use to do the simulation fits.
     child_locations
         The children to fill the avgint table with
     child_sexes
@@ -99,34 +94,25 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         upstream_commands=[t1.command],
         save_fit=True
     )
-    t3 = SampleSimulate(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        n_sim=n_sim,
-        n_pool=n_pool,
-        fit_type='both',
-        upstream_commands=[t2.command]
-    )
-    t4 = Predict(
+    t3 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         child_locations=child_locations,
         child_sexes=child_sexes,
-        upstream_commands=[t3.command]
+        sample=False,
+        upstream_commands=[t2.command]
     )
-    return [t1, t2, t3, t4]
+    return [t1, t2, t3]
 
 
 def branch_fit(model_version_id: int, location_id: int, sex_id: int,
                prior_parent: int, prior_sex: int,
                child_locations: List[int], child_sexes: List[int],
-               n_sim: int = 100, n_pool: int = 1,
                upstream_commands: List[str] = None) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a cascade fit (mid-level).
-    Does a fit fixed, then fit both, then sample simulate to create posteriors
+    Does a fit fixed, then fit both, predicts on the prior rate grid to create posteriors
     that can be used as priors later on. Saves its fit to be uploaded.
 
     Parameters
@@ -141,10 +127,6 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         The location ID corresponding to a database to pull the prior from
     prior_sex
         The sex ID corresponding to a database to pull the prior from
-    n_sim
-        The number of simulations to do to get the posterior fit.
-    n_pool
-        The number of pools to use to do the simulation fits.
     child_locations
         The children to fill the avgint table with
     child_sexes
@@ -169,24 +151,16 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         save_prior=True,
         upstream_commands=upstream_commands
     )
-    t2 = SampleSimulate(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        n_sim=n_sim,
-        n_pool=n_pool,
-        fit_type='both',
-        upstream_commands=[t1.command]
-    )
-    t3 = Predict(
+    t2 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         child_locations=child_locations,
         child_sexes=child_sexes,
-        upstream_commands=[t2.command]
+        sample=False,
+        upstream_commands=[t1.command]
     )
-    return [t1, t2, t3]
+    return [t1, t2]
 
 
 def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
