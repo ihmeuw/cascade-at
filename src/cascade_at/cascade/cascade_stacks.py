@@ -11,7 +11,7 @@ from typing import List
 
 from cascade_at.cascade.cascade_operations import _CascadeOperation
 from cascade_at.cascade.cascade_operations import (
-    ConfigureInputs, Fit, SampleSimulate, PredictSample,
+    ConfigureInputs, Fit, SampleSimulate, Predict,
     Upload, CleanUp
 )
 
@@ -108,7 +108,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         fit_type='both',
         upstream_commands=[t2.command]
     )
-    t4 = PredictSample(
+    t4 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
@@ -178,7 +178,7 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         fit_type='both',
         upstream_commands=[t1.command]
     )
-    t3 = PredictSample(
+    t3 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
@@ -241,7 +241,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         fit_type='fixed',
         upstream_commands=[t1.command]
     )
-    t3 = PredictSample(
+    t3 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,

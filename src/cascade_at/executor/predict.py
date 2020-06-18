@@ -28,6 +28,7 @@ ARG_LIST = ArgumentList([
     ListArg('--child-sexes', help='sexes to make predictions for', type=int),
     BoolArg('--prior-grid', help='whether to predict on the prior grid or the regular avgint grid'),
     BoolArg('--save-fit', help='whether to save the results of the predict sample as the fit'),
+    BoolArg('--sample', help='whether to predict from the sample table or the fit_var table'),
     LogLevel()
 ])
 
@@ -56,24 +57,9 @@ def fill_avgint_with_priors_grid(inputs: MeasurementInputs, alchemy: Alchemy, se
     sourceDB.avgint = posterior_grid
 
 
-def create_samples(inputs: MeasurementInputs, alchemy: Alchemy, settings: SettingsConfig,
-                   source_db_path: Union[str, Path],
-                   child_locations: List[int], child_sexes: List[int], prior_grid: bool = True):
-
-    if prior_grid:
-        fill_avgint_with_priors_grid(
-            inputs=inputs, alchemy=alchemy, settings=settings, source_db_path=source_db_path,
-            child_locations=child_locations, child_sexes=child_sexes
-        )
-    run_dismod_commands(
-        dm_file=source_db_path,
-        commands=['predict sample']
-    )
-
-
 def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
                    child_locations: List[int], child_sexes: List[int],
-                   prior_grid: bool = True, save_fit: bool = False) -> None:
+                   prior_grid: bool = True, save_fit: bool = False, sample: bool = False) -> None:
     """
     Takes a database that has already had a fit and simulate sample run on it,
     fills the avgint table for the child_locations and child_sexes you want to make
@@ -97,19 +83,26 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
         a prior grid for the rates.
     save_fit
         Whether or not to save the fit for upload later.
+    sample
+        Whether to predict from the sample table or the fit_var table
     """
     context = Context(model_version_id=model_version_id)
     inputs, alchemy, settings = context.read_inputs()
     path = context.db_file(location_id=parent_location_id, sex_id=sex_id)
 
-    create_samples(
-        inputs=inputs,
-        alchemy=alchemy,
-        settings=settings,
-        source_db_path=path,
-        child_locations=child_locations,
-        child_sexes=child_sexes,
-        prior_grid=prior_grid
+    if sample:
+        table = 'sample'
+    else:
+        table = 'fit_var'
+
+    if prior_grid:
+        fill_avgint_with_priors_grid(
+            inputs=inputs, alchemy=alchemy, settings=settings, source_db_path=path,
+            child_locations=child_locations, child_sexes=child_sexes
+        )
+    run_dismod_commands(
+        dm_file=path,
+        commands=[f'predict {table}']
     )
     if save_fit:
         save_predictions(
@@ -132,7 +125,8 @@ def main():
         sex_id=args.sex_id,
         child_locations=args.child_locations,
         child_sexes=args.child_sexes,
-        prior_grid=args.prior_grid
+        prior_grid=args.prior_grid,
+        sample=args.sample
     )
 
 

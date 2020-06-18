@@ -15,7 +15,7 @@ from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.executor.sample_simulate import simulate, FitSample
 from cascade_at.executor.sample_simulate import sample_simulate_pool, sample_simulate_sequence
 from cascade_at.executor.sample_simulate import SampleSimulateError
-from cascade_at.executor.predict_sample import create_samples
+from cascade_at.executor.predict import fill_avgint_with_priors_grid
 
 
 NAME = 'sample.db'
@@ -82,9 +82,13 @@ def test_sample_simulate_pool(filler, dismod):
 
 def test_predict_sample(mi, settings, dismod):
     alchemy = Alchemy(settings)
-    create_samples(
-        inputs=mi, alchemy=alchemy, settings=settings,
-        source_db_path=NAME, child_locations=[72], child_sexes=[2]
+    fill_avgint_with_priors_grid(
+        inputs=mi, alchemy=alchemy, settings=settings, source_db_path=NAME,
+        child_locations=[72], child_sexes=[2]
+    )
+    run_dismod_commands(
+        dm_file=NAME,
+        commands=['predict sample']
     )
     di = DismodIO(NAME)
     assert len(di.predict) == 2 * len(di.avgint)
@@ -101,7 +105,6 @@ def test_default_gather_child_draws(mi, settings, dismod):
         assert draws[rate]['value'].shape[-1] == 2
         assert 'dage' not in draws[rate].keys()
         assert 'dtime' not in draws[rate].keys()
-
 
 
 def test_gather_child_draws(mi, settings, dismod):

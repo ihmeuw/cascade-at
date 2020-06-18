@@ -181,10 +181,11 @@ class SampleSimulate(_CascadeOperation):
         return 'sample_simulate'
 
 
-class PredictSample(_CascadeOperation):
+class Predict(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
                  child_locations: List[int], child_sexes: List[int],
-                 prior_grid: bool = True, save_fit: bool = False, **kwargs):
+                 prior_grid: bool = True, save_fit: bool = False,
+                 sample: bool = True, **kwargs):
 
         super().__init__(**kwargs)
 
@@ -195,12 +196,13 @@ class PredictSample(_CascadeOperation):
             child_locations=child_locations,
             child_sexes=child_sexes,
             prior_grid=prior_grid,
-            save_fit=save_fit
+            save_fit=save_fit,
+            sample=sample
         )
 
     @staticmethod
     def _script():
-        return 'predict_sample'
+        return 'predict'
 
 
 class MulcovStatistics(_CascadeOperation):
@@ -256,6 +258,6 @@ class CleanUp(_CascadeOperation):
 CASCADE_OPERATIONS = {
     cls._script(): cls for cls in [
         ConfigureInputs, _DismodDB, SampleSimulate, MulcovStatistics,
-        PredictSample, Upload, CleanUp
+        Predict, Upload, CleanUp
     ]
 }

@@ -38,6 +38,7 @@ setup(
         'configure_inputs=cascade_at.executor.configure_inputs:main',
         'dismod_db=cascade_at.executor.dismod_db:main',
         'sample_simulate=cascade_at.executor.sample_simulate:main',
+        'predict=cascade_at.executor.predict:main',
         'upload=cascade_at.executor.upload:main',
         'cleanup=cascade_at.executor.cleanup:main',
         'run_cascade=cascade_at.executor.run:main',
