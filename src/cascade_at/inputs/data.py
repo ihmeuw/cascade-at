@@ -70,13 +70,11 @@ class CrosswalkVersion(BaseInput):
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
         df = df.loc[df.sex_id.isin(self.demographics.sex_id)]
 
-        df.rename(columns={
-            'age_start': 'age_lower',
-            'age_end': 'age_upper'
-        }, inplace=True)
+        df['age_lower'] = (df.age_start.astype(np.float) + df.age_end.astype(np.float)) / 2
+        df['age_upper'] = df.age_lower
 
-        df["time_lower"] = df.year_start.astype(np.float)
-        df["time_upper"] = df.year_end.astype(np.float)
+        df["time_lower"] = (df.year_start.astype(np.float) + df.year_end.astype(np.float)) / 2
+        df["time_upper"] = df.time_lower
         df["meas_value"] = df["mean"]
         df["meas_std"] = stdev_from_crosswalk_version(df)
         df["name"] = df.seq.astype(str)
