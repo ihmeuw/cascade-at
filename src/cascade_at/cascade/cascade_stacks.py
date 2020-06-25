@@ -11,7 +11,7 @@ from typing import List
 
 from cascade_at.cascade.cascade_operations import _CascadeOperation
 from cascade_at.cascade.cascade_operations import (
-    ConfigureInputs, Fit, SampleSimulate, Predict,
+    ConfigureInputs, Fit, Sample, Predict,
     Upload, CleanUp
 )
 
@@ -95,7 +95,7 @@ def single_fit_with_uncertainty(model_version_id: int,
         save_fit=False,
         upstream_commands=[t1.command]
     )
-    t3 = SampleSimulate(
+    t3 = Sample(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
@@ -105,7 +105,8 @@ def single_fit_with_uncertainty(model_version_id: int,
         upstream_commands=[t2.command],
         executor_parameters={
             'num_cores': n_pool
-        }
+        },
+        asymptotic=True
     )
     t4 = Predict(
         model_version_id=model_version_id,
@@ -156,7 +157,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
-        both=True,
+        both=False,
         predict=True,
         upstream_commands=[t1.command],
         save_fit=True
@@ -210,7 +211,7 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
-        both=True,
+        both=False,
         predict=True,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
@@ -273,13 +274,14 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         save_prior=True,
         upstream_commands=upstream_commands
     )
-    t2 = SampleSimulate(
+    t2 = Sample(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         n_sim=n_sim,
         n_pool=n_pool,
         fit_type='fixed',
+        asymptotic=True,
         upstream_commands=[t1.command],
         executor_parameters={
             'num_cores': n_pool

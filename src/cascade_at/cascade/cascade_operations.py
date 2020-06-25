@@ -165,9 +165,9 @@ class Fit(_DismodDB):
         )
 
 
-class SampleSimulate(_CascadeOperation):
+class Sample(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 n_sim: int, n_pool: int, fit_type: str, **kwargs):
+                 n_sim: int, fit_type: str, asymptotic: bool, n_pool: int = 1, **kwargs):
         super().__init__(**kwargs)
 
         self._configure(
@@ -176,12 +176,13 @@ class SampleSimulate(_CascadeOperation):
             sex_id=sex_id,
             n_sim=n_sim,
             n_pool=n_pool,
-            fit_type=fit_type
+            fit_type=fit_type,
+            asymptotic=asymptotic
         )
 
     @staticmethod
     def _script():
-        return 'sample_simulate'
+        return 'sample'
 
 
 class Predict(_CascadeOperation):
@@ -260,7 +261,7 @@ class CleanUp(_CascadeOperation):
 
 CASCADE_OPERATIONS = {
     cls._script(): cls for cls in [
-        ConfigureInputs, _DismodDB, SampleSimulate, MulcovStatistics,
+        ConfigureInputs, _DismodDB, Sample, MulcovStatistics,
         Predict, Upload, CleanUp
     ]
 }
