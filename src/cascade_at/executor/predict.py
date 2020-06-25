@@ -89,7 +89,7 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
     context = Context(model_version_id=model_version_id)
     inputs, alchemy, settings = context.read_inputs()
     path = context.db_file(location_id=parent_location_id, sex_id=sex_id)
-
+    
     if sample:
         table = 'sample'
     else:
@@ -105,11 +105,11 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
         commands=[f'predict {table}']
     )
     if save_fit:
-        if child_locations is None:
-            locations = inputs.location_dag.parent_children()
+        if len(child_locations) == 0:
+            locations = inputs.location_dag.parent_children(parent_location_id)
         else:
             locations = child_locations
-        if child_sexes is None:
+        if len(child_sexes) == 0:
             sexes = [sex_id]
         else:
             sexes = child_sexes
@@ -135,6 +135,7 @@ def main():
         child_locations=args.child_locations,
         child_sexes=args.child_sexes,
         prior_grid=args.prior_grid,
+        save_fit=args.save_fit,
         sample=args.sample
     )
 

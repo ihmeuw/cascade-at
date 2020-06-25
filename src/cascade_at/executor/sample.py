@@ -22,7 +22,7 @@ ARG_LIST = ArgumentList([
     ModelVersionID(),
     ParentLocationID(),
     SexID(),
-    StrArg('--n-sim', help='the number of simulations to create'),
+    IntArg('--n-sim', help='the number of simulations to create'),
     IntArg('--n-pool', help='how many multiprocessing pools to use (default to 1 = none)', default=1),
     StrArg('--fit-type', help='what type of fit to simulate for, fit fixed or both', default='both'),
     BoolArg('--asymptotic', help='whether or not to do asymptotic statistics or fit-refit'),
