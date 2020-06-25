@@ -169,6 +169,9 @@ def sample_asymptotic(path: Union[str, Path], n_sim: int, fit_type: str):
     run_dismod_commands(
         dm_file=path,
         commands=[
+            'set start_var fit_var',
+            'set truth_var fit_var',
+            'set scale_var fit_var',
             f'sample asymptotic {fit_type} {n_sim}'
         ]
     )
