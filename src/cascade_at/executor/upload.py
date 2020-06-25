@@ -53,7 +53,7 @@ def upload_fit(context: Context, rh: ResultsHandler) -> None:
     rh.upload_summaries(
         directory=context.fit_dir,
         conn_def=context.model_connection,
-        table='model_estimate_final'
+        table='model_estimate_fit'
     )
 
 
