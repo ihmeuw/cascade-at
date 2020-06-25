@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Union, List, Dict, Any, Optional
 
 import numpy as np
+import pandas as pd
 
 from cascade_at.core import CascadeATError
 from cascade_at.context.model_context import Context
@@ -77,7 +78,8 @@ def save_predictions(db_file: Union[str, Path],
                      out_dir: Path,
                      locations: Optional[List[int]] = None,
                      sexes: Optional[List[int]] = None,
-                     sample: bool = False) -> None:
+                     sample: bool = False,
+                     predictions: Optional[pd.DataFrame] = None) -> None:
     """
     Save the fit from this dismod database for a specific location and sex to be
     uploaded later on.
@@ -86,7 +88,7 @@ def save_predictions(db_file: Union[str, Path],
     da = DismodExtractor(path=db_file)
     predictions = da.format_predictions_for_ihme(
         locations=locations, sexes=sexes, gbd_round_id=gbd_round_id,
-        samples=sample
+        samples=sample, predictions=predictions
     )
     LOG.info(f"Saving the results to {out_dir}.")
     rh = ResultsHandler()

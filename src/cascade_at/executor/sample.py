@@ -1,17 +1,17 @@
 import logging
 import sys
-from multiprocessing import Pool
 from pathlib import Path
-from shutil import copy2
 from typing import Union
 
 import pandas as pd
 
 from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, IntArg, StrArg, BoolArg, LogLevel
+from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, NPool, NSim
+from cascade_at.executor.args.args import StrArg, BoolArg, LogLevel
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.dismod.api.dismod_io import DismodIO
+from cascade_at.dismod.api.multithreading import _DismodThread, dmdismod_in_parallel
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.executor import ExecutorError
 
@@ -22,8 +22,8 @@ ARG_LIST = ArgumentList([
     ModelVersionID(),
     ParentLocationID(),
     SexID(),
-    IntArg('--n-sim', help='the number of simulations to create'),
-    IntArg('--n-pool', help='how many multiprocessing pools to use (default to 1 = none)', default=1),
+    NSim(),
+    NPool(),
     StrArg('--fit-type', help='what type of fit to simulate for, fit fixed or both', default='both'),
     BoolArg('--asymptotic', help='whether or not to do asymptotic statistics or fit-refit'),
     LogLevel()
@@ -66,10 +66,10 @@ def simulate(path: Union[str, Path], n_sim: int):
     )
 
 
-class FitSample:
+class FitSample(_DismodThread):
     """
     Fit Sample for a database in parallel. Copies the sample table and fits for just
-    one sample index.
+    one sample index. Will use the __call__ method from _DismodThread.
 
     Parameters
     ----------
@@ -80,24 +80,27 @@ class FitSample:
     fit_type
         The type of fit to run, one of "fixed" or "both".
     """
-    def __init__(self, main_db: Union[str, Path], index_file_pattern: str, fit_type: str):
-        self.main_db = main_db
-        self.index_file_pattern = index_file_pattern
+    def __init__(self, fit_type: str, **kwargs):
+        super().__init__(**kwargs)
         self.fit_type = fit_type
 
-    def __call__(self, index: int):
-        index_db = self.index_file_pattern.format(index=index)
-        copy2(src=str(self.main_db), dst=str(index_db))
+    def _process(self, db: str):
+        run_dismod_commands(
+            dm_file=db, commands=[f'fit {self.fit_type} {self.index}']
+        )
 
-        run_dismod_commands(dm_file=index_db, commands=[f'fit {self.fit_type} {index}'])
-
-        db = DismodIO(path=index_db)
+        db = DismodIO(path=db)
         fit = db.fit_var
-        fit['sample_index'] = index
+        fit['sample_index'] = self.index
+        fit.rename(columns={
+            'fit_var_id': 'var_id',
+            'fit_var_value': 'var_value'
+        }, inplace=True)
         return fit
 
 
-def sample_simulate_pool(main_db, index_file_pattern, fit_type, n_sim, n_pool):
+def sample_simulate_pool(main_db: Union[str, Path], index_file_pattern: str,
+                         fit_type: str, n_sim: int, n_pool: int):
     """
     Fit the samples in a database in parallel by making copies of the database, fitting them
     separately, and then combining them back together in the sample table of main_db.
@@ -118,16 +121,18 @@ def sample_simulate_pool(main_db, index_file_pattern, fit_type, n_sim, n_pool):
     if fit_type not in ["fixed", "both"]:
         raise SampleError(f"Unrecognized fit type {fit_type}.")
 
-    fit_sample = FitSample(main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type)
-
-    p = Pool(n_pool)
-    fits = list(p.map(fit_sample, range(n_sim)))
-    p.close()
-
+    fit_sample = FitSample(
+        main_db=main_db,
+        index_file_pattern=index_file_pattern,
+        fit_type=fit_type
+    )
+    fits = dmdismod_in_parallel(
+        dm_thread=fit_sample,
+        sims=list(range(n_sim)),
+        n_pool=n_pool
+    )
     # Reconstruct the sample table with all n_sim fits
     samp = pd.DataFrame().append(fits).reset_index(drop=True)
-    samp.rename(columns={'fit_var_id': 'var_id', 'fit_var_value': 'var_value'}, inplace=True)
-    
     d = DismodIO(path=main_db)
     d.sample = samp[['sample_index', 'var_id', 'var_value']]
 
@@ -211,8 +216,10 @@ def sample(model_version_id: int, parent_location_id: int, sex_id: int,
     else:
         simulate(path=main_db, n_sim=n_sim)
         if n_pool > 1:
-            sample_simulate_pool(main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type,
-                                 n_pool=n_pool, n_sim=n_sim)
+            sample_simulate_pool(
+                main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type,
+                n_pool=n_pool, n_sim=n_sim
+            )
         else:
             sample_simulate_sequence(path=main_db, n_sim=n_sim, fit_type=fit_type)
 
