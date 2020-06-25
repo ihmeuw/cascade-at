@@ -37,7 +37,7 @@ class CrosswalkVersion(BaseInput):
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
         return self
 
-    def configure_for_dismod(self, relabel_incidence, measures_to_exclude=None):
+    def configure_for_dismod(self, relabel_incidence, demographic=False, measures_to_exclude=None):
         """
         Configures the crosswalk version for DisMod.
 
@@ -69,7 +69,6 @@ class CrosswalkVersion(BaseInput):
 
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
         df = df.loc[df.sex_id.isin(self.demographics.sex_id)]
-
         df['age_lower'] = (df.age_start.astype(np.float) + df.age_end.astype(np.float)) / 2
         df['age_upper'] = df.age_lower
 
@@ -78,8 +77,9 @@ class CrosswalkVersion(BaseInput):
         df["meas_value"] = df["mean"]
         df["meas_std"] = stdev_from_crosswalk_version(df)
         df["name"] = df.seq.astype(str)
-
-        df = self.get_out_of_demographic_notation(df, columns=['age', 'time'])
+        
+        if demographic:
+            df = self.get_out_of_demographic_notation(df, columns=['age', 'time'])
         df = self.keep_only_necessary_columns(df)
 
         return df
