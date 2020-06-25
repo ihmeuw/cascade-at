@@ -48,11 +48,16 @@ class DismodExtractor(DismodIO):
         if not os.path.isfile(path):
             raise DismodExtractorError(f"SQLite file {str(path)} has not been created or filled yet.")
 
-    def _extract_raw_predictions(self) -> pd.DataFrame:
+    def _extract_raw_predictions(self, predictions: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
         Grab raw predictions from the predict table.
+        Or, optionally merge some predictions on the avgint table and integrand table. This
+        is a work-around when we've wanted to use a different prediction data frame (from using
+        multithreading) because dismod_at does not allow you to set the predict table.
         """
-        df = self.predict.merge(self.avgint, on=['avgint_id'])
+        if predictions is None:
+            predictions = self.predict
+        df = predictions.merge(self.avgint, on=['avgint_id'])
         df = df.merge(self.integrand, on=['integrand_id'])
         df['rate'] = df['integrand_name'].map(
             PRIMARY_INTEGRANDS_TO_RATES
@@ -61,13 +66,14 @@ class DismodExtractor(DismodIO):
 
     def get_predictions(self, locations: Optional[List[int]] = None,
                         sexes: Optional[List[int]] = None,
-                        samples: bool = False) -> pd.DataFrame:
+                        samples: bool = False,
+                        predictions: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
         Get the predictions from the predict table for locations and sexes.
         Will either return a column of 'mean' if not samples, otherwise 'draw', which can then
         be reshaped wide if necessary.
         """
-        df = self._extract_raw_predictions()
+        df = self._extract_raw_predictions(predictions=predictions)
         if locations is not None:
             df = df.loc[df.c_location_id.isin(locations)].copy()
             if set(df.c_location_id.values) != set(locations):
@@ -195,7 +201,8 @@ class DismodExtractor(DismodIO):
     def format_predictions_for_ihme(self, gbd_round_id: int,
                                     locations: Optional[List[int]] = None,
                                     sexes: Optional[List[int]] = None,
-                                    samples: bool = False) -> pd.DataFrame:
+                                    samples: bool = False,
+                                    predictions: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
         Formats predictions from the prediction table and returns either the mean
         or draws, based on whether or not samples is False or True.
@@ -211,12 +218,16 @@ class DismodExtractor(DismodIO):
         samples
             Whether or not the predictions have draws (samples) or whether
             it is just one fit.
+        predictions
+            An optional data frame with the predictions to use rather than
+            reading them directly from the database.
 
         Returns
         -------
         Data frame with predictions formatted for the IHME databases.
         """
-        pred = self.get_predictions(locations=locations, sexes=sexes, samples=samples)
+        pred = self.get_predictions(locations=locations, sexes=sexes, samples=samples,
+                                    predictions=predictions)
         map_age = 'age_group_id' not in pred.columns
         map_year = 'year_id' not in pred.columns
 

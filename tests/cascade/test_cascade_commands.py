@@ -17,7 +17,8 @@ def test_drill():
     assert isinstance(
         cascade_command.task_dict[
             'dismod_db --model-version-id 0 --parent-location-id 1 --sex-id 1 --fill '
-            '--dm-commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var'
+            '--dm-commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var '
+            '--save-fit'
         ],
         CASCADE_OPERATIONS['dismod_db']
     )
@@ -31,11 +32,11 @@ def test_drill():
     assert isinstance(
         cascade_command.task_dict[
             'predict --model-version-id 0 --parent-location-id 1 --sex-id 1 '
-            '--save-fit --sample'
+            '--save-final --sample'
         ],
         CASCADE_OPERATIONS['predict']
     )
     assert isinstance(
-        cascade_command.task_dict['upload --model-version-id 0 --fit'],
+        cascade_command.task_dict['upload --model-version-id 0 --final --fit'],
         CASCADE_OPERATIONS['upload']
     )

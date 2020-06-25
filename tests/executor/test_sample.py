@@ -13,6 +13,7 @@ from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.executor.sample import simulate, FitSample
+from cascade_at.executor.predict import Predict, predict_sample_pool
 from cascade_at.executor.sample import sample_simulate_pool, sample_simulate_sequence, sample_asymptotic
 from cascade_at.executor.sample import SampleError
 from cascade_at.executor.predict import fill_avgint_with_priors_grid
@@ -54,7 +55,9 @@ def test_sample_simulate(filler, dismod):
 
 
 def test_fit_sample(filler, dismod):
-    fit = FitSample(main_db=NAME, index_file_pattern='sample_{index}.db', fit_type='fixed')
+    fit = FitSample(fit_type='fixed',
+                    main_db=NAME,
+                    index_file_pattern='sample_{index}.db')
     result = fit(1)
     assert all(result.sample_index) == 1
     assert len(result) == 250
@@ -104,6 +107,31 @@ def test_predict_sample(mi, settings, dismod):
     )
     di = DismodIO(NAME)
     assert len(di.predict) == 2 * len(di.avgint)
+
+
+def test_predict_pool(mi, settings, dismod):
+    alchemy = Alchemy(settings)
+    predict = Predict(
+        main_db=NAME,
+        index_file_pattern='sample_{index}.db'
+    )
+    result = predict(1)
+    di = DismodIO(NAME)
+    assert len(result) == len(di.avgint)
+    assert all(result.sample_index) == 1
+    assert all(result.columns == ['predict_id', 'sample_index', 'avgint_id', 'avg_integrand'])
+
+
+def test_predict_sample_pools(mi, settings, dismod):
+    alchemy = Alchemy(settings)
+    predictions = predict_sample_pool(
+        main_db=NAME,
+        index_file_pattern='sample_{index}.db',
+        n_pool=2,
+        n_sim=2
+    )
+    di = DismodIO(NAME)
+    assert len(predictions) == 2 * len(di.avgint)
 
 
 def test_default_gather_child_draws(mi, settings, dismod):

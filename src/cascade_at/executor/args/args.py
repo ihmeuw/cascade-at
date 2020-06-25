@@ -135,6 +135,30 @@ class DmOptions(ListArg):
         })
 
 
+class NSim(IntArg):
+    def __init__(self):
+        super().__init__()
+
+        self._arg = '--n-sim'
+        self._kwargs.update({
+            'help': 'the number of simulations to create',
+            'default': 1,
+            'required': False
+        })
+
+
+class NPool(IntArg):
+    def __init__(self):
+        super().__init__()
+
+        self._arg = '--n-pool'
+        self._kwargs.update({
+            'help': 'how many multiprocessing pools to use (default to 1 = none)',
+            'default': 1,
+            'required': False
+        })
+
+
 class LogLevel(StrArg):
     def __init__(self):
         super().__init__()
