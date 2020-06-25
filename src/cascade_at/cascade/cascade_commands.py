@@ -6,6 +6,8 @@ Cascade Commands
 Sequences of cascade operations that work together to create a cascade command
 that will run the whole cascade (or a drill -- which is a version of the cascade).
 """
+from typing import Optional
+
 from cascade_at.core.log import get_loggers
 from cascade_at.cascade.cascade_stacks import single_fit_with_uncertainty
 from cascade_at.cascade.cascade_dags import make_cascade_dag
@@ -59,15 +61,23 @@ class TraditionalCascade(_CascadeCommand):
     Runs the traditional cascade.
     """
     def __init__(self, model_version_id: int, split_sex: bool,
-                 dag: LocationDAG, n_sim: int):
+                 dag: LocationDAG, n_sim: int,
+                 location_start: Optional[int] = None,
+                 sex: Optional[int] = None):
+
         super().__init__()
         self.model_version_id = model_version_id
+
+        if sex is None:
+            sex = SEX_NAME_TO_ID['Both']
+        if location_start is None:
+            location_start = CascadeConstants.GLOBAL_LOCATION_ID
 
         tasks = make_cascade_dag(
             model_version_id=model_version_id,
             dag=dag,
-            location_start=CascadeConstants.GLOBAL_LOCATION_ID,
-            sex_start=SEX_NAME_TO_ID['Both'],
+            location_start=location_start,
+            sex_start=sex,
             split_sex=split_sex,
             n_sim=n_sim, n_pool=10
         )

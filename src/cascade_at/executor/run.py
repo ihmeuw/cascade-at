@@ -69,11 +69,22 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             drill_sex=settings.model.drill_sex
         )
     elif settings.model.drill == 'cascade':
+
+        location_start = None
+        sex = None
+
+        if isinstance(settings.model.drill_location_start, int):
+            location_start = settings.model.drill_location_start
+        if isinstance(settings.model.drill_sex, int):
+            sex = settings.model.drill_sex
+
         cascade_command = TraditionalCascade(
             model_version_id=model_version_id,
             split_sex=settings.model.split_sex == 'most_detailed',
             dag=dag,
-            n_sim=n_sim
+            n_sim=n_sim,
+            location_start=settings.model.drill_location_start,
+            sex=sex
         )
     else:
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")
