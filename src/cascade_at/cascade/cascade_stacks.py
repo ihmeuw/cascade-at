@@ -92,7 +92,7 @@ def single_fit_with_uncertainty(model_version_id: int,
         fill=True,
         predict=True,
         both=True,
-        save_fit=False,
+        save_fit=True,
         upstream_commands=[t1.command]
     )
     t3 = Sample(
@@ -112,7 +112,7 @@ def single_fit_with_uncertainty(model_version_id: int,
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
-        save_fit=True,
+        save_final=True,
         prior_grid=False,
         sample=True,
         upstream_commands=[t3.command]
@@ -120,6 +120,7 @@ def single_fit_with_uncertainty(model_version_id: int,
     t5 = Upload(
         model_version_id=model_version_id,
         fit=True,
+        final=True,
         upstream_commands=[t4.command]
     )
     return [t1, t2, t3, t4, t5]

@@ -28,6 +28,7 @@ ARG_LIST = ArgumentList([
     ListArg('--child-sexes', help='sexes to make predictions for', type=int, required=False),
     BoolArg('--prior-grid', help='whether to predict on the prior grid or the regular avgint grid'),
     BoolArg('--save-fit', help='whether to save the results of the predict sample as the fit'),
+    BoolArg('--save-final', help='whether to save results as final'),
     BoolArg('--sample', help='whether to predict from the sample table or the fit_var table'),
     LogLevel()
 ])
@@ -59,7 +60,8 @@ def fill_avgint_with_priors_grid(inputs: MeasurementInputs, alchemy: Alchemy, se
 
 def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
                    child_locations: List[int], child_sexes: List[int],
-                   prior_grid: bool = True, save_fit: bool = False, sample: bool = False) -> None:
+                   prior_grid: bool = True, save_fit: bool = False, save_final: bool = False,
+                   sample: bool = False) -> None:
     """
     Takes a database that has already had a fit and simulate sample run on it,
     fills the avgint table for the child_locations and child_sexes you want to make
@@ -83,6 +85,8 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
         a prior grid for the rates.
     save_fit
         Whether or not to save the fit for upload later.
+    save_final
+        Whether or not to save the final for upload later.
     sample
         Whether to predict from the sample table or the fit_var table
     """
@@ -104,7 +108,7 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
         dm_file=path,
         commands=[f'predict {table}']
     )
-    if save_fit:
+    if save_fit or save_final:
         if len(child_locations) == 0:
             locations = inputs.location_dag.parent_children(parent_location_id)
         else:
@@ -113,14 +117,20 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
             sexes = [sex_id]
         else:
             sexes = child_sexes
-        save_predictions(
-            db_file=path,
-            locations=locations, sexes=sexes,
-            model_version_id=model_version_id,
-            gbd_round_id=settings.gbd_round_id,
-            out_dir=context.fit_dir,
-            sample=sample
-        )
+        out_dirs = []
+        if save_fit:
+            out_dirs.append(context.fit_dir)
+        if save_final:
+            out_dirs.append(context.draw_dir)
+        for folder in out_dirs:
+            save_predictions(
+                db_file=path,
+                locations=locations, sexes=sexes,
+                model_version_id=model_version_id,
+                gbd_round_id=settings.gbd_round_id,
+                out_dir=folder,
+                sample=sample
+            )
 
 
 def main():
@@ -136,6 +146,7 @@ def main():
         child_sexes=args.child_sexes,
         prior_grid=args.prior_grid,
         save_fit=args.save_fit,
+        save_final=args.save_final,
         sample=args.sample
     )
 
