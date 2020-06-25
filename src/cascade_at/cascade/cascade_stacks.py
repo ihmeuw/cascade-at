@@ -233,7 +233,7 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
 
 def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
              prior_parent: int, prior_sex: int,
-             n_sim: int = 100, n_pool: int = 1,
+             n_sim: int = 1000, n_pool: int = 1,
              upstream_commands: List[str] = None) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a for a leaf-node fit, no children.
@@ -295,6 +295,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         child_sexes=[sex_id],
         save_fit=True,
         prior_grid=False,
+        sample=True,
         upstream_commands=[t2.command]
     )
     return [t1, t2, t3]
