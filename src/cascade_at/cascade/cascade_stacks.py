@@ -60,7 +60,7 @@ def single_fit(model_version_id: int,
 
 def single_fit_with_uncertainty(model_version_id: int,
                                 location_id: int, sex_id: int,
-                                n_sim: int = 100, n_pool: int = 20) -> List[_CascadeOperation]:
+                                n_sim: int = 1000, n_pool: int = 20) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a single fit both model. Configures
     inputs, does a fit fixed, then fit both, then predict and uploads the result.
