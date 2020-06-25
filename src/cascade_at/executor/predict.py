@@ -118,7 +118,8 @@ def predict_sample(model_version_id: int, parent_location_id: int, sex_id: int,
             locations=locations, sexes=sexes,
             model_version_id=model_version_id,
             gbd_round_id=settings.gbd_round_id,
-            out_dir=context.fit_dir
+            out_dir=context.fit_dir,
+            sample=sample
         )
 
 

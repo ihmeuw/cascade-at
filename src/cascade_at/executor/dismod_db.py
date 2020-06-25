@@ -76,7 +76,8 @@ def save_predictions(db_file: Union[str, Path],
                      model_version_id: int, gbd_round_id: int,
                      out_dir: Path,
                      locations: Optional[List[int]] = None,
-                     sexes: Optional[List[int]] = None) -> None:
+                     sexes: Optional[List[int]] = None,
+                     sample: bool = False) -> None:
     """
     Save the fit from this dismod database for a specific location and sex to be
     uploaded later on.
@@ -84,7 +85,8 @@ def save_predictions(db_file: Union[str, Path],
     LOG.info("Extracting results from DisMod SQLite Database.")
     da = DismodExtractor(path=db_file)
     predictions = da.format_predictions_for_ihme(
-        locations=locations, sexes=sexes, gbd_round_id=gbd_round_id
+        locations=locations, sexes=sexes, gbd_round_id=gbd_round_id,
+        samples=sample
     )
     LOG.info(f"Saving the results to {out_dir}.")
     rh = ResultsHandler()
