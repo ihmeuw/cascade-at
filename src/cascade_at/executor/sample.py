@@ -8,7 +8,7 @@ from typing import Union
 import pandas as pd
 
 from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, IntArg, StrArg, LogLevel
+from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, IntArg, StrArg, BoolArg, LogLevel
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.dismod.api.dismod_io import DismodIO
@@ -25,11 +25,12 @@ ARG_LIST = ArgumentList([
     IntArg('--n-sim', help='the number of simulations to create'),
     IntArg('--n-pool', help='how many multiprocessing pools to use (default to 1 = none)', default=1),
     StrArg('--fit-type', help='what type of fit to simulate for, fit fixed or both', default='both'),
+    BoolArg('--asymptotic', help='whether or not to do asymptotic statistics or fit-refit'),
     LogLevel()
 ])
 
 
-class SampleSimulateError(ExecutorError):
+class SampleError(ExecutorError):
     """Raised when there are issues with sample simulate."""
     pass
 
@@ -48,10 +49,10 @@ def simulate(path: Union[str, Path], n_sim: int):
     d = DismodIO(path=path)
     try:
         if d.fit_var.empty:
-            raise SampleSimulateError("Cannot run sample simulate on a database without fit_var!")
+            raise SampleError("Cannot run sample simulate on a database without fit_var!")
     except ValueError:
-        raise SampleSimulateError("Cannot run sample simulate on a database without fit_var!"
-                                  "Does not have the fit_var table yet.")
+        raise SampleError("Cannot run sample simulate on a database without fit_var!"
+                          "Does not have the fit_var table yet.")
 
     # Create n_sim simulation datasets based on the fitted parameters
     run_dismod_commands(
@@ -115,7 +116,7 @@ def sample_simulate_pool(main_db, index_file_pattern, fit_type, n_sim, n_pool):
         Number of pools for the multiprocessing.
     """
     if fit_type not in ["fixed", "both"]:
-        raise SampleSimulateError(f"Unrecognized fit type {fit_type}.")
+        raise SampleError(f"Unrecognized fit type {fit_type}.")
 
     fit_sample = FitSample(main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type)
 
@@ -124,14 +125,14 @@ def sample_simulate_pool(main_db, index_file_pattern, fit_type, n_sim, n_pool):
     p.close()
 
     # Reconstruct the sample table with all n_sim fits
-    sample = pd.DataFrame().append(fits).reset_index(drop=True)
-    sample.rename(columns={'fit_var_id': 'var_id', 'fit_var_value': 'var_value'}, inplace=True)
+    samp = pd.DataFrame().append(fits).reset_index(drop=True)
+    samp.rename(columns={'fit_var_id': 'var_id', 'fit_var_value': 'var_value'}, inplace=True)
     
     d = DismodIO(path=main_db)
-    d.sample = sample[['sample_index', 'var_id', 'var_value']]
+    d.sample = samp[['sample_index', 'var_id', 'var_value']]
 
 
-def sample_simulate_sequence(path: Union[str, Path], n_sim: int):
+def sample_simulate_sequence(path: Union[str, Path], n_sim: int, fit_type: str):
     """
     Fit the samples in a database in sequence.
 
@@ -141,17 +142,40 @@ def sample_simulate_sequence(path: Union[str, Path], n_sim: int):
         A path to the database object to create simulations in.
     n_sim
         Number of simulations to create.
+    fit_type
+        Type of fit -- fixed or both
     """
     run_dismod_commands(
         dm_file=path,
         commands=[
-            f'sample simulate {n_sim}'
+            f'sample simulate {fit_type} {n_sim}'
         ]
     )
 
 
-def sample_simulate(model_version_id: int, parent_location_id: int, sex_id: int,
-                    n_sim: int, n_pool: int, fit_type: str) -> None:
+def sample_asymptotic(path: Union[str, Path], n_sim: int, fit_type: str):
+    """
+        Fit the samples in a database in sequence.
+
+        Parameters
+        ----------
+        path
+            A path to the database object to create simulations in.
+        n_sim
+            Number of simulations to create.
+        fit_type
+            Type of fit -- fixed or both
+        """
+    run_dismod_commands(
+        dm_file=path,
+        commands=[
+            f'sample asymptotic {fit_type} {n_sim}'
+        ]
+    )
+
+
+def sample(model_version_id: int, parent_location_id: int, sex_id: int,
+           n_sim: int, n_pool: int, fit_type: str, asymptotic: bool = False) -> None:
     """
     Simulates from a dismod database that has already had a fit run on it. Does so
     optionally in parallel.
@@ -171,19 +195,23 @@ def sample_simulate(model_version_id: int, parent_location_id: int, sex_id: int,
         run with pools but just run all simulations together in one dmdismod command.
     fit_type
         The type of fit that was performed on this database, one of fixed or both.
+    asymptotic
+        Whether or not to do asymptotic samples or fit-refit
     """
 
     context = Context(model_version_id=model_version_id)
     main_db = context.db_file(location_id=parent_location_id, sex_id=sex_id)
     index_file_pattern = context.db_index_file_pattern(location_id=parent_location_id, sex_id=sex_id)
 
-    simulate(path=main_db, n_sim=n_sim)
-
-    if n_pool > 1:
-        sample_simulate_pool(main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type,
-                             n_pool=n_pool, n_sim=n_sim)
+    if asymptotic:
+        sample_asymptotic(path=main_db, n_sim=n_sim, fit_type=fit_type)
     else:
-        sample_simulate_sequence(path=main_db, n_sim=n_sim)
+        simulate(path=main_db, n_sim=n_sim)
+        if n_pool > 1:
+            sample_simulate_pool(main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type,
+                                 n_pool=n_pool, n_sim=n_sim)
+        else:
+            sample_simulate_sequence(path=main_db, n_sim=n_sim, fit_type=fit_type)
 
 
 def main():
@@ -191,13 +219,14 @@ def main():
     args = ARG_LIST.parse_args(sys.argv[1:])
     logging.basicConfig(level=LEVELS[args.log_level])
 
-    sample_simulate(
+    sample(
         model_version_id=args.model_version_id,
         parent_location_id=args.parent_location_id,
         sex_id=args.sex_id,
         n_sim=args.n_sim,
         n_pool=args.n_pool,
-        fit_type=args.fit_type
+        fit_type=args.fit_type,
+        asymptotic=args.asymptotic
     )
 
 

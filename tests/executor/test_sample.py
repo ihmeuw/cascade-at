@@ -12,9 +12,9 @@ from cascade_at.dismod.api.dismod_extractor import DismodExtractor
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.dismod.api.dismod_filler import DismodFiller
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
-from cascade_at.executor.sample_simulate import simulate, FitSample
-from cascade_at.executor.sample_simulate import sample_simulate_pool, sample_simulate_sequence
-from cascade_at.executor.sample_simulate import SampleSimulateError
+from cascade_at.executor.sample import simulate, FitSample
+from cascade_at.executor.sample import sample_simulate_pool, sample_simulate_sequence, sample_asymptotic
+from cascade_at.executor.sample import SampleError
 from cascade_at.executor.predict import fill_avgint_with_priors_grid
 
 
@@ -44,7 +44,7 @@ def filler(mi, settings):
 
 
 def test_sample_simulate_empty(filler, dismod):
-    with pytest.raises(SampleSimulateError):
+    with pytest.raises(SampleError):
         simulate(NAME, n_sim=1)
 
 
@@ -61,7 +61,7 @@ def test_fit_sample(filler, dismod):
 
 
 def test_sample_simulate_sequence(filler, dismod):
-    sample_simulate_sequence(NAME, n_sim=2)
+    sample_simulate_sequence(NAME, n_sim=2, fit_type='fixed')
     di = DismodIO(NAME)
     assert len(di.sample) == 500
     assert all(di.sample.columns == ['sample_id', 'sample_index', 'var_id', 'var_value'])
@@ -77,6 +77,18 @@ def test_sample_simulate_pool(filler, dismod):
     assert all(di.sample.columns == ['sample_id', 'sample_index', 'var_id', 'var_value'])
     assert all(di.sample.iloc[0:250].sample_index == 0)
     assert all(di.sample.iloc[250:500].sample_index == 1)
+    assert all(~np.isnan(di.sample.var_value))
+
+
+@pytest.mark.skip(reason="Toy example does not have a positive definite hessian.")
+def test_sample_asymptotic(filler, dismod):
+    sample_asymptotic(NAME, fit_type='fixed', n_sim=3)
+    di = DismodIO(NAME)
+    assert len(di.sample) == 750
+    assert all(di.sample.columns == ['sample_id', 'sample_index', 'var_id', 'var_value'])
+    assert all(di.sample.iloc[0:250].sample_index == 0)
+    assert all(di.sample.iloc[250:500].sample_index == 1)
+    assert all(di.sample.iloc[500:750].sample_index == 2)
     assert all(~np.isnan(di.sample.var_value))
 
 
