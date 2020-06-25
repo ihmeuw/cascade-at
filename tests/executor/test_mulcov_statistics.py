@@ -21,13 +21,9 @@ def test_compute_statistics(mulcov_df):
         df=mulcov_df, mean=True, std=True, quantile=[0.025, 0.975]
     )
     assert type(stat) == pd.DataFrame
-    assert len(stat) == len(mulcov_df) * 4
-    assert (stat.mulcov_value.values == np.concatenate((
-        mulcov_df.mulcov_value.values,
-        np.repeat(0, repeats=3),
-        mulcov_df.mulcov_value.values,
-        mulcov_df.mulcov_value.values
-    ))).all()
-    assert (stat.stat.values == np.repeat([
-        'mean', 'std', 'quantile_0.025', 'quantile_0.975'
-    ], repeats=3)).all()
+    assert len(stat) == len(mulcov_df)
+    assert len(stat.columns) == 8
+    assert all(stat['mean'].to_numpy()  ==  mulcov_df.mulcov_value.to_numpy())
+    assert all(stat['std'].to_numpy() == np.zeros(3))
+    assert all(stat['quantile_0.025'].to_numpy() == mulcov_df.mulcov_value.to_numpy())
+    assert all(stat['quantile_0.975'].to_numpy() == mulcov_df.mulcov_value.to_numpy())
