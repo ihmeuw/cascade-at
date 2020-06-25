@@ -60,7 +60,7 @@ def single_fit(model_version_id: int,
 
 def single_fit_with_uncertainty(model_version_id: int,
                                 location_id: int, sex_id: int,
-                                n_sim: int = 100, n_pool: int = 20) -> List[_CascadeOperation]:
+                                n_sim: int = 1000, n_pool: int = 20) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a single fit both model. Configures
     inputs, does a fit fixed, then fit both, then predict and uploads the result.
@@ -92,7 +92,7 @@ def single_fit_with_uncertainty(model_version_id: int,
         fill=True,
         predict=True,
         both=True,
-        save_fit=False,
+        save_fit=True,
         upstream_commands=[t1.command]
     )
     t3 = Sample(
@@ -112,7 +112,7 @@ def single_fit_with_uncertainty(model_version_id: int,
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
-        save_fit=True,
+        save_final=True,
         prior_grid=False,
         sample=True,
         upstream_commands=[t3.command]
@@ -120,6 +120,7 @@ def single_fit_with_uncertainty(model_version_id: int,
     t5 = Upload(
         model_version_id=model_version_id,
         fit=True,
+        final=True,
         upstream_commands=[t4.command]
     )
     return [t1, t2, t3, t4, t5]
