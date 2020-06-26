@@ -228,6 +228,7 @@ class MeasurementInputs:
         ).get_population()
 
     def configure_inputs_for_dismod(self, settings: SettingsConfig,
+                                    midpoint: bool = False,
                                     mortality_year_reduction: int = 5):
         """
         Modifies the inputs for DisMod based on model-specific settings.
@@ -249,7 +250,8 @@ class MeasurementInputs:
         # CSMR).
         data = self.data.configure_for_dismod(
             measures_to_exclude=self.measures_to_exclude,
-            relabel_incidence=settings.model.relabel_incidence
+            relabel_incidence=settings.model.relabel_incidence,
+            midpoint=midpoint,
         )
         asdr = self.asdr.configure_for_dismod(
             hold_out=settings.model.constrain_omega)
