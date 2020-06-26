@@ -116,7 +116,7 @@ class DismodFiller(DismodIO):
             covariate_specs=self.covariate_reference_specs,
             omega_df=self.omega_df,
             update_prior=self.child_prior,
-            min_cv=self.min_cv
+            min_cv=self.min_cv,
             update_mulcov_prior=self.mulcov_prior,
         )
 

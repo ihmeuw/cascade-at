@@ -173,7 +173,7 @@ class Alchemy:
                                   weights: Optional[Dict[str, Var]] = None,
                                   omega_df: Optional[pd.DataFrame] = None,
                                   update_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None,
-                                  min_cv: Optional[Dict[str, Dict[str, float]]] = None):
+                                  min_cv: Optional[Dict[str, Dict[str, float]]] = None,
                                   update_mulcov_prior: Optional[Dict[Tuple[str, str, str], _Prior]] = None):
         """
         Construct a Model object for a parent location and its children.
@@ -191,6 +191,7 @@ class Alchemy:
             data frame with omega values in it (other cause mortality)
         update_prior
             dictionary of dictionary for prior updates to rates
+        update_mulcov_prior
         min_cv
             dictionary (can be defaultdict) for minimum coefficient of variation
             keyed by cascade level, then by rate
