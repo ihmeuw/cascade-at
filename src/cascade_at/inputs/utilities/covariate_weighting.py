@@ -1,5 +1,5 @@
 import numpy as np
-from intervaltree import IntervalTree
+import pandas as pd
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
@@ -145,16 +145,23 @@ def get_interpolated_covariate_values(data_df, covariate_dict,
     Gets the unique age-time combinations from the data_df, and creates
     interpolated covariate values for each of these combinations by population-weighting
     the standard GBD age-years that span the non-standard combinations.
+    Skipping adding covariates to the held out data because it's not needed.
 
     :param data_df: (pd.DataFrame)
     :param covariate_dict: Dict[pd.DataFrame] with covariate names as keys
     :param population_df: (pd.DataFrame)
     :return: pd.DataFrame
     """
-    data = data_df.copy()
+    if 'hold_out' in data_df.columns:
+        held_out = data_df.loc[data_df.hold_out == 1].copy()
+        used = data_df.loc[data_df.hold_out == 0].copy()
+    else:
+        held_out = pd.DataFrame()
+        used = data_df.copy()
+
     pop = population_df.copy()
 
-    data_groups = data.groupby([
+    data_groups = used.groupby([
         'location_id', 'sex_id', 'age_lower', 'age_upper', 'time_lower', 'time_upper'
     ], as_index=False)
 
@@ -172,5 +179,11 @@ def get_interpolated_covariate_values(data_df, covariate_dict,
                 age_lower=age_lower, age_upper=age_upper,
                 time_lower=time_lower, time_upper=time_upper
             )
-            data.loc[v.index, cov_id] = cov_value
-    return data
+            used.loc[v.index, cov_id] = cov_value
+        held_out[cov_id] = np.nan
+
+    if len(held_out) == 0:
+        result = used
+    else:
+        result = pd.concat([used, held_out], axis=0).reset_index()
+    return result
