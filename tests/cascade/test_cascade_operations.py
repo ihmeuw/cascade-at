@@ -6,11 +6,12 @@ from cascade_at.cascade.cascade_operations import (
 
 def test_configure_inputs():
     obj = ConfigureInputs(
-        model_version_id=0
+        model_version_id=0,
+        n_pool=20
     )
     assert obj.command == (
         f'configure_inputs --model-version-id 0 '
-        f'--make --configure'
+        f'--make --configure --n-pool 20'
     )
 
 

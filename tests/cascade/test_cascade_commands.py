@@ -11,7 +11,7 @@ def test_drill():
     assert len(cascade_command.task_dict) == 5
     assert len(cascade_command.get_commands()) == 5
     assert isinstance(
-        cascade_command.task_dict['configure_inputs --model-version-id 0 --make --configure'],
+        cascade_command.task_dict['configure_inputs --model-version-id 0 --make --configure --n-pool 20'],
         CASCADE_OPERATIONS['configure_inputs']
     )
     assert isinstance(

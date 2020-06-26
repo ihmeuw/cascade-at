@@ -1,9 +1,12 @@
+import multiprocessing as mp
+from typing import Dict
+
 import numpy as np
-from intervaltree import IntervalTree
+import pandas as pd
 
 from cascade_at.core.log import get_loggers
-from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
 from cascade_at.inputs import InputsError
+from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
 
 LOG = get_loggers(__name__)
 
@@ -113,10 +116,11 @@ class CovariateInterpolator:
         wt = np.outer(time_wts, age_wts)
         return age_group_ids, year_ids, wt
 
-    def interpolate(self, loc_id, sex_id, age_lower, age_upper, time_lower, time_upper):
+    def interpolate(self, key):
         """
         Main interpolation function.
         """
+        [loc_id, sex_id, age_lower, age_upper, time_lower, time_upper] = key
         if loc_id not in self.location_ids:
             LOG.warning(f"Covariate is missing for location_id {loc_id},"
                         f"sex_id {sex_id} -- setting the value to None.")
@@ -139,38 +143,50 @@ class CovariateInterpolator:
         return cov_value
 
 
-def get_interpolated_covariate_values(data_df, covariate_dict,
-                                      population_df):
+def get_interpolated_covariate_values(data_df: pd.DataFrame, covariate_dict: Dict[str, pd.DataFrame],
+                                      population_df: pd.DataFrame, pools: int = 10) -> pd.DataFrame:
     """
     Gets the unique age-time combinations from the data_df, and creates
     interpolated covariate values for each of these combinations by population-weighting
     the standard GBD age-years that span the non-standard combinations.
-
-    :param data_df: (pd.DataFrame)
-    :param covariate_dict: Dict[pd.DataFrame] with covariate names as keys
-    :param population_df: (pd.DataFrame)
-    :return: pd.DataFrame
+    Skipping adding covariates to the held out data because it's not needed.
     """
-    data = data_df.copy()
+    if 'hold_out' in data_df.columns:
+        held_out = data_df.loc[data_df.hold_out == 1].copy()
+        used = data_df.loc[data_df.hold_out == 0].copy()
+    else:
+        held_out = pd.DataFrame()
+        used = data_df.copy()
+
     pop = population_df.copy()
 
-    data_groups = data.groupby([
+    data_groups = used.groupby([
         'location_id', 'sex_id', 'age_lower', 'age_upper', 'time_lower', 'time_upper'
     ], as_index=False)
 
     cov_objects = {cov_name: CovariateInterpolator(covariate=raw_cov, population=pop)
                    for cov_name, raw_cov in covariate_dict.items()}
-    num_groups = len(data_groups)
+
     for cov_id, cov_obj in cov_objects.items():
         LOG.info(f"Interpolating covariate {cov_id}.")
+
+        indices = []
+        keys = []
         for i, (k, v) in enumerate(data_groups):
-            if i % 1000 == 0:
-                LOG.info(f"Processed {i} of {num_groups} data groups.")
-            [loc_id, sex_id, age_lower, age_upper, time_lower, time_upper] = k
-            cov_value = cov_obj.interpolate(
-                loc_id=loc_id, sex_id=sex_id,
-                age_lower=age_lower, age_upper=age_upper,
-                time_lower=time_lower, time_upper=time_upper
-            )
-            data.loc[v.index, cov_id] = cov_value
-    return data
+            indices.append(v.index)
+            keys.append(k)
+
+        LOG.info(f"Starting a multiprocessing pool of {pools}.")
+        pool = mp.Pool(pools)
+        cov_values = pool.map(cov_obj.interpolate, keys)
+        pool.close()
+
+        for index, value in zip(indices, cov_values):
+            used.loc[index, cov_id] = value
+        held_out[cov_id] = np.nan
+
+    if len(held_out) == 0:
+        result = used
+    else:
+        result = pd.concat([used, held_out], axis=0).reset_index()
+    return result

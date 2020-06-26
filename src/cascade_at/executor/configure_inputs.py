@@ -5,7 +5,7 @@ import sys
 from typing import Optional
 
 from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg, NPool
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
@@ -24,11 +24,13 @@ ARG_LIST = ArgumentList([
     StrArg('--test-dir', help='if set, will save files to the directory specified.'
                               'Invalidated if --configure is set.'),
     BoolArg('--midpoint', help='whether or not to use midpoint for age/time bounds'),
+    NPool()
 ])
 
 
 def configure_inputs(model_version_id: int, make: bool, configure: bool, midpoint: bool = False,
-                     test_dir: Optional[str] = None, json_file: Optional[str] = None) -> None:
+                     test_dir: Optional[str] = None, json_file: Optional[str] = None,
+                     n_pool: int = 10) -> None:
     """
     Grabs the inputs for a specific model version ID, sets up the folder
     structure, and pickles the inputs object plus writes the settings json
@@ -46,12 +48,16 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool, midpoin
     configure
         Configure the application for the IHME cluster, otherwise will use the
         test_dir for the directory tree instead.
+    midpoint
+        Whether or not to age/time midpoint the crosswalk data
     test_dir
         A test directory to use rather than the directory specified by the
         model version context in the IHME file system.
     json_file
         An optional filepath pointing to a different json than is attached to the
         model_version_id. Will use this instead for settings.
+    n_pool
+        Number of simultaneous processes to run for covariate interpolation.
     """
     LOG.info(f"Configuring inputs for model version ID {model_version_id}.")
 
@@ -75,7 +81,8 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool, midpoin
 
     inputs = MeasurementInputsFromSettings(settings=settings)
     inputs.get_raw_inputs()
-    inputs.configure_inputs_for_dismod(settings=settings, midpoint=midpoint)
+    inputs.configure_inputs_for_dismod(settings=settings, midpoint=midpoint,
+                                       pools=n_pool)
 
     if not inputs.csmr.raw.empty:
         LOG.info("Uploading CSMR to t3 table.")
@@ -99,6 +106,7 @@ def main():
         test_dir=args.test_dir,
         json_file=args.json_file,
         midpoint=args.midpoint,
+        n_pool=args.n_pool
     )
 
 

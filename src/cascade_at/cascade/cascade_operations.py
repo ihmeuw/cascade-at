@@ -94,14 +94,15 @@ class _CascadeOperation:
 
 
 class ConfigureInputs(_CascadeOperation):
-    def __init__(self, model_version_id: int, **kwargs):
+    def __init__(self, model_version_id: int, n_pool: int, **kwargs):
         super().__init__(**kwargs)
         self.j_resource = True
 
         self._configure(
             model_version_id=model_version_id,
             make=True,
-            configure=True
+            configure=True,
+            n_pool=n_pool
         )
 
     @staticmethod
