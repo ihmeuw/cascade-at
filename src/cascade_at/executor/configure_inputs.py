@@ -23,11 +23,11 @@ ARG_LIST = ArgumentList([
                                'instead of referencing a model version ID.'),
     StrArg('--test-dir', help='if set, will save files to the directory specified.'
                               'Invalidated if --configure is set.'),
-    BoolArg('--demographic', help='whether or not to convert age/time bounds out of demographic notation'),
+    BoolArg('--midpoint', help='whether or not to use midpoint for age/time bounds'),
 ])
 
 
-def configure_inputs(model_version_id: int, make: bool, configure: bool, demographic: bool = False,
+def configure_inputs(model_version_id: int, make: bool, configure: bool, midpoint: bool = False,
                      test_dir: Optional[str] = None, json_file: Optional[str] = None) -> None:
     """
     Grabs the inputs for a specific model version ID, sets up the folder
@@ -75,7 +75,7 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool, demogra
 
     inputs = MeasurementInputsFromSettings(settings=settings)
     inputs.get_raw_inputs()
-    inputs.configure_inputs_for_dismod(settings=settings, demographic=demographic)
+    inputs.configure_inputs_for_dismod(settings=settings, midpoint=midpoint)
 
     if not inputs.csmr.raw.empty:
         LOG.info("Uploading CSMR to t3 table.")
@@ -98,7 +98,7 @@ def main():
         configure=args.configure,
         test_dir=args.test_dir,
         json_file=args.json_file,
-        demographic=args.demographic,
+        midpoint=args.midpoint,
     )
 
 
