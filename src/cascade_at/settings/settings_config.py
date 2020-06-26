@@ -307,6 +307,17 @@ class DataCV(Form):
     value = FloatField(nullable=True)
 
 
+class MinCV(Form):
+    cascade_level_id = StrField(nullable=True)
+    value = FloatField(nullable=True)
+
+
+class MinCVRate(Form):
+    cascade_level_id = StrField(nullable=True)
+    rate_measure_id = StrField(nullable=True)
+    value = FloatField(nullable=True)
+
+
 class DataEta(Form):
     integrand_measure_id = IntField(nullable=True)
     value = FloatField(nullable=True)
@@ -409,8 +420,9 @@ class SettingsConfig(Form):
     location_set_version_id = IntField(default=429, nullable=True)
     csmr_cod_output_version_id = IntField()
     csmr_mortality_output_version_id = Dummy()
-    min_cv = FormList(Dummy)
-    min_cv_by_rate = FormList(Dummy)
+    min_cv = FormList(MinCV, display="Minimum coefficient of variation", nullable=False)
+    min_cv_by_rate = FormList(
+        MinCVRate, display="Minimum coefficient of variation by rate", nullable=True)
     re_bound_location = FormList(RandomEffectBound)
     derivative_test = DerivativeTest(display="Derivative test")
     max_num_iter = FixedRandomInt(display="Max ipopt iterations")

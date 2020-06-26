@@ -1,8 +1,12 @@
 from collections import defaultdict
 import numpy as np
+from copy import deepcopy
 
 from cascade_at.settings.settings_config import SettingsConfig
 from cascade_at.dismod.integrand_mappings import INTEGRAND_MAP
+
+
+CASCADE_LEVEL_ID = ['most_detailed']
 
 
 def measures_to_exclude_from_settings(settings: SettingsConfig):
@@ -68,6 +72,34 @@ def data_cv_from_settings(settings: SettingsConfig, default: float = 0.0):
             set_data_cv.integrand_measure_id].name] = float(
                 set_data_cv.value)
     return data_cv
+
+
+def min_cv_from_settings(settings: SettingsConfig, default: float = 0.0) -> defaultdict:
+    """
+    Gets the minimum coefficient of variation by rate and level
+    of the cascade from settings.
+    """
+    # This is a hack to over-ride the default value while the visualization
+    # team is fixing the bug in the cascade level drop-down menu.
+    if not settings.is_field_unset("min_cv") and settings.min_cv:
+        cascade_levels = [cv.cascade_level_id for cv in settings.min_cv]
+        values = [cv.value for cv in settings.min_cv]
+        if "most_detailed" in cascade_levels:
+            default = values[cascade_levels.index("most_detailed")]
+    inner = defaultdict(lambda: default)
+    outer = defaultdict(lambda: deepcopy(inner))
+
+    if not settings.is_field_unset("min_cv") and settings.min_cv:
+        for cv in settings.min_cv:
+            # The following lambda function is the only way to get the defaultdict
+            # creation to work within a loop. It does *not* work if you only do
+            # defaultdict(lambda: cv.value). As you go through the iterations, it just
+            # pulls in the current value for cv because lambda functions can't go back in time.
+            outer.update({cv.cascade_level_id: defaultdict(lambda val=cv.value: val)})
+    if not settings.is_field_unset("min_cv_by_rate") and settings.min_cv_by_rate:
+        for rate_cv in settings.min_cv_by_rate:
+            outer[rate_cv.cascade_level_id].update({rate_cv.rate_measure_id: rate_cv.value})
+    return outer
 
 
 def nu_from_settings(settings: SettingsConfig, default: float = np.nan):

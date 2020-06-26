@@ -1,5 +1,6 @@
 import os
 import getpass
+from typing import Optional
 
 from cascade_at.core.db import swarm
 from cascade_at.core.log import get_loggers
@@ -48,13 +49,16 @@ def bash_task_from_cascade_operation(co):
     )
 
 
-def jobmon_workflow_from_cascade_command(cc, context):
+def jobmon_workflow_from_cascade_command(cc, context, addl_workflow_args: Optional[str] = None):
     """
     Create a jobmon workflow from a cascade command (cc for short)
 
-    :param cc: (cascade_at.cascade.cascade_commands.CascadeCommand)
-    :param context: (cascade_at.context.model_context.Context)
-    :return: jobmon.client.swarm.workflow.workflow.Workflow
+    Parameters
+    ----------
+    cc
+        The cascade command
+    context
+    addl_workflow_args
     """
     user = getpass.getuser()
 
@@ -64,8 +68,12 @@ def jobmon_workflow_from_cascade_command(cc, context):
     for folder in [error_dir, output_dir]:
         os.makedirs(folder, exist_ok=True)
 
+    workflow_args = f'dismod-at_{cc.model_version_id}'
+    if addl_workflow_args:
+        workflow_args += f'_{addl_workflow_args}'
+
     wf = Workflow(
-        workflow_args=f'dismod-at_{cc.model_version_id}',
+        workflow_args=workflow_args,
         project='proj_dismod_at',
         stderr=str(error_dir),
         stdout=str(output_dir),

@@ -6,8 +6,13 @@ Cascade Commands
 Sequences of cascade operations that work together to create a cascade command
 that will run the whole cascade (or a drill -- which is a version of the cascade).
 """
+from typing import Optional
+
 from cascade_at.core.log import get_loggers
-from cascade_at.cascade.cascade_stacks import single_fit
+from cascade_at.cascade.cascade_stacks import single_fit_with_uncertainty
+from cascade_at.cascade.cascade_dags import make_cascade_dag
+from cascade_at.inputs.locations import LocationDAG
+from cascade_at.inputs.utilities.gbd_ids import SEX_NAME_TO_ID, CascadeConstants
 
 
 LOG = get_loggers(__name__)
@@ -34,15 +39,15 @@ class Drill(_CascadeCommand):
     """
     Runs a drill!
     """
-    def __init__(self, model_version_id,
-                 drill_parent_location_id, drill_sex):
+    def __init__(self, model_version_id: int,
+                 drill_parent_location_id: int, drill_sex: int):
         super().__init__()
 
         self.model_version_id = model_version_id
         self.drill_parent_id = drill_parent_location_id
         self.drill_sex = drill_sex
 
-        tasks = single_fit(
+        tasks = single_fit_with_uncertainty(
             model_version_id=model_version_id,
             location_id=drill_parent_location_id,
             sex_id=drill_sex,
@@ -55,7 +60,24 @@ class TraditionalCascade(_CascadeCommand):
     """
     Runs the traditional cascade.
     """
-    def __init__(self, model_version_id):
-        super().__init__()
+    def __init__(self, model_version_id: int, split_sex: bool,
+                 dag: LocationDAG, n_sim: int,
+                 location_start: Optional[int] = None,
+                 sex: Optional[int] = None):
 
-        raise NotImplementedError
+        super().__init__()
+        self.model_version_id = model_version_id
+
+        if sex is None:
+            sex = SEX_NAME_TO_ID['Both']
+        if location_start is None:
+            location_start = CascadeConstants.GLOBAL_LOCATION_ID
+
+        tasks = make_cascade_dag(
+            model_version_id=model_version_id,
+            dag=dag,
+            location_start=location_start,
+            sex_start=sex,
+            split_sex=split_sex,
+            n_sim=n_sim, n_pool=10
+        )

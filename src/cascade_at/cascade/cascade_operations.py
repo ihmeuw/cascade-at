@@ -2,7 +2,7 @@
 Sequences of dismod_at commands that work together to create a cascade operation
 that can be performed on a single DisMod-AT database.
 """
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Any
 
 from cascade_at.jobmon.resources import DEFAULT_EXECUTOR_PARAMETERS
 from cascade_at.executor.args.arg_utils import encode_commands, encode_options, list2string
@@ -49,11 +49,14 @@ def _args_to_command(**kwargs):
 
 
 class _CascadeOperation:
-    def __init__(self, upstream_commands: Optional[List[str]] = None):
+    def __init__(self, upstream_commands: Optional[List[str]] = None,
+                 executor_parameters: Optional[Dict[str, Any]] = None):
         if upstream_commands is None:
             upstream_commands = list()
 
         self.executor_parameters = DEFAULT_EXECUTOR_PARAMETERS
+        if executor_parameters is not None:
+            self.executor_parameters.update(executor_parameters)
         self.upstream_commands = upstream_commands
         self.j_resource = False
 
@@ -162,9 +165,9 @@ class Fit(_DismodDB):
         )
 
 
-class SampleSimulate(_CascadeOperation):
+class Sample(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 n_sim: int, n_pool: int, fit_type: str, **kwargs):
+                 n_sim: int, fit_type: str, asymptotic: bool, n_pool: int = 1, **kwargs):
         super().__init__(**kwargs)
 
         self._configure(
@@ -173,18 +176,20 @@ class SampleSimulate(_CascadeOperation):
             sex_id=sex_id,
             n_sim=n_sim,
             n_pool=n_pool,
-            fit_type=fit_type
+            fit_type=fit_type,
+            asymptotic=asymptotic
         )
 
     @staticmethod
     def _script():
-        return 'sample_simulate'
+        return 'sample'
 
 
-class PredictSample(_CascadeOperation):
+class Predict(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 child_locations: List[int], child_sexes: List[int],
-                 prior_grid: bool = True, save_fit: bool = False, **kwargs):
+                 child_locations: Optional[List[int]] = None, child_sexes: Optional[List[int]] = None,
+                 prior_grid: bool = True, save_fit: bool = False, save_final: bool = False,
+                 sample: bool = True, **kwargs):
 
         super().__init__(**kwargs)
 
@@ -195,12 +200,14 @@ class PredictSample(_CascadeOperation):
             child_locations=child_locations,
             child_sexes=child_sexes,
             prior_grid=prior_grid,
-            save_fit=save_fit
+            save_fit=save_fit,
+            save_final=save_final,
+            sample=sample
         )
 
     @staticmethod
     def _script():
-        return 'predict_sample'
+        return 'predict'
 
 
 class MulcovStatistics(_CascadeOperation):
@@ -255,7 +262,7 @@ class CleanUp(_CascadeOperation):
 
 CASCADE_OPERATIONS = {
     cls._script(): cls for cls in [
-        ConfigureInputs, _DismodDB, SampleSimulate, MulcovStatistics,
-        PredictSample, Upload, CleanUp
+        ConfigureInputs, _DismodDB, Sample, MulcovStatistics,
+        Predict, Upload, CleanUp
     ]
 }

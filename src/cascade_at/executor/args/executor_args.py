@@ -3,9 +3,9 @@ from cascade_at.executor import configure_inputs
 from cascade_at.executor import dismod_db
 from cascade_at.executor import upload
 from cascade_at.executor import mulcov_statistics
-from cascade_at.executor import predict_sample
+from cascade_at.executor import predict
 from cascade_at.executor import run_dmdismod
-from cascade_at.executor import sample_simulate
+from cascade_at.executor import sample
 
 
 def _path_to_name(path: str) -> str:
@@ -18,9 +18,9 @@ SCRIPT_LIST = [
     dismod_db,
     upload,
     mulcov_statistics,
-    predict_sample,
+    predict,
     run_dmdismod,
-    sample_simulate
+    sample
 ]
 
 

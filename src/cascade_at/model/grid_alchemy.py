@@ -15,10 +15,13 @@ from cascade_at.model.utilities.grid_helpers import constraint_from_rectangular_
 from cascade_at.model.utilities.grid_helpers import estimate_grid_from_draws
 from cascade_at.settings.settings_config import Smoothing
 from cascade_at.model.var import Var
-from cascade_at.model.smooth_grid import SmoothGrid
+from cascade_at.model.smooth_grid import SmoothGrid, _PriorGrid
 from cascade_at.model.priors import _Prior
 
 LOG = get_loggers(__name__)
+
+
+MOST_DETAILED_CASCADE_LEVEL = 'most_detailed'
 
 
 class Alchemy:
@@ -128,8 +131,8 @@ class Alchemy:
         """
         # Check that the prior grid lines up with this rate
         # grid. If it doesn't, we have a problem.
-        assert all(update_dict['ages'] == rate_grid.ages)
-        assert all(update_dict['times'] == rate_grid.times)
+        assert (update_dict['ages'] == rate_grid.ages).all()
+        assert (update_dict['times'] == rate_grid.times).all()
         # For each of the types of priors, update rate_grid
         # with the new prior information from the update_prior
         # object that has info from a different model fit
@@ -151,12 +154,26 @@ class Alchemy:
                 ages=rate_grid.ages, times=rate_grid.times[:-1],
                 new_prior_distribution=new_prior_distribution
             )
-    
+
+    @staticmethod
+    def apply_min_cv_to_prior_grid(prior_grid: _PriorGrid, min_cv: float) -> None:
+        """
+        Applies the minimum coefficient of variation to a _PriorGrid
+        to enforce that minCV across all variables in the grid.
+        Updates the _PriorGrid in place.
+        """
+        prior_grid.grid['std'] = prior_grid.grid.apply(
+            lambda row: max(
+                row['std'], np.abs(row['mean']) * min_cv
+            ), axis=1
+        )
+
     def construct_two_level_model(self, location_dag: LocationDAG, parent_location_id: int,
                                   covariate_specs: CovariateSpecs,
                                   weights: Optional[Dict[str, Var]] = None,
                                   omega_df: Optional[pd.DataFrame] = None,
                                   update_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None,
+                                  min_cv: Optional[Dict[str, Dict[str, float]]] = None,
                                   update_mulcov_prior: Optional[Dict[Tuple[str, str, str], _Prior]] = None):
         """
         Construct a Model object for a parent location and its children.
@@ -174,8 +191,17 @@ class Alchemy:
             data frame with omega values in it (other cause mortality)
         update_prior
             dictionary of dictionary for prior updates to rates
+        update_mulcov_prior
+        min_cv
+            dictionary (can be defaultdict) for minimum coefficient of variation
+            keyed by cascade level, then by rate
         """
-        children = list(location_dag.dag.successors(parent_location_id))
+        children = location_dag.children(parent_location_id)
+        cascade_level = location_dag.depth(parent_location_id)
+        is_leaf = location_dag.is_leaf(parent_location_id)
+        if is_leaf:
+            cascade_level = MOST_DETAILED_CASCADE_LEVEL
+
         model = Model(
             nonzero_rates=self.settings.rate,
             parent_location=parent_location_id,
@@ -191,6 +217,10 @@ class Alchemy:
             if update_prior is not None:
                 if smooth.rate in update_prior:
                     self.override_priors(rate_grid=rate_grid, update_dict=update_prior[smooth.rate])
+                    if min_cv is not None:
+                        self.apply_min_cv_to_prior_grid(
+                            prior_grid=rate_grid.value, min_cv=min_cv[cascade_level][smooth.rate]
+                        )
             model.rate[smooth.rate] = rate_grid
         
         # Second construct the covariate grids
