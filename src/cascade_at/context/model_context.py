@@ -141,7 +141,7 @@ class Context:
         -------
         String representing the absolute path to the index database.
         """
-        return str(self.db_folder(location_id, sex_id)) + 'dismod_{index}.db'
+        return str(self.db_folder(location_id, sex_id)) + '/dismod_{index}.db'
 
     def write_inputs(self, inputs: Optional[MeasurementInputs] = None,
                      settings: Optional[SettingsConfig] = None):

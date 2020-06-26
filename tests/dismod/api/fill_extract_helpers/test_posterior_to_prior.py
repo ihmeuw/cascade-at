@@ -86,3 +86,14 @@ def test_override_priors():
         assert prior.dage[age, time].mean == draws[a, t, :].mean()
     for (a, age), (t, time) in zip(enumerate(prior.ages), enumerate(prior.times[:-1])):
         assert prior.dtime[age, time].mean == draws[a, t, :].mean()
+
+
+def test_apply_min_cv_to_value():
+    settings = load_settings(BASE_CASE)
+    alchemy = Alchemy(settings)
+
+    prior = alchemy.get_smoothing_grid(rate=settings.rate[0]).value
+    # Apply a ridiculously large coefficient of variation
+    alchemy.apply_min_cv_to_prior_grid(prior_grid=prior, min_cv=1e6)
+    for (a, age), (t, time) in zip(enumerate(prior.ages), enumerate(prior.times)):
+        assert prior[age, time].standard_deviation == prior[age, time].mean * 1e6

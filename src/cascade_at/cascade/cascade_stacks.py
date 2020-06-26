@@ -11,7 +11,7 @@ from typing import List
 
 from cascade_at.cascade.cascade_operations import _CascadeOperation
 from cascade_at.cascade.cascade_operations import (
-    ConfigureInputs, Fit, SampleSimulate, PredictSample,
+    ConfigureInputs, Fit, Sample, Predict,
     Upload, CleanUp
 )
 
@@ -47,6 +47,7 @@ def single_fit(model_version_id: int,
         predict=True,
         both=True,
         save_fit=True,
+        save_prior=False,
         upstream_commands=[t1.command]
     )
     t3 = Upload(
@@ -57,13 +58,13 @@ def single_fit(model_version_id: int,
     return [t1, t2, t3]
 
 
-def root_fit(model_version_id: int, location_id: int, sex_id: int,
-             child_locations: List[int], child_sexes: List[int],
-             n_sim: int = 100, n_pool: int = 1) -> List[_CascadeOperation]:
+def single_fit_with_uncertainty(model_version_id: int,
+                                location_id: int, sex_id: int,
+                                n_sim: int = 100, n_pool: int = 20) -> List[_CascadeOperation]:
     """
-    Create a sequence of tasks to do a top-level prior fit.
-    Does a fit fixed, then fit both, then sample simulate to create posteriors
-    that can be used as priors later on. Saves its fit to be uploaded.
+    Create a sequence of tasks to do a single fit both model. Configures
+    inputs, does a fit fixed, then fit both, then predict and uploads the result.
+    Will fit the model based on the settings attached to the model version ID.
 
     Parameters
     ----------
@@ -74,9 +75,72 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
     sex_id
         The sex ID to run the model for.
     n_sim
-        The number of simulations to do to get the posterior fit.
+        The number of simulations to do, number of draws to make
     n_pool
-        The number of pools to use to do the simulation fits.
+        The number of multiprocessing pools to use in creating the draws
+    Returns
+    -------
+    List of CascadeOperations.
+    """
+    t1 = ConfigureInputs(
+        model_version_id=model_version_id
+    )
+    t2 = Fit(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        fill=True,
+        predict=True,
+        both=True,
+        save_fit=True,
+        upstream_commands=[t1.command]
+    )
+    t3 = Sample(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        n_sim=n_sim,
+        n_pool=n_pool,
+        fit_type='both',
+        upstream_commands=[t2.command],
+        executor_parameters={
+            'num_cores': n_pool
+        },
+        asymptotic=True
+    )
+    t4 = Predict(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        save_final=True,
+        prior_grid=False,
+        sample=True,
+        upstream_commands=[t3.command]
+    )
+    t5 = Upload(
+        model_version_id=model_version_id,
+        fit=True,
+        final=True,
+        upstream_commands=[t4.command]
+    )
+    return [t1, t2, t3, t4, t5]
+
+
+def root_fit(model_version_id: int, location_id: int, sex_id: int,
+             child_locations: List[int], child_sexes: List[int]) -> List[_CascadeOperation]:
+    """
+    Create a sequence of tasks to do a top-level prior fit.
+    Does a fit fixed, then fit both, then creates posteriors
+    that can be used as priors later on. Saves its fit to be uploaded.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID.
+    location_id
+        The parent location ID to run the model for.
+    sex_id
+        The sex ID to run the model for.
     child_locations
         The children to fill the avgint table with
     child_sexes
@@ -94,39 +158,30 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
-        both=True,
+        both=False,
         predict=True,
         upstream_commands=[t1.command],
         save_fit=True
     )
-    t3 = SampleSimulate(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        n_sim=n_sim,
-        n_pool=n_pool,
-        fit_type='both',
-        upstream_commands=[t2.command]
-    )
-    t4 = PredictSample(
+    t3 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         child_locations=child_locations,
         child_sexes=child_sexes,
-        upstream_commands=[t3.command]
+        sample=False,
+        upstream_commands=[t2.command]
     )
-    return [t1, t2, t3, t4]
+    return [t1, t2, t3]
 
 
 def branch_fit(model_version_id: int, location_id: int, sex_id: int,
                prior_parent: int, prior_sex: int,
                child_locations: List[int], child_sexes: List[int],
-               n_sim: int = 100, n_pool: int = 1,
                upstream_commands: List[str] = None) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a cascade fit (mid-level).
-    Does a fit fixed, then fit both, then sample simulate to create posteriors
+    Does a fit fixed, then fit both, predicts on the prior rate grid to create posteriors
     that can be used as priors later on. Saves its fit to be uploaded.
 
     Parameters
@@ -141,10 +196,6 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         The location ID corresponding to a database to pull the prior from
     prior_sex
         The sex ID corresponding to a database to pull the prior from
-    n_sim
-        The number of simulations to do to get the posterior fit.
-    n_pool
-        The number of pools to use to do the simulation fits.
     child_locations
         The children to fill the avgint table with
     child_sexes
@@ -161,7 +212,7 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
-        both=True,
+        both=False,
         predict=True,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
@@ -169,24 +220,16 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         save_prior=True,
         upstream_commands=upstream_commands
     )
-    t2 = SampleSimulate(
-        model_version_id=model_version_id,
-        parent_location_id=location_id,
-        sex_id=sex_id,
-        n_sim=n_sim,
-        n_pool=n_pool,
-        fit_type='both',
-        upstream_commands=[t1.command]
-    )
-    t3 = PredictSample(
+    t2 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         child_locations=child_locations,
         child_sexes=child_sexes,
-        upstream_commands=[t2.command]
+        sample=False,
+        upstream_commands=[t1.command]
     )
-    return [t1, t2, t3]
+    return [t1, t2]
 
 
 def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
@@ -224,7 +267,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
-        fill=False,
+        fill=True,
         both=False,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
@@ -232,16 +275,20 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         save_prior=True,
         upstream_commands=upstream_commands
     )
-    t2 = SampleSimulate(
+    t2 = Sample(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         n_sim=n_sim,
         n_pool=n_pool,
         fit_type='fixed',
-        upstream_commands=[t1.command]
+        asymptotic=True,
+        upstream_commands=[t1.command],
+        executor_parameters={
+            'num_cores': n_pool
+        }
     )
-    t3 = PredictSample(
+    t3 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
@@ -249,6 +296,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         child_sexes=[sex_id],
         save_fit=True,
         prior_grid=False,
+        sample=True,
         upstream_commands=[t2.command]
     )
     return [t1, t2, t3]

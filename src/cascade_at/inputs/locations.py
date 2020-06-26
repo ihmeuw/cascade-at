@@ -74,7 +74,13 @@ class LocationDAG:
         ])
         self.dag.graph["root"] = root
 
-    def descendants(self, location_id):
+    def depth(self, location_id: int) -> int:
+        """
+        Gets the depth of the hierarchy at this location.
+        """
+        return nx.shortest_path_length(G=self.dag, source=self.dag.graph["root"], target=location_id)
+
+    def descendants(self, location_id: int) -> List[int]:
         """
         Gets all descendants (not just direct children) for a location ID.
         :param location_id: (int)
@@ -82,15 +88,25 @@ class LocationDAG:
         """
         return nx.algorithms.dag.descendants(G=self.dag, source=location_id)
 
-    def parent_children(self, location_id):
+    def children(self, location_id: int) -> List[int]:
+        """
+        Gets the child location IDs.
+        """
+        return list(self.dag.successors(location_id))
+
+    def parent_children(self, location_id: int) -> List[int]:
         """
         Gets the parent and the child location IDs.
-        :param location_id: (int)
-        :return:
         """
         return [location_id] + list(self.dag.successors(location_id))
 
-    def to_dataframe(self):
+    def is_leaf(self, location_id: int) -> bool:
+        """
+        Checks if a location is a leaf node in the tree.
+        """
+        return len(list(self.dag.successors(location_id))) == 0
+
+    def to_dataframe(self) -> pd.DataFrame:
         """
         Converts the location DAG to a data frame with location ID and parent
         ID and name. Helpful for debugging, and putting into the dismod

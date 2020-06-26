@@ -25,6 +25,6 @@ def test_make_dag(l_dag):
         model_version_id=0, dag=l_dag,
         location_start=1, sex_start=2, split_sex=False
     )
-    assert len(tasks) == 4 + 3 * 9 + 1
+    assert len(tasks) == 3 + 2 * 3 + 6 * 3 + 1
     for task in tasks:
         assert isinstance(task, _CascadeOperation)

@@ -8,8 +8,8 @@ def test_drill():
         drill_parent_location_id=1,
         drill_sex=1
     )
-    assert len(cascade_command.task_dict) == 3
-    assert len(cascade_command.get_commands()) == 3
+    assert len(cascade_command.task_dict) == 5
+    assert len(cascade_command.get_commands()) == 5
     assert isinstance(
         cascade_command.task_dict['configure_inputs --model-version-id 0 --make --configure'],
         CASCADE_OPERATIONS['configure_inputs']
@@ -23,6 +23,20 @@ def test_drill():
         CASCADE_OPERATIONS['dismod_db']
     )
     assert isinstance(
-        cascade_command.task_dict['upload --model-version-id 0 --fit'],
+        cascade_command.task_dict[
+            'sample --model-version-id 0 --parent-location-id 1 --sex-id 1 '
+            '--n-sim 100 --n-pool 20 --fit-type both --asymptotic'
+        ],
+        CASCADE_OPERATIONS['sample']
+    )
+    assert isinstance(
+        cascade_command.task_dict[
+            'predict --model-version-id 0 --parent-location-id 1 --sex-id 1 '
+            '--save-final --sample'
+        ],
+        CASCADE_OPERATIONS['predict']
+    )
+    assert isinstance(
+        cascade_command.task_dict['upload --model-version-id 0 --final --fit'],
         CASCADE_OPERATIONS['upload']
     )

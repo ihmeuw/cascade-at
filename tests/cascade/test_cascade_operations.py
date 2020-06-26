@@ -1,6 +1,6 @@
 from cascade_at.cascade.cascade_operations import (
     ConfigureInputs, Fit,
-    Upload, CleanUp, SampleSimulate
+    Upload, CleanUp, Sample, Predict
 )
 
 
@@ -51,22 +51,46 @@ def test_fit_both():
 
 
 def test_sample_simulate():
-    obj = SampleSimulate(
+    obj = Sample(
         model_version_id=0,
         parent_location_id=1,
         sex_id=1,
         n_sim=5,
         n_pool=1,
-        fit_type='both'
+        fit_type='both',
+        asymptotic=False
     )
     assert obj.command == (
-        f'sample_simulate '
+        f'sample '
         f'--model-version-id 0 '
         f'--parent-location-id 1 '
         f'--sex-id 1 '
         f'--n-sim 5 '
         f'--n-pool 1 '
         f'--fit-type both'
+    )
+
+
+def test_predict():
+    obj = Predict(
+        model_version_id=0,
+        parent_location_id=1,
+        sex_id=1,
+        prior_grid=True,
+        save_fit=False,
+        sample=True,
+        child_locations=[2],
+        child_sexes=[2]
+    )
+    assert obj.command == (
+        'predict '
+        f'--model-version-id 0 '
+        f'--parent-location-id 1 '
+        f'--sex-id 1 '
+        f'--child-locations 2 '
+        f'--child-sexes 2 '
+        f'--prior-grid '
+        f'--sample'
     )
 
 

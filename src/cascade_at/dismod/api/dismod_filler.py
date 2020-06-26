@@ -1,15 +1,17 @@
 import pandas as pd
 from pathlib import Path
 import numpy as np
-from typing import Optional, Dict, Union
+from typing import Optional, Dict, Union, Tuple
 
 from cascade_at.settings.settings_config import SettingsConfig
 from cascade_at.inputs.measurement_inputs import MeasurementInputs
+from cascade_at.settings.convert import min_cv_from_settings
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers import reference_tables, data_tables, grid_tables
 from cascade_at.settings.convert import data_cv_from_settings
+from cascade_at.model.priors import _Prior
 
 LOG = get_loggers(__name__)
 
@@ -52,7 +54,8 @@ class DismodFiller(DismodIO):
     def __init__(self, path: Union[str, Path], settings_configuration: SettingsConfig,
                  measurement_inputs: MeasurementInputs, grid_alchemy: Alchemy,
                  parent_location_id: int, sex_id: int,
-                 child_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None):
+                 child_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None,
+                 mulcov_prior: Optional[Dict[Tuple[str, str, str], _Prior]] = None):
         """
         Parameters
         ----------
@@ -72,8 +75,10 @@ class DismodFiller(DismodIO):
         self.parent_location_id = parent_location_id
         self.sex_id = sex_id
         self.child_prior = child_prior
+        self.mulcov_prior = mulcov_prior
 
         self.omega_df = self.get_omega_df()
+        self.min_cv = min_cv_from_settings(settings=self.settings)
         self.covariate_reference_specs = self.calculate_reference_covariates()
         self.parent_child_model = self.get_parent_child_model()
 
@@ -91,6 +96,9 @@ class DismodFiller(DismodIO):
         """
         if self.inputs.omega is not None:
             omega_df = self.inputs.omega.loc[self.inputs.omega.sex_id == self.sex_id].copy()
+            omega_df = omega_df[omega_df.location_id.isin(
+                self.inputs.location_dag.parent_children(self.parent_location_id)
+            )].copy()
         else:
             omega_df = None
         return omega_df
@@ -107,7 +115,9 @@ class DismodFiller(DismodIO):
             parent_location_id=self.parent_location_id,
             covariate_specs=self.covariate_reference_specs,
             omega_df=self.omega_df,
-            update_prior=self.child_prior
+            update_prior=self.child_prior,
+            min_cv=self.min_cv,
+            update_mulcov_prior=self.mulcov_prior,
         )
 
     def calculate_reference_covariates(self):
@@ -176,7 +186,7 @@ class DismodFiller(DismodIO):
         :return: self
         """
         self.data = data_tables.construct_data_table(
-            df=self.inputs.dismod_data,
+            df=self.inputs.prune_mortality_data(parent_location_id=self.parent_location_id),
             node_df=self.node,
             covariate_df=self.covariate,
             ages=self.parent_child_model.get_age_array(),

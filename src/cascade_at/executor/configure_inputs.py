@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import json
 import logging
 import sys
@@ -21,11 +22,12 @@ ARG_LIST = ArgumentList([
     StrArg('--json-file', help='for testing, pass a json file directly by filepath'
                                'instead of referencing a model version ID.'),
     StrArg('--test-dir', help='if set, will save files to the directory specified.'
-                              'Invalidated if --configure is set.')
+                              'Invalidated if --configure is set.'),
+    BoolArg('--midpoint', help='whether or not to use midpoint for age/time bounds'),
 ])
 
 
-def configure_inputs(model_version_id: int, make: bool, configure: bool,
+def configure_inputs(model_version_id: int, make: bool, configure: bool, midpoint: bool = False,
                      test_dir: Optional[str] = None, json_file: Optional[str] = None) -> None:
     """
     Grabs the inputs for a specific model version ID, sets up the folder
@@ -73,7 +75,7 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool,
 
     inputs = MeasurementInputsFromSettings(settings=settings)
     inputs.get_raw_inputs()
-    inputs.configure_inputs_for_dismod(settings=settings)
+    inputs.configure_inputs_for_dismod(settings=settings, midpoint=midpoint)
 
     if not inputs.csmr.raw.empty:
         LOG.info("Uploading CSMR to t3 table.")
@@ -95,7 +97,8 @@ def main():
         make=args.make,
         configure=args.configure,
         test_dir=args.test_dir,
-        json_file=args.json_file
+        json_file=args.json_file,
+        midpoint=args.midpoint,
     )
 
 

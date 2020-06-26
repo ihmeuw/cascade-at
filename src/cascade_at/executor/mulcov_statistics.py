@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import logging
 import sys
 from typing import List, Optional
@@ -18,7 +19,7 @@ ARG_LIST = ArgumentList([
     ModelVersionID(),
     ListArg('--locations', help='The locations to pull mulcov statistics from', type=int, required=True),
     ListArg('--sexes', help='The sexes to pull mulcov statistics from', type=int, required=True),
-    StrArg('--outfile-name', help='Filepath where mulcov statistics will be saved', required=True),
+    StrArg('--outfile-name', help='Filepath where mulcov statistics will be saved', required=False, default='mulcov_stats'),
     BoolArg('--sample', help='If true, the results will be pulled from the sample table rather'
                              'than the fit_var table'),
     BoolArg('--mean', help='Whether or not to compute the mean'),
@@ -60,10 +61,9 @@ def get_mulcovs(dbs, covs, table='fit_var'):
         try:
             df = db.var.merge(getattr(db, table), left_on='var_id', right_on=id_col)
             df = df.fillna(np.nan)
-
             df = df.merge(db.integrand, on='integrand_id', how='left')
             df = df.merge(db.rate, on='rate_id', how='left')
-            mulcov = mulcov.astype({'integrand_id': 'float64'})
+            mulcov = mulcov.astype({'integrand_id': 'float64', 'rate_id': 'float64'})
             df = mulcov.merge(df)
             df.rename(columns={val_col: 'mulcov_value'}, inplace=True)
             df = df[[
@@ -91,21 +91,18 @@ def compute_statistics(df, mean=True, std=True, quantile=None):
     stats_df = pd.DataFrame()
     group_cols = ['c_covariate_name', 'mulcov_type', 'rate_name', 'integrand_name']
     df_groups = df.fillna('none').copy().groupby(group_cols, sort=False)
-
+    stats_df = df_groups.count().reset_index()[group_cols]
     if mean:
         ds = df_groups.mean().reset_index()
-        ds['stat'] = 'mean'
-        stats_df = stats_df.append(ds)
+        stats_df['mean'] = ds['mulcov_value']
     if std:
         degrees_of_freedom = int(df_groups.ngroups > len(df))
         ds = df_groups.std(ddof=degrees_of_freedom).reset_index()
-        ds['stat'] = 'std'
-        stats_df = stats_df.append(ds)
+        stats_df['std'] = ds['mulcov_value']
     if quantile is not None:
         for q in quantile:
             ds = df_groups.quantile(q=q).reset_index()
-            ds['stat'] = f'quantile_{q}'
-            stats_df = stats_df.append(ds)
+            stats_df[f'quantile_{q}'] = ds['mulcov_value']
     return stats_df
 
 

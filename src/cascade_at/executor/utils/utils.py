@@ -6,7 +6,8 @@ MODEL_STATUS = {
     'Submitted': 0
 }
 
-def update_model_status(model_version_id, status_id, conn_def):
+
+def update_model_status(model_version_id: int, status_id: int, conn_def: str):
     """
     Updates a model status in the database.
     """
