@@ -81,3 +81,5 @@ class TraditionalCascade(_CascadeCommand):
             split_sex=split_sex,
             n_sim=n_sim, n_pool=10
         )
+        for t in tasks:
+            self.add_task(t)
