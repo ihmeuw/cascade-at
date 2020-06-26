@@ -17,7 +17,8 @@ from cascade_at.cascade.cascade_operations import (
 
 
 def single_fit(model_version_id: int,
-               location_id: int, sex_id: int) -> List[_CascadeOperation]:
+               location_id: int, sex_id: int,
+               n_pool_inputs: int = 20) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a single fit both model. Configures
     inputs, does a fit fixed, then fit both, then predict and uploads the result.
@@ -31,13 +32,19 @@ def single_fit(model_version_id: int,
         The parent location ID to run the model for.
     sex_id
         The sex ID to run the model for.
+    n_pool_inputs
+        The number of multiprocessing pools to use in creating inputs
 
     Returns
     -------
     List of CascadeOperations.
     """
     t1 = ConfigureInputs(
-        model_version_id=model_version_id
+        model_version_id=model_version_id,
+        n_pool=n_pool_inputs,
+        executor_parameters={
+            'num_cores': n_pool_inputs
+        }
     )
     t2 = Fit(
         model_version_id=model_version_id,
@@ -60,7 +67,9 @@ def single_fit(model_version_id: int,
 
 def single_fit_with_uncertainty(model_version_id: int,
                                 location_id: int, sex_id: int,
-                                n_sim: int = 100, n_pool: int = 20) -> List[_CascadeOperation]:
+                                n_sim: int = 100,
+                                n_pool_draws: int = 20,
+                                n_pool_inputs: int = 20) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a single fit both model. Configures
     inputs, does a fit fixed, then fit both, then predict and uploads the result.
@@ -76,14 +85,20 @@ def single_fit_with_uncertainty(model_version_id: int,
         The sex ID to run the model for.
     n_sim
         The number of simulations to do, number of draws to make
-    n_pool
+    n_pool_inputs
+        The number of multiprocessing pools to use in creating inputs
+    n_pool_draws
         The number of multiprocessing pools to use in creating the draws
     Returns
     -------
     List of CascadeOperations.
     """
     t1 = ConfigureInputs(
-        model_version_id=model_version_id
+        model_version_id=model_version_id,
+        n_pool=n_pool_inputs,
+        executor_parameters={
+            'num_cores': n_pool_inputs
+        }
     )
     t2 = Fit(
         model_version_id=model_version_id,
@@ -100,11 +115,11 @@ def single_fit_with_uncertainty(model_version_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         n_sim=n_sim,
-        n_pool=n_pool,
+        n_pool=n_pool_draws,
         fit_type='both',
         upstream_commands=[t2.command],
         executor_parameters={
-            'num_cores': n_pool
+            'num_cores': n_pool_draws
         },
         asymptotic=True
     )
@@ -127,7 +142,8 @@ def single_fit_with_uncertainty(model_version_id: int,
 
 
 def root_fit(model_version_id: int, location_id: int, sex_id: int,
-             child_locations: List[int], child_sexes: List[int]) -> List[_CascadeOperation]:
+             child_locations: List[int], child_sexes: List[int],
+             n_pool_inputs: int = 20) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
     Does a fit fixed, then fit both, then creates posteriors
@@ -145,13 +161,19 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         The children to fill the avgint table with
     child_sexes
         The sexes to predict for.
+    n_pool_inputs
+        The number of multiprocessing pools for the inputs
 
     Returns
     -------
     List of CascadeOperations.
     """
     t1 = ConfigureInputs(
-        model_version_id=model_version_id
+        model_version_id=model_version_id,
+        n_pool=n_pool_inputs,
+        executor_parameters={
+            'num_cores': n_pool_inputs
+        }
     )
     t2 = Fit(
         model_version_id=model_version_id,

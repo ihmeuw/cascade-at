@@ -229,7 +229,8 @@ class MeasurementInputs:
 
     def configure_inputs_for_dismod(self, settings: SettingsConfig,
                                     midpoint: bool = False,
-                                    mortality_year_reduction: int = 5):
+                                    mortality_year_reduction: int = 5,
+                                    pools: int = 10):
         """
         Modifies the inputs for DisMod based on model-specific settings.
 
@@ -237,8 +238,13 @@ class MeasurementInputs:
         ---------
         settings
             Settings for the model
+        midpoint
+            Whether or not to reduce all crosswalk data to the midpoint
         mortality_year_reduction
             number of years to decimate csmr and asdr
+        pools
+            number of processes to run in the multiprocessing pool
+            for covariate interpolation
         """
         self.data_eta = data_eta_from_settings(settings)
         self.density = density_from_settings(settings)
@@ -290,7 +296,7 @@ class MeasurementInputs:
             loc_df=self.location_dag.df
         ) for c in self.covariate_data}
 
-        self.dismod_data = self.add_covariates_to_data(df=self.dismod_data)
+        self.dismod_data = self.add_covariates_to_data(df=self.dismod_data, pools=pools)
         self.dismod_data.loc[
             self.dismod_data.hold_out.isnull(), 'hold_out'] = 0.
         self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
@@ -312,7 +318,7 @@ class MeasurementInputs:
         df = df.loc[~remove_rows].copy()
         return df
 
-    def add_covariates_to_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def add_covariates_to_data(self, df: pd.DataFrame, pools: int = 10) -> pd.DataFrame:
         """
         Add on covariates to a data frame that has age_group_id, year_id
         or time-age upper / lower, and location_id and sex_id. Adds both
@@ -325,7 +331,9 @@ class MeasurementInputs:
         }
 
         df = self.interpolate_country_covariate_values(
-            df=df, cov_dict=cov_dict_for_interpolation)
+            df=df, cov_dict=cov_dict_for_interpolation,
+            pools=pools
+        )
         df = self.transform_country_covariates(df=df)
 
         df['s_sex'] = df.sex_id.map(
@@ -359,7 +367,9 @@ class MeasurementInputs:
         grid = self.add_covariates_to_data(df=grid)
         return grid
 
-    def interpolate_country_covariate_values(self, df: pd.DataFrame, cov_dict: Dict[Union[float, str], pd.DataFrame]):
+    def interpolate_country_covariate_values(self, df: pd.DataFrame,
+                                             cov_dict: Dict[Union[float, str], pd.DataFrame],
+                                             pools: int = 10) -> pd.DataFrame:
         """
         Interpolates the covariate values onto the data
         so that the non-standard ages and years match up to meaningful
@@ -369,7 +379,8 @@ class MeasurementInputs:
         interp_df = get_interpolated_covariate_values(
             data_df=df,
             covariate_dict=cov_dict,
-            population_df=self.population.configure_for_dismod()
+            population_df=self.population.configure_for_dismod(),
+            pools=pools
         )
         return interp_df
 
@@ -389,7 +400,7 @@ class MeasurementInputs:
         return df
 
     def calculate_country_covariate_reference_values(
-            self, parent_location_id: int, sex_id: int) -> CovariateSpecs:
+            self, parent_location_id: int, sex_id: int, pools: int = 10) -> CovariateSpecs:
         """
         Gets the country covariate reference value for a covariate ID and a
         parent location ID. Also gets the maximum difference between the
@@ -398,11 +409,9 @@ class MeasurementInputs:
         Run this when you're going to make a DisMod AT database for a specific
         parent location and sex ID.
 
-        :param: (int)
-        :param parent_location_id: (int)
-        :param sex_id: (int)
-        :return: List[CovariateSpec] list of the covariate specs with the
-            correct reference values and max diff.
+        Returns
+        -------
+        list of the covariate specs with the correct reference values and max diff.
         """
         covariate_specs = copy(self.covariate_specs)
 
@@ -455,7 +464,8 @@ class MeasurementInputs:
                     reference_value = get_interpolated_covariate_values(
                         data_df=df_to_interp,
                         covariate_dict={c.name: parent_df},
-                        population_df=pop_df
+                        population_df=pop_df,
+                        pools=pools
                     )[c.name].iloc[0]
                     max_difference = np.max(
                         np.abs(all_loc_df.mean_value - reference_value)

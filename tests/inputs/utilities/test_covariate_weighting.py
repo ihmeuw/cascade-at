@@ -116,12 +116,7 @@ df = pd.DataFrame(
 def test_exact_values_age_time(covariate_interpolator, age_lower, age_upper, time_lower, time_upper, answer):
     assert np.allclose(
         covariate_interpolator.interpolate(
-            loc_id=100,
-            sex_id=1,
-            age_lower=age_lower,
-            age_upper=age_upper,
-            time_lower=time_lower,
-            time_upper=time_upper
+            [100, 1, age_lower, age_upper, time_lower, time_upper],
         ), answer, atol=1e-10, rtol=1e-10
     )
 
@@ -151,13 +146,9 @@ def test_covariate_interpolation_over_time(covariate_interpolator, y0, y1, test_
     weighted_cov = np.sum(cov.mean_value.values * pop_wt/pop_wt.sum())
     assert np.allclose(
         covariate_interpolator.interpolate(
-            int(data.location_id),
-            int(data.sex_id),
-            float(data.age_lower),
-            float(data.age_upper),
-            float(data.time_lower),
-            float(data.time_upper)),
-        weighted_cov, atol=1e-10, rtol=1e-10
+            [int(data.location_id), int(data.sex_id), float(data.age_lower),
+             float(data.age_upper), float(data.time_lower), float(data.time_upper)]
+        ), weighted_cov, atol=1e-10, rtol=1e-10
     )
 
 
@@ -178,13 +169,9 @@ def test_covariate_interpolation_over_age(covariate_interpolator, a0, a1, test_c
     weighted_cov = np.sum(cov.mean_value.values * pop_wt/pop_wt.sum())
     assert np.allclose(
         covariate_interpolator.interpolate(
-            int(data.location_id),
-            int(data.sex_id),
-            float(data.age_lower),
-            float(data.age_upper),
-            float(data.time_lower),
-            float(data.time_upper)),
-        weighted_cov, atol=1e-10, rtol=1e-10
+            [int(data.location_id), int(data.sex_id), float(data.age_lower),
+             float(data.age_upper), float(data.time_lower), float(data.time_upper)]
+        ), weighted_cov, atol=1e-10, rtol=1e-10
     )
 
 
@@ -216,12 +203,9 @@ def test_covariate_interpolation_over_age_and_time(covariate_interpolator, y0, y
     weighted_cov = np.sum(cov.mean_value.values.reshape(wt.shape) * pop_wt/pop_wt.sum())
     assert np.allclose(
         covariate_interpolator.interpolate(
-            int(data.location_id),
-            int(data.sex_id),
-            float(data.age_lower),
-            float(data.age_upper),
-            float(data.time_lower),
-            float(data.time_upper)),
+            [int(data.location_id), int(data.sex_id), float(data.age_lower),
+             float(data.age_upper), float(data.time_lower), float(data.time_upper)],
+        ),
         weighted_cov, atol=1e-10, rtol=1e-10
     )
 
