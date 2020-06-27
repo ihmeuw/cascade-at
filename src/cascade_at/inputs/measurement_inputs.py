@@ -411,7 +411,7 @@ class MeasurementInputs:
         time_min = self.dismod_data.time_lower.min()
         time_max = self.dismod_data.time_upper.max()
 
-        children = list(self.location_dag.dag.successors(parent_location_id))
+        children = self.location_dag.children(parent_location_id)
 
         for c in covariate_specs.covariate_specs:
             if c.study_country == 'study':
