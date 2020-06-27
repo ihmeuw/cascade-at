@@ -102,7 +102,7 @@ class DismodExtractor(DismodIO):
             VALUE_COL = ExtractorCols.VALUE_COL_SAMPLES
             if ExtractorCols.SAMPLE_COL not in df.columns:
                 raise DismodExtractorError("Cannot find sample index column. Are you sure you created samples?")
-            if np.isnan(df[ExtractorCols.SAMPLE_COL]).all():
+            if df[ExtractorCols.SAMPLE_COL].isnull().all():
                 raise DismodExtractorError("All sample index values are null. Are you sure you created samples?")
             df[ExtractorCols.VALUE_COL_SAMPLES] = df[ExtractorCols.SAMPLE_COL].apply(
                 lambda x: f'{ExtractorCols.VALUE_COL_SAMPLES}_{x}'
