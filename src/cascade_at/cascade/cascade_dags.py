@@ -81,11 +81,11 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
     top_level = root_fit(
         model_version_id=model_version_id,
         location_id=location_start, sex_id=sex_start,
-        child_locations=dag.dag.successors(location_start), child_sexes=sexes
+        child_locations=dag.children(location_start), child_sexes=sexes
     )
     tasks += top_level
     for sex in sexes:
-        for location1 in dag.dag.successors(location_start):
+        for location1 in dag.children(location_start):
             branch_or_leaf(
                 dag=dag, location_id=location1, sex=sex, model_version_id=model_version_id,
                 parent_location=location_start, parent_sex=sex,
