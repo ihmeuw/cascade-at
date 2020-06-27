@@ -112,6 +112,7 @@ class ConfigureInputs(_CascadeOperation):
 class _DismodDB(_CascadeOperation):
     def __init__(self, model_version_id: int,
                  parent_location_id: int, sex_id: int, fill: bool,
+                 prior_samples: bool = True,
                  prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
                  dm_options: Optional[Dict[str, Union[int, str, float]]] = None,
                  dm_commands: Optional[List[str]] = None,
@@ -131,6 +132,7 @@ class _DismodDB(_CascadeOperation):
             parent_location_id=parent_location_id,
             sex_id=sex_id,
             fill=fill,
+            prior_samples=prior_samples,
             prior_parent=prior_parent,
             prior_sex=prior_sex,
             dm_options=dm_options,
