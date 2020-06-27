@@ -20,7 +20,8 @@ def test_fit_fixed():
         parent_location_id=1,
         sex_id=1,
         fill=True,
-        both=False
+        both=False,
+        prior_samples=False
     )
     assert obj.command == (
         f'dismod_db '
@@ -38,6 +39,7 @@ def test_fit_both():
         parent_location_id=1,
         sex_id=1,
         fill=True,
+        prior_samples=False,
         both=True
     )
     assert obj.command == (
