@@ -72,7 +72,7 @@ class _CascadeOperation:
         return self._script() + ' ' + _args_to_command(**kwargs)
 
     def _make_name(self):
-        return 'dmat_' + self._script() + '_' + '_'.join(self.name_components)
+        return 'dmat_' + self._script() + '_' + '_'.join([str(x) for x in self.name_components])
 
     def _validate(self, **kwargs):
         if self._script() not in ARG_DICT:
