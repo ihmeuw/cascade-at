@@ -42,7 +42,7 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
 
 def make_cascade_dag(model_version_id: int, dag: LocationDAG,
                      location_start: int, sex_start: int, split_sex: bool,
-                     n_sim: int = 100, n_pool: int = 100) -> List[_CascadeOperation]:
+                     n_sim: int = 100, n_pool: int = 100, skip_configure: bool = False) -> List[_CascadeOperation]:
     """
     Make a traditional cascade dag for a model version. Relies on a location DAG and a starting
     point in the DAG for locations and sexes.
@@ -63,6 +63,9 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
         Number of simulations to do in sample simulate
     n_pool
         Number of multiprocessing pools to create during sample simulate
+    skip_configure
+        Don't configure inputs. Only do this if it's already been done.
+
     Returns
     -------
     List of _CascadeOperation.
@@ -81,7 +84,8 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
     top_level = root_fit(
         model_version_id=model_version_id,
         location_id=location_start, sex_id=sex_start,
-        child_locations=dag.children(location_start), child_sexes=sexes
+        child_locations=dag.children(location_start), child_sexes=sexes,
+        skip_configure=skip_configure
     )
     tasks += top_level
     for sex in sexes:

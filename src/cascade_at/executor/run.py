@@ -23,12 +23,13 @@ ARG_LIST = ArgumentList([
     NSim(),
     StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
            required=False),
+    BoolArg('--skip-configure'),
     LogLevel()
 ])
 
 
 def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10,
-        addl_workflow_args: Optional[str] = None) -> None:
+        addl_workflow_args: Optional[str] = None, skip_configure: bool = False) -> None:
     """
     Runs the whole cascade or drill for a model version (which one is specified
     in the model version settings).
@@ -45,6 +46,7 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     n_sim
         Number of simulations to do going down the cascade
     addl_workflow_args
+    skip_configure
     """
     LOG.info(f"Starting model for {model_version_id}.")
 
@@ -84,7 +86,8 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             dag=dag,
             n_sim=n_sim,
             location_start=settings.model.drill_location_start,
-            sex=sex
+            sex=sex,
+            skip_configure=skip_configure
         )
     else:
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")
@@ -122,7 +125,8 @@ def main():
         jobmon=args.jobmon,
         make=args.make,
         n_sim=args.n_sim,
-        addl_workflow_args=args.addl_workflow_args
+        addl_workflow_args=args.addl_workflow_args,
+        skip_configure=args.skip_configure
     )
 
 
