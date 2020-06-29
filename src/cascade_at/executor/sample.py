@@ -215,7 +215,7 @@ def sample(model_version_id: int, parent_location_id: int, sex_id: int,
     if asymptotic:
         result = sample_asymptotic(path=main_db, n_sim=n_sim, fit_type=fit_type)
         try:
-            check_sample_asymptotic(result[f'sample asymptotic {fit_type} {n_sim}'])
+            check_sample_asymptotic(result[f'sample asymptotic {fit_type} {n_sim}'].stderr)
         except SampleAsymptoticError:
             asymptotic = False
             LOG.info("Jumping to sample simulate because sample asymptotic failed.")
