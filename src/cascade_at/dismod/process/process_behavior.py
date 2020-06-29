@@ -157,6 +157,6 @@ def _fit_ipopt_out(stdout):
 def check_sample_asymptotic(stderr: str) -> None:
     if 'sample table was not created' in stderr:
         LOG.warning(stderr)
-        raise DismodATException
+        raise SampleAsymptoticError
     else:
         pass
