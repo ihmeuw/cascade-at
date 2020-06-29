@@ -304,6 +304,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         child_locations=[location_id],
         child_sexes=[sex_id],
         save_fit=True,
+        save_final=True,
         prior_grid=False,
         sample=True,
         upstream_commands=[t2.command]
