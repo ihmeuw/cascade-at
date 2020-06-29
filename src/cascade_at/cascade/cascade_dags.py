@@ -26,7 +26,7 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
         for location in dag.children(location_id):
             branch_or_leaf(dag=dag, location_id=location, sex=sex, model_version_id=model_version_id,
                            parent_location=location_id, parent_sex=sex,
-                           n_sim=n_sim, n_pool=n_pool, upstream=branch[-1].command, tasks=tasks)
+                           n_sim=n_sim, n_pool=n_pool, upstream=[branch[-1].command], tasks=tasks)
     else:
         leaf = leaf_fit(
             model_version_id=model_version_id,
@@ -93,11 +93,11 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
             branch_or_leaf(
                 dag=dag, location_id=location1, sex=sex, model_version_id=model_version_id,
                 parent_location=location_start, parent_sex=sex,
-                n_sim=n_sim, n_pool=n_pool, upstream=top_level[-1].command, tasks=tasks
+                n_sim=n_sim, n_pool=n_pool, upstream=[top_level[-1].command], tasks=tasks
             )
     tasks.append(Upload(
         model_version_id=model_version_id,
         fit=True, prior=True,
-        upstream_commands=tasks[-1].command
+        upstream_commands=[tasks[-1].command]
     ))
     return tasks
