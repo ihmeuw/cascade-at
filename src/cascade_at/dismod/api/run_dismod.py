@@ -37,6 +37,7 @@ def run_dismod_commands(dm_file, commands):
         commands: (List[str]) a list of strings
 
     """
+    processes = dict()
     if isinstance(commands, str):
         commands = [commands]
     for c in commands:
@@ -55,3 +56,5 @@ def run_dismod_commands(dm_file, commands):
         else:
             LOG.info(f"{process.stdout}")
             LOG.info(f"{process.stderr}")
+            processes.update({c: process})
+    return processes
