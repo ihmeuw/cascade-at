@@ -60,7 +60,9 @@ class _CascadeOperation:
         self.upstream_commands = upstream_commands
         self.j_resource = False
 
+        self.name = None
         self.command = None
+        self.name_components = []
 
     @staticmethod
     def _script():
@@ -68,6 +70,9 @@ class _CascadeOperation:
 
     def _make_command(self, **kwargs):
         return self._script() + ' ' + _args_to_command(**kwargs)
+
+    def _make_name(self):
+        return 'dmat_' + self._script() + '_' + '_'.join(self.name_components)
 
     def _validate(self, **kwargs):
         if self._script() not in ARG_DICT:
@@ -91,6 +96,7 @@ class _CascadeOperation:
     def _configure(self, **command_args):
         self._validate(**command_args)
         self.command = self._make_command(**command_args)
+        self.name = self._make_name()
 
 
 class ConfigureInputs(_CascadeOperation):
@@ -121,6 +127,7 @@ class _DismodDB(_CascadeOperation):
                  **kwargs):
 
         super().__init__(**kwargs)
+        self.name_components = [model_version_id, parent_location_id, sex_id]
 
         if dm_options is not None:
             dm_options = encode_options(dm_options)
@@ -171,6 +178,7 @@ class Sample(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
                  n_sim: int, fit_type: str, asymptotic: bool, n_pool: int = 1, **kwargs):
         super().__init__(**kwargs)
+        self.name_components = [model_version_id, parent_location_id, sex_id]
 
         self._configure(
             model_version_id=model_version_id,
@@ -194,6 +202,7 @@ class Predict(_CascadeOperation):
                  sample: bool = True, **kwargs):
 
         super().__init__(**kwargs)
+        self.name_components = [model_version_id, parent_location_id, sex_id]
 
         self._configure(
             model_version_id=model_version_id,
@@ -217,6 +226,7 @@ class MulcovStatistics(_CascadeOperation):
                  outfile_name: str, sample: bool,
                  mean: bool, std: bool, quantile: Optional[List[float]], **kwargs):
         super().__init__(**kwargs)
+        self.name_components = [model_version_id]
 
         self._configure(
             model_version_id=model_version_id,
@@ -238,6 +248,7 @@ class Upload(_CascadeOperation):
     def __init__(self, model_version_id: int, final: bool = False, fit: bool = False,
                  prior: bool = False, **kwargs):
         super().__init__(**kwargs)
+        self.name_components = [model_version_id]
 
         self._configure(
             model_version_id=model_version_id,
@@ -252,6 +263,7 @@ class Upload(_CascadeOperation):
 class CleanUp(_CascadeOperation):
     def __init__(self, model_version_id: int, **kwargs):
         super().__init__(**kwargs)
+        self.name_components = [model_version_id]
 
         self._configure(
             model_version_id=model_version_id
