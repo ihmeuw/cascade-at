@@ -63,7 +63,7 @@ class TraditionalCascade(_CascadeCommand):
     def __init__(self, model_version_id: int, split_sex: bool,
                  dag: LocationDAG, n_sim: int,
                  location_start: Optional[int] = None,
-                 sex: Optional[int] = None):
+                 sex: Optional[int] = None, skip_configure: bool = False):
 
         super().__init__()
         self.model_version_id = model_version_id
@@ -79,7 +79,8 @@ class TraditionalCascade(_CascadeCommand):
             location_start=location_start,
             sex_start=sex,
             split_sex=split_sex,
-            n_sim=n_sim, n_pool=10
+            n_sim=n_sim, n_pool=10,
+            skip_configure=skip_configure
         )
         for t in tasks:
             self.add_task(t)

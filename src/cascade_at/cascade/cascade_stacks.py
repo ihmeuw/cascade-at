@@ -127,7 +127,8 @@ def single_fit_with_uncertainty(model_version_id: int,
 
 
 def root_fit(model_version_id: int, location_id: int, sex_id: int,
-             child_locations: List[int], child_sexes: List[int]) -> List[_CascadeOperation]:
+             child_locations: List[int], child_sexes: List[int],
+             skip_configure: bool = False) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
     Does a fit fixed, then fit both, then creates posteriors
@@ -145,14 +146,22 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         The children to fill the avgint table with
     child_sexes
         The sexes to predict for.
+    skip_configure
+        Don't run a task to configure the inputs. Only do this if it has already happened.
 
     Returns
     -------
     List of CascadeOperations.
     """
-    t1 = ConfigureInputs(
-        model_version_id=model_version_id
-    )
+    tasks = []
+    if not skip_configure:
+        t1 = ConfigureInputs(
+            model_version_id=model_version_id
+        )
+        upstream = [t1.command]
+        tasks.append(t1)
+    else:
+        upstream = None
     t2 = Fit(
         model_version_id=model_version_id,
         parent_location_id=location_id,
@@ -160,9 +169,10 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         fill=True,
         both=False,
         predict=True,
-        upstream_commands=[t1.command],
+        upstream_commands=upstream,
         save_fit=True
     )
+    tasks.append(t2)
     t3 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
@@ -172,7 +182,8 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         sample=False,
         upstream_commands=[t2.command]
     )
-    return [t1, t2, t3]
+    tasks.append(t3)
+    return tasks
 
 
 def branch_fit(model_version_id: int, location_id: int, sex_id: int,
@@ -297,6 +308,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         child_locations=[location_id],
         child_sexes=[sex_id],
         save_fit=True,
+        save_final=True,
         prior_grid=False,
         sample=True,
         upstream_commands=[t2.command]
