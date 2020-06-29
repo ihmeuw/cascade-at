@@ -5,7 +5,7 @@ from typing import Optional
 
 from cascade_at.cascade.cascade_commands import Drill, TraditionalCascade
 from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, IntArg, StrArg
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSim, StrArg
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
@@ -20,7 +20,7 @@ ARG_LIST = ArgumentList([
     BoolArg('--jobmon', help='whether or not to use jobmon to run the cascade'
                              'or just run as a sequence of command line tasks'),
     BoolArg('--make', help='whether or not to make the file structure for the cascade'),
-    IntArg('--n-sim', help='number of simulations to do going down the cascade'),
+    NSim(),
     StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
            required=False),
     LogLevel()
