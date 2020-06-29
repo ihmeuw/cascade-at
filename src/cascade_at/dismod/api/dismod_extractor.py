@@ -158,7 +158,10 @@ class DismodExtractor(DismodIO):
             rate_dict[r] = dict()
 
         df = self.get_predictions(locations=[location_id], sexes=[sex_id], samples=samples)
-        DRAW_COLS = [col for col in df if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
+        if samples:
+            DRAW_COLS = [col for col in df if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
+        else:
+            DRAW_COLS = [ExtractorCols.VALUE_COL_FIT]
         assert (df.age_lower.values == df.age_upper.values).all()
         assert (df.time_lower.values == df.time_upper.values).all()
 
