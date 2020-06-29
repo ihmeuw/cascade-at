@@ -57,6 +57,10 @@ IPOPT_EXAMINE_RESULTS = {
 }
 
 
+class SampleAsymptoticError(DismodATException):
+    pass
+
+
 def get_fit_output(stdout):
     """
     After running fit, use this to get the results from
@@ -148,3 +152,11 @@ def _fit_ipopt_out(stdout):
         ipopt_class = "unknown"
         ipopt_exit = "could not find Ipopt exit status"
     return ipopt_class, ipopt_exit
+
+
+def check_sample_asymptotic(stderr: str) -> None:
+    if 'sample table was not created' in stderr:
+        LOG.warning(stderr)
+        raise DismodATException
+    else:
+        pass

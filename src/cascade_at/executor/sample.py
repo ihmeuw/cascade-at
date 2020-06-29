@@ -11,6 +11,7 @@ from cascade_at.executor.args.args import StrArg, BoolArg, LogLevel
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.dismod.api.dismod_io import DismodIO
+from cascade_at.dismod.process.process_behavior import check_sample_asymptotic, SampleAsymptoticError
 from cascade_at.dismod.api.multithreading import _DismodThread, dmdismod_in_parallel
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.executor import ExecutorError
@@ -171,7 +172,7 @@ def sample_asymptotic(path: Union[str, Path], n_sim: int, fit_type: str):
         fit_type
             Type of fit -- fixed or both
         """
-    run_dismod_commands(
+    return run_dismod_commands(
         dm_file=path,
         commands=[
             'set start_var fit_var',
@@ -212,8 +213,14 @@ def sample(model_version_id: int, parent_location_id: int, sex_id: int,
     index_file_pattern = context.db_index_file_pattern(location_id=parent_location_id, sex_id=sex_id)
 
     if asymptotic:
-        sample_asymptotic(path=main_db, n_sim=n_sim, fit_type=fit_type)
-    else:
+        result = sample_asymptotic(path=main_db, n_sim=n_sim, fit_type=fit_type)
+        try:
+            check_sample_asymptotic(result[f'sample asymptotic {fit_type} {n_sim}'])
+        except SampleAsymptoticError:
+            asymptotic = False
+            LOG.info("Jumping to sample simulate because sample asymptotic failed.")
+            LOG.warning("Please review the warning from sample asymptotic.")
+    if not asymptotic:
         simulate(path=main_db, n_sim=n_sim)
         if n_pool > 1:
             sample_simulate_pool(
