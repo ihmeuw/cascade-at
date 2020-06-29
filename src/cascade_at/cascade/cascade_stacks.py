@@ -153,11 +153,13 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
     -------
     List of CascadeOperations.
     """
+    tasks = []
     if not skip_configure:
         t1 = ConfigureInputs(
             model_version_id=model_version_id
         )
         upstream = [t1.command]
+        tasks.append(t1)
     else:
         upstream = None
     t2 = Fit(
@@ -170,6 +172,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         upstream_commands=upstream,
         save_fit=True
     )
+    tasks.append(t2)
     t3 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
@@ -179,7 +182,8 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         sample=False,
         upstream_commands=[t2.command]
     )
-    return [t1, t2, t3]
+    tasks.append(t3)
+    return tasks
 
 
 def branch_fit(model_version_id: int, location_id: int, sex_id: int,
