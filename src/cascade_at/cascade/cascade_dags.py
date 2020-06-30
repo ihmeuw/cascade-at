@@ -2,7 +2,7 @@ from typing import List
 
 from cascade_at.inputs.utilities.gbd_ids import SEX_NAME_TO_ID, SEX_ID_TO_NAME
 from cascade_at.inputs.locations import LocationDAG
-from cascade_at.cascade.cascade_operations import _CascadeOperation, Upload
+from cascade_at.cascade.cascade_operations import _CascadeOperation, Upload, MulcovStatistics
 from cascade_at.cascade.cascade_stacks import root_fit, branch_fit, leaf_fit
 
 
@@ -85,6 +85,7 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
         model_version_id=model_version_id,
         location_id=location_start, sex_id=sex_start,
         child_locations=dag.children(location_start), child_sexes=sexes,
+        mulcov_stats=True,
         skip_configure=skip_configure
     )
     tasks += top_level

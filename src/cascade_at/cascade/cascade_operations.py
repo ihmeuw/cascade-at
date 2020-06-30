@@ -118,7 +118,7 @@ class ConfigureInputs(_CascadeOperation):
 class _DismodDB(_CascadeOperation):
     def __init__(self, model_version_id: int,
                  parent_location_id: int, sex_id: int, fill: bool,
-                 prior_samples: bool = False,
+                 prior_samples: bool = False, prior_mulcov: bool = False,
                  prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
                  dm_options: Optional[Dict[str, Union[int, str, float]]] = None,
                  dm_commands: Optional[List[str]] = None,
@@ -139,6 +139,7 @@ class _DismodDB(_CascadeOperation):
             parent_location_id=parent_location_id,
             sex_id=sex_id,
             fill=fill,
+            prior_mulcov=prior_mulcov,
             prior_samples=prior_samples,
             prior_parent=prior_parent,
             prior_sex=prior_sex,
@@ -223,8 +224,9 @@ class Predict(_CascadeOperation):
 
 class MulcovStatistics(_CascadeOperation):
     def __init__(self, model_version_id: int, locations: List[int], sexes: List[int],
-                 outfile_name: str, sample: bool,
-                 mean: bool, std: bool, quantile: Optional[List[float]], **kwargs):
+                 sample: bool,
+                 mean: bool, std: bool, quantile: Optional[List[float]],
+                 outfile_name: Optional[str] = None, **kwargs):
         super().__init__(**kwargs)
         self.name_components = [model_version_id]
 

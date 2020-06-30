@@ -12,7 +12,7 @@ from typing import List
 from cascade_at.cascade.cascade_operations import _CascadeOperation
 from cascade_at.cascade.cascade_operations import (
     ConfigureInputs, Fit, Sample, Predict,
-    Upload, CleanUp
+    Upload, CleanUp, MulcovStatistics
 )
 
 
@@ -128,7 +128,9 @@ def single_fit_with_uncertainty(model_version_id: int,
 
 def root_fit(model_version_id: int, location_id: int, sex_id: int,
              child_locations: List[int], child_sexes: List[int],
-             skip_configure: bool = False) -> List[_CascadeOperation]:
+             skip_configure: bool = False,
+             mulcov_stats: bool = True,
+             n_sim: int = 10, n_pool: int = 10) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
     Does a fit fixed, then fit both, then creates posteriors
@@ -148,7 +150,10 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         The sexes to predict for.
     skip_configure
         Don't run a task to configure the inputs. Only do this if it has already happened.
-
+    mulcov_stats
+        Compute mulcov statistics at this level
+    n_sim
+    n_pool
     Returns
     -------
     List of CascadeOperations.
@@ -183,6 +188,32 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         upstream_commands=[t2.command]
     )
     tasks.append(t3)
+    if mulcov_stats:
+        t4 = Sample(
+            model_version_id=model_version_id,
+            parent_location_id=location_id,
+            sex_id=sex_id,
+            n_sim=n_sim,
+            n_pool=n_pool,
+            fit_type='fixed',
+            asymptotic=True,
+            upstream_commands=[t3.command],
+            executor_parameters={
+                'num_cores': n_pool
+            }
+        )
+        tasks.append(t4)
+        t5 = MulcovStatistics(
+            model_version_id=model_version_id,
+            locations=[location_id],
+            sexes=[sex_id],
+            sample=True,
+            mean=True,
+            std=True,
+            quantile=[0.025, 0.975],
+            upstream_commands=[t4.command]
+        )
+        tasks.append(t5)
     return tasks
 
 
@@ -225,6 +256,7 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         fill=True,
         both=False,
         predict=True,
+        prior_mulcov=model_version_id,
         prior_samples=False,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
@@ -281,6 +313,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         sex_id=sex_id,
         fill=True,
         both=False,
+        prior_mulcov=model_version_id,
         prior_samples=False,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
