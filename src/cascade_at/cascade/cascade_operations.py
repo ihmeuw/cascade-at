@@ -86,8 +86,24 @@ class _CascadeOperation:
             if v['required']:
                 if k not in kwargs:
                     raise CascadeATError(f"Missing argument {k} for script {self._script()}.")
-                if 'type' in v:
-                    assert type(kwargs[k]) == v['type']
+                if 'type' in v and 'nargs' not in v:
+                    if type(kwargs[k]) != v['type']:
+                        raise CascadeATError(
+                            f"Expected {k} arg type is {v['type']} but got {type(kwargs[k])}."
+                        )
+                elif 'nargs' in v:
+                    if v['nargs'] == '+':
+                        if not isinstance(kwargs[k], list):
+                            raise CascadeATError(f"{k} should be a list.")
+                        if 'type' in v:
+                            for i in kwargs[k]:
+                                if type(i) != v['type']:
+                                    raise CascadeATError(
+                                        f"Expected list arg {k} is {v['type']} but got {type(kwargs[k])}"
+                                    )
+                else:
+                    pass
+
         for k, v in kwargs.items():
             if k not in arg_list.argument_dict:
                 raise CascadeATError(f"Tried to pass argument {k} but that is not in the allowed list"
