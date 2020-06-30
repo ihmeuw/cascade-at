@@ -98,6 +98,9 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
     tasks.append(Upload(
         model_version_id=model_version_id,
         fit=True, prior=True,
-        upstream_commands=[tasks[-1].command]
+        upstream_commands=[tasks[-1].command],
+        executor_parameters={
+            'm_mem_free': '50G'
+        }
     ))
     return tasks
