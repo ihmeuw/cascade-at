@@ -20,7 +20,8 @@ def test_fit_fixed():
         parent_location_id=1,
         sex_id=1,
         fill=True,
-        both=False
+        both=False,
+        prior_samples=False
     )
     assert obj.command == (
         f'dismod_db '
@@ -38,6 +39,7 @@ def test_fit_both():
         parent_location_id=1,
         sex_id=1,
         fill=True,
+        prior_samples=False,
         both=True
     )
     assert obj.command == (
@@ -68,6 +70,28 @@ def test_sample_simulate():
         f'--n-sim 5 '
         f'--n-pool 1 '
         f'--fit-type both'
+    )
+
+
+def test_sample_asymptotic():
+    obj = Sample(
+        model_version_id=0,
+        parent_location_id=1,
+        sex_id=1,
+        n_sim=5,
+        n_pool=1,
+        fit_type='both',
+        asymptotic=True
+    )
+    assert obj.command == (
+        f'sample '
+        f'--model-version-id 0 '
+        f'--parent-location-id 1 '
+        f'--sex-id 1 '
+        f'--n-sim 5 '
+        f'--n-pool 1 '
+        f'--fit-type both '
+        f'--asymptotic'
     )
 
 

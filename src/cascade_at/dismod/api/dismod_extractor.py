@@ -102,7 +102,7 @@ class DismodExtractor(DismodIO):
             VALUE_COL = ExtractorCols.VALUE_COL_SAMPLES
             if ExtractorCols.SAMPLE_COL not in df.columns:
                 raise DismodExtractorError("Cannot find sample index column. Are you sure you created samples?")
-            if np.isnan(df[ExtractorCols.SAMPLE_COL]).all():
+            if df[ExtractorCols.SAMPLE_COL].isnull().all():
                 raise DismodExtractorError("All sample index values are null. Are you sure you created samples?")
             df[ExtractorCols.VALUE_COL_SAMPLES] = df[ExtractorCols.SAMPLE_COL].apply(
                 lambda x: f'{ExtractorCols.VALUE_COL_SAMPLES}_{x}'
@@ -127,7 +127,8 @@ class DismodExtractor(DismodIO):
                                     rates: List[str],
                                     value: bool = True,
                                     dage: bool = False,
-                                    dtime: bool = False) -> Dict[str, Dict[str, np.ndarray]]:
+                                    dtime: bool = False,
+                                    samples: bool = True) -> Dict[str, Dict[str, np.ndarray]]:
         """
         Takes draws and formats them for a prior grid for values, dage, and dtime.
         Assumes that age_lower == age_upper and time_lower == time_upper for all
@@ -146,7 +147,8 @@ class DismodExtractor(DismodIO):
             whether to calculate dage priors
         dtime
             whether to calculate dtime priors
-
+        samples
+            whether the prior came from samples
         Returns
         -------
         Dictionary of 3-d arrays of value, dage, and dtime draws over age and time for this loc and sex
@@ -155,8 +157,11 @@ class DismodExtractor(DismodIO):
         for r in rates:
             rate_dict[r] = dict()
 
-        df = self.get_predictions(locations=[location_id], sexes=[sex_id], samples=True)
-        DRAW_COLS = [col for col in df if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
+        df = self.get_predictions(locations=[location_id], sexes=[sex_id], samples=samples)
+        if samples:
+            DRAW_COLS = [col for col in df if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
+        else:
+            DRAW_COLS = [ExtractorCols.VALUE_COL_FIT]
         assert (df.age_lower.values == df.age_upper.values).all()
         assert (df.time_lower.values == df.time_upper.values).all()
 

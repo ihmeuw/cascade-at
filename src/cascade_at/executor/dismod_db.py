@@ -35,6 +35,7 @@ ARG_LIST = ArgumentList([
     DmCommands(),
     DmOptions(),
     BoolArg('--fill', help='whether or not to fill the dismod database with data'),
+    BoolArg('--prior-samples', help='whether or not the prior came from samples or just a mean fit'),
     IntArg('--prior-parent', help='the location ID of the parent database to grab the prior for'),
     IntArg('--prior-sex', help='the sex ID of the parent database to grab prior for'),
     IntArg('--prior-mulcov', help='the model version id where mulcov stats is passed in', required=False),
@@ -51,7 +52,7 @@ class DismodDBError(CascadeATError):
 
 
 def get_prior(path: Union[str, Path], location_id: int, sex_id: int,
-              rates: List[str]) -> Dict[str, Dict[str, np.ndarray]]:
+              rates: List[str], samples: bool = True) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Gets priors from a path to a database for a given location ID and sex ID.
     """
@@ -59,7 +60,8 @@ def get_prior(path: Union[str, Path], location_id: int, sex_id: int,
     child_prior = DismodExtractor(path=path).gather_draws_for_prior_grid(
         location_id=location_id,
         sex_id=sex_id,
-        rates=rates
+        rates=rates,
+        samples=samples
     )
     return child_prior
 
@@ -125,6 +127,7 @@ def save_predictions(db_file: Union[str, Path],
 
 def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
               dm_commands: List[str], dm_options: Dict[str, Union[int, str, float]],
+              prior_samples: bool = False,
               prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
               prior_mulcov_model_version_id: Optional[int] = None,
               test_dir: Optional[str] = None, fill: bool = False,
@@ -190,7 +193,8 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
         child_prior = get_prior(
             path=prior_db,
             location_id=parent_location_id, sex_id=sex_id,
-            rates=[r.rate for r in settings.rate]
+            rates=[r.rate for r in settings.rate],
+            samples=prior_samples
         )
         if save_prior:
             save_predictions(
@@ -245,6 +249,7 @@ def main():
         dm_commands=args.dm_commands,
         dm_options=args.dm_options,
         fill=args.fill,
+        prior_samples=args.prior_samples,
         prior_parent=args.prior_parent,
         prior_sex=args.prior_sex,
         prior_mulcov_model_version_id=args.prior_mulcov,

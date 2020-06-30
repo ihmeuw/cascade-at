@@ -34,10 +34,9 @@ def bash_task_from_cascade_operation(co):
     :param co: (cascade_at.cascade.cascade_operations._CascadeOperation)
     :return: jobmon.client.swarm.workflow.bash_task.BashTask
     """
-    name = co.command.split(' ')
     return COBashTask(
         command=co.command,
-        name='_'.join([name[0], name[2]]),
+        name=co.name,
         upstream_commands=co.upstream_commands,
         executor_parameters=ExecutorParameters(
             max_runtime_seconds=co.executor_parameters['max_runtime_seconds'],
