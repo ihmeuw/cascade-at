@@ -152,9 +152,12 @@ def mulcov_statistics(model_version_id: int, locations: List[int], sexes: List[i
     mulcov_estimates = get_mulcovs(
         dbs=db_files, covs=common_covariates, table=table_name
     )
-    stats = compute_statistics(
-        df=mulcov_estimates, mean=mean, std=std, quantile=quantile
-    )
+    if not mulcov_estimates.empty:
+        stats = compute_statistics(
+            df=mulcov_estimates, mean=mean, std=std, quantile=quantile
+        )
+    else:
+        stats = pd.DataFrame()
     LOG.info('Write to output file.')
     stats.to_csv(context.outputs_dir / f'{outfile_name}.csv', index=False)
 

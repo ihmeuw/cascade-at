@@ -71,8 +71,11 @@ def get_mulcov_priors(model_version_id: int):
     mulcov_prior = {}
     ctx = Context(model_version_id=model_version_id)
     path = os.path.join(ctx.outputs_dir, 'mulcov_stats.csv')
+    if not os.path.exists(path):
+        return {}
     mulcov_stats_df = pd.read_csv(path)
-
+    if mulcov_stats_df.empty:
+        raise {}
     for _,  row in mulcov_stats_df.iterrows():
         if row['rate_name'] is not None:
             mulcov_prior[
