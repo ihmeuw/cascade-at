@@ -161,7 +161,6 @@ class Context:
         """
         Read the inputs from disk.
         """
-        import pdb; pdb.set_trace()
         with open(self.inputs_file, "rb") as f:
             LOG.info(f"Reading input obj from {self.inputs_file}.")
             inputs = dill.load(f)
