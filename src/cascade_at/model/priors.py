@@ -1,5 +1,6 @@
 from copy import copy
 from functools import total_ordering
+from typing import List, Optional
 
 import numpy as np
 import scipy.stats as stats
@@ -39,6 +40,48 @@ class _Prior:
             raise AttributeError(f"The prior doesn't have these attributes {missing}.")
         modified.__dict__.update(kwargs)
         return modified
+
+    def rvs(self, size: int = 1, random_state: Optional[np.random.RandomState] = None,
+            censor: bool = False) -> np.ndarray:
+        """Sample from this distribution.
+
+        Parameters
+        ----------
+        size
+            Number of random variates, default 1.
+        random_state
+            For repeatable draws.
+        censor
+            Whether or not to censor the draws when they hit the upper and lower limits. If False,
+            then it will resample until it does not hit the bounds.
+
+        Returns
+        -------
+        np.ndarray: Of size=size with floats.
+        """
+        vals = np.empty((0,), dtype=np.float)
+        while vals.shape[0] < size:
+            redraw_cnt = size - vals.shape[0] + 10
+            random_draws = self.make_draws(size=size, random_state=random_state)
+            if censor:
+                if hasattr(self, 'lower'):
+                    random_draws[self.lower > random_draws] = self.lower
+                if hasattr(self, 'upper'):
+                    random_draws[random_draws > self.upper] = self.upper
+            else:
+                if hasattr(self, 'lower'):
+                    random_draws = random_draws[self.lower < random_draws]
+                if hasattr(self, 'upper'):
+                    random_draws = random_draws[random_draws < self.upper]
+            vals = np.concatenate([vals, random_draws])
+        return vals[:size]
+
+    def make_draws(self, size: int, random_state: Optional[np.random.RandomState] = None):
+        raise NotImplementedError
+
+    def quantiles(self, q: List[float], samples: int = 1000, censor: bool = True) -> np.ndarray:
+        obs = self.rvs(size=samples, censor=censor)
+        return np.quantile(obs, q)
 
     def __hash__(self):
         return hash((frozenset(self.parameters().items()), self.name))
@@ -112,16 +155,7 @@ class Uniform(_Prior):
         """
         return self.assign(mean=min(self.upper, max(self.lower, np.mean(draws))))
 
-    def rvs(self, size=1, random_state=None):
-        """Sample from this distribution.
-
-        Args:
-            size (int): Number of random variates, default 1.
-            random_state (numpy.random.RandomState): For repeatable draws.
-
-        Returns:
-            np.ndarray: Of size=size with floats.
-        """
+    def make_draws(self, size: int, random_state: Optional[np.random.RandomState] = None):
         return stats.uniform.rvs(loc=self.lower, scale=self.upper - self.lower, size=size, random_state=random_state)
 
     def _parameters(self):
@@ -145,16 +179,7 @@ class Constant(_Prior):
         """Don't change the const value. It is unaffected by this call."""
         return copy(self)
 
-    def rvs(self, size=1, random_state=None):
-        """Sample from this distribution.
-
-        Args:
-            size (int): Number of random variates, default 1.
-            random_state (numpy.random.RandomState): For repeatable draws.
-
-        Returns:
-            np.ndarray: Of size=size with floats.
-        """
+    def make_draws(self, size: int, random_state: Optional[np.random.RandomState] = None):
         return np.full((size,), self.mean, dtype=np.float)
 
     def _parameters(self):
@@ -210,25 +235,11 @@ class Gaussian(_Prior):
             standard_deviation=std
         )
 
-    def rvs(self, size=1, random_state=None):
-        """Sample from this distribution.
-
-        Args:
-            size (int): Number of random variates, default 1.
-            random_state (numpy.random.RandomState): For repeatable draws.
-
-        Returns:
-            np.ndarray: Of size=size with floats.
-        """
-        vals = np.empty((0,), dtype=np.float)
-        while vals.shape[0] < size:
-            redraw_cnt = size - vals.shape[0] + 10
-            draws = stats.norm.rvs(
-                loc=self.mean, scale=self.standard_deviation,
-                size=redraw_cnt, random_state=random_state)
-            draws = draws[(self.lower < draws) & (draws < self.upper)]
-            vals = np.concatenate([vals, draws])
-        return vals[:size]
+    def make_draws(self, size: int, random_state: Optional[np.random.RandomState] = None):
+        return stats.norm.rvs(
+            loc=self.mean, scale=self.standard_deviation,
+            size=size, random_state=random_state
+        )
 
     def _parameters(self):
         return {
@@ -277,24 +288,11 @@ class Laplace(Gaussian):
             standard_deviation=scale * np.sqrt(2)  # This is the adjustment.
         )
 
-    def rvs(self, size=1, random_state=None):
-        """Sample from this distribution.
-
-        Args:
-            size (int): Number of random variates, default 1.
-            random_state (numpy.random.RandomState): For repeatable draws.
-
-        Returns:
-            np.ndarray: Of size=size with floats.
-        """
-        vals = np.empty((0,), dtype=np.float)
-        while vals.shape[0] < size:
-            redraw_cnt = size - vals.shape[0] + 10
-            draws = stats.laplace.rvs(
-                loc=self.mean, scale=self.standard_deviation / np.sqrt(2), size=redraw_cnt, random_state=random_state)
-            draws = draws[(self.lower < draws) & (draws < self.upper)]
-            vals = np.concatenate([vals, draws])
-        return vals[:size]
+    def make_draws(self, size: int, random_state: Optional[np.random.RandomState] = None):
+        return stats.laplace.rvs(
+            loc=self.mean, scale=self.standard_deviation / np.sqrt(2),
+            size=size, random_state=random_state
+        )
 
 
 class StudentsT(_Prior):
@@ -350,26 +348,12 @@ class StudentsT(_Prior):
             standard_deviation=scale * np.sqrt(nu / (nu - 2))
         )
 
-    def rvs(self, size=1, random_state=None):
-        """Sample from this distribution.
-
-        Args:
-            size (int): Number of random variates, default 1.
-            random_state (numpy.random.RandomState): For repeatable draws.
-
-        Returns:
-            np.ndarray: Of size=size with floats.
-        """
-        vals = np.empty((0,), dtype=np.float)
+    def make_draws(self, size: int, random_state: Optional[np.random.RandomState] = None):
         std_scale = np.sqrt(self.nu / (self.nu - 2))
-        while vals.shape[0] < size:
-            redraw_cnt = size - vals.shape[0] + 10
-            draws = stats.t.rvs(
-                loc=self.mean, scale=self.standard_deviation / std_scale, df=self.nu,
-                size=redraw_cnt, random_state=random_state)
-            draws = draws[(self.lower < draws) & (draws < self.upper)]
-            vals = np.concatenate([vals, draws])
-        return vals[:size]
+        return stats.t.rvs(
+            loc=self.mean, scale=self.standard_deviation / std_scale, df=self.nu,
+            size=size, random_state=random_state
+        )
 
     def _parameters(self):
         return {
@@ -424,25 +408,11 @@ class LogGaussian(_Prior):
             standard_deviation=std
         )
 
-    def rvs(self, size=1, random_state=None):
-        """Sample from this distribution.
-
-        Args:
-            size (int): Number of random variates, default 1.
-            random_state (numpy.random.RandomState): For repeatable draws.
-
-        Returns:
-            np.ndarray: Of size=size with floats.
-        """
-        vals = np.empty((0,), dtype=np.float)
-        while vals.shape[0] < size:
-            redraw_cnt = size - vals.shape[0] + 10
-            draws = stats.lognorm.rvs(
-                loc=self.mean, s=self.standard_deviation, scale=np.exp(self.mean),
-                size=redraw_cnt, random_state=random_state)
-            draws = draws[(self.lower < draws) & (draws < self.upper)]
-            vals = np.concatenate([vals, draws])
-        return vals[:size]
+    def make_draws(self, size: int, random_state: Optional[np.random.RandomState] = None):
+        return stats.lognorm.rvs(
+            loc=self.mean, s=self.standard_deviation, scale=np.exp(self.mean),
+            size=size, random_state=random_state
+        )
 
     def _parameters(self):
         return {

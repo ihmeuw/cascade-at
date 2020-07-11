@@ -8,10 +8,8 @@ import pandas as pd
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api import DismodAPIError
 from cascade_at.dismod.api.dismod_io import DismodIO
-from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES, reverse_integrand_map
-from cascade_at.inputs.utilities.gbd_ids import DEMOGRAPHIC_ID_COLS
-from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
-from cascade_at.inputs.utilities.gbd_ids import map_id_from_interval_tree
+from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES, integrand_to_gbd_measures
+from cascade_at.inputs.utilities.gbd_ids import DEMOGRAPHIC_ID_COLS, format_age_time
 
 LOG = get_loggers(__name__)
 
@@ -233,30 +231,8 @@ class DismodExtractor(DismodIO):
         """
         pred = self.get_predictions(locations=locations, sexes=sexes, samples=samples,
                                     predictions=predictions)
-        map_age = 'age_group_id' not in pred.columns
-        map_year = 'year_id' not in pred.columns
-
-        if map_age:
-            age_intervals = make_age_intervals(gbd_round_id=gbd_round_id)
-            pred['age_group_id'] = pred['age_lower'].apply(
-                lambda x: map_id_from_interval_tree(index=x, tree=age_intervals)
-            )
-        if map_year:
-            time_intervals = make_time_intervals()
-            pred['year_id'] = pred['time_lower'].apply(
-                lambda x: map_id_from_interval_tree(index=x, tree=time_intervals)
-            )
-
-        integrand_map = reverse_integrand_map()
-        pred['measure_id'] = pred.integrand_name.apply(lambda x: integrand_map[x])
-
-        # Duplicates the Sincidence results, if they exist, so that they
-        # show up as incidence in the visualization tool
-        if integrand_map['Sincidence'] in pred.measure_id.unique():
-            incidence = pred.loc[pred.measure_id == integrand_map['Sincidence']].copy()
-            incidence['measure_id'] = integrand_map['incidence']
-            pred = pd.concat([pred, incidence], axis=0).reset_index()
-
+        pred = format_age_time(df=pred, gbd_round_id=gbd_round_id)
+        pred = integrand_to_gbd_measures(df=pred, integrand_col='integrand_name')
         if samples:
             VALUE_COLS = [col for col in pred.columns if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
         else:

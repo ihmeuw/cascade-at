@@ -1,4 +1,5 @@
 from functools import lru_cache
+import pandas as pd
 
 from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.core.log import get_loggers
@@ -108,3 +109,32 @@ def reverse_integrand_map():
     mapping = {v.name: k for k, v in make_integrand_map().items()}
     mapping['prevalence'] = 5
     return mapping
+
+
+def integrand_to_gbd_measures(df: pd.DataFrame, integrand_col: str) -> pd.DataFrame:
+    """
+    Maps the integrand column to measure IDs
+    and adds in filler measures where necessary (e.g. copies
+    over Sincidence to incidence).
+
+    Parameters
+    ----------
+    df
+        data frame with integrand
+    integrand_col
+        column name for integrand column
+
+    Returns
+    -------
+    data frame with integrands mapped to measures
+    """
+    integrand_map = reverse_integrand_map()
+    df['measure_id'] = df[integrand_col].apply(lambda x: integrand_map[x])
+
+    # Duplicates the Sincidence results, if they exist, so that they
+    # show up as incidence in the visualization tool
+    if integrand_map['Sincidence'] in df.measure_id.unique():
+        incidence = df.loc[df.measure_id == integrand_map['Sincidence']].copy()
+        incidence['measure_id'] = integrand_map['incidence']
+        df = pd.concat([df, incidence], axis=0).reset_index()
+    return df
