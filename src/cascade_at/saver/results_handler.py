@@ -38,8 +38,9 @@ class ResultsHandler:
     def __init__(self):
         self.draw_keys = ['measure_id', 'year_id', 'age_group_id',
                           'location_id', 'sex_id', 'model_version_id']
+        self.summary_cols = [UiCols.MEAN, UiCols.LOWER, UiCols.UPPER]
 
-    def _validate_results(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _validate_results(self, df: pd.DataFrame) -> None:
         """
         Validates the input draw files. Put any additional
         validations here.
@@ -51,7 +52,11 @@ class ResultsHandler:
         missing_cols = [x for x in self.draw_keys if x not in df.columns]
         if missing_cols:
             raise ResultsError(f"Missing id columns {missing_cols} for saving the results.")
-        return df
+
+    def _validate_summaries(self, df: pd.DataFrame) -> None:
+        missing_cols = [x for x in self.summary_cols if x not in df.columns]
+        if missing_cols:
+            raise ResultsError(f"Missing summary columns {missing_cols} for saving the results.")
 
     def summarize_results(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -94,17 +99,51 @@ class ResultsHandler:
         LOG.info(f"Saving results to {directory.absolute()}")
 
         df['model_version_id'] = model_version_id
-        validated_df = self._validate_results(df=df)
+        self._validate_results(df=df)
 
-        for loc in validated_df.location_id.unique().tolist():
+        for loc in df.location_id.unique().tolist():
             os.makedirs(str(directory / str(loc)), exist_ok=True)
-            for sex in validated_df.sex_id.unique().tolist():
-                subset = validated_df.loc[
-                    (validated_df.location_id == loc) &
-                    (validated_df.sex_id == sex)
+            for sex in df.sex_id.unique().tolist():
+                subset = df.loc[
+                    (df.location_id == loc) &
+                    (df.sex_id == sex)
                 ].copy()
                 subset.to_csv(directory / str(loc) / f'{loc}_{sex}.csv')
-                self.summarize_results(df=subset).to_csv(directory / str(loc) / f'{loc}_{sex}_summary.csv')
+                if add_summaries:
+                    summary = self.summarize_results(df=subset)
+                    self.save_summary_files(
+                        df=summary, model_version_id=model_version_id, directory=directory
+                    )
+
+    def save_summary_files(self, df: pd.DataFrame, model_version_id: int, directory: Path):
+        """
+        Saves a data frame with summaries by location and sex in summary.csv files.
+
+        Parameters
+        ----------
+        df
+            Data frame with the following columns:
+                ['location_id', 'year_id', 'age_group_id', 'sex_id',
+                'measure_id', 'mean', 'lower', and 'upper']
+        model_version_id
+            The model version to attach to the data
+        directory
+            Path to save the files to
+        """
+        LOG.info(f"Saving results to {directory.absolute()}")
+
+        df['model_version_id'] = model_version_id
+        self._validate_results(df=df)
+        self._validate_summaries(df=df)
+
+        for loc in df.location_id.unique().tolist():
+            os.makedirs(str(directory / str(loc)), exist_ok=True)
+            for sex in df.sex_id.unique().tolist():
+                subset = df.loc[
+                    (df.location_id == loc) &
+                    (df.sex_id == sex)
+                    ].copy()
+                subset.to_csv(directory / str(loc) / f'{loc}_{sex}_summary.csv')
 
     @staticmethod
     def upload_summaries(directory: Path, conn_def: str, table: str) -> None:

@@ -7,6 +7,8 @@ from cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior import get_pr
 from cascade_at.model.utilities.integrand_grids import integrand_grids
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.model.utilities.grid_helpers import estimate_grid_from_draws
+from cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior import format_rate_grid_for_ihme
+from cascade_at.dismod.api.dismod_filler import DismodFiller
 
 
 def test_get_prior_avgint_grid():
@@ -97,3 +99,24 @@ def test_apply_min_cv_to_value():
     alchemy.apply_min_cv_to_prior_grid(prior_grid=prior, min_cv=1e6)
     for (a, age), (t, time) in zip(enumerate(prior.ages), enumerate(prior.times)):
         assert prior[age, time].standard_deviation == prior[age, time].mean * 1e6
+
+
+def test_format_rate_grid_for_ihme(mi):
+    settings = load_settings(BASE_CASE)
+    alchemy = Alchemy(settings)
+    d = DismodFiller(
+        path='none',
+        settings_configuration=settings,
+        measurement_inputs=mi,
+        grid_alchemy=alchemy,
+        parent_location_id=70,
+        sex_id=2
+    )
+    grid = format_rate_grid_for_ihme(
+        rates=d.parent_child_model['rate'],
+        gbd_round_id=6,
+        location_id=70,
+        sex_id=2
+    )
+    assert all(grid.columns == ['location_id', 'year_id', 'age_group_id',
+                                'sex_id', 'measure_id', 'mean', 'upper', 'lower'])

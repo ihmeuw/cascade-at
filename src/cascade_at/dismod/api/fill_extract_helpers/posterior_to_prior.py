@@ -1,10 +1,14 @@
 import pandas as pd
 from typing import Dict, List
 import numpy as np
+from scipy import stats
 
 from cascade_at.dismod.api.fill_extract_helpers.utils import vec_to_midpoint
 from cascade_at.model.utilities.grid_helpers import expand_grid
 from cascade_at.dismod.constants import RateToIntegrand, IntegrandEnum, INTEGRAND_TO_WEIGHT
+from cascade_at.inputs.utilities.gbd_ids import format_age_time
+from cascade_at.dismod.integrand_mappings import RATE_TO_INTEGRAND, integrand_to_gbd_measures
+from cascade_at.model.smooth_grid import SmoothGrid
 
 
 def get_prior_avgint_grid(grids: Dict[str, Dict[str, np.ndarray]],
@@ -71,4 +75,64 @@ def get_prior_avgint_grid(grids: Dict[str, Dict[str, np.ndarray]],
     return posterior_dfs[[
         "integrand_id", "location_id", "weight_id", "subgroup_id",
         "age_lower", "age_upper", "time_lower", "time_upper", "sex_id"
+    ]]
+
+
+def format_rate_grid_for_ihme(rates: Dict[str, SmoothGrid], gbd_round_id: int,
+                              location_id: int, sex_id: int) -> pd.DataFrame:
+    """
+    Formats a grid of mean, upper, and lower for a prior rate
+    for the IHME database. **Only does this for Gaussian priors.**
+
+    Parameters
+    ----------
+    rates
+         A dictionary of SmoothGrids, keyed by primary rates like "iota"
+    gbd_round_id
+        the GBD round
+    location_id
+        the location ID to append to this data frame
+    sex_id
+        the sex ID to append to this data frame
+
+    Returns
+    -------
+    A data frame formatted for the IHME databases
+    """
+    dfs = []
+    for rate, smooth_grid in rates.items():
+        df = smooth_grid.value.grid.copy()
+        if df.empty:
+            continue
+
+        df['age_lower'] = df['age']
+        df['age_upper'] = df['age']
+        df['time_lower'] = df['time']
+        df['time_upper'] = df['time']
+
+        df = format_age_time(df=df, gbd_round_id=gbd_round_id)
+
+        group_cols = ['age', 'time']
+        # TODO: Once we can upgrade to pandas 1.1.0, then we can use the groupby(..., dropna=False)
+        #  feature, which we need because eta and nu can be null and that's ok, but pandas drops them.
+        #  In the meantime, we will group on age and time which means we're looping over each row,
+        #  which in some cases will be x 30 more computation than necessary.
+        #  Once we upgrade, use the group_cols below and it will skip duplicate computation.
+        #  group_cols = ['mean', 'std', 'lower', 'upper', 'density', 'eta', 'nu']
+
+        for name, group in df.groupby(group_cols):
+            at_row = smooth_grid.value[group.iloc[0]['age'], group.iloc[0]['time']].quantiles([0.025, 0.975])
+            df.loc[group.index, 'lower'] = at_row[0]
+            df.loc[group.index, 'upper'] = at_row[1]
+
+        df['integrand'] = RATE_TO_INTEGRAND[rate].name
+        df = integrand_to_gbd_measures(df=df, integrand_col='integrand')
+
+        df['location_id'] = location_id
+        df['sex_id'] = sex_id
+
+        dfs.append(df)
+    return pd.concat(dfs, axis=0, sort=False).reset_index()[[
+        'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id',
+        'mean', 'upper', 'lower'
     ]]

@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 from typing import Union, List, Dict, Any, Optional, Tuple
 import os
-import pandas as pd
 import numpy as np
 import pandas as pd
 
@@ -23,6 +22,7 @@ from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.saver.results_handler import ResultsHandler
 from cascade_at.settings.settings_config import SettingsConfig
 from cascade_at.model.priors import Gaussian, _Prior
+from cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior import format_rate_grid_for_ihme
 
 
 LOG = get_loggers(__name__)
@@ -92,7 +92,7 @@ def fill_database(path: Union[str, Path], settings: SettingsConfig,
                   inputs: MeasurementInputs, alchemy: Alchemy,
                   parent_location_id: int, sex_id: int, child_prior: Dict[str, Dict[str, np.ndarray]],
                   mulcov_prior: Dict[Tuple[str, str, str], _Prior],
-                  options: Dict[str, Any]) -> None:
+                  options: Dict[str, Any]) -> DismodFiller:
     """
     Fill a DisMod database at the specified path with the inputs, model, and settings
     specified, for a specific parent and sex ID, with options to override the priors.
@@ -103,6 +103,7 @@ def fill_database(path: Union[str, Path], settings: SettingsConfig,
         child_prior=child_prior, mulcov_prior=mulcov_prior,
     )
     df.fill_for_parent_child(**options)
+    return df
 
 
 def save_predictions(db_file: Union[str, Path],
@@ -160,6 +161,11 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
         directly on the dismod database
     dm_options
         A dictionary of options to pass to the the dismod option table
+    prior_samples
+        Whether the prior was derived from samples or not
+    prior_mulcov_model_version_id
+        The model version ID to use for pulling covariate multiplier
+        statistics as priors for this fit
     prior_parent
         An optional parent location ID that specifies where to pull the prior
         information from.
@@ -175,7 +181,7 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
     save_fit
         Whether or not to save the fit from this database as the parent fit.
     save_prior
-        Whether or not to save the prior for the children as the prior fit.
+        Whether or not to save the prior for the parent as the parent's prior.
     """
     if test_dir is not None:
         context = Context(model_version_id=model_version_id,
@@ -199,19 +205,8 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
             rates=[r.rate for r in settings.rate],
             samples=prior_samples
         )
-        if save_prior:
-            save_predictions(
-                db_file=prior_db,
-                locations=[parent_location_id], sexes=[sex_id],
-                model_version_id=model_version_id,
-                gbd_round_id=settings.gbd_round_id,
-                out_dir=context.prior_dir
-            )
     else:
         child_prior = None
-        if save_prior:
-            raise DismodDBError("Cannot save the prior because there was no argument"
-                                "passed in for the prior_parent or prior_sex.")
 
     if prior_mulcov_model_version_id is not None:
         LOG.info(f'Passing mulcov prior from model version id = {prior_mulcov_model_version_id}') 
@@ -220,12 +215,24 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
         mulcov_priors = None
 
     if fill:
-        fill_database(
+        filler = fill_database(
             path=db_path, inputs=inputs, alchemy=alchemy, settings=settings,
             parent_location_id=parent_location_id, sex_id=sex_id,
             child_prior=child_prior, options=dm_options,
             mulcov_prior=mulcov_priors,
         )
+        if save_prior:
+            priors_to_save = format_rate_grid_for_ihme(
+                rates=filler.parent_child_model['rate'],
+                gbd_round_id=settings.gbd_round_id,
+                location_id=parent_location_id,
+                sex_id=sex_id
+            )
+            rh = ResultsHandler()
+            rh.save_summary_files(
+                df=priors_to_save, directory=context.prior_dir,
+                model_version_id=model_version_id
+            )
 
     if dm_commands:
         run_dismod_commands(dm_file=str(db_path), commands=dm_commands)

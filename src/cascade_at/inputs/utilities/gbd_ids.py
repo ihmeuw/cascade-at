@@ -190,3 +190,36 @@ def get_country_level_covariate_ids(country_covariate_id):
     df = df.loc[df.covariate_id.isin(country_covariate_id)].copy()
     cov_dict = df[['covariate_id', 'covariate_name_short']].set_index('covariate_id').to_dict('index')
     return {k: f"c_{v['covariate_name_short']}" for k, v in cov_dict.items()}
+
+
+def format_age_time(df: pd.DataFrame, gbd_round_id: int) -> pd.DataFrame:
+    """
+    Formats age_lower, age_upper, and time_lower and time_upper
+    into the IHME age and time bins.
+
+    Parameters
+    ----------
+    df
+        data frame with age lower and upper or age_group_id AND
+        time lower and upper or year_id
+    gbd_round_id
+        gbd round
+
+    Returns
+    -------
+    data frame with mapped and and time to IHME ages and times
+    """
+    map_age = 'age_group_id' not in df.columns
+    map_year = 'year_id' not in df.columns
+
+    if map_age:
+        age_intervals = make_age_intervals(gbd_round_id=gbd_round_id)
+        df['age_group_id'] = df['age_lower'].apply(
+            lambda x: map_id_from_interval_tree(index=x, tree=age_intervals)
+        )
+    if map_year:
+        time_intervals = make_time_intervals()
+        df['year_id'] = df['time_lower'].apply(
+            lambda x: map_id_from_interval_tree(index=x, tree=time_intervals)
+        )
+    return df

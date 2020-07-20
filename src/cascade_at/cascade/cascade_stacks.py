@@ -175,7 +175,8 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         both=False,
         predict=True,
         upstream_commands=upstream,
-        save_fit=True
+        save_fit=True,
+        save_prior=True
     )
     tasks.append(t2)
     t3 = Predict(
