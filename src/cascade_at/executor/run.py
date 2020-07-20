@@ -5,7 +5,7 @@ from typing import Optional
 
 from cascade_at.cascade.cascade_commands import Drill, TraditionalCascade
 from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, IntArg, StrArg
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSim, StrArg
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
@@ -20,15 +20,16 @@ ARG_LIST = ArgumentList([
     BoolArg('--jobmon', help='whether or not to use jobmon to run the cascade'
                              'or just run as a sequence of command line tasks'),
     BoolArg('--make', help='whether or not to make the file structure for the cascade'),
-    IntArg('--n-sim', help='number of simulations to do going down the cascade'),
+    NSim(),
     StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
            required=False),
+    BoolArg('--skip-configure'),
     LogLevel()
 ])
 
 
 def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10,
-        addl_workflow_args: Optional[str] = None) -> None:
+        addl_workflow_args: Optional[str] = None, skip_configure: bool = False) -> None:
     """
     Runs the whole cascade or drill for a model version (which one is specified
     in the model version settings).
@@ -45,6 +46,7 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     n_sim
         Number of simulations to do going down the cascade
     addl_workflow_args
+    skip_configure
     """
     LOG.info(f"Starting model for {model_version_id}.")
 
@@ -84,7 +86,8 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             dag=dag,
             n_sim=n_sim,
             location_start=settings.model.drill_location_start,
-            sex=sex
+            sex=sex,
+            skip_configure=skip_configure
         )
     else:
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")
@@ -122,7 +125,8 @@ def main():
         jobmon=args.jobmon,
         make=args.make,
         n_sim=args.n_sim,
-        addl_workflow_args=args.addl_workflow_args
+        addl_workflow_args=args.addl_workflow_args,
+        skip_configure=args.skip_configure
     )
 
 
