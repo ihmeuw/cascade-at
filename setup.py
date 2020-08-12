@@ -26,7 +26,7 @@ setup(
             "gbd==2.1.0",
             "jobmon==1.1.1",
             "elmo==1.6.18",
-            "ihme-rules==2.1.0"]
+            "ihme-rules>=3.0.0"]
     },
     classifiers=[
         "Intended Audience :: Science/Research",
