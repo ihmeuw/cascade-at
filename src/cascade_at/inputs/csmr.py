@@ -11,28 +11,68 @@ from cascade_at.inputs.uncertainty import bounds_to_stdev
 LOG = get_loggers(__name__)
 
 
+def get_best_cod_correct(gbd_round_id: int, decomp_step_id: int) -> int:
+    run_query = f"""
+            SELECT MAX(co.output_version_id) AS version
+            FROM cod.output_version co
+            JOIN shared.decomp_step ds USING (decomp_step_id)
+            WHERE co.is_best = 1
+            AND co.best_end IS NULL
+            AND ds.gbd_round_id = {gbd_round_id}
+            AND ds.decomp_step_id = {decomp_step_id}
+            """
+    run_id = db_tools.ezfuncs.query(
+        run_query, conn_def='cod'
+    ).version.squeeze()
+    proc_query = f"""
+            SELECT
+                val AS codcorrect_version,
+                gbd_process_version_id,
+                gbd_process_version_status_id,
+                gbd_round_id,
+                decomp_step_id
+            FROM gbd_process_version_metadata
+            JOIN
+                gbd_process_version USING (gbd_process_version_id)
+            JOIN
+                metadata_type USING (metadata_type_id)
+            WHERE
+                metadata_type = 'CodCorrect Version'
+                and gbd_process_id = 3
+                and gbd_process_version_status_id = 1
+                and val = {run_id}
+            ORDER BY gbd_process_version_id DESC
+            """
+    process_version_id = db_tools.ezfuncs.query(
+        proc_query, conn_def='gbd'
+    ).codcorrect_version.squeeze()
+    return process_version_id
+
+
+
 class CSMR(BaseInput):
-    def __init__(self, process_version_id, cause_id, demographics,
-                 decomp_step, gbd_round_id):
+    def __init__(self, cause_id: int, demographics,
+                 decomp_step: str, decomp_step_id: int, gbd_round_id: int):
         """
         Get cause-specific mortality rate
         for demographic groups from a specific
         CodCorrect output version.
 
-        :param process_version_id: (int)
         :param cause_id: (int)
         :param demographics (cascade_at.inputs.demographics.Demographics)
         :param decomp_step: (str)
+        :param decomp_step_id: (int)
         :param gbd_round_id: (int)
         """
         super().__init__(gbd_round_id=gbd_round_id)
-        self.process_version_id = process_version_id
         self.cause_id = cause_id
         self.demographics = demographics
         self.decomp_step = decomp_step
+        self.decomp_step_id = decomp_step_id
         self.gbd_round_id = gbd_round_id
 
         self.raw = None
+        self.process_version_id = None
 
     def get_raw(self):
         """
@@ -41,6 +81,10 @@ class CSMR(BaseInput):
         :return: self
         """
         if self.cause_id:
+            self.process_version_id = get_best_cod_correct(
+                gbd_round_id=self.gbd_round_id,
+                decomp_step_id=self.decomp_step_id
+            )
             LOG.info(f"Getting CSMR from process version ID {self.process_version_id}")
             self.raw = db.get_outputs(
                 topic='cause',
@@ -52,10 +96,8 @@ class CSMR(BaseInput):
                 sex_id=self.demographics.sex_id,
                 age_group_id=self.demographics.age_group_id,
                 gbd_round_id=self.gbd_round_id,
-                # TODO: these next two are hard-coded,
-                #  should be self.decomp_step and self.process_version_id
-                decomp_step='step4',
-                process_version_id=14469
+                decomp_step=self.decomp_step,
+                process_version_id=self.process_version_id
             )
         else:
             LOG.info("There is no CSMR cause to pull from.")
