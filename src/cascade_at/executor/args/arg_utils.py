@@ -228,6 +228,8 @@ class ArgumentList:
     def template(self) -> str:
         """
         Creates a template of arguments from an argument list.
+        Will return something that looks like
+        "{argument1} {argument2}"
         """
         arguments = []
         for arg in self.arg_list:
