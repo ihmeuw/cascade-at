@@ -86,10 +86,16 @@ class _CascadeOperation:
                 raise CascadeATError(f"Tried to pass argument {k} but that is not in the allowed list"
                                      f"of arguments for {self._script()}: {list(self.arg_list.argument_dict.keys())}.")
 
+    def _make_template_kwargs(self, **kwargs):
+        # TODO: Make this into the template kwargs that will
+        # be passed to bash_task_from_cascade_operation
+        pass
+
     def _configure(self, **command_args):
         self._validate(**command_args)
         self.command = self._make_command(**command_args)
         self.name = self._make_name()
+        self.template_kwargs = self._make_template_kwargs(**command_args)
 
     def get_task_template(self, tool: Tool) -> TaskTemplate:
         return tool.get_task_template(
@@ -98,7 +104,6 @@ class _CascadeOperation:
             node_args=self.arg_list.node_args,
             task_args=self.arg_list.task_args
         )
-
 
 class ConfigureInputs(_CascadeOperation):
     def __init__(self, model_version_id: int, **kwargs):

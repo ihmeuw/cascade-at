@@ -22,36 +22,22 @@ class JobmonConstants:
     PROJECT = "proj_dismod_at"
 
 
-class COBashTask(BashTask):
-    """
-    Just a little modification to BashTask so that it has
-    an attribute for upstream commands in order for us to index
-    the cascade operations correctly.
-    """
-    def __init__(self, upstream_commands=None, **kwargs):
-        super().__init__(**kwargs)
-        if upstream_commands is None:
-            upstream_commands = []
-        self.upstream_commands = upstream_commands
-        LOG.info(f"Created task with command {self.command} with "
-                 f"{len(self.upstream_commands)} upstream commands.")
-
-
 def bash_task_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> BashTask:
     """
     Create a Jobmon bash task from a cascade operation (co for short).
     """
-    return COBashTask(
-        command=co.command,
+    template = co.get_task_template(tool)
+    template.create_task(
         name=co.name,
-        upstream_commands=co.upstream_commands,
+        max_attempts=3,
         executor_parameters=ExecutorParameters(
             max_runtime_seconds=co.executor_parameters['max_runtime_seconds'],
             j_resource=co.j_resource,
             m_mem_free=co.executor_parameters['m_mem_free'],
             num_cores=co.executor_parameters['num_cores'],
             resource_scales=co.executor_parameters['resource_scales']
-        )
+        ),
+        **kwargs
     )
 
 
@@ -93,11 +79,13 @@ def jobmon_workflow_from_cascade_command(cc, context, addl_workflow_args: Option
     #     seconds_until_timeout=60*60*24*5,
     #     resume=True
     # )
-    bash_tasks = {command: bash_task_from_cascade_operation(co=co, tool=tool)
-                  for command, co in cc.task_dict.items()}
-    for command, task in bash_tasks.items():
-        for upstream in task.upstream_commands:
-            task.add_upstream(bash_tasks.get(upstream))
-
+    bash_tasks = dict()
+    for command, co in cc.task_dict.items():
+        task = bash_task_from_cascade_operation(co=co, tool=tool)
+        for uc in co.upstream_commands:
+            task.add_upstream(bash_tasks.get(uc))
+        bash_tasks.update({
+            command: task
+        })
     wf.add_tasks(list(bash_tasks.values()))
     return wf
