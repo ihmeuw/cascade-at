@@ -10,12 +10,22 @@ class StaticArgError(CascadeArgError):
 
 
 class _Argument:
+    """
+    Base class for all arguments. By default, all arguments
+    are considered node_args, which is something that makes
+    the command that it is used in unique within a template
+    for the workflow, but not across workflows.
+
+    This is overwritten
+    if an _Argument subclass is used as a task_arg.
+    """
     def __init__(self, arg=None):
 
         self._arg = None
         self._kwargs = dict()
         if arg is not None:
             self._arg = arg
+        self._task_arg = False
 
     def _to_dict(self):
         return {self._arg: self._kwargs}
@@ -81,6 +91,11 @@ class ListArg(_Argument):
 
 
 class ModelVersionID(IntArg):
+    """
+    The Model Version ID argument is the *only* task argument, meaning
+    an argument that makes the commands that it is used in unique
+    across workflows.
+    """
     def __init__(self):
         super().__init__()
 
@@ -89,6 +104,7 @@ class ModelVersionID(IntArg):
             'required': True,
             'help': 'model version ID (need this from database entry)'
         })
+        self._task_arg = True
 
 
 class ParentLocationID(IntArg):

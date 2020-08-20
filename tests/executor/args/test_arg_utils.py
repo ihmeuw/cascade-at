@@ -4,12 +4,26 @@ import pytest
 from cascade_at.executor.args.arg_utils import parse_options, parse_commands
 from cascade_at.executor.args.arg_utils import encode_options, encode_commands, OptionParsingError
 from cascade_at.executor.args.arg_utils import ArgumentList, list2string
-from cascade_at.executor.args.args import IntArg, BoolArg, ListArg
+from cascade_at.executor.args.args import IntArg, BoolArg, ListArg, ModelVersionID
 from cascade_at.executor.args.args import DmOptions, DmCommands
+from cascade_at.executor.args.arg_utils import _arg_to_flag, _args_to_command
+from cascade_at.executor.args.arg_utils import _flag_to_arg, _arg_to_empty, _arg_to_command
 
 
 def test_list2string():
     assert list2string(['foo', 'bar']) == 'foo bar'
+
+
+def test_arg_to_flag():
+    assert _arg_to_flag("model_version_id") == '--model-version-id'
+
+
+def test_flag_to_arg():
+    assert _flag_to_arg("--model-version-id") == "model_version_id"
+
+
+def test_arg_to_empty():
+    assert _arg_to_empty("model_version_id") == "{model_version_id}"
 
 
 def test_argument_list():
@@ -17,6 +31,18 @@ def test_argument_list():
     args = al.parse_args('--foo 1 --bar'.split())
     assert args.foo == 1
     assert args.bar
+
+
+def test_argument_list_template():
+    al = ArgumentList([IntArg('--foo-bar'), BoolArg('--bar')])
+    assert al.template == '{foo_bar} {bar}'
+
+
+def test_argument_list_task_args():
+    arg1 = IntArg('--foo')
+    al = ArgumentList([arg1, ModelVersionID()])
+    assert al.task_args == ['model_version_id']
+    assert al.node_args == ['foo']
 
 
 def test_argument_list_lists():

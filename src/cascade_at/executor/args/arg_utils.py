@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 from argparse import ArgumentParser, Namespace
 
 from cascade_at.core.log import get_loggers
@@ -96,11 +96,99 @@ def _arg_list_to_parser(arg_list: List[_Argument]) -> ArgumentParser:
     return parser
 
 
+def _arg_to_flag(name: str) -> str:
+    """
+    Converts an argument to a flag, like model_version_id
+    to --model-version-id.
+
+    Parameters
+    ----------
+    name
+        Argument name to convert
+
+    Returns
+    -------
+    A flag string
+    """
+    arg = '-'.join(name.split('_'))
+    return f'--{arg}'
+
+
+def _flag_to_arg(flag: str) -> str:
+    """
+    Splits a flag that looks like --model-version-id into an
+    argument that looks like model_version_id.
+
+    Parameters
+    ----------
+    flag
+        The flag string to split
+
+    Returns
+    -------
+    An argument name
+    """
+    arg = flag.split('--')[1].split('-')
+    arg = '_'.join(arg)
+    return arg
+
+
+def _arg_to_empty(name: str) -> str:
+    """
+    Convert an argument name to an "empty" placeholder
+    for an argument to later be filled in. Used by the jobmon TaskTemplate.
+    E.g. takes something that looks like "model_version_id" and
+    converts it to "{model_version_id}"
+
+    Parameters
+    ----------
+    name
+        Argument name to convert
+
+    Returns
+    -------
+    Converted name to placeholder
+    """
+    arg = "{" + name + "}"
+    return arg
+
+
+def _arg_to_command(k: str, v: Optional[Union[str, int, float]] = None):
+    """
+    Takes a key (k) and a value (v) and turns it into a command-line
+    argument like k=model_version v=1 and returns --model-version 1.
+
+    If empty, returns an a template command rather than the command itself
+    """
+    command = _arg_to_flag(k)
+    if v is not None:
+        command += f' {v}'
+    return command
+
+
+def _args_to_command(**kwargs):
+    commands = []
+    for k, v in kwargs.items():
+        if v is None:
+            continue
+        if type(v) == bool:
+            if v:
+                command = _arg_to_command(k=k)
+            else:
+                continue
+        elif type(v) == list:
+            command = _arg_to_command(k=k, v=list2string(v))
+        else:
+            command = _arg_to_command(k=k, v=v)
+        commands.append(command)
+    return ' '.join(commands)
+
+
 class ArgumentList:
     def __init__(self, arg_list: List[_Argument]):
-        self.arg_list = arg_list
+        self.arg_list: List[_Argument] = arg_list
 
-    def parse_args(self, args) -> Namespace:
+    def parse_args(self, args: List[str]) -> Namespace:
         """
         Parses arguments from a list of arguments into an argument
         namespace using ArgumentParser.parse_args(). Also
@@ -127,3 +215,24 @@ class ArgumentList:
         for arg in self.arg_list:
             d.update(arg._to_dict())
         return d
+
+    @property
+    def task_args(self) -> List[str]:
+        return [_flag_to_arg(x._arg) for x in self.arg_list if x._task_arg]
+
+    @property
+    def node_args(self) -> List[str]:
+        return [_flag_to_arg(x._arg) for x in self.arg_list if not x._task_arg]
+
+    @property
+    def template(self) -> str:
+        """
+        Creates a template of arguments from an argument list.
+        """
+        arguments = []
+        for arg in self.arg_list:
+            flag = arg._arg
+            arg = _flag_to_arg(flag)
+            placeholder = _arg_to_empty(arg)
+            arguments.append(placeholder)
+        return ' '.join(arguments)
