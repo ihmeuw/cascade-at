@@ -4,14 +4,13 @@ that can be performed on a single DisMod-AT database.
 """
 from typing import List, Optional, Dict, Union, Any
 
-from cascade_at.jobmon.resources import DEFAULT_EXECUTOR_PARAMETERS
-from cascade_at.executor.args.arg_utils import encode_commands, encode_options
-from cascade_at.executor.args.executor_args import ARG_DICT
-from cascade_at.executor.args.arg_utils import _args_to_command, _arg_to_flag, ArgumentList
 from cascade_at.core import CascadeATError
-
-from jobmon.client.tool import Tool
-from jobmon.client.task_template import TaskTemplate
+from cascade_at.executor.args.arg_utils import _args_to_command, _arg_to_flag, ArgumentList
+from cascade_at.executor.args.arg_utils import _flag_to_arg
+from cascade_at.executor.args.arg_utils import encode_commands, encode_options
+from cascade_at.executor.args.args import BoolArg
+from cascade_at.executor.args.executor_args import ARG_DICT
+from cascade_at.jobmon.resources import DEFAULT_EXECUTOR_PARAMETERS
 
 
 class CascadeOperationValidationError(CascadeATError):
@@ -20,8 +19,7 @@ class CascadeOperationValidationError(CascadeATError):
 
 class _CascadeOperation:
     def __init__(self, upstream_commands: Optional[List[str]] = None,
-                 executor_parameters: Optional[Dict[str, Any]] = None,
-                 tool: Optional[Tool] = None):
+                 executor_parameters: Optional[Dict[str, Any]] = None):
 
         if upstream_commands is None:
             upstream_commands = list()
@@ -31,11 +29,11 @@ class _CascadeOperation:
         if executor_parameters is not None:
             self.executor_parameters.update(executor_parameters)
 
-        self.tool: Tool = tool
         self.j_resource: bool = False
 
         self.name: Optional[str] = None
         self.command: Optional[str] = None
+        self.template_kwargs: Optional[Dict[str, str]] = dict()
         self.name_components: List = []
         self.arg_list: ArgumentList = ARG_DICT[self._script()]
 
@@ -86,10 +84,61 @@ class _CascadeOperation:
                 raise CascadeATError(f"Tried to pass argument {k} but that is not in the allowed list"
                                      f"of arguments for {self._script()}: {list(self.arg_list.argument_dict.keys())}.")
 
-    def _make_template_kwargs(self, **kwargs):
-        # TODO: Make this into the template kwargs that will
-        # be passed to bash_task_from_cascade_operation
-        pass
+    def _make_template_kwargs(self, **kwargs) -> Dict[str, str]:
+        """
+        Takes kwargs like model_version_id=0
+        and turns it into kwargs dict that looks
+        like {'model_version_id': --model-version-id 0}.
+        For boolean args, it will look like
+        {'do_this': '--do-this'}. And for arguments
+        from self.arg_list that have defaults, it will
+        fill in the default value if it is not passed in
+        the kwargs (unless it's None).
+
+        Parameters
+        ----------
+        kwargs
+            Keyword arguments
+
+        Returns
+        -------
+        Dictionary of keyword arguments similar to what was passed but with
+        values that have been converted to what the TaskTemplate expects. Also
+        filling in default arguments that are not passed but are listed in
+        the ArgumentList for self.
+        """
+        template_kwargs = dict()
+        passed_args = {
+            _arg_to_flag(k): v for k, v in kwargs.items()
+        }
+
+        for argument in self.arg_list.arg_list:
+            # The default value for each arg
+            # will be an empty string, and is only
+            # overwritten if it has a passed_arg
+            # or a default.
+            value = ""
+            arg = _flag_to_arg(argument._flag)
+            if isinstance(argument, BoolArg):
+                if argument._flag in passed_args:
+                    if passed_args[argument._flag]:
+                        value = _args_to_command(**{
+                            arg: passed_args[argument._flag]
+                        })
+            else:
+                if argument._flag in passed_args:
+                    value = _args_to_command(**{
+                        arg: passed_args[argument._flag]
+                    })
+                else:
+                    if argument._parser_kwargs['default'] is not None:
+                        value = _args_to_command(**{
+                            arg: argument._parser_kwargs['default']
+                        })
+            template_kwargs.update({
+                _flag_to_arg(argument._flag): value
+            })
+        return template_kwargs
 
     def _configure(self, **command_args):
         self._validate(**command_args)
@@ -97,13 +146,6 @@ class _CascadeOperation:
         self.name = self._make_name()
         self.template_kwargs = self._make_template_kwargs(**command_args)
 
-    def get_task_template(self, tool: Tool) -> TaskTemplate:
-        return tool.get_task_template(
-            template_name=self._script(),
-            command_template=f"{self._script()} {self.arg_list.template}",
-            node_args=self.arg_list.node_args,
-            task_args=self.arg_list.task_args
-        )
 
 class ConfigureInputs(_CascadeOperation):
     def __init__(self, model_version_id: int, **kwargs):

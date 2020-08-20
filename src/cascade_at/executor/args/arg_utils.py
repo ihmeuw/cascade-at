@@ -1,8 +1,9 @@
 from typing import Dict, List, Union, Optional
+
 from argparse import ArgumentParser, Namespace
 
-from cascade_at.core.log import get_loggers
 from cascade_at.core import CascadeATError
+from cascade_at.core.log import get_loggers
 from cascade_at.executor.args.args import _Argument
 
 LOG = get_loggers(__name__)
@@ -84,16 +85,6 @@ def encode_commands(command_list: List[str]) -> List[str]:
     passed to the command line.
     """
     return ['-'.join(x.split(' ')) for x in command_list]
-
-
-def _arg_list_to_parser(arg_list: List[_Argument]) -> ArgumentParser:
-    """
-    Converts a list of arguments to an ArgumentParser.
-    """
-    parser = ArgumentParser()
-    for arg in arg_list:
-        parser.add_argument(arg._arg, **arg._kwargs)
-    return parser
 
 
 def _arg_to_flag(name: str) -> str:
@@ -188,13 +179,22 @@ class ArgumentList:
     def __init__(self, arg_list: List[_Argument]):
         self.arg_list: List[_Argument] = arg_list
 
+    def _to_parser(self) -> ArgumentParser:
+        """
+        Converts list of arguments to an ArgumentParser.
+        """
+        parser = ArgumentParser()
+        for arg in self.arg_list:
+            parser.add_argument(arg._flag, **arg._parser_kwargs)
+        return parser
+
     def parse_args(self, args: List[str]) -> Namespace:
         """
         Parses arguments from a list of arguments into an argument
         namespace using ArgumentParser.parse_args(). Also
         decodes potential dismod commands and options.
         """
-        parser = _arg_list_to_parser(self.arg_list)
+        parser = self._to_parser()
         args = parser.parse_args(args)
         if hasattr(args, 'dm_commands'):
             if args.dm_commands is not None:
@@ -218,11 +218,11 @@ class ArgumentList:
 
     @property
     def task_args(self) -> List[str]:
-        return [_flag_to_arg(x._arg) for x in self.arg_list if x._task_arg]
+        return [_flag_to_arg(x._flag) for x in self.arg_list if x._task_arg]
 
     @property
     def node_args(self) -> List[str]:
-        return [_flag_to_arg(x._arg) for x in self.arg_list if not x._task_arg]
+        return [_flag_to_arg(x._flag) for x in self.arg_list if not x._task_arg]
 
     @property
     def template(self) -> str:
@@ -231,7 +231,7 @@ class ArgumentList:
         """
         arguments = []
         for arg in self.arg_list:
-            flag = arg._arg
+            flag = arg._flag
             arg = _flag_to_arg(flag)
             placeholder = _arg_to_empty(arg)
             arguments.append(placeholder)

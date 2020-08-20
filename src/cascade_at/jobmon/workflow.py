@@ -1,20 +1,16 @@
 import os
-import getpass
 from typing import Optional
 
-from cascade_at.core.db import swarm
-from cascade_at.core.log import get_loggers
 from cascade_at.cascade.cascade_operations import _CascadeOperation
+from cascade_at.core.db import client
+from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
 
-Workflow = swarm.workflow.workflow.Workflow
-BashTask = swarm.workflow.bash_task.BashTask
-ExecutorParameters = swarm.executors.base.ExecutorParameters
-
-# This is just here to skip the ModuleProxy so that I can
-# develop better in PyCharm
-from jobmon.client.api import Tool, ExecutorParameters
+ExecutorParameters = client.api.ExecutorParameters
+Tool = client.api.Tool
+Task = client.task.Task
+Template = client.task_template.TaskTemplate
 
 
 class JobmonConstants:
@@ -22,12 +18,21 @@ class JobmonConstants:
     PROJECT = "proj_dismod_at"
 
 
-def bash_task_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> BashTask:
+def task_template_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> TaskTemplate:
+    return tool.get_task_template(
+        template_name=co._script(),
+        command_template="{script} " + f"{co.arg_list.template}",
+        node_args=co.arg_list.node_args,
+        task_args=co.arg_list.task_args
+    )
+
+
+def task_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> Task:
     """
-    Create a Jobmon bash task from a cascade operation (co for short).
+    Create a Jobmon task from a cascade operation (co for short).
     """
-    template = co.get_task_template(tool)
-    template.create_task(
+    template = task_template_from_cascade_operation(co, tool)
+    task = template.create_task(
         name=co.name,
         max_attempts=3,
         executor_parameters=ExecutorParameters(
@@ -37,8 +42,10 @@ def bash_task_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> BashT
             num_cores=co.executor_parameters['num_cores'],
             resource_scales=co.executor_parameters['resource_scales']
         ),
-        **kwargs
+        script=co._script(),
+        **co.template_kwargs
     )
+    return task
 
 
 def jobmon_workflow_from_cascade_command(cc, context, addl_workflow_args: Optional[str] = None):
@@ -67,21 +74,14 @@ def jobmon_workflow_from_cascade_command(cc, context, addl_workflow_args: Option
     wf = tool.create_workflow(name=workflow_args)
     wf.set_executor(
         executor_class=JobmonConstants.EXECUTOR,
-        project=JobmonConstants.PROJECT
+        project=JobmonConstants.PROJECT,
+        stderr=str(error_dir),
+        stdout=str(output_dir),
+        working_dir=str(context.model_dir),
     )
-
-    # wf = Workflow(
-    #     workflow_args=workflow_args,
-    #     project='proj_dismod_at',
-    #     stderr=str(error_dir),
-    #     stdout=str(output_dir),
-    #     working_dir=str(context.model_dir),
-    #     seconds_until_timeout=60*60*24*5,
-    #     resume=True
-    # )
     bash_tasks = dict()
     for command, co in cc.task_dict.items():
-        task = bash_task_from_cascade_operation(co=co, tool=tool)
+        task = task_from_cascade_operation(co=co, tool=tool)
         for uc in co.upstream_commands:
             task.add_upstream(bash_tasks.get(uc))
         bash_tasks.update({
