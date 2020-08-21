@@ -11,6 +11,7 @@ ExecutorParameters = client.api.ExecutorParameters
 Tool = client.api.Tool
 Task = client.task.Task
 Template = client.task_template.TaskTemplate
+SGEExecutor = client.execution.strategies.sge
 
 
 class JobmonConstants:
