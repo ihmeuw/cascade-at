@@ -10,7 +10,7 @@ LOG = get_loggers(__name__)
 ExecutorParameters = api.ExecutorParameters
 Tool = api.Tool
 Task = task.Task
-Template = task_template.TaskTemplate
+TaskTemplate = task_template.TaskTemplate
 SGEExecutor = sge
 
 
@@ -33,7 +33,7 @@ def task_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> Task:
     Create a Jobmon task from a cascade operation (co for short).
     """
     template = task_template_from_cascade_operation(co, tool)
-    task = template.create_task(
+    t_task = template.create_task(
         name=co.name,
         max_attempts=3,
         executor_parameters=ExecutorParameters(
@@ -46,7 +46,7 @@ def task_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> Task:
         script=co._script(),
         **co.template_kwargs
     )
-    return task
+    return t_task
 
 
 def jobmon_workflow_from_cascade_command(cc, context, addl_workflow_args: Optional[str] = None):
@@ -82,9 +82,9 @@ def jobmon_workflow_from_cascade_command(cc, context, addl_workflow_args: Option
     )
     bash_tasks = dict()
     for command, co in cc.task_dict.items():
-        task = task_from_cascade_operation(co=co, tool=tool)
+        t_task = task_from_cascade_operation(co=co, tool=tool)
         for uc in co.upstream_commands:
-            task.add_upstream(bash_tasks.get(uc))
+            t_task.add_upstream(bash_tasks.get(uc))
         bash_tasks.update({
             command: task
         })
