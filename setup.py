@@ -7,8 +7,8 @@ setup(
     package_dir={"": "src"},
     packages=PEP420PackageFinder.find("src"),
     install_requires=[
-        "numpy==1.17.2",
-        "pandas==0.25.1",
+        "numpy",
+        "pandas",
         "scipy",
         "hypothesis",
         "sqlalchemy",
@@ -21,17 +21,17 @@ setup(
     zip_safe=False,
     extras_require={
         "ihme": [
-            "db-tools==0.9.0",
-            "db-queries==21.0.0",
-            "gbd==2.1.0",
-            "jobmon==1.1.1",
-            "elmo==1.6.18",
-            "ihme-rules>=3.0.0"]
+            "db-tools",
+            "db-queries",
+            "gbd",
+            "jobmon",
+            "elmo",
+            "ihme-rules"]
     },
     classifiers=[
         "Intended Audience :: Science/Research",
         "Licence :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.8",
         "Topic :: Scientific/Engineering :: Statistics"
     ],
     entry_points={'console_scripts': [
