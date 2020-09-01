@@ -86,7 +86,7 @@ def jobmon_workflow_from_cascade_command(cc, context, addl_workflow_args: Option
         for uc in co.upstream_commands:
             t_task.add_upstream(bash_tasks.get(uc))
         bash_tasks.update({
-            command: task
+            command: t_task
         })
     wf.add_tasks(list(bash_tasks.values()))
     return wf
