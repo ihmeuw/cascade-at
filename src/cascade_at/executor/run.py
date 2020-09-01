@@ -97,11 +97,11 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
         LOG.info("Configuring jobmon.")
         wf = jobmon_workflow_from_cascade_command(cc=cascade_command, context=context,
                                                   addl_workflow_args=addl_workflow_args)
-        error = wf.run(
+        wf_run = wf.run(
             seconds_until_timeout=60*60*24*3,
             resume=True
         )
-        if error:
+        if wf_run.status != 'D':
             context.update_status(status='Failed')
             raise RuntimeError("Jobmon workflow failed.")
     else:
