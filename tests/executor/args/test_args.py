@@ -4,51 +4,51 @@ from cascade_at.executor.args.args import ModelVersionID, LogLevel, ParentLocati
 
 def test_argument():
     a = _Argument()
-    assert a._arg is None
-    assert type(a._kwargs) == dict
+    assert a._flag is None
+    assert type(a._parser_kwargs) == dict
 
     a = _Argument('--arg')
-    assert a._arg == '--arg'
+    assert a._flag == '--arg'
 
 
 def test_int_arg():
     a = IntArg()
-    assert a._kwargs['type'] == int
+    assert a._parser_kwargs['type'] == int
 
 
 def test_str_arg():
     a = StrArg()
-    assert a._kwargs['type'] == str
+    assert a._parser_kwargs['type'] == str
 
 
 def test_float_arg():
     a = FloatArg()
-    assert a._kwargs['type'] == float
+    assert a._parser_kwargs['type'] == float
 
 
 def test_model_version_id():
     a = ModelVersionID()
-    assert a._arg == '--model-version-id'
-    assert a._kwargs['type'] == int
-    assert a._kwargs['required']
+    assert a._flag == '--model-version-id'
+    assert a._parser_kwargs['type'] == int
+    assert a._parser_kwargs['required']
 
 
 def test_log_level():
     a = LogLevel()
-    assert a._arg == '--log-level'
-    assert a._kwargs['type'] == str
-    assert not a._kwargs['required']
+    assert a._flag == '--log-level'
+    assert a._parser_kwargs['type'] == str
+    assert not a._parser_kwargs['required']
 
 
 def test_parent_location_id():
     a = ParentLocationID()
-    assert a._arg == '--parent-location-id'
-    assert a._kwargs['type'] == int
-    assert a._kwargs['required']
+    assert a._flag == '--parent-location-id'
+    assert a._parser_kwargs['type'] == int
+    assert a._parser_kwargs['required']
 
 
 def test_sex_id():
     a = SexID()
-    assert a._arg == '--sex-id'
-    assert a._kwargs['type'] == int
-    assert a._kwargs['required']
+    assert a._flag == '--sex-id'
+    assert a._parser_kwargs['type'] == int
+    assert a._parser_kwargs['required']
