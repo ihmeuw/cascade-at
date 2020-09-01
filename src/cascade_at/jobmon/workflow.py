@@ -2,7 +2,7 @@ import os
 from typing import Optional
 
 from cascade_at.cascade.cascade_operations import _CascadeOperation
-from cascade_at.core.db import api, task, task_template, strategies
+from cascade_at.core.db import api, task, task_template, sge
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
@@ -11,7 +11,7 @@ ExecutorParameters = api.ExecutorParameters
 Tool = api.Tool
 Task = task.Task
 Template = task_template.TaskTemplate
-SGEExecutor = strategies.sge
+SGEExecutor = sge
 
 
 class JobmonConstants:
