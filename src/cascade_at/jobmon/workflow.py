@@ -2,16 +2,16 @@ import os
 from typing import Optional
 
 from cascade_at.cascade.cascade_operations import _CascadeOperation
-from cascade_at.core.db import client
+from cascade_at.core.db import api, task, task_template, execution
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
 
-ExecutorParameters = client.api.ExecutorParameters
-Tool = client.api.Tool
-Task = client.task.Task
-Template = client.task_template.TaskTemplate
-SGEExecutor = client.execution.strategies.sge
+ExecutorParameters = api.ExecutorParameters
+Tool = api.Tool
+Task = task.Task
+Template = task_template.TaskTemplate
+SGEExecutor = execution.strategies.sge
 
 
 class JobmonConstants:
