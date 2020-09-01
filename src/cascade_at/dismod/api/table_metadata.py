@@ -312,7 +312,7 @@ class AvgInt(Base):
     avgint_id = Column(Integer(), primary_key=True, autoincrement=False)
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=False)
     node_id = Column(None, ForeignKey("node.node_id"), nullable=False)
-    weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=False)
+    weight_id = Column(None, ForeignKey("weight.weight_id"), nullable=True)
     subgroup_id = Column(None, ForeignKey("subgroup.subgroup_id"), nullable=False)
     age_lower = Column(Float(), nullable=False)
     age_upper = Column(Float(), nullable=False)
