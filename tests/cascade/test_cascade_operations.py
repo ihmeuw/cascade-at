@@ -20,6 +20,8 @@ def test_configure_inputs():
     assert obj.template_kwargs['test_dir'] == ''
     assert obj.template_kwargs['midpoint'] == ''
 
+    assert obj.name == 'dmat_configure_inputs_0'
+
 
 def test_fit_fixed():
     obj = Fit(

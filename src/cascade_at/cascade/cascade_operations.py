@@ -150,6 +150,7 @@ class _CascadeOperation:
 class ConfigureInputs(_CascadeOperation):
     def __init__(self, model_version_id: int, **kwargs):
         super().__init__(**kwargs)
+        self.name_components = [model_version_id]
         self.j_resource = True
 
         self._configure(
