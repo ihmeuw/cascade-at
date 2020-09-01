@@ -31,7 +31,7 @@ setup(
     classifiers=[
         "Intended Audience :: Science/Research",
         "Licence :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.8",
         "Topic :: Scientific/Engineering :: Statistics"
     ],
     entry_points={'console_scripts': [
