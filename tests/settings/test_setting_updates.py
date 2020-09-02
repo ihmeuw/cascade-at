@@ -37,3 +37,21 @@ def test_data_cv_by_integrand_update(data_cv_by_integrand, num, measure, value):
     assert type(s.data_cv_by_integrand) == FormList
     assert s.data_cv_by_integrand[num].integrand_measure_id == measure
     assert s.data_cv_by_integrand[num].value == value
+    assert s.model.is_field_unset('midpoint_approximation')
+
+
+@pytest.fixture
+def midpoint_approximation():
+    return {
+        "midpoint_approximation": [
+            6,
+            9
+        ]
+    }
+
+
+def test_midpoint_approx_update(midpoint_approximation):
+    settings = BASE_CASE.copy()
+    settings['model'].update(midpoint_approximation)
+    sett = load_settings(settings)
+    assert sett.model.midpoint_approximation == [6, 9]
