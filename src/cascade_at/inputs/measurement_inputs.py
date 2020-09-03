@@ -241,7 +241,6 @@ class MeasurementInputs:
         mortality_year_reduction
             number of years to decimate csmr and asdr
         """
-        import pdb; pdb.set_trace()
         self.data_eta = data_eta_from_settings(settings)
         self.density = density_from_settings(settings)
         self.nu = nu_from_settings(settings)
@@ -281,9 +280,6 @@ class MeasurementInputs:
         self.dismod_data["nu"] = self.dismod_data.measure.apply(
             self.nu.__getitem__)
 
-        for column in ["age_lower", "age_upper", "time_lower", "time_upper"]:
-            self.dismod_data[column] = np.nan
-        import pdb; pdb.set_trace()
         for measure in self.dismod_data.measure.unique():
             if measure in self.measures_midpoint:
                 midpoint_age_time(df=self.dismod_data, measure=measure)
