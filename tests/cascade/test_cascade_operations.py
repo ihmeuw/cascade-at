@@ -18,7 +18,6 @@ def test_configure_inputs():
     assert obj.template_kwargs['log_level'] == '--log-level info'
     assert obj.template_kwargs['json_file'] == ''
     assert obj.template_kwargs['test_dir'] == ''
-    assert obj.template_kwargs['midpoint'] == ''
 
     assert obj.name == 'dmat_configure_inputs_0'
 

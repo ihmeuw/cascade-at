@@ -1,12 +1,36 @@
 from collections import defaultdict
-import numpy as np
 from copy import deepcopy
+from typing import List
 
-from cascade_at.settings.settings_config import SettingsConfig
+import numpy as np
+
 from cascade_at.dismod.integrand_mappings import INTEGRAND_MAP
-
+from cascade_at.settings.settings_config import SettingsConfig
 
 CASCADE_LEVEL_ID = ['most_detailed']
+
+
+def midpoint_list_from_settings(settings: SettingsConfig) -> List[str]:
+    """
+    Takes the settings configuration for which integrands to midpoint
+    which comes in as measure ID and translates that to integrand enums.
+
+    Parameters
+    ----------
+    settings
+
+    Returns
+    -------
+    List of
+    """
+    if not settings.model.is_field_unset("midpoint_approximation"):
+        measures_midpoint = [
+            INTEGRAND_MAP[m].name
+            for m in settings.model.midpoint_approximation
+            if m in INTEGRAND_MAP]
+    else:
+        measures_midpoint = list()
+    return measures_midpoint
 
 
 def measures_to_exclude_from_settings(settings: SettingsConfig):
