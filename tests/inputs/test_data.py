@@ -24,13 +24,6 @@ def test_measures_exclude(cv, measures_to_exclude, relabel_incidence, hold_out):
 def df_for_dismod(cv):
     return cv.configure_for_dismod(measures_to_exclude=None, relabel_incidence=2)
 
-def test_midpoint_for_cv(cv):
-    cv2 = copy.deepcopy(cv)
-    cv2.raw.year_end = 1994
-    cv2.raw.age_end = 5
-    df = cv2.configure_for_dismod(measures_to_exclude=None, relabel_incidence=2, midpoint=True)
-    assert df.age_lower.iloc[0] + 1 == df.age_upper.iloc[0] == 3.5
-    assert df.time_upper.iloc[0] == df.time_lower.iloc[0] + 1 == 1993
 
 @pytest.mark.parametrize("column,value", [
     ("location_id", 70),

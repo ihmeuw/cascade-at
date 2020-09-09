@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+
 from cascade_at.core.db import db_queries
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
@@ -47,12 +50,16 @@ class ASDR(BaseInput):
         )
         return self
 
-    def configure_for_dismod(self, hold_out=0):
+    def configure_for_dismod(self, hold_out: int = 0, midpoint: bool = False) -> pd.DataFrame:
         """
         Configures ASDR for DisMod.
 
-        :param hold_out: (int) hold-out value for Dismod. 0 means it will be fit, 1 means held out
-        :return: (pd.DataFrame)
+        Parameters
+        ----------
+        hold_out
+            hold-out value for Dismod. 0 means it will be fit, 1 means held out
+        midpoint
+            whether or not to use a midpoint approximation for age and time
         """
         df = self.raw[[
             'age_group_id', 'location_id', 'year_id', 'sex_id', 'mean', 'upper', 'lower'
