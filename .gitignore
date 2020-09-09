@@ -114,3 +114,6 @@ venv.bak/
 
 # hypothesis
 .hypothesis
+
+# idea
+.idea/
