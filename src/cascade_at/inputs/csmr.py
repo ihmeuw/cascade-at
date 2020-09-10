@@ -12,6 +12,17 @@ LOG = get_loggers(__name__)
 
 
 def get_best_cod_correct(gbd_round_id: int) -> int:
+    """
+    Gets the best codcorrect version for a given GBD round.
+
+    Parameters
+    ----------
+    gbd_round_id
+
+    Returns
+    -------
+    The process_version_id to be used with a db_queries.get_outputs call.
+    """
     run_query = f"""
             SELECT MAX(co.output_version_id) AS version
             FROM cod.output_version co
@@ -47,7 +58,7 @@ def get_best_cod_correct(gbd_round_id: int) -> int:
             """
     process_version_id = db_tools.ezfuncs.query(
         proc_query, conn_def='gbd'
-    ).codcorrect_version.astype(int).squeeze()
+    ).gbd_process_version_id.astype(int).squeeze()
     if process_version_id is None:
         raise RuntimeError(f"Cannot find process version ID for run ID {run_id}.")
     LOG.info(f"Found process version ID {process_version_id}.")
@@ -86,7 +97,7 @@ class CSMR(BaseInput):
         """
         if self.cause_id:
             self.process_version_id = get_best_cod_correct(
-                gbd_round_id=self.gbd_round_id,
+                gbd_round_id=self.gbd_round_id
             )
             LOG.info(f"Getting CSMR from process version ID {self.process_version_id}")
             self.raw = db.get_outputs(
