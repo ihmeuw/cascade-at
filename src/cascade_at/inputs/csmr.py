@@ -67,7 +67,7 @@ def get_best_cod_correct(gbd_round_id: int) -> int:
 
 class CSMR(BaseInput):
     def __init__(self, cause_id: int, demographics,
-                 decomp_step: str, decomp_step_id: int, gbd_round_id: int):
+                 decomp_step: str, gbd_round_id: int):
         """
         Get cause-specific mortality rate
         for demographic groups from a specific
@@ -76,14 +76,12 @@ class CSMR(BaseInput):
         :param cause_id: (int)
         :param demographics (cascade_at.inputs.demographics.Demographics)
         :param decomp_step: (str)
-        :param decomp_step_id: (int)
         :param gbd_round_id: (int)
         """
         super().__init__(gbd_round_id=gbd_round_id)
         self.cause_id = cause_id
         self.demographics = demographics
         self.decomp_step = decomp_step
-        self.decomp_step_id = decomp_step_id
         self.gbd_round_id = gbd_round_id
 
         self.raw = None

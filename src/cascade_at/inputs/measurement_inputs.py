@@ -202,7 +202,6 @@ class MeasurementInputs:
             cause_id=self.csmr_cause_id,
             demographics=self.demographics,
             decomp_step=self.decomp_step,
-            decomp_step_id=self.decomp_step_id,
             gbd_round_id=self.gbd_round_id,
         ).get_raw()
         self.data = CrosswalkVersion(
