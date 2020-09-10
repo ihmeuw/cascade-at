@@ -158,7 +158,7 @@ def cv(Demographics, ihme):
 
 @pytest.fixture(scope='session')
 def csmr(Demographics, ihme):
-    csmr = CSMR(process_version_id=None, cause_id=587, demographics=Demographics,
+    csmr = CSMR(cause_id=587, demographics=Demographics,
                 decomp_step='step3', gbd_round_id=6)
     csmr.raw = pd.DataFrame({
         'age_group_id': 2,

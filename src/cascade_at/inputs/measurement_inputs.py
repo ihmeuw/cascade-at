@@ -45,7 +45,6 @@ class MeasurementInputs:
                  conn_def: str,
                  country_covariate_id: List[int],
                  csmr_cause_id: int, crosswalk_version_id: int,
-                 csmr_process_version_id: Optional[int] = None,
                  location_set_version_id: Optional[int] = None,
                  drill_location_start: Optional[int] = None,
                  drill_location_end: Optional[List[int]] = None):
@@ -64,8 +63,6 @@ class MeasurementInputs:
             the GBD round ID
         decomp_step_id
             the decomp step ID
-        csmr_process_version_id
-            process version ID for CSMR
         csmr_cause_id: (int) cause to pull CSMR from
         crosswalk_version_id
             crosswalk version to use
@@ -122,7 +119,6 @@ class MeasurementInputs:
         >>>    model_version_id=settings.model.model_version_id,
         >>>    gbd_round_id=settings.gbd_round_id,
         >>>    decomp_step_id=settings.model.decomp_step_id,
-        >>>    csmr_process_version_id=None,
         >>>    csmr_cause_id = settings.model.add_csmr_cause,
         >>>    crosswalk_version_id=settings.model.crosswalk_version_id,
         >>>    country_covariate_id=covariate_id,
@@ -139,7 +135,6 @@ class MeasurementInputs:
         self.model_version_id = model_version_id
         self.gbd_round_id = gbd_round_id
         self.decomp_step_id = decomp_step_id
-        self.csmr_process_version_id = csmr_process_version_id
         self.csmr_cause_id = csmr_cause_id
         self.crosswalk_version_id = crosswalk_version_id
         self.country_covariate_id = country_covariate_id
@@ -161,7 +156,7 @@ class MeasurementInputs:
         )
         # Need to subset the locations to only those needed for
         # the drill. drill_locations_all is the set of locations
-        # to pull data for, including all descendents. drill_locations
+        # to pull data for, including all descendants. drill_locations
         # is the set of locations just parent-children in the drill.
         drill_locations_all, drill_locations = locations_by_drill(
             drill_location_start=self.drill_location_start,
@@ -208,7 +203,6 @@ class MeasurementInputs:
             demographics=self.demographics,
             decomp_step=self.decomp_step,
             gbd_round_id=self.gbd_round_id,
-            process_version_id=self.csmr_process_version_id
         ).get_raw()
         self.data = CrosswalkVersion(
             crosswalk_version_id=self.crosswalk_version_id,
@@ -507,7 +501,6 @@ class MeasurementInputsFromSettings(MeasurementInputs):
             model_version_id=settings.model.model_version_id,
             gbd_round_id=settings.gbd_round_id,
             decomp_step_id=settings.model.decomp_step_id,
-            csmr_process_version_id=None,
             csmr_cause_id=settings.model.add_csmr_cause,
             crosswalk_version_id=settings.model.crosswalk_version_id,
             country_covariate_id=covariate_ids,

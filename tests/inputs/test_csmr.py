@@ -1,6 +1,7 @@
 import pytest
 
 from cascade_at.dismod.constants import IntegrandEnum
+from cascade_at.inputs.csmr import get_best_cod_correct
 
 
 @pytest.mark.parametrize("hold_out", [0, 1])
@@ -31,3 +32,8 @@ def test_all_columns(df_for_dismod, column, value):
 
 def test_columns(csmr, df_for_dismod):
     assert all([c in csmr.columns_to_keep for c in df_for_dismod.columns])
+
+
+def test_get_best_codcorrect(ihme):
+    # GBD round 6 should be fixed
+    assert get_best_cod_correct(6) == 14770
