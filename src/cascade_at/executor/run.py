@@ -1,16 +1,17 @@
-import logging
 import subprocess
 import sys
 from typing import Optional
 
+import logging
+
 from cascade_at.cascade.cascade_commands import Drill, TraditionalCascade
-from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSim, StrArg
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSim, StrArg
+from cascade_at.inputs.locations import LocationDAG
 from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
 from cascade_at.settings.settings import settings_from_model_version_id
-from cascade_at.inputs.locations import LocationDAG
 
 LOG = get_loggers(__name__)
 
@@ -96,8 +97,11 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
         LOG.info("Configuring jobmon.")
         wf = jobmon_workflow_from_cascade_command(cc=cascade_command, context=context,
                                                   addl_workflow_args=addl_workflow_args)
-        error = wf.run()
-        if error:
+        wf_run = wf.run(
+            seconds_until_timeout=60*60*24*3,
+            resume=True
+        )
+        if wf_run.status != 'D':
             context.update_status(status='Failed')
             raise RuntimeError("Jobmon workflow failed.")
     else:

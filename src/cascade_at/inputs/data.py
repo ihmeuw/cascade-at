@@ -1,4 +1,7 @@
 import numpy as np
+import pandas as pd
+
+from typing import List, Optional
 
 from cascade_at.core.db import elmo
 from cascade_at.dismod.integrand_mappings import make_integrand_map
@@ -7,6 +10,7 @@ from cascade_at.inputs.utilities import gbd_ids
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
 from cascade_at.inputs.uncertainty import stdev_from_crosswalk_version
+from cascade_at.dismod.constants import IntegrandEnum
 
 LOG = get_loggers(__name__)
 
@@ -37,13 +41,17 @@ class CrosswalkVersion(BaseInput):
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
         return self
 
-    def configure_for_dismod(self, relabel_incidence, midpoint=False, measures_to_exclude=None):
+    def configure_for_dismod(self, relabel_incidence,
+                             measures_to_exclude: Optional[List[str]] = None) -> pd.DataFrame:
         """
         Configures the crosswalk version for DisMod.
 
-        :param measures_to_exclude: (list) list of parameters to exclude, by name
-        :param relabel_incidence: (int) how to label incidence -- see RELABEL_INCIDENCE_MAP
-        :return: pd.DataFrame
+        Parameters
+        ----------
+        measures_to_exclude
+            list of parameters to exclude, by name
+        relabel_incidence
+            how to label incidence -- see RELABEL_INCIDENCE_MAP
         """
         df = self.raw.copy()
         if self.exclude_outliers:
@@ -69,22 +77,18 @@ class CrosswalkVersion(BaseInput):
 
         df = df.loc[df.location_id.isin(self.demographics.location_id)]
         df = df.loc[df.sex_id.isin(self.demographics.sex_id)]
-        if midpoint:
-            df['age_lower'] = (df.age_start.astype(np.float) + df.age_end.astype(np.float)) / 2
-            df['age_upper'] = df.age_lower.astype(np.float)
-            df["time_lower"] = (df.year_start.astype(np.float) + df.year_end.astype(np.float)) / 2
-            df["time_upper"] = df.time_lower.astype(np.float)
-        else:
-            df['age_lower'] = df.age_start.astype(np.float)
-            df['age_upper'] = df.age_end.astype(np.float)
-            df["time_lower"] = df.year_start.astype(np.float)
-            df["time_upper"] = df.year_end.astype(np.float)
-        
+
+        df["age_lower"] = df["age_start"]
+        df["time_lower"] = df["year_start"]
+        df["age_upper"] = df["age_end"]
+        df["time_upper"] = df["year_end"]
+
+        df = self.get_out_of_demographic_notation(df, columns=['age', 'time'])
+
         df["meas_value"] = df["mean"]
         df["meas_std"] = stdev_from_crosswalk_version(df)
         df["name"] = df.seq.astype(str)
-        
-        df = self.get_out_of_demographic_notation(df, columns=['age', 'time'])
+
         df = self.keep_only_necessary_columns(df)
 
         return df

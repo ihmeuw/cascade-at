@@ -138,3 +138,14 @@ def test_no_drill(ihme):
     # to the entire hierarchy
     assert len(mi.demographics.location_id) == num_descendants + 1
     assert len(mi.demographics.drill_locations) == num_descendants + 1
+
+
+def test_age_time_midpoint(mi, settings):
+    s = deepcopy(settings)
+    s.model.midpoint_approximation = [42]
+    mi.configure_inputs_for_dismod(settings=s, mortality_year_reduction=1)
+    assert mi.dismod_data.age_lower[0] == 0.00958904
+    assert mi.dismod_data.age_upper[0] == 0.00958904
+    assert mi.dismod_data.age_lower[1] == 0.0
+    assert mi.dismod_data.age_upper[1] != mi.dismod_data.age_lower[1]
+    assert mi.dismod_data.time_lower[0] == mi.dismod_data.time_upper[0]

@@ -25,13 +25,14 @@ from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
 from cascade_at.inputs.utilities.gbd_ids import SEX_ID_TO_NAME
 from cascade_at.inputs.utilities.reduce_data_volume import decimate_years
 from cascade_at.model.utilities.grid_helpers import expand_grid
-from cascade_at.inputs.utilities.data import calculate_omega
+from cascade_at.inputs.utilities.data import calculate_omega, format_age_time, midpoint_age_time
 from cascade_at.inputs.utilities.gbd_ids import (
     CascadeConstants, StudyCovConstants
 )
 from cascade_at.settings.convert import (
     measures_to_exclude_from_settings, data_eta_from_settings,
-    nu_from_settings, density_from_settings
+    nu_from_settings, density_from_settings,
+    midpoint_list_from_settings
 )
 
 LOG = get_loggers(__name__)
@@ -180,7 +181,8 @@ class MeasurementInputs:
         self.data_eta = None
         self.density = None
         self.nu = None
-        self.measures_to_exclude = None
+        self.measures_to_exclude: Optional[List[str]] = None
+        self.measures_midpoint: Optional[List[str]] = None
 
         self.dismod_data = None
         self.covariate_data = None
@@ -226,7 +228,6 @@ class MeasurementInputs:
         ).get_population()
 
     def configure_inputs_for_dismod(self, settings: SettingsConfig,
-                                    midpoint: bool = False,
                                     mortality_year_reduction: int = 5):
         """
         Modifies the inputs for DisMod based on model-specific settings.
@@ -242,14 +243,14 @@ class MeasurementInputs:
         self.density = density_from_settings(settings)
         self.nu = nu_from_settings(settings)
         self.measures_to_exclude = measures_to_exclude_from_settings(settings)
+        self.measures_midpoint = midpoint_list_from_settings(settings)
 
         # If we are constraining omega, then we want to hold out the data
         # from the DisMod fit for ASDR (but never CSMR -- always want to fit
         # CSMR).
         data = self.data.configure_for_dismod(
             measures_to_exclude=self.measures_to_exclude,
-            relabel_incidence=settings.model.relabel_incidence,
-            midpoint=midpoint,
+            relabel_incidence=settings.model.relabel_incidence
         )
         asdr = self.asdr.configure_for_dismod(
             hold_out=settings.model.constrain_omega)
@@ -277,6 +278,12 @@ class MeasurementInputs:
         self.dismod_data["nu"] = self.dismod_data.measure.apply(
             self.nu.__getitem__)
 
+        for measure in self.dismod_data.measure.unique():
+            if measure in self.measures_midpoint:
+                midpoint_age_time(df=self.dismod_data, measure=measure)
+            else:
+                format_age_time(df=self.dismod_data, measure=measure)
+
         # This makes the specs not just for the country covariate but adds on
         # the sex and one covariates.
         self.covariate_specs = CovariateSpecs(
@@ -297,7 +304,7 @@ class MeasurementInputs:
 
     def prune_mortality_data(self, parent_location_id: int) -> pd.DataFrame:
         """
-        Remove mortality data for descendents that are not children of parent_location_id
+        Remove mortality data for descendants that are not children of parent_location_id
         from the configured dismod data before it gets filled into the dismod database.
         """
         df = self.dismod_data.copy()
