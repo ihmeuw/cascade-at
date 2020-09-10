@@ -14,21 +14,16 @@ class BaseInput:
             'name', 'hold_out', 'density', 'eta', 'nu'
         ]
 
-    def convert_to_age_lower_upper(self, df: pd.DataFrame) -> pd.DataFrame:
+    def convert_to_age_lower_upper(self, df):
         """
         Converts a data frame that has age_group_id to
         age lower and upper based on age group metadata.
-        Replaces the age_upper of 125 with 100 for the 95+ age
-        group ID 235.
-
-        Parameters
-        ----------
-        df
-            A data frame that has age group ID
+        :param df: (pd.DataFrame) data frame with column
+            age_group_id
+        :return: (pd.DataFrame)
         """
         df.age_group_id = df.age_group_id.astype(int)
         df = df.merge(self.age_group_metadata, on='age_group_id')
-        df.loc[df.age_upper == 125., 'age_upper'] = 100.
         return df
 
     def keep_only_necessary_columns(self, df):
