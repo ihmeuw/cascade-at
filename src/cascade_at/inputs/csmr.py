@@ -11,7 +11,7 @@ from cascade_at.inputs.uncertainty import bounds_to_stdev
 LOG = get_loggers(__name__)
 
 
-def get_best_cod_correct(gbd_round_id: int, decomp_step_id: int) -> int:
+def get_best_cod_correct(gbd_round_id: int) -> int:
     run_query = f"""
             SELECT MAX(co.output_version_id) AS version
             FROM cod.output_version co
@@ -19,11 +19,13 @@ def get_best_cod_correct(gbd_round_id: int, decomp_step_id: int) -> int:
             WHERE co.is_best = 1
             AND co.best_end IS NULL
             AND ds.gbd_round_id = {gbd_round_id}
-            AND ds.decomp_step_id = {decomp_step_id}
             """
     run_id = db_tools.ezfuncs.query(
         run_query, conn_def='cod'
-    ).version.squeeze()
+    ).version.astype(int).squeeze()
+    if run_id is None:
+        raise RuntimeError(f"Cannot find a best codcorrect output for gbd round ID {gbd_round_id}.")
+    LOG.info(f"Found run ID {run_id}.")
     proc_query = f"""
             SELECT
                 val AS codcorrect_version,
@@ -45,9 +47,11 @@ def get_best_cod_correct(gbd_round_id: int, decomp_step_id: int) -> int:
             """
     process_version_id = db_tools.ezfuncs.query(
         proc_query, conn_def='gbd'
-    ).codcorrect_version.squeeze()
+    ).codcorrect_version.astype(int).squeeze()
+    if process_version_id is None:
+        raise RuntimeError(f"Cannot find process version ID for run ID {run_id}.")
+    LOG.info(f"Found process version ID {process_version_id}.")
     return process_version_id
-
 
 
 class CSMR(BaseInput):
@@ -83,7 +87,6 @@ class CSMR(BaseInput):
         if self.cause_id:
             self.process_version_id = get_best_cod_correct(
                 gbd_round_id=self.gbd_round_id,
-                decomp_step_id=self.decomp_step_id
             )
             LOG.info(f"Getting CSMR from process version ID {self.process_version_id}")
             self.raw = db.get_outputs(
@@ -96,7 +99,6 @@ class CSMR(BaseInput):
                 sex_id=self.demographics.sex_id,
                 age_group_id=self.demographics.age_group_id,
                 gbd_round_id=self.gbd_round_id,
-                decomp_step=self.decomp_step,
                 process_version_id=self.process_version_id
             )
         else:
