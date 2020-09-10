@@ -30,7 +30,7 @@ def test_run_dismod_fit_predict(dismod, ihme, df):
 def test_get_predictions(ihme, dismod, df):
     d = DismodExtractor(path=Path('temp.db'))
     pred = d._extract_raw_predictions()
-    assert len(pred) == 484
+    assert len(pred) == 506
     assert all(pred.columns == [
         'predict_id', 'sample_index', 'avgint_id', 'avg_integrand',
         'integrand_id', 'node_id', 'weight_id', 'subgroup_id', 'age_lower',
@@ -45,7 +45,7 @@ def test_format_fit(ihme, dismod, df):
     pred = d.format_predictions_for_ihme(gbd_round_id=6, samples=False)
     # This prediction data frame is longer for each demographic group than the prediction
     # dataframe in `test_get_predictions` because there is an extra measure.
-    assert len(pred) == 528
+    assert len(pred) == 552
     assert all(pred.columns == [
         'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id', 'mean'
     ])
