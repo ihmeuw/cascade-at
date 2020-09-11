@@ -4,8 +4,6 @@ import numpy as np
 import copy
 import os
 
-__marlena__ = not False
-
 def example_db (file_name,
                 test_config = {'node_effects': False,
                                'group_effects': False,
@@ -48,8 +46,6 @@ def example_db (file_name,
         def fun_iota_sex(a, t) :
             return ('prior_iota_sex', None, None)
     # TODO: Delete dependency with dismod_at
-    if not __marlena__:
-        import dismod_at
     # ----------------------------------------------------------------------
     # age table
     age_list    = [    0.0, 100.0 ]
@@ -274,18 +270,10 @@ def example_db (file_name,
     ]
     # ----------------------------------------------------------------------
 
-    if __marlena__:
-        # TODO: Change to using DismodIO instead of dismod_at.create_database
-        from cascade_at.dismod.api.dismod_io import DismodIO
-        db = DismodIO(file_name)
-        # db.data = data_table
-        from .create_database import create_database
-    else:
-        from dismod_at import create_database
-        import sys
-        sys.path.append('/Users/gma/Projects/IHME/GIT/cascade_at.git/cascade_at_gma/lib/')
-        from dismod_db_api import DismodDbAPI as API
-        db = API(file_name)
+    # TODO: Change to using DismodIO instead of dismod_at.create_database
+    from cascade_at.dismod.api.dismod_io import DismodIO
+    db = DismodIO(file_name)
+    from .create_database import create_database
 
     # create database
     #dismod_at.create_database(
