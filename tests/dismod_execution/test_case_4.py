@@ -51,7 +51,7 @@ def test_0(assert_correct = True):
             break
     col_index = lines[i].split().index('objective')
     objective = float(lines[i+1].split()[col_index])
-    assert objective > 1e-4, "Dismod scaled this problem incorrectly."
+    assert objective > 1e-4, "Dismod scaled this fit both problem incorrectly."
 
 def test_1(assert_correct = True):
     """
@@ -67,7 +67,7 @@ def test_1(assert_correct = True):
 
     db_kwds.update({'prior': prior})
     db = example_db.example_db(file_name, **db_kwds)
-    # run_dismod(db.path, 'set option print_level_fixed 0')
+    run_dismod(db.path, 'set option print_level_fixed 0')
     success, db = dismod_tests.run_test(file_name, config, truth)
 
     if not success:
@@ -75,11 +75,11 @@ def test_1(assert_correct = True):
         var = ((sum((db.fit_var.fit_var_value - db.truth_var.truth_var_value)[:4]**2))**.5 < 1e-7)
         fit = ((sum(db.fit_data_subset.weighted_residual**2))**.5 < 1e-7)
         if not var:
-            msg += '\nThe fit_var values do not match the truth.'
+            msg += 'The fit_var values do not match the truth.'
         if not fit:
-            msg += "\nData weighted residual errors are too large."
+            msg += "Data weighted residual errors are too large."
         if not (var and fit):
-            msg += '\nDismod may be scaling this problem improperly.'
+            msg += 'Dismod may be scaling this problem improperly.'
         assert var and fit, msg
 
 def test_2(assert_correct = True):
