@@ -23,7 +23,7 @@ db_kwds = dict(test_config = config,
                tol_fixed = dismod_tests.tol_fixed,
                tol_random = dismod_tests.tol_random)
 
-def test_1(assert_correct = True):
+def test_1(dismod, assert_correct = True):
 
     db = example_db.example_db(file_name, **db_kwds)
     success, db = dismod_tests.run_test(file_name, config, truth)
@@ -31,7 +31,7 @@ def test_1(assert_correct = True):
     assert success
     if success: print ('Dismod_AT succeeded -- that is the correct result.')
 
-def test_2(assert_correct = True):
+def test_2(dismod, assert_correct = True):
 
     # Parent rate and subgroup random effect densities must be something other than uniform for the Hessian to be non-singular
     prior['parent_density'] = 'gaussian'
@@ -46,5 +46,5 @@ def test_2(assert_correct = True):
     if success: print ('Dismod_AT asymptotic statistics succeeded -- that is the correct result.')
 
 if __name__ == '__main__':
-    test_1(assert_correct = False)
-    test_2(assert_correct = False)
+    test_1(None, assert_correct = False)
+    test_2(None, assert_correct = False)

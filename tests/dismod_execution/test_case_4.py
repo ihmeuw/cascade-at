@@ -25,7 +25,7 @@ db_kwds = dict(test_config = config,
                tol_fixed = dismod_tests.tol_fixed,
                tol_random = dismod_tests.tol_random)
 
-def test_0(assert_correct = True):
+def test_0(dismod, assert_correct = True):
     """
     Parent rate and subgroup random effect densities must be something other than uniform for this problem to solve.
     With gaussian priors, there seems to be a scaling problem in dismod (see the initial objective function), 
@@ -53,7 +53,7 @@ def test_0(assert_correct = True):
     objective = float(lines[i+1].split()[col_index])
     assert objective > 1e-4, "Dismod scaled this fit both problem incorrectly."
 
-def test_1(assert_correct = True):
+def test_1(dismod, assert_correct = True):
     """
     Parent rate and subgroup random effect densities must be something other than uniform for this problem to solve.
     With gaussian priors, there seems to be a scaling problem in dismod (see the initial objective function), 
@@ -82,7 +82,7 @@ def test_1(assert_correct = True):
             msg += 'Dismod may be scaling this problem improperly.'
         assert var and fit, msg
 
-def test_2(assert_correct = True):
+def test_2(dismod, assert_correct = True):
     """
     Parent rate must be log-gaussian and subgroup random effect densities must be something other than uniform for this problem to solve
     With a log-gaussian prior, dismod converges well
@@ -110,7 +110,7 @@ def test_2(assert_correct = True):
             msg += '\nDismod may be scaling this problem improperly.'
         assert var and fit, msg
 
-def test_3(assert_correct = True):
+def test_3(dismod, assert_correct = True):
     """
     Parent rate must be log-gaussian and subgroup random effect densities must be something other than uniform for this problem to solve
     Parent rate must have guidance for to resolve that ambiguity
@@ -130,7 +130,7 @@ def test_3(assert_correct = True):
     if assert_correct:
         assert success, 'Dismod_AT ran, but there is ambiguity between the rate and group rate mulcov in this test.'
 
-def test_4(assert_correct = True):
+def test_4(dismod, assert_correct = True):
     """
     Parent rate must be log-gaussian and subgroup random effect densities must be something other than uniform for this problem to solve
     Parent rate must have guidance for to resolve that ambiguity
@@ -143,8 +143,8 @@ def test_4(assert_correct = True):
         assert success, 'Dismod_AT asymptotics failed. The Hessian identifies the presence of the ambiguity.'
 
 if __name__ == '__main__':
-    test_0(assert_correct = True)
-    test_1(assert_correct = True)
-    test_2(assert_correct = True)
-    test_3(assert_correct = True)
-    test_4(assert_correct = True)
+    test_0(None, assert_correct = True)
+    test_1(None, assert_correct = True)
+    test_2(None, assert_correct = True)
+    test_3(None, assert_correct = True)
+    test_4(None, assert_correct = True)
