@@ -73,6 +73,23 @@ def test_setup (use_group_mulcov = False, test_asymptotic = False):
 
     return (truth, priors, node_effects, group_effects)
 
+def get_truth(test_config, truth_in):
+    if not test_config['node_effects'] and not test_config['group_effects']:
+        truth = truth_in['iota_parent_true']
+    if test_config['node_effects'] and not test_config['group_effects']:
+        truth = [-truth_in['iota_child_true'], +truth_in['iota_child_true'], truth_in['iota_parent_true']]
+    if not test_config['node_effects'] and test_config['group_effects']:
+        truth = [-truth_in['iota_subgroup_true'], +truth_in['iota_subgroup_true'], truth_in['iota_parent_true']]
+        if test_config['use_group_mulcov']: truth += [truth_in['iota_group_true']]
+    if test_config['node_effects'] and test_config['group_effects']:
+        truth = [-truth_in['iota_child_true'], +truth_in['iota_child_true'], -truth_in['iota_subgroup_true'], 
+                 truth_in['iota_subgroup_true'], truth_in['iota_parent_true']]
+        if test_config['use_group_mulcov']: truth += [truth_in['iota_group_true']]
+    if test_config['sex_effect']:
+        # print ('There is ambiguity between the sex and the group effects -- infinite number of solutions.')
+        truth.append(truth_in['iota_sex_true']['g1'])
+    return truth
+
 def run_test(file_name, test_config, truth_in,
              start_from_truth = False, test_asymptotic = False):
     program = 'dismod_at'
@@ -85,20 +102,7 @@ def run_test(file_name, test_config, truth_in,
         # from dismod_db_api import DismodDbAPI as API
         # db = API(file_name)
 
-        if not test_config['node_effects'] and not test_config['group_effects']:
-            truth = truth[truth_in['iota_parent_true']]
-        if test_config['node_effects'] and not test_config['group_effects']:
-            truth = [-truth_in['iota_child_true'], +truth_in['iota_child_true'], truth_in['iota_parent_true']]
-        if not test_config['node_effects'] and test_config['group_effects']:
-            truth = [-truth_in['iota_subgroup_true'], +truth_in['iota_subgroup_true'], truth_in['iota_parent_true']]
-            if test_config['use_group_mulcov']: truth += [truth_in['iota_group_true']]
-        if test_config['node_effects'] and test_config['group_effects']:
-            truth = [-truth_in['iota_child_true'], +truth_in['iota_child_true'], -truth_in['iota_subgroup_true'], 
-                     truth_in['iota_subgroup_true'], truth_in['iota_parent_true']]
-            if test_config['use_group_mulcov']: truth += [truth_in['iota_group_true']]
-        if test_config['sex_effect']:
-            # print ('There is ambiguity between the sex and the group effects -- infinite number of solutions.')
-            truth.append(truth_in['iota_sex_true']['g1'])
+        truth = get_truth(test_config, truth_in)
 
         system([ program, file_name, 'init' ])
 
