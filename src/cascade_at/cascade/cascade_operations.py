@@ -1,7 +1,12 @@
 """
+==================
+Cascade Operations
+==================
+
 Sequences of dismod_at commands that work together to create a cascade operation
 that can be performed on a single DisMod-AT database.
 """
+
 from typing import List, Optional, Dict, Union, Any
 
 from cascade_at.core import CascadeATError
@@ -20,6 +25,12 @@ class CascadeOperationValidationError(CascadeATError):
 class _CascadeOperation:
     def __init__(self, upstream_commands: Optional[List[str]] = None,
                  executor_parameters: Optional[Dict[str, Any]] = None):
+        """
+        Parameters
+        ----------
+        upstream_commands
+        executor_parameters
+        """
 
         if upstream_commands is None:
             upstream_commands = list()

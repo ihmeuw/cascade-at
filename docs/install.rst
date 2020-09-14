@@ -12,11 +12,9 @@ the IHME infrastructure. Clone it from
 We recommend you create a conda environment into which to install
 the code. Then clone the repository and run the tests.::
 
-    git clone https://github.com/ihmeuw/cascade.git
-    # Or use the one below if you have a Github account.
-    # git clone git@github.com:ihmeuw/cascade.git
+    git clone https://github.com/ihmeuw/cascade-at.git
     cd cascade
-    pip install .[documentation,ihme_databases,testing]
+    pip install .[ihme, docs]
     python setup.py develop
     cd tests && pytest
 

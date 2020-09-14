@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.abspath(os.path.expanduser("../src")))
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-# needs_sphinx = '1.0'
+needs_sphinx = '1.0'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -38,8 +38,17 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinxcontrib.napoleon",  # for easy line breaks
     "sphinx.ext.viewcode",
+    'sphinx.ext.ifconfig',
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.todo",
     "sphinx.ext.githubpages",
+    "sphinxcontrib.httpdomain",
+    "sphinxcontrib.autohttp.flask",
+    'sphinx.ext.autodoc',
+    "sphinx_autodoc_typehints",
 ]
+
+napoleon_use_rtype = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -54,9 +63,9 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "Cascade for Dismod"
+project = "Cascade-AT for Dismod"
 copyright = "2018, IHME, University of Washington"
-author = "Cascade Team"
+author = "Cascade-AT Team"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -87,9 +96,9 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 pygments_style = "sphinx"
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = False
+todo_include_todos = True
 
-
+autoclass_content = 'init'
 # -- Options for HTML output ----------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -181,7 +190,7 @@ autodoc_default_flags = []
 # Can't mock numpy because it causes a LooseVersion error.
 autodoc_mock_imports = [
     "pandas", "scipy", "sqlalchemy", "networkx",
-    "tables", "intervals", "rocketsonde"]
+    "tables", "intervals", "rocketsonde", "jobmon"]
 
 
 # This patch is here to turn off warnings about duplicate documentation.
@@ -196,3 +205,8 @@ class PatchedPythonDomain(PythonDomain):
 
 def setup(sphinx):
     sphinx.add_domain(PatchedPythonDomain, override=True)
+
+
+# autodoc_default_options = {
+#     'special-members': '__init__',
+# }

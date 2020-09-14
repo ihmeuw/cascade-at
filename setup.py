@@ -26,7 +26,12 @@ setup(
             "gbd",
             "jobmon",
             "elmo",
-            "ihme-rules"]
+            "ihme-rules"],
+        "docs": [
+            "sphinx",
+            "sphinx-rtd-theme",
+            "sphinxcontrib-napoleon"
+        ]
     },
     classifiers=[
         "Intended Audience :: Science/Research",

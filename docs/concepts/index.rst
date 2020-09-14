@@ -3,6 +3,8 @@
 Dismod-AT Concepts
 ==================
 
+The following pages explain some helpful concepts in Dismod-AT.
+
 .. toctree::
    :maxdepth: 2
 
