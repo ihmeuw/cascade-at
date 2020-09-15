@@ -9,7 +9,17 @@ class Demographics:
                  gbd_round_id: int,
                  location_set_version_id: Optional[int] = None):
         """
-        Demographic groups needed for shared functions.
+        Grabs and stores demographic information needed for shared functions.
+        Will also make a location hierarchy dag.
+
+        Parameters
+        ----------
+        gbd_round_id
+            The GBD round
+        location_set_version_id
+            The location set version to use (right now EpiViz-AT is passing
+            dismod location set versions, but this will eventually switch
+            to the cause of death hierarchy that is more extensive).
         """
         demographics = db_queries.get_demographics(
             gbd_team='epi', gbd_round_id=gbd_round_id)

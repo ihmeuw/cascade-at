@@ -7,6 +7,7 @@ from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
 from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.inputs.uncertainty import bounds_to_stdev
+from cascade_at.inputs.demographics import Demographics
 
 LOG = get_loggers(__name__)
 
@@ -66,17 +67,20 @@ def get_best_cod_correct(gbd_round_id: int) -> int:
 
 
 class CSMR(BaseInput):
-    def __init__(self, cause_id: int, demographics,
+    def __init__(self, cause_id: int, demographics: Demographics,
                  decomp_step: str, gbd_round_id: int):
         """
         Get cause-specific mortality rate
         for demographic groups from a specific
         CodCorrect output version.
 
-        :param cause_id: (int)
-        :param demographics (cascade_at.inputs.demographics.Demographics)
-        :param decomp_step: (str)
-        :param gbd_round_id: (int)
+        Parameters
+        ----------
+        cause_id
+            The GBD cause of death to pull mortality from
+        demographics
+        decomp_step
+        gbd_round_id
         """
         super().__init__(gbd_round_id=gbd_round_id)
         self.cause_id = cause_id
@@ -91,7 +95,6 @@ class CSMR(BaseInput):
         """
         Pulls the raw CSMR and assigns it to
         this class.
-        :return: self
         """
         if self.cause_id:
             self.process_version_id = get_best_cod_correct(
@@ -115,13 +118,11 @@ class CSMR(BaseInput):
             self.raw = pd.DataFrame()
         return self
 
-    def attach_to_model_version_in_db(self, model_version_id, conn_def):
+    def attach_to_model_version_in_db(self, model_version_id: int, conn_def: str):
         """
         Uploads the CSMR for this model and attaches
         it to the model version so that it can be
         viewed in EpiViz.
-
-        Returns: None
         """
         df = self.raw[['year_id', 'location_id', 'sex_id', 'age_group_id', 'val', 'upper', 'lower']]
         df['model_version_id'] = model_version_id
@@ -135,12 +136,14 @@ class CSMR(BaseInput):
         )
         loader.insert(session=session, commit=True)
 
-    def configure_for_dismod(self, hold_out=0):
+    def configure_for_dismod(self, hold_out: int = 0) -> pd.DataFrame:
         """
         Configures CSMR for DisMod.
 
-        :param hold_out: (int) hold-out value for Dismod. 0 means it will be fit, 1 means held out
-        :return: (pd.DataFrame)
+        Parameters
+        ----------
+        hold_out
+            hold-out value for Dismod. 0 means it will be fit, 1 means held out
         """
         if self.cause_id:
             df = self.raw.rename(columns={

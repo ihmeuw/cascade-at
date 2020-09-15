@@ -12,60 +12,75 @@ from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers import reference_tables, data_tables, grid_tables
 from cascade_at.settings.convert import data_cv_from_settings
 from cascade_at.model.priors import _Prior
+from cascade_at.model.model import Model
+from cascade_at.inputs.covariate_specs import CovariateSpecs
 
 LOG = get_loggers(__name__)
 
 
 class DismodFiller(DismodIO):
-    """
-    Sits on top of the DismodIO class,
-    and takes everything from the collector module
-    and puts them into the Dismod database tables
-    in the correct construction.
-
-    Attributes
-    ----------
-    self.parent_child_model
-        Model that was constructed from grid_alchemy parameters for one specific parent and its descendents
-
-    Examples
-    --------
-    >>> from pathlib import Path
-    >>> from cascade_at.model.grid_alchemy import Alchemy
-    >>> from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
-    >>> from cascade_at.settings.base_case import BASE_CASE
-    >>> from cascade_at.settings.settings import load_settings
-
-    >>> settings = load_settings(BASE_CASE)
-    >>> inputs = MeasurementInputsFromSettings(settings)
-    >>> inputs.demographics.location_id = [102, 555] # subset the locations to make it go faster
-    >>> inputs.get_raw_inputs()
-    >>> inputs.configure_inputs_for_dismod(settings)
-    >>> alchemy = Alchemy(settings)
-
-    >>> da = DismodFiller(path=Path('temp.db'),
-    >>>                    settings_configuration=settings,
-    >>>                    measurement_inputs=inputs,
-    >>>                    grid_alchemy=alchemy,
-    >>>                    parent_location_id=1,
-    >>>                    sex_id=3)
-    >>> da.fill_for_parent_child()
-    """
     def __init__(self, path: Union[str, Path], settings_configuration: SettingsConfig,
                  measurement_inputs: MeasurementInputs, grid_alchemy: Alchemy,
                  parent_location_id: int, sex_id: int,
                  child_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None,
                  mulcov_prior: Optional[Dict[Tuple[str, str, str], _Prior]] = None):
         """
+
+        Sits on top of the DismodIO class,
+        and takes everything from the collector module
+        and puts them into the Dismod database tables
+        in the correct construction.
+
+        Dismod Filler wraps a dismod database and fills all of the tables
+        using the measurement inputs object, settings, and the grid alchemy constructor.
+
+        It optionally includes rate priors and covariate multiplier priors.
+
         Parameters
         ----------
         path
+            the path of the dismod database
         settings_configuration
+            the settings configuration object
         measurement_inputs
+            the measurement inputs object
         grid_alchemy
+            the grid alchemy object
         parent_location_id
+            the parent location ID for this database
         sex_id
+            the reference sex for this database
         child_prior
+            a dictionary of child rate priors to use. The first level of the dictionary
+            is the rate name, and the second is the type of prior, being value, age, or dtime.
+
+        Attributes
+        ----------
+        self.parent_child_model
+            Model that was constructed from grid_alchemy parameters for one specific parent and its descendents
+
+        Examples
+        --------
+        >>> from pathlib import Path
+        >>> from cascade_at.model.grid_alchemy import Alchemy
+        >>> from cascade_at.inputs.measurement_inputs import MeasurementInputsFromSettings
+        >>> from cascade_at.settings.base_case import BASE_CASE
+        >>> from cascade_at.settings.settings import load_settings
+
+        >>> settings = load_settings(BASE_CASE)
+        >>> inputs = MeasurementInputsFromSettings(settings)
+        >>> inputs.demographics.location_id = [102, 555] # subset the locations to make it go faster
+        >>> inputs.get_raw_inputs()
+        >>> inputs.configure_inputs_for_dismod(settings)
+        >>> alchemy = Alchemy(settings)
+
+        >>> da = DismodFiller(path=Path('temp.db'),
+        >>>                    settings_configuration=settings,
+        >>>                    measurement_inputs=inputs,
+        >>>                    grid_alchemy=alchemy,
+        >>>                    parent_location_id=1,
+        >>>                    sex_id=3)
+        >>> da.fill_for_parent_child()
         """
         super().__init__(path=path)
 
@@ -88,11 +103,9 @@ class DismodFiller(DismodIO):
         self.min_time = self.inputs.dismod_data.time_lower.min()
         self.max_time = self.inputs.dismod_data.time_upper.max()
 
-    def get_omega_df(self):
+    def get_omega_df(self) -> pd.DataFrame:
         """
         Get the correct omega data frame for this two-level model.
-
-        :return: pd.DataFrame
         """
         if self.inputs.omega is not None:
             omega_df = self.inputs.omega.loc[self.inputs.omega.sex_id == self.sex_id].copy()
@@ -103,12 +116,10 @@ class DismodFiller(DismodIO):
             omega_df = None
         return omega_df
 
-    def get_parent_child_model(self):
+    def get_parent_child_model(self) -> Model:
         """
         Construct a two-level model that corresponds to this parent location ID
         and its children.
-
-        :return: (cascade_at.model.model.Model)
         """
         return self.alchemy.construct_two_level_model(
             location_dag=self.inputs.location_dag,
@@ -120,20 +131,18 @@ class DismodFiller(DismodIO):
             update_mulcov_prior=self.mulcov_prior,
         )
 
-    def calculate_reference_covariates(self):
+    def calculate_reference_covariates(self) -> CovariateSpecs:
         """
         Calculates reference covariate values based on the input object
         and the parent/sex we have in the two-level model.
         Modifies the baseline covariate specs object.
-
-        :return: (cascade_at.inputs.covariate_specs.CovariateSpecs)
         """
         return self.inputs.calculate_country_covariate_reference_values(
             parent_location_id=self.parent_location_id,
             sex_id=self.sex_id
         )
 
-    def fill_for_parent_child(self, **options):
+    def fill_for_parent_child(self, **options) -> None:
         """
         Fills the Dismod database with inputs
         and a model construction for a parent location
@@ -148,7 +157,7 @@ class DismodFiller(DismodIO):
         self.fill_data_tables()
         self.option = self.construct_option_table(**options)
 
-    def node_id_from_location_id(self, location_id: int):
+    def node_id_from_location_id(self, location_id: int) -> int:
         """
         Get the node ID from a location ID in an already created node table.
         """
@@ -160,8 +169,6 @@ class DismodFiller(DismodIO):
     def fill_reference_tables(self):
         """
         Fills all of the reference tables including density, node, covariate, age, and time.
-
-        :return: self
         """
         self.density = reference_tables.construct_density_table()
         self.node = reference_tables.construct_node_table(location_dag=self.inputs.location_dag)
@@ -182,8 +189,6 @@ class DismodFiller(DismodIO):
     def fill_data_tables(self):
         """
         Fills the data tables including data and avgint.
-
-        :return: self
         """
         self.data = data_tables.construct_data_table(
             df=self.inputs.prune_mortality_data(parent_location_id=self.parent_location_id),
@@ -211,8 +216,6 @@ class DismodFiller(DismodIO):
         Fills the grid-like tables including weight,
         rate, smooth, smooth_grid, prior, integrand,
         mulcov, nslist, nslist_pair.
-
-        :return: self
         """
         self.weight, self.weight_grid = grid_tables.construct_weight_grid_tables(
             weights=self.parent_child_model.get_weights(),
@@ -239,7 +242,7 @@ class DismodFiller(DismodIO):
             if getattr(self, name).empty:
                 setattr(self, name, self.empty_table(table_name=name))
 
-    def construct_option_table(self, **kwargs):
+    def construct_option_table(self, **kwargs) -> pd.DataFrame:
         """
         Construct the option table with the default arguments,
         and if needed can pass in some kwargs to update the dictionary

@@ -32,6 +32,9 @@ class _Argument:
 
 
 class IntArg(_Argument):
+    """
+    An integer argument.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args)
 
@@ -44,6 +47,9 @@ class IntArg(_Argument):
 
 
 class FloatArg(_Argument):
+    """
+    A float argument.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args)
 
@@ -56,6 +62,9 @@ class FloatArg(_Argument):
 
 
 class StrArg(_Argument):
+    """
+    A string argument.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args)
 
@@ -68,6 +77,9 @@ class StrArg(_Argument):
 
 
 class BoolArg(_Argument):
+    """
+    A boolean argument.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args)
 
@@ -79,6 +91,10 @@ class BoolArg(_Argument):
 
 
 class ListArg(_Argument):
+    """
+    A list argument. Passed in as an ``nargs +`` type of argument
+    to ``argparse``.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args)
 
@@ -108,6 +124,9 @@ class ModelVersionID(IntArg):
 
 
 class ParentLocationID(IntArg):
+    """
+    A parent location ID argument.
+    """
     def __init__(self):
         super().__init__()
 
@@ -119,6 +138,9 @@ class ParentLocationID(IntArg):
 
 
 class SexID(IntArg):
+    """
+    A sex ID argument.
+    """
     def __init__(self):
         super().__init__()
 
@@ -130,6 +152,10 @@ class SexID(IntArg):
 
 
 class DmCommands(ListArg):
+    """
+    A dismod commands argument, based off of the list
+    argument.
+    """
     def __init__(self):
         super().__init__()
 
@@ -140,6 +166,13 @@ class DmCommands(ListArg):
 
 
 class DmOptions(ListArg):
+    """
+    A dismod options argument, based off of the list
+    argument. Arguments need to be passed in as a list,
+    but then look like ``KEY=VALUE=TYPE``. So, if you wanted
+    the options to look like this ``{'kind': 'random'}``,
+    you would pass on the command-line ``kind=random=str``.
+    """
     def __init__(self):
         super().__init__()
 
@@ -152,6 +185,9 @@ class DmOptions(ListArg):
 
 
 class NSim(IntArg):
+    """
+    Number of simulations argument. Defaults to 1.
+    """
     def __init__(self):
         super().__init__()
 
@@ -164,6 +200,10 @@ class NSim(IntArg):
 
 
 class NPool(IntArg):
+    """
+    Number of threads for a multiprocessing pool argument, defaults to 1, which
+    is no multiprocessing.
+    """
     def __init__(self):
         super().__init__()
 
@@ -176,6 +216,9 @@ class NPool(IntArg):
 
 
 class LogLevel(StrArg):
+    """
+    Logging level argument. Defaults to "info".
+    """
     def __init__(self):
         super().__init__()
 

@@ -1,7 +1,8 @@
-import logging
 import sys
 from pathlib import Path
 from typing import List, Union
+
+import logging
 import pandas as pd
 
 from cascade_at.context.model_context import Context
@@ -9,11 +10,11 @@ from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.api.fill_extract_helpers.data_tables import prep_data_avgint
 from cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior import get_prior_avgint_grid
-from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.dismod.api.multithreading import _DismodThread, dmdismod_in_parallel
+from cascade_at.dismod.api.run_dismod import run_dismod_commands
 from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, NSim, NPool
 from cascade_at.executor.args.args import LogLevel, BoolArg, ListArg
+from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, NSim, NPool
 from cascade_at.executor.dismod_db import save_predictions
 from cascade_at.inputs.measurement_inputs import MeasurementInputs
 from cascade_at.model.grid_alchemy import Alchemy
@@ -42,6 +43,25 @@ ARG_LIST = ArgumentList([
 def fill_avgint_with_priors_grid(inputs: MeasurementInputs, alchemy: Alchemy, settings: SettingsConfig,
                                  source_db_path: Union[str, Path],
                                  child_locations: List[int], child_sexes: List[int]):
+    """
+    Fill the average integrand table with the grid that the priors are on.
+    This is so that we can "predict" the prior for the next level of the cascade.
+
+    Parameters
+    ----------
+    inputs
+        An inputs object
+    alchemy
+        A grid alchemy object
+    settings
+        A settings configuration object
+    source_db_path
+        The path of the source database that has had a fit on it
+    child_locations
+        The child locations to predict for
+    child_sexes
+        The child sexes to predict for
+    """
 
     sourceDB = DismodIO(path=source_db_path)
     rates = [r.rate for r in settings.rate]

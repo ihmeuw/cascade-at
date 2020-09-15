@@ -9,6 +9,13 @@ def calculate_omega(asdr: pd.DataFrame, csmr: pd.DataFrame) -> pd.DataFrame:
     diseases, mtall is a good approximation to omega, but we calculate
     omega = mtall - mtspecific in case it isn't. For diseases without CSMR
     (self.csmr_cause_id = None), then omega = mtall.
+
+    Parameters
+    ----------
+    asdr
+        data frame with age-specific all-cause mortality rates
+    csmr
+        data frame with age-specific cause-specific mortality rates
     """
     join_columns = ['location_id', 'time_lower', 'time_upper',
                     'age_lower', 'age_upper', 'sex_id']

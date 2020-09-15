@@ -177,6 +177,13 @@ def _args_to_command(**kwargs):
 
 class ArgumentList:
     def __init__(self, arg_list: List[_Argument]):
+        """
+        A class that does operations on a list of arguments.
+
+        Parameters
+        ----------
+        arg_list
+        """
         self.arg_list: List[_Argument] = arg_list
 
     def _to_parser(self) -> ArgumentParser:

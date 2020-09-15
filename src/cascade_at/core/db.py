@@ -16,7 +16,7 @@ from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
 
-BLOCK_SHARED_FUNCTION_ACCESS = False
+BLOCK_SHARED_FUNCTION_ACCESS = True
 """
 Used to control access to the testing environment. You can't load this
 with from <module> import BLOCK_SHARED_FUNCTION_ACCESS. You have to
@@ -34,6 +34,13 @@ class ModuleProxy:
     This exists in order to actively turn off modules during testing.
     Ensure tests that claim not to use database functions
     really don't use them, so that their tests also pass outside IHME.
+
+    Examples
+    --------
+    >>> # db-queries and db-tools are IHME internal packages
+    >>>
+    >>> db_queries = ModuleProxy("db_queries")
+    >>> ezfuncs = ModuleProxy("db_tools.ezfuncs")
     """
     def __init__(self, module_name):
         if not isinstance(module_name, str):

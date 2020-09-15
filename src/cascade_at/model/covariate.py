@@ -3,6 +3,7 @@ Represents covariates in the model.
 """
 from numbers import Number
 from numpy import isnan
+from typing import Optional
 
 from cascade_at.core.log import get_loggers
 
@@ -10,22 +11,26 @@ LOG = get_loggers(__name__)
 
 
 class Covariate:
-    """
-    Establishes a reference value for a covariate column on input data
-    and in output data. It is possible to create a covariate column with
-    nothing but a name, but it must have a reference value before it
-    can be used in a model.
+    def __init__(self, column_name: str,
+                 reference: Optional[float] = None,
+                 max_difference: Optional[float] = None):
+        """
+        Establishes a reference value for a covariate column on input data
+        and in output data. It is possible to create a covariate column with
+        nothing but a name, but it must have a reference value before it
+        can be used in a model.
 
-    Args:
-        column_name (str): Name of hte column in the input data.
-        reference (float, optional):
+        Parameters
+        ----------
+        column_name
+           Name of the column in the input data.
+        reference
             Reference where covariate has no effect.
-        max_difference (float, optional):
-            If a data point's covariate is farther than `max_difference`
-            from the reference value, then this data point is excluded
-            from the calculation. Must be greater than or equal to zero.
-    """
-    def __init__(self, column_name, reference=None, max_difference=None):
+        max_difference
+           If a data point's covariate is farther than `max_difference`
+           from the reference value, then this data point is excluded
+           from the calculation. Must be greater than or equal to zero.
+       """
         self._name = None
         self._reference = None
         self._max_difference = None

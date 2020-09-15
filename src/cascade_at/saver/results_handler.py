@@ -1,6 +1,15 @@
+"""
+The results of a Cascade-AT model need to be saved to the IHME epi databases.
+This module wrangles the draw files from a completed model and uploads summaries
+to the epi databases for visualization in EpiViz.
+
+Eventually, this module should be replaced by something like ``save_results_at``.
+"""
+
 import os
 from pathlib import Path
 import pandas as pd
+from typing import List
 
 from cascade_at.core.db import db_tools
 from cascade_at.core.log import get_loggers
@@ -36,9 +45,17 @@ class ResultsHandler:
     and uploading to the epi database.
     """
     def __init__(self):
-        self.draw_keys = ['measure_id', 'year_id', 'age_group_id',
-                          'location_id', 'sex_id', 'model_version_id']
-        self.summary_cols = [UiCols.MEAN, UiCols.LOWER, UiCols.UPPER]
+        """
+        Attributes
+        ----------
+        self.draw_keys
+            The keys of the draw data frames
+        self.summary_cols
+            The columns that need to be present in all summary files
+        """
+        self.draw_keys: List[str] = ['measure_id', 'year_id', 'age_group_id',
+                                     'location_id', 'sex_id', 'model_version_id']
+        self.summary_cols: List[str] = [UiCols.MEAN, UiCols.LOWER, UiCols.UPPER]
 
     def _validate_results(self, df: pd.DataFrame) -> None:
         """
@@ -48,6 +65,7 @@ class ResultsHandler:
         Parameters
         ----------
         df
+            An input data frame with draws
         """
         missing_cols = [x for x in self.draw_keys if x not in df.columns]
         if missing_cols:
@@ -62,21 +80,26 @@ class ResultsHandler:
         """
         Summarizes results from either mean or draw cols to get
         mean, upper, and lower cols.
+
+        Parameters
+        ----------
+        df
+            A data frame with draw columns or just a mean column
         """
         if ExtractorCols.VALUE_COL_FIT in df.columns:
             df[UiCols.MEAN] = df[ExtractorCols.VALUE_COL_FIT]
             df[UiCols.LOWER] = df[ExtractorCols.VALUE_COL_FIT]
             df[UiCols.UPPER] = df[ExtractorCols.VALUE_COL_FIT]
         else:
-            DRAW_COLS = [col for col in df.columns if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
-            df[UiCols.MEAN] = df[DRAW_COLS].mean(axis=1)
-            df[UiCols.LOWER] = df[DRAW_COLS].quantile(q=UiCols.LOWER_QUANTILE, axis=1)
-            df[UiCols.UPPER] = df[DRAW_COLS].quantile(q=UiCols.UPPER_QUANTILE, axis=1)
+            draw_cols = [col for col in df.columns if col.startswith(ExtractorCols.VALUE_COL_SAMPLES)]
+            df[UiCols.MEAN] = df[draw_cols].mean(axis=1)
+            df[UiCols.LOWER] = df[draw_cols].quantile(q=UiCols.LOWER_QUANTILE, axis=1)
+            df[UiCols.UPPER] = df[draw_cols].quantile(q=UiCols.UPPER_QUANTILE, axis=1)
 
         return df[self.draw_keys + [UiCols.MEAN, UiCols.LOWER, UiCols.UPPER]]
 
     def save_draw_files(self, df: pd.DataFrame, model_version_id: int,
-                        directory: Path, add_summaries: bool):
+                        directory: Path, add_summaries: bool) -> None:
         """
         Saves a data frame by location and sex in .csv files.
         This currently saves the summaries, but when we get
@@ -115,7 +138,7 @@ class ResultsHandler:
                         df=summary, model_version_id=model_version_id, directory=directory
                     )
 
-    def save_summary_files(self, df: pd.DataFrame, model_version_id: int, directory: Path):
+    def save_summary_files(self, df: pd.DataFrame, model_version_id: int, directory: Path) -> None:
         """
         Saves a data frame with summaries by location and sex in summary.csv files.
 

@@ -1,7 +1,16 @@
 """
-Sequences of dismod_at commands that work together to create a cascade operation
-that can be performed on a single DisMod-AT database.
+==================
+Cascade Operations
+==================
+
+Pieces of work to be done using one of the executor scripts.
+Each cascade operation takes some arguments and then formats them
+to be used with the executor script.
+
+The arguments in each of these operations is based on the arguments
+that are allowed in each of the executable scripts.
 """
+
 from typing import List, Optional, Dict, Union, Any
 
 from cascade_at.core import CascadeATError
@@ -20,6 +29,18 @@ class CascadeOperationValidationError(CascadeATError):
 class _CascadeOperation:
     def __init__(self, upstream_commands: Optional[List[str]] = None,
                  executor_parameters: Optional[Dict[str, Any]] = None):
+        """
+        The base class for a cascade operation.
+
+        Parameters
+        ----------
+        upstream_commands
+            A list of commands that are upstream to this operation.
+            This means that it will be run before this operation.
+        executor_parameters
+            Optional dictionary of execution parameters that
+            updates the execution parameters :py:class:`~cascade_at.jobmon.resources.DEFAULT_EXECUTOR_PARAMETERS`
+        """
 
         if upstream_commands is None:
             upstream_commands = list()
@@ -89,11 +110,15 @@ class _CascadeOperation:
         Takes kwargs like model_version_id=0
         and turns it into kwargs dict that looks
         like {'model_version_id': --model-version-id 0}.
+
         For boolean args, it will look like
         {'do_this': '--do-this'}. And for arguments
         from self.arg_list that have defaults, it will
         fill in the default value if it is not passed in
         the kwargs (unless it's None).
+
+        Used for converting
+        things into Jobmon TaskTemplates.
 
         Parameters
         ----------
@@ -103,7 +128,7 @@ class _CascadeOperation:
         Returns
         -------
         Dictionary of keyword arguments similar to what was passed but with
-        values that have been converted to what the TaskTemplate expects. Also
+        values that have been converted to what the ``TaskTemplate`` in Jobmon expects. Also
         filling in default arguments that are not passed but are listed in
         the ArgumentList for self.
         """
@@ -140,7 +165,16 @@ class _CascadeOperation:
             })
         return template_kwargs
 
-    def _configure(self, **command_args):
+    def _configure(self, **command_args) -> None:
+        """
+        Validates the keyword arguments passed
+        in and creates the command, job name, and task template kwargs.
+
+        Parameters
+        ----------
+        command_args
+            Keyword arguments to be passed to the cascade operation
+        """
         self._validate(**command_args)
         self.command = self._make_command(**command_args)
         self.name = self._make_name()
@@ -149,6 +183,14 @@ class _CascadeOperation:
 
 class ConfigureInputs(_CascadeOperation):
     def __init__(self, model_version_id: int, **kwargs):
+        """
+        Configure the inputs for a model version ID.
+
+        Parameters
+        ----------
+        model_version_id
+            The model version to configure inputs for
+        """
         super().__init__(**kwargs)
         self.name_components = [model_version_id]
         self.j_resource = True
@@ -174,6 +216,41 @@ class _DismodDB(_CascadeOperation):
                  save_prior: bool = False,
                  save_fit: bool = False,
                  **kwargs):
+        """
+        Base class for creating an operation that interfaces with the dismod database.
+
+        Parameters
+        ----------
+        model_version_id
+            The model version to run the model for.
+        parent_location_id
+            The parent location for this dismod database.
+        sex_id
+            The reference sex for this dismod database.
+        fill
+            Whether or not to fill this database with new data
+            base on the cached inputs or this model version.
+        prior_samples
+            Whether or not the prior came from samples or just a mean fit
+        prior_mulcov
+            The model version ID where the covariate multiplier statistics
+            are saved. If this is included, then it will add a prior
+            for the covariate multiplier(s) associated with this model version ID.
+        prior_parent
+            The location ID of the parent database to grab the prior for.
+        prior_sex
+            The sex ID of the parent database to grab the prior for.
+        dm_options
+            Additional options to pass to the dismod database, outside
+            of those that would be passed based on the model settings.
+        dm_commands
+            Commands to run on the dismod database.
+        save_prior
+            Whether or not to save the prior as the prior for this parent location.
+        save_fit
+            Whether or not to save the fit as the fit for this parent location.
+        kwargs
+        """
 
         super().__init__(**kwargs)
         self.name_components = [model_version_id, parent_location_id, sex_id]
@@ -207,6 +284,26 @@ class Fit(_DismodDB):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
                  predict: bool = True, fill: bool = True, both: bool = False,
                  save_fit: bool = False, save_prior: bool = False, **kwargs):
+        """
+        Perform a fit on the dismod database for this model version ID,
+        parent location, and sex ID. (See undocumented arguments
+        in :py:class:`~cascade_at.cascade.cascade_operations._DismodDB`.
+
+        Parameters
+        ----------
+        model_version_id
+        parent_location_id
+        sex_id
+        predict
+            Whether or not to run a predict on this database. Will predict
+            for the avgint table that is based on the IHME-GBD demographics grid.
+        fill
+        both
+            Whether or not to run a fit both (True) or a fit fixed only (False)
+        save_fit
+        save_prior
+        kwargs
+        """
 
         dm_commands = ['init', 'fit fixed']
         if both:
@@ -227,6 +324,35 @@ class Fit(_DismodDB):
 class Sample(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
                  n_sim: int, fit_type: str, asymptotic: bool, n_pool: int = 1, **kwargs):
+        """
+        Create posterior samples from a dismod database that has already
+        had a fit run on it. This may be done in parallel with a multiprocessing
+        pool. The samples can either be asymptotic (sampling from a multivariate normal
+        distribution) or stochastic simulations. If you choose
+        to sample asymptotic, and it fails (it may fail because of
+        issues with the constraints), then it will automatically do a
+        sample simulate.
+
+        Parameters
+        ----------
+        model_version_id
+            The model version ID
+        parent_location_id
+            The parent location ID
+        sex_id
+            The reference sex ID for the database
+        n_sim
+            The number of posterior samples to create
+        fit_type
+            The original fit type for this database. Should be either
+            'fixed' or 'both' (could also be 'random' but we don't use that).
+        asymptotic
+            Whether or not to do asymptotic samples or simulation-based samples.
+        n_pool
+            The number of threads to create in a multiprocessing pool.
+            If this is 1, then it will not do multiprocessing.
+        kwargs
+        """
         super().__init__(**kwargs)
         self.name_components = [model_version_id, parent_location_id, sex_id]
 

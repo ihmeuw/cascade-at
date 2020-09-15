@@ -1,20 +1,20 @@
-import logging
 import sys
 from pathlib import Path
 from typing import Union
 
+import logging
 import pandas as pd
 
-from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, NPool, NSim
-from cascade_at.executor.args.args import StrArg, BoolArg, LogLevel
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.dismod.api.dismod_io import DismodIO
-from cascade_at.dismod.process.process_behavior import check_sample_asymptotic, SampleAsymptoticError
 from cascade_at.dismod.api.multithreading import _DismodThread, dmdismod_in_parallel
 from cascade_at.dismod.api.run_dismod import run_dismod_commands
+from cascade_at.dismod.process.process_behavior import check_sample_asymptotic, SampleAsymptoticError
 from cascade_at.executor import ExecutorError
+from cascade_at.executor.args.arg_utils import ArgumentList
+from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, NPool, NSim
+from cascade_at.executor.args.args import StrArg, BoolArg, LogLevel
 
 LOG = get_loggers(__name__)
 
@@ -161,17 +161,17 @@ def sample_simulate_sequence(path: Union[str, Path], n_sim: int, fit_type: str):
 
 def sample_asymptotic(path: Union[str, Path], n_sim: int, fit_type: str):
     """
-        Fit the samples in a database in sequence.
+    Creates asymptotic samples of the posterior.
 
-        Parameters
-        ----------
-        path
-            A path to the database object to create simulations in.
-        n_sim
-            Number of simulations to create.
-        fit_type
-            Type of fit -- fixed or both
-        """
+    Parameters
+    ----------
+    path
+        A path to the database object to create simulations in.
+    n_sim
+        Number of simulations to create.
+    fit_type
+        Type of fit -- fixed or both
+    """
     return run_dismod_commands(
         dm_file=path,
         commands=[
@@ -186,8 +186,12 @@ def sample_asymptotic(path: Union[str, Path], n_sim: int, fit_type: str):
 def sample(model_version_id: int, parent_location_id: int, sex_id: int,
            n_sim: int, n_pool: int, fit_type: str, asymptotic: bool = False) -> None:
     """
-    Simulates from a dismod database that has already had a fit run on it. Does so
-    optionally in parallel.
+    Creates variable samples from a dismod database
+    that has already had a fit run on it. Does so
+    optionally in parallel. Defaults to doing stochastic samples
+    (this is like the parametric bootstrap).
+    If you want asymptotic samples, it will try to do that but if
+    it fails, it will do stochastic samples instead.
 
     Parameters
     ----------

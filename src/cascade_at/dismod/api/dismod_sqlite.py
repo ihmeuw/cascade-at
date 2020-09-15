@@ -96,7 +96,7 @@ class DismodSQLite:
     def update_table_columns(self, table_name, table):
         """
         Updates the table columns with additional columns like
-        c_ which are comments and x_ which are covariates.
+        "c_" which are comments and "x_" which are covariates.
         """
         table_definition = self._table_definitions[table_name]
         new_columns = table.columns.difference(table_definition.c.keys())
