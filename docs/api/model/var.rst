@@ -1,4 +1,3 @@
-
 .. _var-class:
 
 Var Class

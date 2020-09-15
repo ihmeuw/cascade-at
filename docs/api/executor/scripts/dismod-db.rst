@@ -6,6 +6,12 @@ Dismod Database Creation and Commands
 When we want to fill a dismod database with some data for a model,
 and then run some commands on it, this is the script that we use.
 
+We fill and extract dismod databases using :ref:`dismod-fill-extract` classes
+and functions. Then the databases are filled according to their settings
+and the arguments passed to these scripts, like whether to override the prior
+in the settings with a parent prior (this is called "posterior to prior") or
+whether to add a covariate multiplier prior.
+
 Dismod Database Script
 """"""""""""""""""""""
 

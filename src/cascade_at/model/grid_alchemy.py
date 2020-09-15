@@ -74,8 +74,6 @@ class Alchemy:
         """
         Construct a single age-time grid.
         Use this age and time when a smooth grid doesn't depend on age and time.
-
-        :return:
         """
         single_age = self.age_time_grid["age"][:1]
         single_time = np.array([self.age_time_grid["time"][len(self.age_time_grid["time"]) // 2]])
@@ -113,7 +111,10 @@ class Alchemy:
     def override_priors(rate_grid: SmoothGrid, update_dict=Dict[str, np.ndarray],
                         new_prior_distribution: Optional[str] = 'gaussian'):
         """
-        Override priors for rates.
+        Override priors for rates. This is used
+        when we want to do posterior to prior, so we are
+        overriding the global settings with location-specific
+        settings based on parent posteriors.
 
         Parameters
         ----------
@@ -124,10 +125,6 @@ class Alchemy:
             to use in overriding the prior.
         new_prior_distribution
             The new prior distribution to override the existing priors.
-
-        Returns
-        -------
-
         """
         # Check that the prior grid lines up with this rate
         # grid. If it doesn't, we have a problem.
@@ -192,6 +189,7 @@ class Alchemy:
         update_prior
             dictionary of dictionary for prior updates to rates
         update_mulcov_prior
+            dictionary of mulcov prior updates
         min_cv
             dictionary (can be defaultdict) for minimum coefficient of variation
             keyed by cascade level, then by rate

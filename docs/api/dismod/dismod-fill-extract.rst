@@ -72,7 +72,7 @@ and SmoothGrid.
 
 .. autofunction:: cascade_at.dismod.api.fill_extract_helpers.grid_tables.construct_weight_grid_tables
 
-.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.grid_tables.construct_subgroup_tables
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.grid_tables.construct_subgroup_table
 
 Helper Functions
 ^^^^^^^^^^^^^^^^
@@ -93,13 +93,13 @@ The posterior is passed down by predicting the parent model on the rate
 grid for the children. To construct the rate grid, we use the following
 function:
 
-.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior.get_prior_avgint_grid
 
 And then to upload those priors from the rate grid to the IHME databases
 since the IHME databases require standard GBD ages and times, we use
 this function. This is just for visualization purposes:
 
-.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.format_rate_grid_for_ihme
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior.format_rate_grid_for_ihme
 
 Multithreading
 """"""""""""""
