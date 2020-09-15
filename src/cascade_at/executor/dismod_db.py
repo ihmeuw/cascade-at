@@ -66,7 +66,17 @@ def get_prior(path: Union[str, Path], location_id: int, sex_id: int,
     return child_prior
 
 
-def get_mulcov_priors(model_version_id: int):
+def get_mulcov_priors(model_version_id: int) -> Dict[Tuple[str, str, str], _Prior]:
+    """
+    Read in covariate multiplier statistics from a specific model version ID
+    and returns a dictionary with a prior object for that covariate
+    multiplier type, covariate name, and rate or integrand.
+
+    Parameters
+    ----------
+    model_version_id
+        The model version ID to pull covariate multiplier statistics from
+    """
     convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_std': 'gamma'}
     mulcov_prior = {}
     ctx = Context(model_version_id=model_version_id)

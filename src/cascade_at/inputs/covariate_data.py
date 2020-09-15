@@ -1,25 +1,23 @@
 import pandas as pd
+from typing import List
 
 from cascade_at.core.db import db_queries
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
+from cascade_at.inputs.demographics import Demographics
 
 LOG = get_loggers(__name__)
 
 
 class CovariateData(BaseInput):
-    def __init__(self, covariate_id, demographics, decomp_step, gbd_round_id):
+    def __init__(self, covariate_id: int, demographics: Demographics,
+                 decomp_step: str, gbd_round_id: int):
         """
         Get covariate estimates, and map them to the necessary demographic
         ages and sexes. If only one age group is present in the covariate
         data then that means that it's not age-specific and we want to copy
         the values over to all the other age groups we're working with in
         demographics. Same with sex.
-
-        :param covariate_id: (int)
-        :param demographics: (cascade_at.inputs.demographics.Demographics)
-        :param decomp_step: (str)
-        :param gbd_round_id: (int)
         """
         self.covariate_id = covariate_id
         self.demographics = demographics
@@ -33,7 +31,6 @@ class CovariateData(BaseInput):
     def get_raw(self):
         """
         Pulls the raw covariate data from the database.
-        :return:
         """
         self.raw = db_queries.get_covariate_estimates(
             covariate_id=self.covariate_id,
@@ -43,22 +40,39 @@ class CovariateData(BaseInput):
         )
         return self
 
-    def configure_for_dismod(self, pop_df, loc_df):
+    def configure_for_dismod(self, pop_df: pd.DataFrame, loc_df: pd.DataFrame):
         """
-        Configures covariates for DisMod.
-        :return: self
+        Configures covariates for DisMod. Completes covariate
+        ages, sexes, and locations based on what covariate data is already
+        available.
+
+        To fill in ages, it copies over all age or age standardized
+        covariates into each of the specific age groups.
+
+        To fill in sexes, it copies over any both sex covariates to
+        the sex specific groups.
+
+        To fill in locations, it takes a population-weighted average of child
+        locations for parent locations all the way up the location hierarchy.
+
+        Parameters
+        ----------
+        pop_df
+            A data frame with population info for all ages, sexes, locations, and years
+        loc_df
+            A data frame with location hierarchy information
         """
         df = self.raw[[
             'location_id', 'year_id', 'age_group_id', 'sex_id', 'mean_value'
         ]]
-        df = self.complete_covariate_ages(cov_df=df)
-        df = self.complete_covariate_sex(cov_df=df, pop_df=pop_df)
-        df = self.complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df,
-                                               locations=self.demographics.location_id)
+        df = self._complete_covariate_ages(cov_df=df)
+        df = self._complete_covariate_sex(cov_df=df, pop_df=pop_df)
+        df = self._complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df,
+                                                locations=self.demographics.location_id)
         df = self.convert_to_age_lower_upper(df)
         return df
     
-    def complete_covariate_ages(self, cov_df):
+    def _complete_covariate_ages(self, cov_df):
         """
         Adds on covariate ages for all age group IDs.
         """
@@ -73,14 +87,10 @@ class CovariateData(BaseInput):
         return covs
 
     @staticmethod
-    def complete_covariate_locations(cov_df, pop_df, loc_df, locations):
+    def _complete_covariate_locations(cov_df: pd.DataFrame, pop_df: pd.DataFrame, loc_df: pd.DataFrame,
+                                      locations: List[int]):
         """
         Completes the covariate locations that aren't in the database as a population-weighted average.
-        :param cov_df: (pd.DataFrame)
-        :param pop_df: (pd.DataFrame)
-        :param loc_df: (pd.DataFrame)
-        :param locations: (list)
-        :return:
         """
         parent_pop = pop_df[['location_id', 'age_group_id', 'sex_id', 'year_id', 'population']].copy()
         parent_pop.rename(columns={'location_id': 'parent_id', 'population': 'parent_population'}, inplace=True)
@@ -125,13 +135,10 @@ class CovariateData(BaseInput):
         return df
 
     @staticmethod
-    def complete_covariate_sex(cov_df, pop_df):
+    def _complete_covariate_sex(cov_df: pd.DataFrame, pop_df: pd.DataFrame):
         """
         Fills in missing sex values so that both is propagated to male and female if missing,
         and both is created as a pop-weighted average between male and female if both missing.
-        :param cov_df:
-        :param pop_df:
-        :return:
         """
         if set(cov_df.sex_id) == {1, 2, 3}:
             result_df = cov_df

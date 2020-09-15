@@ -2,7 +2,7 @@ import pytest
 
 
 def test_complete_covariate_ages(covariate_data):
-    df = covariate_data.complete_covariate_ages(cov_df=covariate_data.raw)
+    df = covariate_data._complete_covariate_ages(cov_df=covariate_data.raw)
     assert all([c in df.age_group_id.unique()
                 for c in covariate_data.demographics.age_group_id])
 

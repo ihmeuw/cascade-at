@@ -30,8 +30,8 @@ setup(
         "docs": [
             "sphinx",
             "sphinx-rtd-theme",
-            "sphinxcontrib-napoleon",
             "sphinxcontrib-httpdomain"
+            "sphinxcontrib-napoleon"
         ]
     },
     classifiers=[

@@ -1,6 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 
@@ -18,10 +18,7 @@ def midpoint_list_from_settings(settings: SettingsConfig) -> List[str]:
     Parameters
     ----------
     settings
-
-    Returns
-    -------
-    List of
+        The settings configuration to convert from
     """
     if not settings.model.is_field_unset("midpoint_approximation"):
         measures_midpoint = [
@@ -33,10 +30,15 @@ def midpoint_list_from_settings(settings: SettingsConfig) -> List[str]:
     return measures_midpoint
 
 
-def measures_to_exclude_from_settings(settings: SettingsConfig):
+def measures_to_exclude_from_settings(settings: SettingsConfig) -> List[str]:
     """
     Gets the measures to exclude from the data from the model
     settings configuration.
+
+    Parameters
+    ----------
+    settings
+        The settings configuration to convert from
     """
     if not settings.model.is_field_unset("exclude_data_for_param"):
         measures_to_exclude = [
@@ -50,10 +52,17 @@ def measures_to_exclude_from_settings(settings: SettingsConfig):
     return measures_to_exclude
 
 
-def data_eta_from_settings(settings: SettingsConfig, default: float = np.nan):
+def data_eta_from_settings(settings: SettingsConfig, default: float = np.nan) -> Dict[str, float]:
     """
     Gets the data eta from the settings Configuration.
     The default data eta is np.nan.
+
+    Parameters
+    ----------
+    settings
+        The settings configuration to convert from
+    default
+        The default eta to use
     """
     data_eta = defaultdict(lambda: default)
     if not settings.eta.is_field_unset("data") and settings.eta.data:
@@ -63,10 +72,17 @@ def data_eta_from_settings(settings: SettingsConfig, default: float = np.nan):
     return data_eta
 
 
-def density_from_settings(settings: SettingsConfig, default: str = "gaussian"):
+def density_from_settings(settings: SettingsConfig, default: str = "gaussian") -> Dict[str, str]:
     """
     Gets the density from the settings Configuration.
     The default density is "gaussian".
+
+    Parameters
+    ----------
+    settings
+        The settings configuration to convert from
+    default
+        The default data density to use
     """
     density = defaultdict(lambda: default)
     if not settings.model.is_field_unset("data_density") and settings.model.data_density:
@@ -76,16 +92,15 @@ def density_from_settings(settings: SettingsConfig, default: str = "gaussian"):
     return density
 
 
-def data_cv_from_settings(settings: SettingsConfig, default: float = 0.0):
-    """
-    Gets the data min coefficient of variation from the settings Configuration
+def data_cv_from_settings(settings: SettingsConfig, default: float = 0.0) -> Dict[str, float]:
+    """ Gets the data min coefficient of variation from the settings Configuration
 
-    Args:
-        settings: (cascade.settings.configuration.Configuration)
-        default: (float) default data cv
-
-    Returns:
-        dictionary of data cv's from settings
+    Parameters
+    ----------
+    settings
+        The settings configuration to convert from
+    default
+        The default data coefficient of variation
     """
     data_cv = defaultdict(lambda: default)
     if not settings.model.is_field_unset("minimum_meas_cv") and settings.model.minimum_meas_cv:
@@ -101,7 +116,14 @@ def data_cv_from_settings(settings: SettingsConfig, default: float = 0.0):
 def min_cv_from_settings(settings: SettingsConfig, default: float = 0.0) -> defaultdict:
     """
     Gets the minimum coefficient of variation by rate and level
-    of the cascade from settings.
+    of the cascade from settings. First key is cascade level, second is rate
+
+    Parameters
+    ----------
+    settings
+        The settings configuration from which to pull
+    default
+        The default min CV to use when not specified
     """
     # This is a hack to over-ride the default value while the visualization
     # team is fixing the bug in the cascade level drop-down menu.
@@ -126,10 +148,17 @@ def min_cv_from_settings(settings: SettingsConfig, default: float = 0.0) -> defa
     return outer
 
 
-def nu_from_settings(settings: SettingsConfig, default: float = np.nan):
+def nu_from_settings(settings: SettingsConfig, default: float = np.nan) -> Dict[str, float]:
     """
     Gets nu from the settings Configuration.
     The default nu is np.nan.
+
+    Parameters
+    ----------
+    settings
+        The settings configuration from which to pull
+    default
+        The default nu to use when not specified in the settings
     """
     nu = defaultdict(lambda: default)
     nu["students"] = settings.students_dof.data

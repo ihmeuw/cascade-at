@@ -10,10 +10,13 @@ LOG = get_loggers(__name__)
 
 
 def application_config():
-    """Returns a configuration dictionary.
+    """Returns a configuration dictionary based on the configuration
+    that is installed into the environment.
 
-    Returns:
-        ConfigParser.SectionProxy: This is a mapping type.
+    Returns
+    -------
+    ConfigParser.SectionProxy
+        This is a mapping type.
     """
 
     parser = ConfigParser()

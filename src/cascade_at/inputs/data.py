@@ -1,27 +1,37 @@
-import numpy as np
-import pandas as pd
-
 from typing import List, Optional
 
+import pandas as pd
+
 from cascade_at.core.db import elmo
-from cascade_at.dismod.integrand_mappings import make_integrand_map
-from cascade_at.inputs.utilities.transformations import RELABEL_INCIDENCE_MAP
-from cascade_at.inputs.utilities import gbd_ids
 from cascade_at.core.log import get_loggers
+from cascade_at.dismod.integrand_mappings import make_integrand_map
 from cascade_at.inputs.base_input import BaseInput
+from cascade_at.inputs.demographics import Demographics
 from cascade_at.inputs.uncertainty import stdev_from_crosswalk_version
-from cascade_at.dismod.constants import IntegrandEnum
+from cascade_at.inputs.utilities import gbd_ids
+from cascade_at.inputs.utilities.transformations import RELABEL_INCIDENCE_MAP
 
 LOG = get_loggers(__name__)
 
 
 class CrosswalkVersion(BaseInput):
-    def __init__(self, crosswalk_version_id, exclude_outliers,
-                 demographics, conn_def, gbd_round_id):
+    def __init__(self, crosswalk_version_id: int, exclude_outliers: bool,
+                 demographics: Demographics, conn_def: str, gbd_round_id: int):
         """
-        :param crosswalk_version_id: (int)
-        :param exclude_outliers: (bool) whether to exclude outliers
-        :param conn_def: (str) connection definition
+        Pulls and formats all of the data from a crosswalk version in the epi database.
+
+        Parameters
+        ----------
+        crosswalk_version_id
+            The crosswalk version to pull from
+        exclude_outliers
+            whether to exclude outliers
+        conn_def
+            database connection definition
+        gbd_round_id
+            The GBD round
+        demographics
+            The demographics object
         """
         super().__init__(gbd_round_id=gbd_round_id)
         self.crosswalk_version_id = crosswalk_version_id
@@ -35,13 +45,12 @@ class CrosswalkVersion(BaseInput):
         """
         Pulls the raw crosswalk version from the database.
         These are the observations that will be used in the bundle.
-        :return: self
         """
         LOG.info(f"Getting crosswalk version for {self.crosswalk_version_id}.")
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
         return self
 
-    def configure_for_dismod(self, relabel_incidence,
+    def configure_for_dismod(self, relabel_incidence: int,
                              measures_to_exclude: Optional[List[str]] = None) -> pd.DataFrame:
         """
         Configures the crosswalk version for DisMod.
@@ -94,12 +103,17 @@ class CrosswalkVersion(BaseInput):
         return df
 
     @staticmethod
-    def map_to_integrands(df, relabel_incidence):
+    def map_to_integrands(df: pd.DataFrame, relabel_incidence: int):
         """
-        Maps the data from the IHME databases to the integrands expected by DisMod AT
-        :param df: (pd.DataFrame)
-        :param relabel_incidence: (int)
-        :return:
+        Maps the data from the IHME databases to the integrands expected by DisMod AT.
+
+        Parameters
+        ----------
+        df
+            A data frame to map to integrands
+        relabel_incidence
+            A relabel incidence code.
+            Can be found in :py:class:`~cascade_at.inputs.utilities.transformations.RELABEL_INCIDENCE_MAP`
         """
         integrand_map = make_integrand_map()
 

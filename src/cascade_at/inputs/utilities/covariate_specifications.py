@@ -1,8 +1,10 @@
 from functools import total_ordering
 from itertools import chain
+from typing import List
 
 from cascade_at.dismod.integrand_mappings import make_integrand_map, PRIMARY_INTEGRANDS_TO_RATES
 from cascade_at.inputs.utilities.transformations import COVARIATE_TRANSFORMS
+from cascade_at.settings.settings_config import StudyCovariate, CountryCovariate
 
 
 @total_ordering
@@ -110,7 +112,9 @@ def kind_and_id(covariate_setting):
     )
 
 
-def create_covariate_specifications(country_covariate, study_covariate):
+def create_covariate_specifications(country_covariate: List[CountryCovariate],
+                                    study_covariate: List[StudyCovariate]) -> (List[EpiVizCovariateMultiplier],
+                                                                     List[EpiVizCovariate]):
     """Parses EpiViz-AT settings to create two data structures for Covariate creation.
 
     Covariate multipliers will only contain country covariates.
@@ -122,16 +126,20 @@ def create_covariate_specifications(country_covariate, study_covariate):
     >>> settings = load_settings(BASE_CASE)
     >>> multipliers, data_spec = create_covariate_specifications(settings.country_covariate, settings.study_covariate)
 
-    Args:
-        country_covariate (List[Form]): The country_covariate member of the EpiViz-AT settings.
-        study_covariate (List[Form]): The study_covariate member of the EpiViz-AT settings.
+    Parameters
+    ----------
+    country_covariate
+        The country_covariate member of the EpiViz-AT settings.
+    study_covariate
+        The study_covariate member of the EpiViz-AT settings.
 
-    Returns:
-         (List[EpiVizCovariateMultiplier], List[EpiVizCovariate]): The multipliers
-         are specification for making SmoothGrids. The covariates are specification
-         for downloading data and attaching it to the bundle and average integrand
-         tables. The multipliers use the covariates in order to know the name
-         of the covariate.
+    Returns
+    -------
+     The multipliers are specification for making SmoothGrids.
+     The covariates are specification
+     for downloading data and attaching it to the crosswalk version and average integrand
+     tables. The multipliers use the covariates in order to know the name
+     of the covariate.
     """
     covariate_specs = set()
 

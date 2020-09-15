@@ -1,17 +1,22 @@
 import subprocess
 import sys
 from types import SimpleNamespace
+from typing import List
 from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
 
 
-def run_dismod(dm_file, command):
+def run_dismod(dm_file: str, command: str):
     """
-    Runs a command on a dismod file.
-    :param dm_file: (str) the dismod db filepath
-    :param command: (str) a command to run
-    :return:
+    Executes a command on a dismod file.
+
+    Parameters
+    ----------
+    dm_file
+        the dismod db filepath
+    command
+        a command to run
     """
     command = ["dmdismod", str(dm_file), command]
     command = ' '.join(command)
@@ -27,15 +32,17 @@ def run_dismod(dm_file, command):
     return info
 
 
-def run_dismod_commands(dm_file, commands):
+def run_dismod_commands(dm_file: str, commands: List[str]):
     """
     Runs multiple commands on a dismod file and returns the exit statuses.
     Will raise an exception if it runs into an error.
 
-    Args:
-        dm_file: (str) the dismod db filepath
-        commands: (List[str]) a list of strings
-
+    Parameters
+    ----------
+    dm_file
+        the dismod db filepath
+    commands
+        a list of strings
     """
     processes = dict()
     if isinstance(commands, str):

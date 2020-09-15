@@ -32,8 +32,12 @@ ARG_LIST = ArgumentList([
 def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10,
         addl_workflow_args: Optional[str] = None, skip_configure: bool = False) -> None:
     """
-    Runs the whole cascade or drill for a model version (which one is specified
+    Runs the whole cascade or drill for a model version (whichever one is specified
     in the model version settings).
+
+    Creates a cascade command and a bunch of cascade operations based
+    on the model version settings. More information on this structure
+    is in :ref:`executor`.
 
     Parameters
     ----------
@@ -47,7 +51,10 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     n_sim
         Number of simulations to do going down the cascade
     addl_workflow_args
+        Additional workflow args to add to the jobmon workflow name
+        so that it is unique if you're testing
     skip_configure
+        Skip configuring the inputs because
     """
     LOG.info(f"Starting model for {model_version_id}.")
 

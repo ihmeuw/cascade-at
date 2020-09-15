@@ -35,16 +35,18 @@ def common_covariate_names(dbs):
     )
 
 
-def get_mulcovs(dbs, covs, table='fit_var'):
+def get_mulcovs(dbs: List[DismodIO], covs: List[str],
+                table: str = 'fit_var') -> pd.DataFrame:
     """
     Get mulcov values from all of the dbs, with all of the common covariates.
-    Args:
-        dbs: list of cascade_at.dismod.api.dismod_io.DismodIO
-        covs: set of covariate names
-        table: name of the table to pull from (can be fit_var or sample)
 
-    Returns:
-
+    Parameters
+    dbs
+        A list of dismod i/o objects
+    covs
+        A list of covariate names
+    table
+        Name of the table to pull from (can be fit_var or sample)
     """
     if table == 'fit_var':
         id_col = 'fit_var_id'
@@ -78,7 +80,7 @@ def get_mulcovs(dbs, covs, table='fit_var'):
 
 def compute_statistics(df, mean=True, std=True, quantile=None):
     """
-    Compute statistics on a data frame with mulcovs.
+    Compute statistics on a data frame with covariate multipliers.
     Args:
         df: pd.DataFrame
         mean: bool
@@ -111,7 +113,8 @@ def mulcov_statistics(model_version_id: int, locations: List[int], sexes: List[i
                       mean: bool = True, std: bool = True,
                       quantile: Optional[List[float]] = None) -> None:
     """
-    Compute statistics for the covariate multipliers.
+    Compute statistics for the covariate multipliers on a dismod database,
+    and save them to a file.
 
     Parameters
     ----------

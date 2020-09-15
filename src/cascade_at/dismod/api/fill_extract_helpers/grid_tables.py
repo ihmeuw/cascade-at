@@ -1,29 +1,38 @@
 import numpy as np
 import pandas as pd
+from typing import Dict
 
 from cascade_at.core.log import get_loggers
 from cascade_at.dismod.api.fill_extract_helpers import utils, reference_tables
 from cascade_at.dismod.constants import DensityEnum, IntegrandEnum, \
     WeightEnum, MulCovEnum, RateEnum
+from cascade_at.model.var import Var
+from cascade_at.model.model import Model
 
 LOG = get_loggers(__name__)
 
 DEFAULT_DENSITY = ["uniform", 0, -np.inf, np.inf]
 
 
-def construct_weight_grid_tables(weights, age_df, time_df):
+def construct_weight_grid_tables(weights: Dict[str, Var],
+                                 age_df, time_df) -> (pd.DataFrame, pd.DataFrame):
     """
     Constructs the weight and weight_grid tables."
 
-    Parameters:
-        weights (Dict[str, Var]): There are four kinds of weights:
-            "constant", "susceptible", "with_condition", and "total".
-            No other weights are used.
-        age_df (pd.DataFrame)
-        time_df (pd.DataFrame)
+    Parameters
+    ----------
+    weights
+        There are four kinds of weights:
+        "constant", "susceptible", "with_condition", and "total".
+        No other weights are used.
+    age_df
+        Age data frame from dismod db
+    time_df
+        Time data frame from dismod db
 
-    Returns:
-        (pd.DataFrame, pd.DataFrame) the weight table and the weight grid table
+    Returns
+    -------
+    Tuple of the weight table and the weight grid table
     """
     LOG.info("Constructing weight and weight grid tables.")
 
@@ -49,11 +58,11 @@ def construct_weight_grid_tables(weights, age_df, time_df):
     return weight, weight_grid
 
 
-def add_prior_smooth_entries(grid_name, grid, num_existing_priors, num_existing_grids,
-                             age_df, time_df):
+def _add_prior_smooth_entries(grid_name, grid, num_existing_priors, num_existing_grids,
+                              age_df, time_df):
     """
-    Returns:
-        (pd.DataFrame, pd.DataFrame, pd.DataFrame)
+    Adds prior smooth grid entries to the smooth grid table and any other tables
+    it needs to be added to. Called from inside of ``construct_model_tables`` only.
     """
     age_count, time_count = (len(grid.ages), len(grid.times))
     prior_df = grid.priors
@@ -114,13 +123,10 @@ def add_prior_smooth_entries(grid_name, grid, num_existing_priors, num_existing_
     return prior_df, smooth_df, grid_df
 
 
-def construct_subgroup_table():
+def construct_subgroup_table() -> pd.DataFrame:
     """
     Constructs the default subgroup table. If we want to actually
     use the subgroup table, need to build this in.
-
-    Returns:
-        pd.DataFrame
     """
     return pd.DataFrame.from_dict({
         'subgroup_id': [0],
@@ -130,10 +136,14 @@ def construct_subgroup_table():
     })
 
 
-def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
+def construct_model_tables(model: Model,
+                           location_df: pd.DataFrame,
+                           age_df: pd.DataFrame,
+                           time_df: pd.DataFrame,
+                           covariate_df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     """
-    Loops through the items from a model object, which include
-    rate, random_effect, alpha, beta, and gamma.
+    Main function that loops through the items from a model object, which include
+    rate, random_effect, alpha, beta, and gamma and constructs the modeling tables in dismod db.
 
     Each of these are "grid" vars, so they need entries in prior,
     smooth, and smooth_grid. This function returns those tables.
@@ -141,15 +151,23 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
     It also constructs the rate, integrand, and mulcov tables (alpha, beta, gamma),
     plus nslist and nslist_pair tables.
 
-    Parameters:
-        model: cascade_at.model.model.Model
-        location_df: pd.DataFrame
-        age_df: pd.DataFrame
-        time_df: pd.DataFrame
-        covariate_df: pd.DataFrame
+    Parameters
+    ----------
+    model
+        A model object that has rate information
+    location_df
+        A location / node data frame
+    age_df
+        An age data frame for dismod
+    time_df
+        A time data frame for dismod
+    covariate_df
+        A covariate data frame for dismod
 
-    Returns:
-        Dict
+    Returns
+    -------
+    A dictionary of data frames for each table name, includes:
+        rate, prior, smooth, smooth_grid, mulcov, nslist, nslist_pair, and subgroup tables
     """
     nslist = {}
     smooth_table = pd.DataFrame()
@@ -172,7 +190,7 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
             parent smooth ID.
             """
             LOG.info(f"Adding rate {rate_name}")
-            prior, smooth, grid = add_prior_smooth_entries(
+            prior, smooth, grid = _add_prior_smooth_entries(
                 grid_name=rate_name, grid=grid,
                 num_existing_priors=len(prior_table),
                 num_existing_grids=len(grid_table),
@@ -201,7 +219,7 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
             if child_location is not None:
                 grid_name = grid_name + f"_{child_location}"
 
-            prior, smooth, grid = add_prior_smooth_entries(
+            prior, smooth, grid = _add_prior_smooth_entries(
                 grid_name=grid_name, grid=grid,
                 num_existing_priors=len(prior_table),
                 num_existing_grids=len(grid_table),
@@ -243,7 +261,7 @@ def construct_model_tables(model, location_df, age_df, time_df, covariate_df):
             LOG.info(f"Adding covariate {covariate} on {rate_or_integrand}.")
             grid_name = f"{m}_{rate_or_integrand}_{covariate}"
 
-            prior, smooth, grid = add_prior_smooth_entries(
+            prior, smooth, grid = _add_prior_smooth_entries(
                 grid_name=grid_name, grid=grid,
                 num_existing_priors=len(prior_table),
                 num_existing_grids=len(grid_table),

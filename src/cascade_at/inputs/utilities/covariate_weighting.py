@@ -1,5 +1,6 @@
 import numpy as np
-from intervaltree import IntervalTree
+import pandas as pd
+from typing import Dict
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
@@ -36,12 +37,17 @@ def interval_weighting(intervals, lower, upper):
 
 class CovariateInterpolator:
     def __init__(self,
-                 covariate,
-                 population):
+                 covariate: pd.DataFrame,
+                 population: pd.DataFrame):
         """
         Interpolates a covariate by population weighting.
-        :param covariate: (pd.DataFrame)
-        :param population: (pd.DataFrame)
+
+        Parameters
+        ----------
+        covariate
+            Data frame with covariate information
+        population
+            Data frame with population information
         """
         # Covariates must be sorted by both age_group_id and age_lower because age_lower is not unique to age_group_id
         indices = ['location_id', 'sex_id', 'year_id', 'age_group_id']
@@ -139,17 +145,22 @@ class CovariateInterpolator:
         return cov_value
 
 
-def get_interpolated_covariate_values(data_df, covariate_dict,
-                                      population_df):
+def get_interpolated_covariate_values(data_df: pd.DataFrame,
+                                      covariate_dict: Dict[str, pd.DataFrame],
+                                      population_df: pd.DataFrame) -> pd.DataFrame:
     """
     Gets the unique age-time combinations from the data_df, and creates
     interpolated covariate values for each of these combinations by population-weighting
     the standard GBD age-years that span the non-standard combinations.
 
-    :param data_df: (pd.DataFrame)
-    :param covariate_dict: Dict[pd.DataFrame] with covariate names as keys
-    :param population_df: (pd.DataFrame)
-    :return: pd.DataFrame
+    Parameters
+    ----------
+    data_df
+        A data frame with data observations in it
+    covariate_dict
+        A dictionary of covariate data frames with covariate names as keys
+    population_df
+        A data frame with population in it
     """
     data = data_df.copy()
     pop = population_df.copy()
