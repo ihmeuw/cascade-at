@@ -19,6 +19,9 @@ can be stacked together into sequences (stacks), and then recursively
 put into a tree structure (dags). The cascade commands are wrappers
 around the dags.
 
+To see documentation for the current "traditional cascade" that is implemented,
+see :py:class:`~cascade_at.cascade.cascade_commands.TraditionalCascade`.
+
 .. toctree::
    :maxdepth: 1
 
