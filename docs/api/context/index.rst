@@ -24,14 +24,17 @@ Context
 -------
 Based on the configuration above, and a model version ID from the epi
 database, we define a context object that keeps track of database
-connections and file structures. It also provides methods to read in
+connections and file structures.
+
+.. autoclass:: cascade_at.context.model_context.Context
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+It also provides methods to read in
 the three things that are always needed to construct models:
 
 * :ref:`measurement-inputs`
 * :ref:`grid-alchemy`
 * :ref:`settings-configuration`
 
-.. autoclass:: cascade_at.context.model_context.Context
-   :members:
-   :undoc-members:
-   :show-inheritance:
