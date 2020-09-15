@@ -11,12 +11,23 @@ LOG = get_loggers(__name__)
 DEFAULT_DENSITY = ["uniform", 0, -np.inf, np.inf]
 
 
-def prep_data_avgint(df, node_df, covariate_df):
+def prep_data_avgint(df: pd.DataFrame, node_df: pd.DataFrame, covariate_df: pd.DataFrame):
     """
-    Preps both the data table and the avgint table.
+    Preps both the data table and the avgint table by
+    mapping locations to nodes and covariates to names.
+
     Putting it in the same function because it does the same stuff,
-    but they need to be called separately because dismod requires
+    but data and avgint need to be called separately because dismod requires
     different columns.
+
+    Parameters
+    ----------
+    df
+        The data frame to map
+    node_df
+        The node table from dismod db
+    covariate_df
+        The covariate table from dismod db
     """
     data = df.copy()
     data = utils.map_locations_to_nodes(df=data, node_df=node_df)
@@ -26,16 +37,21 @@ def prep_data_avgint(df, node_df, covariate_df):
     return data
 
 
-def construct_data_table(df, node_df, covariate_df, ages, times):
+def construct_data_table(df: pd.DataFrame, node_df: pd.DataFrame,
+                         covariate_df: pd.DataFrame, ages: np.ndarray, times: np.ndarray):
     """
     Constructs the data table from input df.
 
-    Parameters:
-        df: (pd.DataFrame) data frame of inputs that have been prepped for dismod
-        node_df: (pd.DataFrame) the dismod node table
-        covariate_df: (pd.DataFrame) the dismod covariate table
-        ages: (np.array)
-        times: (np.array)
+    Parameters
+    ----------
+    df
+        data frame of inputs that have been prepped for dismod
+    node_df
+        the dismod node table
+    covariate_df
+        the dismod covariate table
+    ages
+    times
     """
     LOG.info("Constructing data table.")
 
@@ -64,10 +80,31 @@ def construct_data_table(df, node_df, covariate_df, ages, times):
     return data
 
 
-def construct_gbd_avgint_table(df, node_df, covariate_df, integrand_df, ages, times):
+def construct_gbd_avgint_table(df: pd.DataFrame,
+                               node_df: pd.DataFrame,
+                               covariate_df: pd.DataFrame,
+                               integrand_df: pd.DataFrame,
+                               ages: np.ndarray,
+                               times: np.ndarray) -> pd.DataFrame:
     """
     Constructs the avgint table using the output df
     from the inputs.to_avgint() method.
+
+    Parameters
+    ----------
+    df
+        The data frame to construct the avgint table from, that has things like
+        ages, times, nodes (locations), sexes, etc.
+    node_df
+        dismod node data frame
+    covariate_df
+        dismod covariate data frame
+    integrand_df
+        dismod integrand data frame
+    ages
+        array of ages for the model
+    times
+        array of times for the model
     """
     LOG.info("Constructing the avgint table.")
     avgint = df.copy()

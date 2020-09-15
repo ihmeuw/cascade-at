@@ -35,13 +35,17 @@ class DismodExtractorError(DismodAPIError):
 
 
 class DismodExtractor(DismodIO):
-    """
-    Sits on top of the DismodIO class,
-    and takes everything from the collector module
-    and puts them into the Dismod database tables
-    in the correct construction.
-    """
-    def __init__(self, path):
+    def __init__(self, path: str):
+        """
+        Sits on top of the DismodIO class,
+        and extracts helpful data frames
+        from the dismod database tables.
+
+        Parameters
+        ----------
+        path
+            The database filepath
+        """
         super().__init__(path=path)
         if not os.path.isfile(path):
             raise DismodExtractorError(f"SQLite file {str(path)} has not been created or filled yet.")

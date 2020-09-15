@@ -1,12 +1,60 @@
-.. _study-country-covariates:
+.. _covariates:
 
-Study and Country Covariates
-----------------------------
+Covariates
+^^^^^^^^^^
 
-.. _study-country-definitions:
+Covariates Design from EpiViz
+"""""""""""""""""""""""""""""
+
+EpiViz-AT classifies covariates as country and study types.
+The country are 0 or 1 and are specific to the bundle. The country
+are floating-point values defined for every age / location / sex / year.
+
+The strategy for parsing these and putting them into the model is to
+split the data download and normalization from construction of model priors.
+The :py:class:`~cascade_at.inputs.utilities.covariate_specifications.EpiVizCovariate` is the information part.
+The :py:class:`~cascade_at.inputs.utilities.covariate_specifications.EpiVizCovariateMultiplier` is the model prior part.
+
+.. image:: covariate-movement.png
+    :scale: 40
+
+For reading data, the main complication is that covariates have several IDs
+and names.
+
+ *  ``study_covariate_id`` and ``country_covariate_id`` may be equal for
+    different covariates. That is, they are two sets of IDs. We have no
+    guarantee this is not the case (even if someone tells us it is not the case).
+
+ *  In the inputs, each covariate has a ``short_name``, which is what we use.
+    The short name, in other inputs, can contain spaces. I don't know that
+    study and country short names are guaranteed to be distinct. Therefore...
+
+ *  We prefix study and country covariates with ``s_`` and ``c_``.
+
+ *  Covariates are often transformed into log space, exponential space,
+    or others. These get ``_log``, ``_exp``, or whatever appended.
+
+ *  When covariates are put into the model, they have English names,
+    but inside Dismod-AT, they get renamed to ``x_0``, ``x_1``, ``x_...``.
+
+
+.. automodule:: cascade_at.inputs.utilities.covariate_specifications
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+The following class is a wrapper around the covariate
+specifications that makes them easier to work with and
+provides helpful metadata.
+
+.. automodule:: cascade_at.inputs.covariate_specs
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Definition of Study and Country
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""
 
 There are three reasons to use a covariate.
 
@@ -14,6 +62,9 @@ There are three reasons to use a covariate.
     We believe this covariate predicts disease behavior.
 
 *Study Covariate*
+    **THIS IS DEPRECATED**: the only study covariates
+    are sex and one, described below.
+
     The covariate marks a set of studies that behave differently.
     For instance, different sets of measurements may have different
     criteria for when a person is said to have the disease.
@@ -71,7 +122,7 @@ the other, or both sexes.
 .. _study-country-policies:
 
 Policies for Study and Country Covariates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""""""""""
 
  *  Sex is added as a covariate called ``s_sex``, which Dismod-AT
     translates to ``x_0`` for its db file format. It is -0.5 for women,
@@ -99,3 +150,41 @@ Policies for Study and Country Covariates
 .. [Serghiou2019] Serghiou, Stylianos, and Steven N. Goodman.
    "Random-Effects Meta-analysis: Summarizing Evidence With Caveats."
    Jama 321.3 (2019): 301-302.
+
+
+Country Covariate Data
+""""""""""""""""""""""
+
+To grab the data for the covariates, we use this class that is part of the
+core data inputs.
+
+.. autoclass:: cascade_at.inputs.covariate_data.CovariateData
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Because study covariates are deprecated, we don't need to get data for those.
+Instead, in the :py:class:`~cascade_at.inputs.measurement_inputs.MeasurementInputs`
+class we just assign the sex and one covariate values on the fly.
+
+
+Covariate Interpolation
+"""""""""""""""""""""""
+
+When we attach covariate values to data points, we often need to interpolate
+across ages or times because the data points don't fit nicely into the covariate
+age and time groups that come from the GBD database.
+
+The interpolation happens inside of
+:py:class:`~cascade_at.inputs.measurement_inputs.MeasurementInputs`,
+using the following function that creates a
+:py:class:`~cascade_at.inputs.utilities.covariate_weighting.CovariateInterpolator`
+for each covariate.
+
+.. autofunction:: cascade_at.inputs.utilities.covariate_weighting.get_interpolated_covariate_values
+
+.. autoclass:: cascade_at.inputs.utilities.covariate_weighting.CovariateInterpolator
+   :members:
+   :undoc-members:
+   :show-inheritance:
+

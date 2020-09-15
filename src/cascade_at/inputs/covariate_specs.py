@@ -1,3 +1,5 @@
+from typing import List
+
 from cascade_at.inputs.utilities.covariate_specifications import create_covariate_specifications
 from cascade_at.model.covariate import Covariate
 from cascade_at.settings.settings_config import CountryCovariate, StudyCovariate
@@ -8,7 +10,7 @@ LOG = get_loggers(__name__)
 
 
 class CovariateSpecs:
-    def __init__(self, country_covariates: CountryCovariate, study_covariates: StudyCovariate):
+    def __init__(self, country_covariates: List[CountryCovariate], study_covariates: List[StudyCovariate]):
 
         self.covariate_list = []
         self.country_covariates = country_covariates

@@ -57,6 +57,7 @@ class DismodFiller(DismodIO):
                  child_prior: Optional[Dict[str, Dict[str, np.ndarray]]] = None,
                  mulcov_prior: Optional[Dict[Tuple[str, str, str], _Prior]] = None):
         """
+        # TODO: Talk about theinputs
         Parameters
         ----------
         path
