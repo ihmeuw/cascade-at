@@ -146,7 +146,7 @@ class CovariateInterpolator:
 
 
 def get_interpolated_covariate_values(data_df: pd.DataFrame,
-                                      covariate_dict: Dict[pd.DataFrame],
+                                      covariate_dict: Dict[str, pd.DataFrame],
                                       population_df: pd.DataFrame) -> pd.DataFrame:
     """
     Gets the unique age-time combinations from the data_df, and creates

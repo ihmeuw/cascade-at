@@ -112,8 +112,8 @@ def kind_and_id(covariate_setting):
     )
 
 
-def create_covariate_specifications(country_covariate: List[Form],
-                                    study_covariate: List[Form]) -> (List[EpiVizCovariateMultiplier],
+def create_covariate_specifications(country_covariate: List[CountryCovariate],
+                                    study_covariate: List[StudyCovariate]) -> (List[EpiVizCovariateMultiplier],
                                                                      List[EpiVizCovariate]):
     """Parses EpiViz-AT settings to create two data structures for Covariate creation.
 
