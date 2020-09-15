@@ -1,7 +1,7 @@
 .. _grid-alchemy:
 
 Grid Alchemy
-============
+------------
 
 In order to build two-level models with the
 settings from EpiViz-AT but at different

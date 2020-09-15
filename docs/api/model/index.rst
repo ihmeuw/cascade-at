@@ -10,7 +10,7 @@ The main model object is documented here :ref:`model-class`.
 The model object has two levels maximum (parents and children).
 To build that model object with "global" settings from an EpiViz-AT
 model, we have a wrapper around the model object, described below
-in :ref:`alchemy` that builds a two-level model at any parent location
+in :ref:`grid-alchemy` that builds a two-level model at any parent location
 ID in a model hierarchy.
 
 .. toctree::
@@ -20,6 +20,8 @@ ID in a model hierarchy.
    age-time-grid
    dismod-groups
    priors
-   covariate
+   covariate-multipliers
    smooth-grid
+   smooth-grid-priors
+   model
    grid-alchemy

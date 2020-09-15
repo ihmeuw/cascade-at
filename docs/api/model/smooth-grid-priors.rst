@@ -2,7 +2,7 @@
 
 
 Smooth Grid Priors
-==================
+------------------
 
 For the Rate tab, Random Effect tab, Study tab and Country Covariate tab,
 the interface sets priors. This describes how those settings are interpreted.

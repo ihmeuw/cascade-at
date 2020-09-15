@@ -1,4 +1,4 @@
-.. _context::
+.. _context:
 
 Application Context
 ===================
@@ -18,7 +18,7 @@ information for the IHME configuration.
 
 .. autofunction:: cascade_at.context.configuration.application_config
 
-.. _model-context::
+.. _model-context:
 
 Context
 -------
