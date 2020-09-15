@@ -12,11 +12,18 @@ for age groups and times on the IHME grid.
 Predict Script
 """"""""""""""
 
-.. automodule:: cascade_at.executor.predict
+.. autofunction:: cascade_at.executor.predict.fill_avgint_with_priors_grid
+
+.. autoclass:: cascade_at.executor.predict.Predict
    :members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members: main
+
+.. autofunction:: cascade_at.executor.predict.predict_sample_sequence
+
+.. autofunction:: cascade_at.executor.predict.predict_sample_pool
+
+.. autofunction:: cascade_at.executor.predict.predict_sample
 
 
 Predict Cascade Operation

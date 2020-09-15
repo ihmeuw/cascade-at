@@ -9,11 +9,19 @@ of the variables.
 Sample Script
 """""""""""""
 
-.. automodule:: cascade_at.executor.sample
+.. autofunction:: cascade_at.executor.sample.simulate
+
+.. autoclass:: cascade_at.executor.sample.FitSample
    :members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members: main
+
+.. autofunction:: cascade_at.executor.sample.sample_simulate_pool
+
+.. autofunction:: cascade_at.executor.sample.sample_simulate_sequence
+
+.. autofunction:: cascade_at.executor.sample.sample
+
 
 
 Sample Cascade Operation

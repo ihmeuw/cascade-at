@@ -101,10 +101,11 @@ is kicked off in the first place.
 .. toctree::
    :maxdepth: 1
 
-   run
+   scripts/run
    scripts/configure-inputs
    scripts/dismod-db
    scripts/sample
    scripts/mulcov-statistics
    scripts/predict
    scripts/upload
+   scripts/cleanup

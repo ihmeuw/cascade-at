@@ -18,7 +18,7 @@ Upload Script
 Upload Cascade Operation
 """"""""""""""""""""""""
 
-.. autoclass:: cascade_at.cascade.cascade_operation.Upload
+.. autoclass:: cascade_at.cascade.cascade_operations.Upload
    :members:
    :undoc-members:
    :show-inheritance:

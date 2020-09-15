@@ -20,3 +20,5 @@ inputs that need to be set for a model.
    input-demographics
    input-components
    measurement-inputs
+   covariates/index
+   omega-constraint

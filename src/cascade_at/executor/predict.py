@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Union
 
 import logging
-# import pandas as pd
+import pandas as pd
 
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
@@ -43,6 +43,25 @@ ARG_LIST = ArgumentList([
 def fill_avgint_with_priors_grid(inputs: MeasurementInputs, alchemy: Alchemy, settings: SettingsConfig,
                                  source_db_path: Union[str, Path],
                                  child_locations: List[int], child_sexes: List[int]):
+    """
+    Fill the average integrand table with the grid that the priors are on.
+    This is so that we can "predict" the prior for the next level of the cascade.
+
+    Parameters
+    ----------
+    inputs
+        An inputs object
+    alchemy
+        A grid alchemy object
+    settings
+        A settings configuration object
+    source_db_path
+        The path of the source database that has had a fit on it
+    child_locations
+        The child locations to predict for
+    child_sexes
+        The child sexes to predict for
+    """
 
     sourceDB = DismodIO(path=source_db_path)
     rates = [r.rate for r in settings.rate]
