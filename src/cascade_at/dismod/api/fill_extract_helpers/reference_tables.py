@@ -1,26 +1,28 @@
 import numpy as np
 import pandas as pd
 from numbers import Real
-from collections import defaultdict
+from typing import Dict, Optional, List
 
 from cascade_at.dismod.constants import DensityEnum, IntegrandEnum, \
     RateEnum, enum_to_dataframe
 from cascade_at.core.log import get_loggers
+from cascade_at.inputs.locations import LocationDAG
+from cascade_at.model.covariate import Covariate
 
 LOG = get_loggers(__name__)
 
 
-def construct_integrand_table(data_cv_from_settings=None, default_data_cv=0.0):
+def construct_integrand_table(data_cv_from_settings: Optional[Dict[str, float]] = None,
+                              default_data_cv: float = 0.0) -> pd.DataFrame:
     """
     Constructs the integrand table and adds data CV in the minimum_meas_cv
     column.
 
-    Args:
+    Parameters
+    ----------
         data_cv_from_settings: (optional dict) key, value pair that has
             integrands mapped to data cv
         default_data_cv: (float) default value for data CV to use
-    Returns:
-        pd.DataFrame
     """
     df = pd.DataFrame({
         "integrand_name": enum_to_dataframe(IntegrandEnum)["name"],
@@ -33,7 +35,11 @@ def construct_integrand_table(data_cv_from_settings=None, default_data_cv=0.0):
     return df
 
 
-def default_rate_table():
+def default_rate_table() -> pd.DataFrame:
+    """
+    Constructs the default rate table with
+    rate names and ids.
+    """
     return pd.DataFrame({
         'rate_id': [rate.value for rate in RateEnum],
         'rate_name': [rate.name for rate in RateEnum],
@@ -43,16 +49,24 @@ def default_rate_table():
     })
 
 
-def construct_age_time_table(variable_name, variable, data_min=None, data_max=None):
+def construct_age_time_table(variable_name: str,
+                             variable: np.array,
+                             data_min: Optional[float] = None,
+                             data_max: Optional[float] = None) -> pd.DataFrame:
     """
     Constructs the age or time table with age_id and age or time_id and time.
     Has unique identifiers for each.
 
     Parameters:
-        variable_name: (str) one of 'age' or 'time'
-        variable: (np.array) array of ages or times
-        data_min: (float) minimum observed in the data
-        data_max: (float) max observed in the data
+    ----------
+    variable_name
+        one of 'age' or 'time'
+    variable
+        array of ages or times
+    data_min
+        minimum observed in the data
+    data_max
+        max observed in the data
     """
     LOG.info(f"Constructing {variable_name} table.")
     if data_min < np.min(variable):
@@ -69,13 +83,15 @@ def construct_age_time_table(variable_name, variable, data_min=None, data_max=No
     return df
 
 
-def construct_node_table(location_dag):
+def construct_node_table(location_dag: LocationDAG) -> pd.DataFrame:
     """
     Constructs the node table from a location
     DAG's to_dataframe() method.
 
-    Parameters:
-        location_dag: (cascade_at.inputs.locations.LocationDAG)
+    Parameters
+    ----------
+    location_dag
+        location hierarchy object
     """
     LOG.info("Constructing node table.")
     node = location_dag.to_dataframe()
@@ -93,12 +109,9 @@ def construct_node_table(location_dag):
     return node
 
 
-def construct_covariate_table(covariates):
+def construct_covariate_table(covariates: List[Covariate]) -> pd.DataFrame:
     """
     Constructs the covariate table from a list of Covariate objects.
-
-    :param covariates: List(cascade_at.model.covariate.Covariate)
-    :return: pd.DataFrame()
     """
     covariates_reordered = list()
     lookup = {search.name: search for search in covariates}
@@ -131,7 +144,10 @@ def construct_covariate_table(covariates):
     return covariate_table
 
 
-def construct_density_table():
+def construct_density_table() -> pd.DataFrame:
+    """
+    Constructs the default density table.
+    """
     return pd.DataFrame({
         'density_name': [x.name for x in DensityEnum]
     })

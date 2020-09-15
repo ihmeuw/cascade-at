@@ -18,5 +18,11 @@ We mimic that table metadata
 `here <https://github.com/ihmeuw/cascade-at/blob/develop/src/cascade_at/dismod/api/table_metadata.py>`_,
 and then build an interface on top of it for easy reading and writing.
 
+.. toctree::
+   :maxdepth: 1
 
-
+   dismod-io
+   dismod-run
+   dismod-fill-extract
+   constants
+   integrand-mappings

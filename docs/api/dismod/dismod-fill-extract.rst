@@ -30,6 +30,25 @@ Dismod Extractor
 Table Creation
 ^^^^^^^^^^^^^^
 
+The :py:class:`~cascade_at.dismod.api.dismod_filler.DismodFiller`
+uses the following table creation functions internally.
+
+Formatting Reference Tables
+"""""""""""""""""""""""""""
+
+The dismod database needs some standard reference
+tables. These are made with the following functions.
+
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.reference_tables.construct_integrand_table
+
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.reference_tables.default_rate_table
+
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.reference_tables.construct_node_table
+
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.reference_tables.construct_covariate_table
+
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.reference_tables.construct_density_table
+
 Formatting Dismod Data Tables
 """""""""""""""""""""""""""""
 
@@ -57,6 +76,30 @@ and SmoothGrid.
 
 Helper Functions
 ^^^^^^^^^^^^^^^^
+
+Posterior to Prior
+""""""""""""""""""
+
+When we do "posterior to prior" that means to take
+the fit from a parent database and use the rate posteriors as the prior
+for the child fits. This happens in
+:py:class:`~cascade_at.dismod.api.dismod_filler.DismodFiller`
+when it builds the two-level model
+with :py:class:`~cascade_at.model.grid_alchemy.Alchemy`
+because it replaces the default
+priors with the ones passed in.
+
+The posterior is passed down by predicting the parent model on the rate
+grid for the children. To construct the rate grid, we use the following
+function:
+
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior
+
+And then to upload those priors from the rate grid to the IHME databases
+since the IHME databases require standard GBD ages and times, we use
+this function. This is just for visualization purposes:
+
+.. autofunction:: cascade_at.dismod.api.fill_extract_helpers.format_rate_grid_for_ihme
 
 Multithreading
 """"""""""""""

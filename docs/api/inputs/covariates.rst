@@ -188,3 +188,13 @@ for each covariate.
    :undoc-members:
    :show-inheritance:
 
+
+Covariate Multipliers
+"""""""""""""""""""""
+All of the above sections involve pre-processing of the EpiViz-AT
+settings and covariate data. This is all so that we can make
+a covariate correctly in the dismod model specifications.
+
+For the "covariate multiplier" that uses all of this information
+and converts it into something that dismod can understand,
+see :ref:`covariate-multipliers`.
