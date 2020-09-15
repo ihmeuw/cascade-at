@@ -100,7 +100,14 @@ class TraditionalCascade(_CascadeCommand):
                  location_start: Optional[int] = None,
                  sex: Optional[int] = None, skip_configure: bool = False):
         """
-        Runs the "traditional" dismod cascade.
+        Runs the "traditional" dismod cascade. The traditional cascade
+        as implemented here runs fit fixed all the way to the leaf nodes of
+        the cascade to save time (rather than fit both).
+        To get posterior to prior it uses the coefficient of variation
+        to get the variance of the posterior that becomes the prior
+        at the next level. At the leaf nodes to get final posteriors,
+        it does sample asymptotic. If sample asymptotic fails due to bad
+        constraints it does sample simulate instead.
 
         Parameters
         ----------
