@@ -31,7 +31,8 @@ setup(
             "sphinx",
             "sphinx-rtd-theme",
             "sphinxcontrib-httpdomain",
-            "sphinxcontrib-napoleon"
+            "sphinxcontrib-napoleon",
+            "sphinx-autodoc-typehints"
         ]
     },
     classifiers=[
