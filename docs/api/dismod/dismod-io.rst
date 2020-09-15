@@ -6,12 +6,6 @@ Interface
 The base interface is ``DismodSQLite``, and the input and output class has getters and setters
 for each of the tables (``DismodIO``, not documented here).
 
-.. autoclass:: cascade_at.dismod.api.dismod_sqlite.DismodSQLite
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
 To use a ``DismodIO(DismodSQLite)`` interface, you can do
 
 .. code-block:: python
@@ -25,3 +19,12 @@ To use a ``DismodIO(DismodSQLite)`` interface, you can do
    db.age
    db.time
    db.prior
+   
+   # Tables can be set with
+   db.data = pd.DataFrame(...)
+
+.. autoclass:: cascade_at.dismod.api.dismod_sqlite.DismodSQLite
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
