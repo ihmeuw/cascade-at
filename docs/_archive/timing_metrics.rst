@@ -69,11 +69,11 @@ There are three main sources of numbers to use for testing.
     https://github.com/ihmeuw/rocketsonde or from ``/usr/bin/time -v``.
 
  2. Metrics on input data and parameters, as described below and
-    implemented in ``cascade.dismod.metrics``.
+    implemented in ``cascade_at.dismod.metrics``.
 
  3. Observations of what the program did, retrospectively, which
     means counting the number of iterations it used, for instance.
-    These are done in ``cascade.dismod.process_behavior``.
+    These are done in ``cascade_at.dismod.process_behavior``.
 
 We need to characterize the memory usage and runtime of Dismod-AT.
 Here are factors that may contribute and why they may contribute.
@@ -128,5 +128,5 @@ curves for this data: https://cran.r-project.org/web/packages/acepack/index.html
 
 These metrics end up in two places:
 
- * cascade.core.subprocess_utils - Runs ``/usr/bin/time``.
- * cascade.dismod.metrics - Collects db file data.
+ * cascade_at.core.subprocess_utils - Runs ``/usr/bin/time``.
+ * cascade_at.dismod.metrics - Collects db file data.

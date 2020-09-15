@@ -9,13 +9,12 @@ in the ``cascade-at`` package.
 .. toctree::
    :maxdepth: 1
 
+   executor/index
    settings/index
-   core/index
-   context/index
    inputs/index
    model/index
    dismod/index
+   core/index
+   context/index
    saver/index
-   executor/index
-   cascade/index
-   jobmon/index
+

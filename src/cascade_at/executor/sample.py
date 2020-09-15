@@ -1,9 +1,9 @@
+import pandas as pd
+
 import logging
 import sys
 from pathlib import Path
 from typing import Union
-
-import pandas as pd
 
 from cascade_at.executor.args.arg_utils import ArgumentList
 from cascade_at.executor.args.args import ModelVersionID, ParentLocationID, SexID, NPool, NSim

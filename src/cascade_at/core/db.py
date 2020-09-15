@@ -34,6 +34,13 @@ class ModuleProxy:
     This exists in order to actively turn off modules during testing.
     Ensure tests that claim not to use database functions
     really don't use them, so that their tests also pass outside IHME.
+
+    Examples
+    --------
+    >>> # db-queries and db-tools are IHME internal packages
+    >>>
+    >>> db_queries = ModuleProxy("db_queries")
+    >>> ezfuncs = ModuleProxy("db_tools.ezfuncs")
     """
     def __init__(self, module_name):
         if not isinstance(module_name, str):

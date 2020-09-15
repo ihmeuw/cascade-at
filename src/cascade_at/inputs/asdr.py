@@ -7,21 +7,23 @@ from cascade_at.inputs.base_input import BaseInput
 from cascade_at.dismod.constants import IntegrandEnum
 from cascade_at.inputs.uncertainty import bounds_to_stdev
 from cascade_at.inputs.utilities.gbd_ids import CascadeConstants
+from cascade_at.inputs.demographics import Demographics
 
 LOG = get_loggers(__name__)
 
 
 class ASDR(BaseInput):
-    def __init__(self, demographics, decomp_step,
-                 gbd_round_id):
+    def __init__(self, demographics: Demographics, decomp_step: str,
+                 gbd_round_id: int):
         """
-        Gets age-specific death rate for all
+        Gets age-specific all-cause death rate for all
         demographic groups.
 
-        :param demographics: (cascade_at.inputs.demographics.Demographics)
-        :param decomp_step: (int)
-        :param gbd_round_id: (int)
-        :return:
+        Parameters
+        ----------
+        demographics
+        decomp_step
+        gbd_round_id
         """
         super().__init__(gbd_round_id=gbd_round_id)
         self.demographics = demographics
@@ -34,7 +36,6 @@ class ASDR(BaseInput):
         """
         Pulls the raw ASDR and assigns them to this
         class.
-        :return: self
         """
         LOG.info("Getting ASDR from get_envelope.")
         self.raw = db_queries.get_envelope(
@@ -50,7 +51,7 @@ class ASDR(BaseInput):
         )
         return self
 
-    def configure_for_dismod(self, hold_out: int = 0, midpoint: bool = False) -> pd.DataFrame:
+    def configure_for_dismod(self, hold_out: int = 0) -> pd.DataFrame:
         """
         Configures ASDR for DisMod.
 
@@ -58,8 +59,6 @@ class ASDR(BaseInput):
         ----------
         hold_out
             hold-out value for Dismod. 0 means it will be fit, 1 means held out
-        midpoint
-            whether or not to use a midpoint approximation for age and time
         """
         df = self.raw[[
             'age_group_id', 'location_id', 'year_id', 'sex_id', 'mean', 'upper', 'lower'

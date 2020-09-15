@@ -27,11 +27,20 @@ class _CascadeCommand:
         """
         Initializes a task dictionary. All tasks added to this command
         in the form of cascade operations are added to the dictionary.
+
+        Attributes
+        ----------
+        self.task_dict
+            A dictionary of cascade operations, keyed by the command
+            for that operation. This is so that we can look up the
+            task later by the exact command.
         """
         self.task_dict = {}
 
-    def add_task(self, cascade_operation: _CascadeOperation):
+    def add_task(self, cascade_operation: _CascadeOperation) -> None:
         """
+        Adds a cascade operation to the task dictionary.
+
         Parameters
         ----------
         cascade_operation
@@ -54,14 +63,13 @@ class _CascadeCommand:
 
 
 class Drill(_CascadeCommand):
-    """
-    A cascade command that runs a drill model, meaning
-    that it runs one Dismod-AT model with a parent
-    plus its children.
-    """
     def __init__(self, model_version_id: int,
                  drill_parent_location_id: int, drill_sex: int):
         """
+        A cascade command that runs a drill model, meaning
+        that it runs one Dismod-AT model with a parent
+        plus its children.
+
         Parameters
         ----------
         model_version_id
@@ -87,14 +95,13 @@ class Drill(_CascadeCommand):
 
 
 class TraditionalCascade(_CascadeCommand):
-    """
-    Runs the "traditional" dismod cascade.
-    """
     def __init__(self, model_version_id: int, split_sex: bool,
                  dag: LocationDAG, n_sim: int,
                  location_start: Optional[int] = None,
                  sex: Optional[int] = None, skip_configure: bool = False):
         """
+        Runs the "traditional" dismod cascade.
+
         Parameters
         ----------
         model_version_id

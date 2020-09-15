@@ -12,7 +12,7 @@ split the data download and normalization from construction of model priors.
 The :py:class:`EpiVizCovariate <cascade.executor.covariate_description.EpiVizCovariate>` is the
 The :py:class:`EpiVizCovariateMultiplier <cascade.executor.covariate_description.EpiVizCovariateMultiplier>` is the model prior part.
 
-.. image:: covariate_movement.png
+.. image:: covariate-movement.png
     :scale: 40
 
 For reading data, the main complication is that covariates have several IDs

@@ -7,19 +7,13 @@ from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
 
-ExecutorParameters = api.ExecutorParameters
-Tool = api.Tool
-Task = task.Task
-TaskTemplate = task_template.TaskTemplate
-SGEExecutor = sge
-
 
 class JobmonConstants:
     EXECUTOR = "SGEExecutor"
     PROJECT = "proj_dismod_at"
 
 
-def task_template_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> TaskTemplate:
+def task_template_from_cascade_operation(co: _CascadeOperation, tool):
     return tool.get_task_template(
         template_name=co._script(),
         command_template="{script} " + f"{co.arg_list.template}",
@@ -28,10 +22,11 @@ def task_template_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> T
     )
 
 
-def task_from_cascade_operation(co: _CascadeOperation, tool: Tool) -> Task:
+def task_from_cascade_operation(co: _CascadeOperation, tool):
     """
     Create a Jobmon task from a cascade operation (co for short).
     """
+    ExecutorParameters = api.ExecutorParameters
     template = task_template_from_cascade_operation(co, tool)
     t_task = template.create_task(
         name=co.name,
@@ -61,6 +56,10 @@ def jobmon_workflow_from_cascade_command(cc, context, addl_workflow_args: Option
     addl_workflow_args
         Additional workflow args to add on
     """
+    Tool = api.Tool
+    Task = task.Task
+    TaskTemplate = task_template.TaskTemplate
+    SGEExecutor = sge
     error_dir = context.log_dir / 'errors'
     output_dir = context.log_dir / 'output'
 

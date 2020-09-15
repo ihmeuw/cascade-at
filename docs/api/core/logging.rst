@@ -3,6 +3,9 @@
 Error-Handling Plans
 ====================
 
+The following is a proposal for how to handle errors.
+**This is not implemented**.
+
 .. _exception-handling-plans:
 
 Exception-Handling Proposal

@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.abspath(os.path.expanduser("../src")))
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = '1.0'
+# needs_sphinx = '1.0'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -190,7 +190,10 @@ autodoc_default_flags = []
 # Can't mock numpy because it causes a LooseVersion error.
 autodoc_mock_imports = [
     "pandas", "scipy", "sqlalchemy", "networkx",
-    "tables", "intervals", "rocketsonde", "jobmon"]
+    "tables", "intervals", "rocketsonde",
+    "elmo", "db_queries", "db_tools", "gbd", "ihme_rules",
+    "jobmon", "db"
+]
 
 
 # This patch is here to turn off warnings about duplicate documentation.
@@ -207,6 +210,16 @@ def setup(sphinx):
     sphinx.add_domain(PatchedPythonDomain, override=True)
 
 
-# autodoc_default_options = {
-#     'special-members': '__init__',
-# }
+html_theme_options = {
+    'canonical_url': '',
+    'display_version': True,
+    'prev_next_buttons_location': 'top',
+    'style_external_links': False,
+    'style_nav_header_background': '#363C74',
+    # Toc options
+    'collapse_navigation': True,
+    'sticky_navigation': True,
+    'navigation_depth': 6,
+    'includehidden': True,
+    'titles_only': False
+}

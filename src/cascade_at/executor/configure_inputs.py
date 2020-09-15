@@ -26,7 +26,7 @@ ARG_LIST = ArgumentList([
 ])
 
 
-def configure_inputs(model_version_id: int, make: bool, configure: bool, midpoint: bool = False,
+def configure_inputs(model_version_id: int, make: bool, configure: bool,
                      test_dir: Optional[str] = None, json_file: Optional[str] = None) -> None:
     """
     Grabs the inputs for a specific model version ID, sets up the folder

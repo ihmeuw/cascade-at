@@ -3,7 +3,7 @@
 Model Class
 -----------
 
-The :py:class:`Model <cascade_at.model.Model>` holds all of the SmoothGrids that define priors on
+The :py:class:`Model <cascade_at.model.model.Model>` holds all of the SmoothGrids that define priors on
 rates, random effects, and covariates. It also has a few other
 properties necessary to define a complete model.
 
@@ -26,4 +26,4 @@ properties necessary to define a complete model.
    mean of value priors. It is used to ensure different terms in
    the likelihood have similar importance.
 
-.. autoclass:: cascade.model.Model
+.. autoclass:: cascade_at.model.model.Model

@@ -5,7 +5,7 @@ Priors
 
 These are classes for the priors.
 
-.. py:class:: cascade.model.priors._Prior
+.. py:class:: cascade_at.model.priors._Prior
 
    All priors have these methods.
 
@@ -20,26 +20,26 @@ These are classes for the priors.
       as this Prior, except for the requested changes.
 
 
-.. autoclass:: cascade.model.Uniform
+.. autoclass:: cascade_at.model.priors.Uniform
    :members:
 
-.. autoclass:: cascade.model.Constant
+.. autoclass:: cascade_at.model.priors.Constant
    :members:
 
-.. autoclass:: cascade.model.Gaussian
+.. autoclass:: cascade_at.model.priors.Gaussian
    :members:
 
-.. autoclass:: cascade.model.Laplace
+.. autoclass:: cascade_at.model.priors.Laplace
    :members:
 
-.. autoclass:: cascade.model.StudentsT
+.. autoclass:: cascade_at.model.priors.StudentsT
    :members:
 
-.. autoclass:: cascade.model.LogGaussian
+.. autoclass:: cascade_at.model.priors.LogGaussian
    :members:
 
-.. autoclass:: cascade.model.LogLaplace
+.. autoclass:: cascade_at.model.priors.LogLaplace
    :members:
 
-.. autoclass:: cascade.model.LogStudentsT
+.. autoclass:: cascade_at.model.priors.LogStudentsT
    :members:

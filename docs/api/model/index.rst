@@ -1,7 +1,7 @@
 .. _model-module:
 
-Model Module
-------------
+Modeling
+--------
 
 The model module provides tools to build a Dismod-AT model with variables,
 constraints, priors, and in the grid structure that Dismod-AT requires.
@@ -13,9 +13,8 @@ Helpers include:
    :maxdepth: 1
 
    var
-   age_time_grid
-   dismod_groups
+   age-time-grid
+   dismod-groups
    priors
-   grids
-   smooth_grid
-   covariate
+   grid-alchemy
+   smooth-grid
