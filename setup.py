@@ -30,7 +30,7 @@ setup(
         "docs": [
             "sphinx",
             "sphinx-rtd-theme",
-            "sphinxcontrib-httpdomain"
+            "sphinxcontrib-httpdomain",
             "sphinxcontrib-napoleon"
         ]
     },
