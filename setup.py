@@ -28,7 +28,7 @@ setup(
             "elmo",
             "ihme-rules"],
         "docs": [
-            "sphinx",
+            "sphinx==3.2.1",
             "sphinx-rtd-theme",
             "sphinxcontrib-httpdomain",
             "sphinxcontrib-napoleon",
