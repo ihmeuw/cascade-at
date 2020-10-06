@@ -18,6 +18,8 @@ the code. Then clone the repository and run the tests.::
     python setup.py develop
     cd tests && pytest
 
+NOTE: The above code is intended for installing on the cluster.  When working on a local machine, the correct step is to replace 'python setup.py develop' with `python setup.py install` 
+
 For instructions on how to install all of the IHME dependencies,
 see the internal documentation `here <https://scicomp-docs.ihme.washington.edu/dismod_at/current/install/>`_.
 
