@@ -179,7 +179,8 @@ def sample_asymptotic(path: Union[str, Path], n_sim: int, fit_type: str):
             'set truth_var fit_var',
             'set scale_var fit_var',
             f'sample asymptotic {fit_type} {n_sim}'
-        ]
+        ],
+        sys_exit=False
     )
 
 
