@@ -16,7 +16,7 @@ from cascade_at.core.log import get_loggers
 
 LOG = get_loggers(__name__)
 
-BLOCK_SHARED_FUNCTION_ACCESS = True
+BLOCK_SHARED_FUNCTION_ACCESS = False
 """
 Used to control access to the testing environment. You can't load this
 with from <module> import BLOCK_SHARED_FUNCTION_ACCESS. You have to
