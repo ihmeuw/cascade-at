@@ -14,9 +14,11 @@ the code. Then clone the repository and run the tests.::
 
     git clone https://github.com/ihmeuw/cascade-at.git
     cd cascade
-    pip install .[ihme, docs]
+    pip install . [ihme, docs]
     python setup.py develop
     cd tests && pytest
+
+NOTE: [ihme, docs] are optional arguments. 
 
 NOTE: The above code is intended for installing on the cluster.  When working on a local machine, the correct step is to replace 'python setup.py develop' with `python setup.py install` 
 
