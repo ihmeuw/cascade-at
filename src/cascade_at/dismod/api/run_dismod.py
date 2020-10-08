@@ -32,7 +32,7 @@ def run_dismod(dm_file: str, command: str):
     return info
 
 
-def run_dismod_commands(dm_file: str, commands: List[str]):
+def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
     """
     Runs multiple commands on a dismod file and returns the exit statuses.
     Will raise an exception if it runs into an error.
@@ -43,6 +43,9 @@ def run_dismod_commands(dm_file: str, commands: List[str]):
         the dismod db filepath
     commands
         a list of strings
+    sys_exit
+        whether to exit the code altogether if there is an error. If False,
+        then it will pass the error string back to the original python process.
     """
     processes = dict()
     if isinstance(commands, str):
@@ -53,13 +56,14 @@ def run_dismod_commands(dm_file: str, commands: List[str]):
             LOG.error(f"{c} failed with exit_status {process.exit_status}:")
             LOG.error(f"Error: {process.stderr}")
             LOG.error(f"Output: {process.stdout}")
-            try:
-                raise RuntimeError(
-                    f"Dismod-AT failed with exit status {process.exit_status}."
-                    f"Exiting program."
-                )
-            except RuntimeError:
-                sys.exit(process.exit_status)
+            if sys_exit:
+                try:
+                    raise RuntimeError(
+                        f"Dismod-AT failed with exit status {process.exit_status}."
+                        f"Exiting program."
+                    )
+                except RuntimeError:
+                    sys.exit(process.exit_status)
         else:
             LOG.info(f"{process.stdout}")
             LOG.info(f"{process.stderr}")
