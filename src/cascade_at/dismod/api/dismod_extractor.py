@@ -78,8 +78,8 @@ class DismodExtractor(DismodIO):
         df = self._extract_raw_predictions(predictions=predictions)
         if locations is not None:
             df = df.loc[df.c_location_id.isin(locations)].copy()
-            if set(df.c_location_id.values) != set(locations):
-                missing_locations = set(df.c_location_id.values) - set(locations)
+            missing_locations = set(df.c_location_id.values) - set(locations)
+            if missing_locations:
                 raise DismodExtractorError("The following locations you asked for were missing: "
                                            f"{missing_locations}.")
         if sexes is not None:
