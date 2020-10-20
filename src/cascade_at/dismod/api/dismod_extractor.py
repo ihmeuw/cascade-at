@@ -84,8 +84,8 @@ class DismodExtractor(DismodIO):
                                            f"{missing_locations}.")
         if sexes is not None:
             df = df.loc[df.c_sex_id.isin(sexes)].copy()
-            if set(df.c_sex_id.values) != set(sexes):
-                missing_sexes = set(df.c_sex_id.values) - set(sexes)
+            missing_sexes = set(df.c_sex_id.values) - set(sexes)
+            if missing_sexes:
                 raise DismodExtractorError(f"The following sexes you asked for were missing: {missing_sexes}.")
 
         df.rename(
