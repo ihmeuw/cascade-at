@@ -119,7 +119,9 @@ class ResultsHandler:
         add_summaries
             Save an additional file with summaries to upload
         """
-        LOG.info(f"Saving results to {directory.absolute()}")
+        locs = sorted(df.location_id.unique().tolist())
+        sexs = df.sex_id.unique().tolist()
+        LOG.info(f"Saving locations {locs} for sexs {sexs} results to {directory.absolute()}")
 
         df['model_version_id'] = model_version_id
         self._validate_results(df=df)
@@ -153,8 +155,6 @@ class ResultsHandler:
         directory
             Path to save the files to
         """
-        LOG.info(f"Saving results to {directory.absolute()}")
-
         df['model_version_id'] = model_version_id
         self._validate_results(df=df)
         self._validate_summaries(df=df)
@@ -166,6 +166,7 @@ class ResultsHandler:
                     (df.location_id == loc) &
                     (df.sex_id == sex)
                     ].copy()
+                LOG.info(f"Saving location {loc} results for sex {sex} to {directory.absolute()}")
                 subset.to_csv(directory / str(loc) / f'{loc}_{sex}_summary.csv')
 
     @staticmethod
