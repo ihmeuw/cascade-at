@@ -130,7 +130,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
              child_locations: List[int], child_sexes: List[int],
              skip_configure: bool = False,
              mulcov_stats: bool = True,
-             n_sim: int = 10, n_pool: int = 10) -> List[_CascadeOperation]:
+             n_sim: int = 100, n_pool: int = 10) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
     Does a fit fixed, then fit both, then creates posteriors
@@ -179,31 +179,31 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         save_prior=True
     )
     tasks.append(t2)
-    t3 = Predict(
+    t3 = Sample(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        n_sim=n_sim,
+        n_pool=n_pool,
+        fit_type='fixed',
+        asymptotic=True,
+        upstream_commands=[t2.command],
+        executor_parameters={
+            'num_cores': n_pool
+        }
+    )
+    tasks.append(t3)
+    t4 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         child_locations=child_locations,
         child_sexes=child_sexes,
-        sample=False,
-        upstream_commands=[t2.command]
+        sample=True,
+        upstream_commands=[t3.command]
     )
-    tasks.append(t3)
+    tasks.append(t4)
     if mulcov_stats:
-        t4 = Sample(
-            model_version_id=model_version_id,
-            parent_location_id=location_id,
-            sex_id=sex_id,
-            n_sim=n_sim,
-            n_pool=n_pool,
-            fit_type='fixed',
-            asymptotic=True,
-            upstream_commands=[t3.command],
-            executor_parameters={
-                'num_cores': n_pool
-            }
-        )
-        tasks.append(t4)
         t5 = MulcovStatistics(
             model_version_id=model_version_id,
             locations=[location_id],
@@ -221,6 +221,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
 def branch_fit(model_version_id: int, location_id: int, sex_id: int,
                prior_parent: int, prior_sex: int,
                child_locations: List[int], child_sexes: List[int],
+               n_sim: int = 100, n_pool: int = 10,
                upstream_commands: List[str] = None) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a cascade fit (mid-level).
@@ -258,23 +259,40 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         both=False,
         predict=True,
         prior_mulcov=model_version_id,
-        prior_samples=False,
+        # gma prior_samples=False,
+        prior_samples=True,    # gma 
         prior_parent=prior_parent,
         prior_sex=prior_sex,
         save_fit=True,
         save_prior=True,
         upstream_commands=upstream_commands
     )
-    t2 = Predict(
+    t2 = Sample(
+        model_version_id=model_version_id,
+        parent_location_id=location_id,
+        sex_id=sex_id,
+        n_sim=n_sim,
+        n_pool=n_pool,
+        fit_type='fixed',
+        asymptotic=True,
+        upstream_commands=[t1.command],
+        executor_parameters={
+            'num_cores': n_pool
+        }
+    )
+    t3 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         child_locations=child_locations,
         child_sexes=child_sexes,
-        sample=False,
-        upstream_commands=[t1.command]
+        # gma sample=False,
+        sample=True,            # gma
+        # gma prior_grid=False,
+        prior_grid=True,        # gma
+        upstream_commands=[t2.command]
     )
-    return [t1, t2]
+    return [t1, t2, t3]
 
 
 def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
@@ -315,7 +333,8 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         fill=True,
         both=False,
         prior_mulcov=model_version_id,
-        prior_samples=False,
+        # gma prior_samples=False,
+        prior_samples=True,    # gma 
         prior_parent=prior_parent,
         prior_sex=prior_sex,
         save_fit=False,
@@ -343,7 +362,8 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         child_sexes=[sex_id],
         save_fit=True,
         save_final=True,
-        prior_grid=False,
+        # gma prior_grid=False,
+        prior_grid=True,        # gma
         sample=True,
         upstream_commands=[t2.command]
     )
