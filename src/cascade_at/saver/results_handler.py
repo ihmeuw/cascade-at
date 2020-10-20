@@ -192,9 +192,13 @@ class ResultsHandler:
             raise ResultsError("Don't know how to upload to table "
                                f"{table}. Valid tables are {VALID_TABLES}.")
 
-        session = db_tools.ezfuncs.get_session(conn_def=conn_def)
-        loader = db_tools.loaders.Infiles(table=table, schema='epi', session=session)
+        try:
+            session = db_tools.ezfuncs.get_session(conn_def=conn_def)
+            loader = db_tools.loaders.Infiles(table=table, schema='epi', session=session)
 
-        generic_file = (directory / '*' / '*summary.csv').absolute()
-        LOG.info(f"Loading all files to {conn_def} that match {generic_file} glob.")
-        loader.indir(path=str(generic_file), commit=True, with_replace=True)
+            generic_file = (directory / '*' / '*summary.csv').absolute()
+            LOG.info(f"Loading all files to {conn_def} that match {generic_file} glob.")
+            loader.indir(path=str(generic_file), commit=True, with_replace=True)
+        except Exception as ex:
+            LOG.warning("Couldn't connect to the database -- skipping upload "
+                        f"{table}. Valid tables are {VALID_TABLES}.")
