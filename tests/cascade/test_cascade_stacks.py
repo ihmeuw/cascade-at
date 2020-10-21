@@ -21,7 +21,7 @@ def dag(df):
 def test_leaf_fit():
     lf = leaf_fit(
         model_version_id=0, location_id=5,
-        sex_id=1, prior_parent=2, prior_sex=1, n_sim=100, n_pool=100
+        sex_id=1, prior_parent=2, prior_sex=1, n_sim=100, n_pool=100, asymptotic=True
     )
     assert lf[1].command == (
         'sample --model-version-id 0 --parent-location-id 5 --sex-id 1 '
