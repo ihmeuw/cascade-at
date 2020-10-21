@@ -64,7 +64,8 @@ class _CascadeCommand:
 
 class Drill(_CascadeCommand):
     def __init__(self, model_version_id: int,
-                 drill_parent_location_id: int, drill_sex: int):
+                 drill_parent_location_id: int, drill_sex: int,
+                 asymptotic: Optional[bool] = False, cv_priors: Optional[bool] = False):
         """
         A cascade command that runs a drill model, meaning
         that it runs one Dismod-AT model with a parent
@@ -89,6 +90,8 @@ class Drill(_CascadeCommand):
             model_version_id=model_version_id,
             location_id=drill_parent_location_id,
             sex_id=drill_sex,
+            asymptotic=asymptotic,
+            cv_priors=cv_priors
         )
         for t in tasks:
             self.add_task(t)
@@ -98,7 +101,8 @@ class TraditionalCascade(_CascadeCommand):
     def __init__(self, model_version_id: int, split_sex: bool,
                  dag: LocationDAG, n_sim: int,
                  location_start: Optional[int] = None,
-                 sex: Optional[int] = None, skip_configure: bool = False):
+                 sex: Optional[int] = None, skip_configure: bool = False,
+                 asymptotic: Optional[bool] = False, cv_priors: Optional[bool] = False):
         """
         Runs the "traditional" dismod cascade. The traditional cascade
         as implemented here runs fit fixed all the way to the leaf nodes of
@@ -144,7 +148,9 @@ class TraditionalCascade(_CascadeCommand):
             sex_start=sex,
             split_sex=split_sex,
             n_sim=n_sim, n_pool=10,
-            skip_configure=skip_configure
+            skip_configure=skip_configure,
+            asymptotic=asymptotic,
+            cv_priors= cv_priors
         )
         for t in tasks:
             self.add_task(t)

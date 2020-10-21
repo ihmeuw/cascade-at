@@ -8,7 +8,9 @@ from cascade_at.cascade.cascade_stacks import root_fit, branch_fit, leaf_fit
 
 def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_id: int,
                    parent_location: int, parent_sex: int,
-                   n_sim: int, n_pool: int, upstream: List[str], tasks: List[_CascadeOperation]):
+                   n_sim: int, n_pool: int, 
+                   upstream: List[str], tasks: List[_CascadeOperation],
+                   asymptotic: bool = False, cv_priors: bool = False):
     """
     Recursive function that either creates a branch (by calling itself) or a leaf fit depending
     on whether or not it is at a terminal node. Determines if it's at a terminal node using
@@ -19,14 +21,18 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
             model_version_id=model_version_id,
             location_id=location_id, sex_id=sex,
             prior_parent=parent_location, prior_sex=sex,
+            n_sim=n_sim, n_pool=n_pool,
             child_locations=dag.children(location_id), child_sexes=[sex],
+            asymptotic=asymptotic, cv_priors=cv_priors,
             upstream_commands=upstream
         )
         tasks += branch
         for location in dag.children(location_id):
             branch_or_leaf(dag=dag, location_id=location, sex=sex, model_version_id=model_version_id,
                            parent_location=location_id, parent_sex=sex,
-                           n_sim=n_sim, n_pool=n_pool, upstream=[branch[-1].command], tasks=tasks)
+                           n_sim=n_sim, n_pool=n_pool, 
+                           asymptotic=asymptotic, cv_priors=cv_priors,
+                           upstream=[branch[-1].command], tasks=tasks)
     else:
         leaf = leaf_fit(
             model_version_id=model_version_id,
@@ -35,6 +41,7 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
             prior_parent=parent_location,
             prior_sex=parent_sex,
             n_sim=n_sim, n_pool=n_pool,
+            asymptotic=asymptotic, cv_priors=cv_priors,
             upstream_commands=upstream
         )
         tasks += leaf
@@ -42,7 +49,9 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
 
 def make_cascade_dag(model_version_id: int, dag: LocationDAG,
                      location_start: int, sex_start: int, split_sex: bool,
-                     n_sim: int = 100, n_pool: int = 100, skip_configure: bool = False) -> List[_CascadeOperation]:
+                     n_sim: int = 100, n_pool: int = 100,
+                     asymptotic: bool = False, cv_priors: bool = False,
+                     skip_configure: bool = False) -> List[_CascadeOperation]:
     """
     Make a traditional cascade dag for a model version. Relies on a location DAG and a starting
     point in the DAG for locations and sexes.
@@ -86,7 +95,8 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
         location_id=location_start, sex_id=sex_start,
         child_locations=dag.children(location_start), child_sexes=sexes,
         mulcov_stats=True,
-        skip_configure=skip_configure
+        asymptotic=asymptotic, cv_priors=cv_priors,
+        skip_configure=skip_configure,
     )
     tasks += top_level
     for sex in sexes:
@@ -94,7 +104,9 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
             branch_or_leaf(
                 dag=dag, location_id=location1, sex=sex, model_version_id=model_version_id,
                 parent_location=location_start, parent_sex=sex,
-                n_sim=n_sim, n_pool=n_pool, upstream=[top_level[-1].command], tasks=tasks
+                n_sim=n_sim, n_pool=n_pool,
+                asymptotic=asymptotic, cv_priors=cv_priors,
+                upstream=[top_level[-1].command], tasks=tasks
             )
     tasks.append(Upload(
         model_version_id=model_version_id,

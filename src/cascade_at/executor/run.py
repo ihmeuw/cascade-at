@@ -10,7 +10,6 @@ from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.executor.args.arg_utils import ArgumentList
 from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSim, StrArg
 from cascade_at.inputs.locations import LocationDAG
-from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
 from cascade_at.settings.settings import settings_from_model_version_id
 
 LOG = get_loggers(__name__)
@@ -25,12 +24,15 @@ ARG_LIST = ArgumentList([
     StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
            required=False),
     BoolArg('--skip-configure'),
+    BoolArg('--asymptotic', help='whether or not to use asymptotic statistics for posteriors'),
+    BoolArg('--cv-priors', help='whether or not to use the coefficient of variation of the fit for priors'),
     LogLevel()
 ])
 
 
 def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10,
-        addl_workflow_args: Optional[str] = None, skip_configure: bool = False) -> None:
+        addl_workflow_args: Optional[str] = None, skip_configure: bool = False,
+        asymptotic: Optional[bool] = False, cv_priors: Optional[bool] = False) -> None:
     """
     Runs the whole cascade or drill for a model version (whichever one is specified
     in the model version settings).
@@ -76,7 +78,9 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
         cascade_command = Drill(
             model_version_id=model_version_id,
             drill_parent_location_id=settings.model.drill_location_start,
-            drill_sex=settings.model.drill_sex
+            drill_sex=settings.model.drill_sex,
+            asymptotic=asymptotic,
+            cv_priors=cv_priors
         )
     elif settings.model.drill == 'cascade':
 
@@ -95,12 +99,15 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             n_sim=n_sim,
             location_start=settings.model.drill_location_start,
             sex=sex,
-            skip_configure=skip_configure
+            skip_configure=skip_configure,
+            asymptotic=asymptotic,
+            cv_priors=cv_priors
         )
     else:
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")
 
     if jobmon:
+        from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
         LOG.info("Configuring jobmon.")
         wf = jobmon_workflow_from_cascade_command(cc=cascade_command, context=context,
                                                   addl_workflow_args=addl_workflow_args)
@@ -113,8 +120,9 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             raise RuntimeError("Jobmon workflow failed.")
     else:
         LOG.info("Running without jobmon.")
-        for c in cascade_command.get_commands():
-            LOG.info(f"Running {c}.")
+        cs = cascade_command.get_commands()
+        for c in cs:
+            LOG.info(f"Running {c}")
             process = subprocess.run(
                 c, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
@@ -137,7 +145,9 @@ def main():
         make=args.make,
         n_sim=args.n_sim,
         addl_workflow_args=args.addl_workflow_args,
-        skip_configure=args.skip_configure
+        skip_configure=args.skip_configure,
+        asymptotic=args.asymptotic,
+        cv_priors=args.cv_priors
     )
 
 

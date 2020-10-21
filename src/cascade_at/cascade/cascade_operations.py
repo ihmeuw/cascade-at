@@ -323,7 +323,8 @@ class Fit(_DismodDB):
 
 class Sample(_CascadeOperation):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
-                 n_sim: int, fit_type: str, asymptotic: bool, n_pool: int = 1, **kwargs):
+                 fit_type: str, n_sim: int, n_pool: int = 1,
+                 asymptotic: bool = False, cv_priors: bool = False, **kwargs):
         """
         Create posterior samples from a dismod database that has already
         had a fit run on it. This may be done in parallel with a multiprocessing
