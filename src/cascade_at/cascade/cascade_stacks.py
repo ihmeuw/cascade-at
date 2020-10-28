@@ -111,15 +111,15 @@ def single_fit_with_uncertainty(model_version_id: int,
         executor_parameters={
             'num_cores': n_pool
         },
-        asymptotic=True
+        asymptotic=asymptotic
     )
     t4 = Predict(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         save_final=True,
-        prior_grid=False,
-        sample=True,
+        sample=not cv_priors,
+        prior_grid=asymptotic,
         upstream_commands=[t3.command]
     )
     t5 = Upload(
@@ -213,7 +213,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         sex_id=sex_id,
         child_locations=child_locations,
         child_sexes=child_sexes,
-        sample=asymptotic,
+        sample=not cv_priors,
         upstream_commands=[t3.command]
     )
     tasks.append(t4)
@@ -278,7 +278,7 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         both=False,
         predict=True,
         prior_mulcov=model_version_id,
-        prior_samples=asymptotic,
+        prior_samples=n_sim>1,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
         save_fit=True,
@@ -305,8 +305,8 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         sex_id=sex_id,
         child_locations=child_locations,
         child_sexes=child_sexes,
-        sample=asymptotic,
-        prior_grid=asymptotic,
+        sample=not cv_priors,
+        prior_grid=n_sim>0,
         upstream_commands=[t2.command]
     )
     return [t1, t2, t3]
@@ -355,7 +355,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         fill=True,
         both=False,
         prior_mulcov=model_version_id,
-        prior_samples=asymptotic,
+        prior_samples=n_sim>1,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
         save_fit=False,
@@ -384,8 +384,8 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         child_sexes=[sex_id],
         save_fit=True,
         save_final=True,
-        prior_grid=asymptotic,
-        sample=asymptotic,
+        sample=not cv_priors,
+        prior_grid=n_sim>0,
         upstream_commands=[t2.command]
     )
     return [t1, t2, t3]
