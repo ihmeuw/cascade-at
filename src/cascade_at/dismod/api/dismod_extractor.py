@@ -193,7 +193,7 @@ class DismodExtractor(DismodIO):
 
                     # Check to makes sure that the number of draws corresponds to the number
                     # of draws for the whole thing per age and time
-                    assert len(draws) == n_draws
+                    assert len(draws) == n_draws, f"Draws problem -- len(draws):{len(draws)}, n_draws:{n_draws}"
                     draw_data[age_idx, time_idx, :] = draws
 
             if value:
