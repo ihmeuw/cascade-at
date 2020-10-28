@@ -228,10 +228,13 @@ def sample(model_version_id: int, parent_location_id: int, sex_id: int,
     if not asymptotic:
         simulate(path=main_db, n_sim=n_sim)
         if n_pool > 1:
-            sample_simulate_pool(
-                main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type,
-                n_pool=n_pool, n_sim=n_sim
-            )
+            try:                # gma
+                sample_simulate_pool(
+                    main_db=main_db, index_file_pattern=index_file_pattern, fit_type=fit_type,
+                    n_pool=n_pool, n_sim=n_sim
+                )
+            except:
+                sample_simulate_sequence(path=main_db, n_sim=n_sim, fit_type=fit_type)
         else:
             sample_simulate_sequence(path=main_db, n_sim=n_sim, fit_type=fit_type)
 
