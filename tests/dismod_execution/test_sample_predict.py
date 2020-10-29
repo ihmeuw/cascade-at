@@ -1,8 +1,14 @@
 import pytest
-import example_db
-import dismod_tests
 import numpy as np
 import pandas as pd
+import os
+
+try:
+    from . import example_db
+    from . import dismod_tests
+except:
+    import example_db
+    import dismod_tests
 
 print ('Case 10: Check prediction from sample table.')
 
@@ -21,7 +27,7 @@ truth, prior, node_effects, group_effects = dismod_tests.test_setup(use_group_mu
 
 group_effects = {'none': 0, 's1': 0, 's2': 0}
 
-def test_1(assert_correct):
+def test_1(assert_correct=False):
     db_kwds = dict(test_config = config,
                    truth = truth,
                    prior = prior,
