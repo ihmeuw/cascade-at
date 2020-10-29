@@ -273,7 +273,10 @@ def example_db (file_name,
     # TODO: Change to using DismodIO instead of dismod_at.create_database
     from cascade_at.dismod.api.dismod_io import DismodIO
     db = DismodIO(file_name)
-    from .create_database import create_database
+    try:
+        from .create_database import create_database
+    except:
+        from create_database import create_database
 
     # create database
     #dismod_at.create_database(
