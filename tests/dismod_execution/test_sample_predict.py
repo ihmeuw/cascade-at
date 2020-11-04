@@ -45,7 +45,6 @@ def test_1(assert_correct=False):
     db.data = data
     db.avgint = db.data.rename(columns={'data_id': 'avgint_id'})[db.avgint.columns]
 
-    run_dismod
     dismod_tests.system(f'dmdismod {db.path} init'.split())
     dismod_tests.system(f'dmdismod {db.path} fit fixed'.split())
     dismod_tests.system(f'dmdismod {db.path} sample asymptotic fixed 10000'.split())
