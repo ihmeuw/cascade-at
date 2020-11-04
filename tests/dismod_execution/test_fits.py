@@ -12,6 +12,7 @@ except:
     import dismod_tests
 
 print ('Case 11: Compare fit both, sample simulate both, and sample asymptotic both.')
+print ('         This test has uncertainty, therefor can sometimes fail.')
 
 def to_sql(filename, df, table_name, sql_type):
     with sqlite3.connect(filename, isolation_level = 'exclusive') as con:
@@ -45,10 +46,12 @@ def test_1(dismod, assert_correct = True):
     data['x_1'] = [0.0, +1.0, 0.0, +1.0]
     db.data = data
 
+    # Baseline fit
     os.system(f'dmdismod {db.path} init')
     os.system(f'dmdismod {db.path} fit both')
     success &= np.allclose(db.fit_var.fit_var_value, var_truth)
 
+    # Use simulate to do the fit, with the data_sim table = data table
     os.system(f'dmdismod {db.path} set truth_var fit_var')
     os.system(f'dmdismod {db.path} simulate 1')
     sim = db.data_sim
@@ -65,12 +68,12 @@ def test_1(dismod, assert_correct = True):
     os.system(f'dmdismod {db.path} sample simulate both 1')
     success &= np.allclose(db.sample.var_value, var_truth)
 
-    # Use Gaussian priors so asymptotic sample will work
+    # Use Gaussian priors so asymptotic sample works, then compare the variable sampling results
     prior = db.prior
     prior['density_id'] = 1
-    prior['std'] = 1
+    prior['std'] = 1            # Std must not be too large, or the sample variability becomes too large.
     db.prior = prior
-    os.system(f'dmdismod {db.path} sample asymptotic both 100000')
+    os.system(f'dmdismod {db.path} sample asymptotic both 10000')
     sample = db.sample.groupby('var_id', as_index = False)
     sample_mean = sample.var_value.mean()
     print (sample_mean)
