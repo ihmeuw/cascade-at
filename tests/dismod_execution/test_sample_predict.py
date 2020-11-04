@@ -46,14 +46,10 @@ def test_1(assert_correct=False):
     db.avgint = db.data.rename(columns={'data_id': 'avgint_id'})[db.avgint.columns]
 
     run_dismod
-    cmd = f'dismod_at {db.path} init'
-    dismod_tests.system(cmd.split())
-    cmd = f'dismod_at {db.path} fit fixed'
-    dismod_tests.system(cmd.split())
-    cmd = f'dismod_at {db.path} sample asymptotic fixed 10000'
-    dismod_tests.system(cmd.split())
-    cmd = f'dismod_at {db.path} predict sample'
-    dismod_tests.system(cmd.split())
+    dismod_tests.system(f'dmdismod {db.path} init'.split())
+    dismod_tests.system(f'dmdismod {db.path} fit fixed'.split())
+    dismod_tests.system(f'dmdismod {db.path} sample asymptotic fixed 10000'.split())
+    dismod_tests.system(f'dmdismod {db.path} predict sample'.split())
     grps = db.predict.groupby('avgint_id')
     mean = grps.avg_integrand.mean()
     std =  grps.avg_integrand.std(ddof=1)
