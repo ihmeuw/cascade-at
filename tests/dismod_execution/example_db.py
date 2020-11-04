@@ -140,7 +140,8 @@ def example_db (file_name,
                 if (test_config['group_effects'] and not test_config['include_group_data'] and sg == 'none'): continue
                 total_effect = 0
                 if test_config['sex_effect']:
-                    row['sex'] = sex if sg != 'none' else -1
+                    use_sex_covariate = (sg != 'none') or (sg == 'none' and not test_config['group_effects'])
+                    row['sex'] = sex if use_sex_covariate else -1
                     subgroups = pd.DataFrame(subgroup_table)
                     group = subgroups.loc[subgroups.subgroup == sg, 'group'].squeeze() if test_config['group_effects'] else 'g1'
                     sex_effect = sex*truth['iota_sex_true'][group]

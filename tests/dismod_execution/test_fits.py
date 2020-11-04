@@ -42,9 +42,6 @@ def test_1(dismod, assert_correct = True):
     success = True
     db = example_db.example_db(file_name, **db_kwds)
     var_truth = [-.1, +.1, .01, .2]
-    data = db.data
-    data['x_1'] = [0.0, +1.0, 0.0, +1.0]
-    db.data = data
 
     # Baseline fit
     os.system(f'dmdismod {db.path} init')
@@ -55,9 +52,9 @@ def test_1(dismod, assert_correct = True):
     os.system(f'dmdismod {db.path} set truth_var fit_var')
     os.system(f'dmdismod {db.path} simulate 1')
     sim = db.data_sim
-    sim['data_sim_value'] = data['meas_value']
-    sim['data_sim_stdcv'] = data['meas_std']
-    sim['data_sim_delta'] = data['meas_std']
+    sim['data_sim_value'] = db.data['meas_value']
+    sim['data_sim_stdcv'] = db.data['meas_std']
+    sim['data_sim_delta'] = db.data['meas_std']
     data_sim_dtypes = OrderedDict([('data_sim_id', 'integer primary key'),
                                    ('simulate_index', 'integer'),
                                    ('data_subset_id', 'integer'),
@@ -77,7 +74,7 @@ def test_1(dismod, assert_correct = True):
     sample = db.sample.groupby('var_id', as_index = False)
     sample_mean = sample.var_value.mean()
     print (sample_mean)
-    success &= np.allclose(sample_mean.var_value, var_truth, atol=.001, rtol=.0001)
+    success &= np.allclose(sample_mean.var_value, var_truth, atol=.01, rtol=.001)
     if success: print ('Dismod_AT succeeded -- that is the correct result.')
     if assert_correct:
         assert success, 'Dismod_AT succeeded -- that is the correct result.'
