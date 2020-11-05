@@ -1,8 +1,7 @@
 import pytest
+import os
 import numpy as np
 import pandas as pd
-import os
-
 try:
     from . import example_db
     from . import dismod_tests
@@ -27,14 +26,15 @@ truth, prior, node_effects, group_effects = dismod_tests.test_setup(use_group_mu
 
 group_effects = {'none': 0, 's1': 0, 's2': 0}
 
-def test_1(assert_correct=False):
-    db_kwds = dict(test_config = config,
-                   truth = truth,
-                   prior = prior,
-                   node_effects = node_effects,
-                   subgroup_effects = group_effects,
-                   tol_fixed = dismod_tests.tol_fixed,
-                   tol_random = dismod_tests.tol_random)
+db_kwds = dict(test_config = config,
+               truth = truth,
+               prior = prior,
+               node_effects = node_effects,
+               subgroup_effects = group_effects,
+               tol_fixed = dismod_tests.tol_fixed,
+               tol_random = dismod_tests.tol_random)
+
+def test_1(dismod, assert_correct=False):
 
     db = example_db.example_db(file_name, **db_kwds)
     data = db.data[1:3].reset_index(drop=True)
@@ -43,13 +43,11 @@ def test_1(assert_correct=False):
     db.data = data
     db.avgint = db.data.rename(columns={'data_id': 'avgint_id'})[db.avgint.columns]
 
-    pgm = 'dismod_at'
-
-    print (9999, [pgm, db.path, 'init'])
-    dismod_tests.system([pgm, db.path, 'init'])
-    dismod_tests.system([pgm, db.path, 'fit', 'fixed'])
-    dismod_tests.system([pgm, db.path, 'sample', 'asymptotic', 'fixed', '10000'])
-    dismod_tests.system([pgm, db.path, 'predict', 'sample'])
+    program = 'dismod_at'
+    dismod_tests.system([program, db.path, 'init'])
+    dismod_tests.system([program, db.path, 'fit', 'fixed'])
+    dismod_tests.system([program, db.path, 'sample', 'asymptotic', 'fixed', '10000'])
+    dismod_tests.system([program, db.path, 'predict', 'sample'])
     grps = db.predict.groupby('avgint_id')
     mean = grps.avg_integrand.mean()
     std =  grps.avg_integrand.std(ddof=1)
