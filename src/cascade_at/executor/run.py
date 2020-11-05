@@ -130,7 +130,11 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
                 context.update_status(status='Failed')
                 raise RuntimeError(f"Command {c} failed with error"
                                    f"{process.stderr.decode()}")
-
+            if process.stdout:
+                LOG.info(process.stdout.decode('UTF-8'))
+            if process.stderr:
+                LOG.info(process.stderr.decode('UTF-8'))
+                
     context.update_status(status='Complete')
 
 
