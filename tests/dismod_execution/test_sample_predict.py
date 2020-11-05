@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 import os
 
-from cascade_at.dismod.api.run_dismod import run_dismod
-
 try:
     from . import example_db
     from . import dismod_tests
@@ -45,10 +43,10 @@ def test_1(assert_correct=False):
     db.data = data
     db.avgint = db.data.rename(columns={'data_id': 'avgint_id'})[db.avgint.columns]
 
-    dismod_tests.system(db.path, 'init')
-    dismod_tests.system(db.path, 'fit', 'fixed')
-    dismod_tests.system(db.path, 'sample', 'asymptotic', 'fixed', '10000')
-    dismod_tests.system(db.path, 'predict', 'sample')
+    dismod_tests.system(['dmdismod', db.path, 'init'])
+    dismod_tests.system(['dmdismod', db.path, 'fit', 'fixed'])
+    dismod_tests.system(['dmdismod', db.path, 'sample', 'asymptotic', 'fixed', '10000'])
+    dismod_tests.system(['dmdismod', db.path, 'predict', 'sample'])
     grps = db.predict.groupby('avgint_id')
     mean = grps.avg_integrand.mean()
     std =  grps.avg_integrand.std(ddof=1)
