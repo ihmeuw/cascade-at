@@ -76,9 +76,7 @@ decomp_step = ModuleProxy("gbd.decomp_step")
 elmo = ModuleProxy("elmo")
 
 import sys
-
 if 'darwin' in sys.platform:    # gma Something, perhaps db_tools, is importing db_queries incorrectly causing a deprecation error
-    import sys
     del sys.modules['db_queries']
 db_queries = ModuleProxy("db_queries")
 
