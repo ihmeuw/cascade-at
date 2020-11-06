@@ -133,9 +133,10 @@ def sample_simulate_pool(main_db: Union[str, Path], index_file_pattern: str,
         n_pool=n_pool
     )
     # Reconstruct the sample table with all n_sim fits
-    samp = pd.DataFrame().append(fits).reset_index(drop=True)
+    columns = ['sample_index', 'var_id', 'var_value']
+    samp = pd.DataFrame().append(fits)[columns].reset_index(drop=True)
     d = DismodIO(path=main_db)
-    d.sample = samp[['sample_index', 'var_id', 'var_value']]
+    d.sample = samp
 
 
 def sample_simulate_sequence(path: Union[str, Path], n_sim: int, fit_type: str):
