@@ -152,7 +152,6 @@ def run_test(file_name, test_config, truth_in,
         #
         # Fit fixed effects
         system([ program, file_name, 'fit', 'fixed'])
-        os.system(f'dismodat.py {file_name} db2csv')
         if test_asymptotic:
             system([ program, file_name, 'sample', 'asymptotic', 'fixed', '10'])
         #
@@ -161,7 +160,6 @@ def run_test(file_name, test_config, truth_in,
         system([ program, file_name, 'set', 'scale_var', 'fit_var'])
         if (test_config['group_effects'] or test_config['node_effects']):
             system([ program, file_name, 'fit', 'both'])
-            os.system(f'dismodat.py {file_name} db2csv')
         else:
             print ('Skipping fit both because there are no random effects.')
 
