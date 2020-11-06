@@ -47,7 +47,13 @@ class CrosswalkVersion(BaseInput):
         These are the observations that will be used in the bundle.
         """
         LOG.info(f"Getting crosswalk version for {self.crosswalk_version_id}.")
+        import sys
+        if 'darwin' in sys.platform:
+            LOG.error(f"FIXME gma -- this call to elmo.get_crosswalk_version ought to contain an error_log_path argument.")
+            LOG.error(f"FIXME gma -- START -- This call somehow switches logging from stdout to a socket.")
         self.raw = elmo.get_crosswalk_version(crosswalk_version_id=self.crosswalk_version_id)
+        if 'darwin' in sys.platform:
+            LOG.error(f"FIXME gma -- END --   Now logging to a socket. LOG.handlers: {LOG.handlers}")
         return self
 
     def configure_for_dismod(self, relabel_incidence: int,
