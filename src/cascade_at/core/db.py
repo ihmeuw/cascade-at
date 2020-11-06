@@ -80,7 +80,7 @@ import sys
 if 'darwin' in sys.platform:    # gma Something, perhaps db_tools, is importing db_queries incorrectly causing a deprecation error
     import sys
     del sys.modules['db_queries']
-    db_queries = ModuleProxy("db_queries")
+db_queries = ModuleProxy("db_queries")
 
 if 'darwin' in sys.platform:    # gma Add logic to skip jobmon imports if jobmon switch is not set at top level call
     LOG.warning("FIXME -- gma -- Add logic to skip jobmon imports if jobmon switch is not set at top level call")
