@@ -69,15 +69,22 @@ class ModuleProxy:
     def __dir__(self):
         return dir(self._module)
 
-
-db_queries = ModuleProxy("db_queries")
 db_tools = ModuleProxy("db_tools")
 ezfuncs = ModuleProxy("db_tools.ezfuncs")
 gbd = ModuleProxy("gbd")
 decomp_step = ModuleProxy("gbd.decomp_step")
 elmo = ModuleProxy("elmo")
-swarm = ModuleProxy("jobmon.client.swarm")
-api = ModuleProxy("jobmon.client.api")
-task = ModuleProxy("jobmon.client.task")
-task_template = ModuleProxy("jobmon.client.task_template")
-sge = ModuleProxy("jobmon.client.execution.strategies.sge")
+
+import sys
+if 'darwin' in sys.platform:    # gma Something, perhaps db_tools, is importing db_queries incorrectly causing a deprecation error
+    del sys.modules['db_queries']
+db_queries = ModuleProxy("db_queries")
+
+if 'darwin' in sys.platform:    # gma Add logic to skip jobmon imports if jobmon switch is not set at top level call
+    LOG.warning("FIXME -- gma -- Add logic to skip jobmon imports if jobmon switch is not set at top level call")
+else:
+    swarm = ModuleProxy("jobmon.client.swarm")
+    api = ModuleProxy("jobmon.client.api")
+    task = ModuleProxy("jobmon.client.task")
+    task_template = ModuleProxy("jobmon.client.task_template")
+    sge = ModuleProxy("jobmon.client.execution.strategies.sge")
