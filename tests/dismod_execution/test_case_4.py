@@ -145,6 +145,9 @@ def test_4(dismod, assert_correct = True):
     With this configuration, the asymptotic statistics work fine
     """
 
+    prior = db.prior
+    prior.loc[prior.prior_name == 'prior_iota_parent', 'density_id'] = 4
+    db.prior = prior
     success, db = dismod_tests.run_test(file_name, config, truth, test_asymptotic = True)
 
     if assert_correct:
