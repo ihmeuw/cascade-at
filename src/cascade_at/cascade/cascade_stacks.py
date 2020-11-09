@@ -107,11 +107,12 @@ def single_fit_with_uncertainty(model_version_id: int,
         n_sim=n_sim,
         n_pool=n_pool,
         fit_type='both',
+        asymptotic=asymptotic,
+        cv_priors=cv_priors,
         upstream_commands=[t2.command],
         executor_parameters={
             'num_cores': n_pool
         },
-        asymptotic=asymptotic
     )
     t4 = Predict(
         model_version_id=model_version_id,
