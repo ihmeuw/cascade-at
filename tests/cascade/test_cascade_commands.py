@@ -25,7 +25,7 @@ def test_drill():
     assert isinstance(
         cascade_command.task_dict[
             'sample --model-version-id 0 --parent-location-id 1 --sex-id 1 '
-            '--n-sim 100 --n-pool 20 --fit-type both --asymptotic'
+            '--n-sim 100 --n-pool 20 --fit-type both'
         ],
         CASCADE_OPERATIONS['sample']
     )
