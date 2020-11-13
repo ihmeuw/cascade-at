@@ -3,6 +3,7 @@
 All other code which accesses the external databases should do so through the context managers defined here so we
 have consistency and a single choke point for that access.
 """
+import sys
 import importlib
 from contextlib import contextmanager
 from pathlib import Path
@@ -75,10 +76,7 @@ gbd = ModuleProxy("gbd")
 decomp_step = ModuleProxy("gbd.decomp_step")
 elmo = ModuleProxy("elmo")
 
-import sys
-
 if 'darwin' in sys.platform:    # gma Something, perhaps db_tools, is importing db_queries incorrectly causing a deprecation error
-    import sys
     del sys.modules['db_queries']
 db_queries = ModuleProxy("db_queries")
 

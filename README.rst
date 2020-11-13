@@ -3,3 +3,4 @@
 
 Cascade-AT Repository
 ======================
+This is a multi-stage hierarchical model for disease modeling.
