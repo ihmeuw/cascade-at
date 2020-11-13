@@ -52,6 +52,7 @@ def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
         commands = [commands]
     for c in commands:
         process = run_dismod(dm_file=dm_file, command=c)
+        processes.update({c: process})
         if process.exit_status:
             LOG.error(f"{c} failed with exit_status {process.exit_status}:")
             LOG.error(f"Error: {process.stderr}")
@@ -67,5 +68,4 @@ def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
         else:
             LOG.info(f"{process.stdout}")
             LOG.info(f"{process.stderr}")
-            processes.update({c: process})
     return processes

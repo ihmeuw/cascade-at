@@ -3,6 +3,8 @@ from pathlib import Path
 from shutil import copy2
 from multiprocessing import Pool
 
+from cascade_at.dismod.api.run_dismod import run_dismod
+
 
 class _DismodThread:
     """
@@ -19,6 +21,9 @@ class _DismodThread:
         self.index = index
         index_db = self.index_file_pattern.format(index=index)
         copy2(src=str(self.main_db), dst=str(index_db))
+        
+        # Set the seed to null so each process will have a unique random sequence
+        run_dismod(str(index_db), "set option random_seed ''")
         return self._process(db=index_db)
 
     def _process(self, db: str):
