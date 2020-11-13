@@ -86,9 +86,7 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
         location_id=location_start, sex_id=sex_start,
         child_locations=dag.children(location_start), child_sexes=sexes,
         mulcov_stats=True,
-        skip_configure=skip_configure,
-        n_sim=n_sim,
-        n_pool=n_pool
+        skip_configure=skip_configure
     )
     tasks += top_level
     for sex in sexes:
