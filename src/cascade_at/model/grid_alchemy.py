@@ -197,7 +197,6 @@ class Alchemy:
         is_leaf = location_dag.is_leaf(parent_location_id)
         if is_leaf:
             cascade_level = MOST_DETAILED_CASCADE_LEVEL
-        
 
         model = Model(
             nonzero_rates=self.settings.rate,
