@@ -153,16 +153,14 @@ class Alchemy:
             )
 
     @staticmethod
-    def apply_min_cv_to_prior_grid(prior_grid: _PriorGrid, min_cv: float) -> None:
+    def apply_min_cv_to_prior_grid(prior_grid: _PriorGrid, min_cv: float, min_std: float = 1e-10) -> None:
         """
         Applies the minimum coefficient of variation to a _PriorGrid
         to enforce that minCV across all variables in the grid.
         Updates the _PriorGrid in place.
         """
         prior_grid.grid['std'] = prior_grid.grid.apply(
-            lambda row: max(
-                row['std'], np.abs(row['mean']) * min_cv
-            ), axis=1
+            lambda row: max(min_std, row['std'], np.abs(row['mean']) * min_cv ), axis=1
         )
 
     def construct_two_level_model(self, location_dag: LocationDAG, parent_location_id: int,
@@ -195,7 +193,7 @@ class Alchemy:
             keyed by cascade level, then by rate
         """
         children = location_dag.children(parent_location_id)
-        cascade_level = location_dag.depth(parent_location_id)
+        cascade_level = str(location_dag.depth(parent_location_id)) # min_cv lookup expects a string key
         is_leaf = location_dag.is_leaf(parent_location_id)
         if is_leaf:
             cascade_level = MOST_DETAILED_CASCADE_LEVEL
