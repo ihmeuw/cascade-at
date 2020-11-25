@@ -16,8 +16,7 @@ setup(
         "intervaltree",
         "pytest",
         "tables",
-        "networkx",
-        "jobmon==0.0.5"
+        "networkx"
     ],
     zip_safe=False,
     extras_require={
@@ -26,7 +25,9 @@ setup(
             "db-queries",
             "gbd",
             "elmo",
-            "ihme-rules"],
+            "ihme-rules",
+            "jobmon==0.0.5"
+        ],
         "docs": [
             "sphinx==3.2.1",
             "sphinx-rtd-theme",
