@@ -24,9 +24,10 @@ setup(
             "db-tools",
             "db-queries",
             "gbd",
-            "jobmon",
             "elmo",
-            "ihme-rules"],
+            "ihme-rules",
+            "jobmon==0.0.5"
+        ],
         "docs": [
             "sphinx==3.2.1",
             "sphinx-rtd-theme",
