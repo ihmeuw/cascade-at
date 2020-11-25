@@ -16,7 +16,8 @@ setup(
         "intervaltree",
         "pytest",
         "tables",
-        "networkx"
+        "networkx",
+        "jobmon==0.0.5"
     ],
     zip_safe=False,
     extras_require={
@@ -24,7 +25,6 @@ setup(
             "db-tools",
             "db-queries",
             "gbd",
-            "jobmon",
             "elmo",
             "ihme-rules"],
         "docs": [
