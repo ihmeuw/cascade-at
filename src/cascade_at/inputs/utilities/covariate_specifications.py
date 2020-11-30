@@ -93,8 +93,13 @@ class EpiVizCovariateMultiplier:
         and integrand are strings."""
         id_to_integrand = make_integrand_map()
         if self.group == "alpha":
-            rate_measure = id_to_integrand[self.grid_spec.measure_id].name
-            measure = PRIMARY_INTEGRANDS_TO_RATES[rate_measure]
+            if self.grid_spec.measure_id in ['pini', 'iota', 'rho', 'chi', 'omega']:
+                # New EpiVis returns rate names for the rate covariates.
+                measure = self.grid_spec.measure_id
+            else:
+                # Old EpiVis returns of integrand measure id's for rate covariates.
+                rate_measure = id_to_integrand[int(self.grid_spec.measure_id)].name
+                measure = PRIMARY_INTEGRANDS_TO_RATES[rate_measure]
         else:
             measure = id_to_integrand[self.grid_spec.measure_id].name
         return self.covariate.name, measure
