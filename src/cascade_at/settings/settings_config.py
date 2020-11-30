@@ -183,7 +183,7 @@ class Smoothing(Form):
 class StudyCovariate(Form):
     study_covariate_id: IntField = IntField(display="Covariate")
 
-    measure_id: IntField = IntField(display="Measure")
+    measure_id: StrField = StrField(display="Measure")
     mulcov_type: OptionField = OptionField(
         ["rate_value", "meas_value", "meas_std"], display="Multiplier type")
     transformation: IntField = IntField(display="Transformation")
@@ -204,7 +204,7 @@ class StudyCovariate(Form):
 class CountryCovariate(Form):
     country_covariate_id: IntField = IntField(display="Covariate")
 
-    measure_id: IntField = IntField(display="Measure")
+    measure_id: StrField = StrField(display="Measure")
     mulcov_type: OptionField = OptionField(
         ["rate_value", "meas_value", "meas_std"], display="Multiplier type")
     transformation: IntField = IntField(display="Transformation")
