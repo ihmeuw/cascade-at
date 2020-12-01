@@ -160,7 +160,7 @@ def mulcov_statistics(model_version_id: int, locations: List[int], sexes: List[i
             df=mulcov_estimates, mean=mean, std=std, quantile=quantile
         )
     else:
-        stats = pd.DataFrame()
+        stats = mulcov_estimates
     LOG.info('Write to output file.')
     stats.to_csv(context.outputs_dir / f'{outfile_name}.csv', index=False)
 
