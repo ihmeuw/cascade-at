@@ -26,7 +26,8 @@ setup(
             "gbd",
             "elmo",
             "ihme-rules",
-            "jobmon==0.0.6"
+            "jobmon==0.0.6",
+            "cluster_utils"
         ],
         "docs": [
             "sphinx==3.2.1",
