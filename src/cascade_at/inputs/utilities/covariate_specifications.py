@@ -101,7 +101,7 @@ class EpiVizCovariateMultiplier:
                 rate_measure = id_to_integrand[int(self.grid_spec.measure_id)].name
                 measure = PRIMARY_INTEGRANDS_TO_RATES[rate_measure]
         else:
-            measure = id_to_integrand[self.grid_spec.measure_id].name
+            measure = id_to_integrand[int(self.grid_spec.measure_id)].name
         return self.covariate.name, measure
 
     def __repr__(self):
