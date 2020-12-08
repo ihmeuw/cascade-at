@@ -26,7 +26,7 @@ setup(
             "gbd",
             "elmo",
             "ihme-rules",
-            "jobmon==0.0.6",
+            "jobmon==2.0.3",
             "cluster_utils"
         ],
         "docs": [
