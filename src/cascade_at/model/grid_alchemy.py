@@ -269,7 +269,7 @@ class Alchemy:
             
             parent_omega = omega_df.loc[omega_df.location_id == parent_location_id].copy()
             if parent_omega.empty:
-                raise RuntimeError("No omega values for location {parent_location_id}.")
+                raise RuntimeError(f"No omega values for location {parent_location_id}.")
 
             omega = rectangular_data_to_var(gridded_data=parent_omega)
             model.rate["omega"] = constraint_from_rectangular_data(

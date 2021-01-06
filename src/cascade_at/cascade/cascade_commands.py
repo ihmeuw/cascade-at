@@ -64,7 +64,8 @@ class _CascadeCommand:
 
 class Drill(_CascadeCommand):
     def __init__(self, model_version_id: int,
-                 drill_parent_location_id: int, drill_sex: int):
+                 drill_parent_location_id: int, drill_sex: int,
+                 n_sim: int):
         """
         A cascade command that runs a drill model, meaning
         that it runs one Dismod-AT model with a parent
@@ -89,6 +90,8 @@ class Drill(_CascadeCommand):
             model_version_id=model_version_id,
             location_id=drill_parent_location_id,
             sex_id=drill_sex,
+            n_sim=n_sim,
+            n_pool=n_pool,
         )
         for t in tasks:
             self.add_task(t)
@@ -96,7 +99,7 @@ class Drill(_CascadeCommand):
 
 class TraditionalCascade(_CascadeCommand):
     def __init__(self, model_version_id: int, split_sex: bool,
-                 dag: LocationDAG, n_sim: int,
+                 dag: LocationDAG, n_sim: int, n_pool: int,
                  location_start: Optional[int] = None,
                  sex: Optional[int] = None, skip_configure: bool = False):
         """

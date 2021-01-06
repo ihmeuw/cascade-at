@@ -7,6 +7,7 @@ These functions make sequences of _CascadeOperation
 and the appropriate upstream dependencies. They can then be
 used together to create a _CascadeCommand.
 """
+import sys
 from typing import List
 
 from cascade_at.cascade.cascade_operations import _CascadeOperation
@@ -15,7 +16,13 @@ from cascade_at.cascade.cascade_operations import (
     Upload, CleanUp, MulcovStatistics
 )
 
-
+# Number of samples and processes to run
+if sys.platform.lower() == 'darwin':
+    _n_sim = _n_pool = 8
+else:
+    _n_sim = 100
+    _n_pool = 20
+    
 def single_fit(model_version_id: int,
                location_id: int, sex_id: int) -> List[_CascadeOperation]:
     """
@@ -60,7 +67,7 @@ def single_fit(model_version_id: int,
 
 def single_fit_with_uncertainty(model_version_id: int,
                                 location_id: int, sex_id: int,
-                                n_sim: int = 100, n_pool: int = 20) -> List[_CascadeOperation]:
+                                n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a single fit both model. Configures
     inputs, does a fit fixed, then fit both, then predict and uploads the result.
@@ -130,7 +137,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
              child_locations: List[int], child_sexes: List[int],
              skip_configure: bool = False,
              mulcov_stats: bool = True,
-             n_sim: int = 10, n_pool: int = 10) -> List[_CascadeOperation]:
+             n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
     Does a fit fixed, then fit both, then creates posteriors
@@ -279,7 +286,7 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
 
 def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
              prior_parent: int, prior_sex: int,
-             n_sim: int = 100, n_pool: int = 1,
+             n_sim: int = _n_sim, n_pool: int = _n_pool,
              upstream_commands: List[str] = None) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a for a leaf-node fit, no children.

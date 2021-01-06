@@ -76,12 +76,18 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool,
     inputs.get_raw_inputs()
     inputs.configure_inputs_for_dismod(settings=settings)
 
-    if not inputs.csmr.raw.empty:
-        LOG.info("Uploading CSMR to t3 table.")
-        inputs.csmr.attach_to_model_version_in_db(
-            model_version_id=model_version_id,
-            conn_def=context.model_connection
-        )
+    try:
+        if not inputs.csmr.raw.empty:
+            LOG.info("Uploading CSMR to t3 table.")
+            inputs.csmr.attach_to_model_version_in_db(
+                model_version_id=model_version_id,
+                conn_def=context.model_connection
+            )
+    except Exception as ex:
+        msg = str(ex)
+        if len(msg) > 1000:
+            msg = msg[:500] + ' ... \n' + msg[-500:]
+        LOG.error(msg)
 
     context.write_inputs(inputs=inputs, settings=parameter_json)
 
