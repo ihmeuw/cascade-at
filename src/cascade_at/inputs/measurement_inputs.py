@@ -193,6 +193,8 @@ class MeasurementInputs:
         in the modeling.
         """
         LOG.info("Getting all raw inputs.")
+        LOG.warning("FIXME -- gma -- asdr.py and csmr.py were getting different locations -- not sure if they should use location_ids or drill_locations.")
+        LOG.warning("FIXME -- gma -- suspect it should be drill_locations, but it seems Drill leaf node handling is not implemented properly.")
         self.asdr = ASDR(
             demographics=self.demographics,
             decomp_step=self.decomp_step,

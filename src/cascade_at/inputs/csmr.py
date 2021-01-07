@@ -101,13 +101,16 @@ class CSMR(BaseInput):
                 gbd_round_id=self.gbd_round_id
             )
             LOG.info(f"Getting CSMR from process version ID {self.process_version_id}")
+            # location_ids = self.demographics.drill_locations
+            location_ids = self.demographics.location_id
+            LOG.info(f"Location_id's: {location_ids}")
             self.raw = db.get_outputs(
                 topic='cause',
                 cause_id=self.cause_id,
                 metric_id=gbd.constants.metrics.RATE,
                 measure_id=gbd.constants.measures.DEATH,
                 year_id=self.demographics.year_id,
-                location_id=self.demographics.drill_locations,
+                location_id=location_ids,
                 sex_id=self.demographics.sex_id,
                 age_group_id=self.demographics.age_group_id,
                 gbd_round_id=self.gbd_round_id,

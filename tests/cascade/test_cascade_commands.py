@@ -6,7 +6,9 @@ def test_drill():
     cascade_command = Drill(
         model_version_id=0,
         drill_parent_location_id=1,
-        drill_sex=1
+        drill_sex=1,
+        n_sim=100,
+        n_pool=20,
     )
     assert len(cascade_command.task_dict) == 5
     assert len(cascade_command.get_commands()) == 5

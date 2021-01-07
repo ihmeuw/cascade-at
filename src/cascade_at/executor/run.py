@@ -8,7 +8,7 @@ from cascade_at.cascade.cascade_commands import Drill, TraditionalCascade
 from cascade_at.context.model_context import Context
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.executor.args.arg_utils import ArgumentList
-from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSim, StrArg
+from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSim, NPool, StrArg
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
 from cascade_at.settings.settings import settings_from_model_version_id
@@ -22,6 +22,7 @@ ARG_LIST = ArgumentList([
                              'or just run as a sequence of command line tasks'),
     BoolArg('--make', help='whether or not to make the file structure for the cascade'),
     NSim(),
+    NPool(),
     StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
            required=False),
     BoolArg('--skip-configure'),
@@ -29,7 +30,7 @@ ARG_LIST = ArgumentList([
 ])
 
 
-def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10,
+def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10, n_pool: int=10,
         addl_workflow_args: Optional[str] = None, skip_configure: bool = False) -> None:
     """
     Runs the whole cascade or drill for a model version (whichever one is specified
@@ -76,7 +77,9 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
         cascade_command = Drill(
             model_version_id=model_version_id,
             drill_parent_location_id=settings.model.drill_location_start,
-            drill_sex=settings.model.drill_sex
+            drill_sex=settings.model.drill_sex,
+            n_sim=n_sim,
+            n_pool=n_pool,
         )
     elif settings.model.drill == 'cascade':
 
@@ -93,12 +96,17 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             split_sex=settings.model.split_sex == 'most_detailed',
             dag=dag,
             n_sim=n_sim,
+            n_pool=n_pool,
             location_start=settings.model.drill_location_start,
             sex=sex,
-            skip_configure=skip_configure
+            skip_configure=skip_configure,
         )
     else:
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")
+
+    dag_cmds_path = (context.inputs_dir / 'dag_commands.txt')
+    LOG.info(f"Writing cascade dag commands to {dag_cmds_path}.")
+    dag_cmds_path.write_text('\n'.join(cascade_command.get_commands()))
 
     if jobmon:
         LOG.info("Configuring jobmon.")
@@ -136,8 +144,9 @@ def main():
         jobmon=args.jobmon,
         make=args.make,
         n_sim=args.n_sim,
+        n_pool=args.n_pool,
         addl_workflow_args=args.addl_workflow_args,
-        skip_configure=args.skip_configure
+        skip_configure=args.skip_configure,
     )
 
 

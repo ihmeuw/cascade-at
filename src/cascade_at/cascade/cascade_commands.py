@@ -64,7 +64,8 @@ class _CascadeCommand:
 
 class Drill(_CascadeCommand):
     def __init__(self, model_version_id: int,
-                 drill_parent_location_id: int, drill_sex: int):
+                 drill_parent_location_id: int, drill_sex: int,
+                 n_sim: int, n_pool: int = 10):
         """
         A cascade command that runs a drill model, meaning
         that it runs one Dismod-AT model with a parent
@@ -78,6 +79,11 @@ class Drill(_CascadeCommand):
             The parent location ID to start the drill from
         drill_sex
             Which sex to drill for
+        n_sim
+            The number of simulations to do to get uncertainty at the leaf nodes
+        n_pool
+            The number of threads to create in a multiprocessing pool.
+            If this is 1, then it will not do multiprocessing.
         """
         super().__init__()
 
@@ -89,6 +95,8 @@ class Drill(_CascadeCommand):
             model_version_id=model_version_id,
             location_id=drill_parent_location_id,
             sex_id=drill_sex,
+            n_sim=n_sim,
+            n_pool=n_pool,
         )
         for t in tasks:
             self.add_task(t)
@@ -96,7 +104,7 @@ class Drill(_CascadeCommand):
 
 class TraditionalCascade(_CascadeCommand):
     def __init__(self, model_version_id: int, split_sex: bool,
-                 dag: LocationDAG, n_sim: int,
+                 dag: LocationDAG, n_sim: int, n_pool: int = 10,
                  location_start: Optional[int] = None,
                  sex: Optional[int] = None, skip_configure: bool = False):
         """
@@ -119,6 +127,9 @@ class TraditionalCascade(_CascadeCommand):
             A location dag that specifies the structure of the cascade hierarchy
         n_sim
             The number of simulations to do to get uncertainty at the leaf nodes
+        n_pool
+            The number of threads to create in a multiprocessing pool.
+            If this is 1, then it will not do multiprocessing.
         location_start
             Which location to start the cascade from (typically 1 = Global)
         sex
@@ -143,7 +154,8 @@ class TraditionalCascade(_CascadeCommand):
             location_start=location_start,
             sex_start=sex,
             split_sex=split_sex,
-            n_sim=n_sim, n_pool=10,
+            n_sim=n_sim,
+            n_pool=n_pool,
             skip_configure=skip_configure
         )
         for t in tasks:
