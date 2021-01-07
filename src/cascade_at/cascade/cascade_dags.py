@@ -20,6 +20,7 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
             location_id=location_id, sex_id=sex,
             prior_parent=parent_location, prior_sex=sex,
             child_locations=dag.children(location_id), child_sexes=[sex],
+            n_sim=n_sim, n_pool=n_pool,
             upstream_commands=upstream
         )
         tasks += branch
@@ -86,7 +87,8 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
         location_id=location_start, sex_id=sex_start,
         child_locations=dag.children(location_start), child_sexes=sexes,
         mulcov_stats=True,
-        skip_configure=skip_configure
+        skip_configure=skip_configure,
+        n_sim=n_sim, n_pool=n_pool,
     )
     tasks += top_level
     for sex in sexes:
