@@ -423,7 +423,7 @@ class MeasurementInputs:
                         SEX_ID_TO_NAME[sex_id]]
                     c.max_difference = StudyCovConstants.MAX_DIFFERENCE_SEX_COV
                 elif c.name == 's_one':
-                    c.reference = StudyCovConstants.ONE_COV_VALUE
+                    c.reference = StudyCovConstants.ONE_COV_REFERENCE
                     c.max_difference = StudyCovConstants.MAX_DIFFERENCE_ONE_COV
                 else:
                     raise ValueError(f"The only two study covariates allowed are sex and one, you tried {c.name}.")
