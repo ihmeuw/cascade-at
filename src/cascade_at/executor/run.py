@@ -122,7 +122,7 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     else:
         LOG.info("Running without jobmon.")
         for c in cascade_command.get_commands():
-            LOG.info(f"Running {c}.")
+            LOG.info(f"Running {c}")
             process = subprocess.run(
                 c, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )

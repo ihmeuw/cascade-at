@@ -228,7 +228,8 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
 def branch_fit(model_version_id: int, location_id: int, sex_id: int,
                prior_parent: int, prior_sex: int,
                child_locations: List[int], child_sexes: List[int],
-               upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+               upstream_commands: List[str] = None,
+               n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a cascade fit (mid-level).
     Does a fit fixed, then fit both, predicts on the prior rate grid to create posteriors
