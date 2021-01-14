@@ -417,6 +417,7 @@ class MeasurementInputs:
         children = self.location_dag.children(parent_location_id)
 
         for c in covariate_specs.covariate_specs:
+            transform = COVARIATE_TRANSFORMS[c.transformation_id]
             if c.study_country == 'study':
                 if c.name == 's_sex':
                     c.reference = StudyCovConstants.SEX_COV_VALUE_MAP[
@@ -428,9 +429,11 @@ class MeasurementInputs:
                 else:
                     raise ValueError(f"The only two study covariates allowed are sex and one, you tried {c.name}.")
             elif c.study_country == 'country':
-                LOG.info(f"Calculating the reference and max difference for country covariate {c.covariate_id}.")
+                LOG.info(f"Calculating the {transform.__name__} transformed reference and max difference for country covariate {c.covariate_id}.")
 
                 cov_df = self.country_covariate_data[c.covariate_id]
+                cov_df.loc[:, 'mean_value'] = transform(cov_df.loc[:, 'mean_value'])
+
                 parent_df = (
                     cov_df.loc[cov_df.location_id == parent_location_id].copy()
                 )
