@@ -47,7 +47,7 @@ class StudyCovConstants:
         'Female': -0.5
     }
     MAX_DIFFERENCE_SEX_COV = 0.5 + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES
-    ONE_COV_VALUE = 1.0
+    ONE_COV_VALUE = 0.0
     MAX_DIFFERENCE_ONE_COV = None
 
 
