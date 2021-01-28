@@ -1,5 +1,8 @@
 .idea/
 
+# Emacs backups
+*.~*~
+
 # Dismod-AT databases
 *.db
 # Dismod-AT settings files (use -f to add if desired)
