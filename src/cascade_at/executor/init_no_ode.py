@@ -7,6 +7,14 @@ import random
 import time
 from pathlib import Path
 
+"""
+If there is mtspecific, hold out mtexcess
+Set the mulcov bounds
+Check convergence
+Check prediction
+"""
+
+
 sys.path.append('/Users/gma/Projects/IHME/GIT/cascade-at/src')
 from cascade_at.dismod.api.dismod_io import DismodIO
 
