@@ -463,10 +463,8 @@ class MeasurementInputs:
                         covariate_dict={c.name: parent_df},
                         population_df=pop_df
                     )[c.name].iloc[0]
-                    max_difference = np.max(
-                        np.abs(all_loc_df.mean_value - reference_value)
-                    ) + CascadeConstants.PRECISION_FOR_REFERENCE_VALUES
-
+                    LOG.info(f"Setting covariate {c.name} max_difference = nan to disable data hold_out due to covariate value.")
+                    max_difference = np.nan
                 c.reference = reference_value
                 c.max_difference = max_difference
         covariate_specs.create_covariate_list()
