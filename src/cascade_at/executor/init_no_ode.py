@@ -25,7 +25,6 @@ def system (command) :
     print (command)
     if isinstance(command, str):
         command = command.split()
-    #
     run = subprocess.run(command)
     if run.returncode != 0 :
         raise Exception(f'"{command}" failed.')
@@ -477,7 +476,7 @@ def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
 original_file =  '/Users/gma/ihme/epi/at_cascade/data/475645/dbs/100/2/dismod.db'
 original_file =  '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db'
 original_file =  '/Users/gma/ihme/epi/at_cascade/data/475647/dbs/100/2/dismod.db'
-original_file =  '/Users/gma/ihme/epi/at_cascade/data/475881/dbs/100/2/dismod.db'
+original_file =  '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/100/2/dismod.db'
 
 temp_file = '/tmp/temp.db'
 shutil.copy2(original_file, temp_file)
@@ -528,70 +527,11 @@ dm = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
 system(f'dismod_at {temp_file} set option meas_noise_effect add_var_scale_none')
 db.data = drop_ODE_integrands(db)[db.data.columns]
 
-if 0:
-    dmmulcov = dm.mulcov.merge(dm.smooth_grid, left_on = 'group_smooth_id', right_on = 'smooth_id', how='left')
-    dmprior_ids = dmmulcov.value_prior_id.tolist()
-    dmprior = dm.prior
-
-    mulcov = db.mulcov.merge(db.smooth_grid, left_on = 'group_smooth_id', right_on = 'smooth_id', how='left')
-    prior_ids = mulcov.value_prior_id.tolist()
-    prior = db.prior
-    for i,j in zip(dmprior_ids, prior_ids):
-        print (dmprior[i:i+1])
-        print (prior[j:j+1])
-        cols = [n for n in prior.columns if n not in ['prior_id']]
-        prior.loc[j, cols] = dmprior.loc[i, cols]
-        print (prior[j:j+1])
-
-    print (dmprior.loc[dmprior_ids])
-    print (prior.loc[prior_ids])
-        
-    db.prior = prior
-
-if 0:
-    prior = db.prior
-    mask = [(n.startswith('iota_') or n.startswith('chi_')) and 're_' not in n for n in prior.prior_name]
-    prior.loc[mask, 'density_id'] = 1
-    db.prior = prior
-
-
-
-
-
-if 0:
-    prior = db.prior
-
-    prior_ids = db.smooth_grid[db.smooth_grid.smooth_id == 1].value_prior_id.tolist()
-    prior.loc[prior_ids, 'density_id'] = 0
-    prior.loc[prior_ids, 'lower'] = 0
-    prior.loc[prior_ids, 'mean'] = 0
-    prior.loc[prior_ids, 'upper'] = 1
-    prior.loc[prior_ids, 'std'] = 0
-
-    prior_ids = db.smooth_grid[db.smooth_grid.smooth_id == 0].value_prior_id.tolist()
-    prior.loc[prior_ids, 'density_id'] = 4
-    prior.loc[prior_ids, 'lower'] = 1e-19
-    prior.loc[prior_ids, 'mean'] = .00001
-    prior.loc[prior_ids, 'upper'] = .1
-    prior.loc[prior_ids, 'std'] = 5
-    prior.loc[prior_ids, 'eta'] = 0.000001
-
-    prior_ids = db.smooth_grid[db.smooth_grid.smooth_id == 2].value_prior_id.tolist()
-    prior.loc[prior_ids, 'density_id'] = 4
-    prior.loc[prior_ids, 'lower'] = 1e-19
-    prior.loc[prior_ids, 'mean'] = .001
-    prior.loc[prior_ids, 'upper'] = 1
-    prior.loc[prior_ids, 'std'] = 5
-    prior.loc[prior_ids, 'eta'] = 0.000001
-
-    db.prior = prior
-
-    system(f'dismod_at {temp_file} init')
-
-    import pandas as pd
-    dmv = pd.read_csv('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/variable.csv')
-    system(f'dismodat.py {temp_file} db2csv')
-    dbv = pd.read_csv('/tmp/variable.csv')
+system(f'dismod_at {temp_file} init')
+import pandas as pd
+dmv = pd.read_csv('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/variable.csv')
+system(f'dismodat.py {temp_file} db2csv')
+dbv = pd.read_csv('/tmp/variable.csv')
 
 
 if 0:
@@ -599,7 +539,6 @@ if 0:
         print (r)
         print (dmv.loc[(dmv.rate == r) & (dmv.time == 2010) & (dmv.age == 0), ['rate', 'var_type', 'age', 'time', 'density_v', 'lower_v', 'mean_v', 'upper_v', 'std_v', 'eta_v']])
         print (dbv.loc[(dbv.rate == r) & (dmv.time == 2010) & (dbv.age == 0), ['rate', 'var_type', 'age', 'time', 'density_v', 'lower_v', 'mean_v', 'upper_v', 'std_v', 'eta_v']])
-
 
 if 0:
     print ((dmv.loc[(dmv.var_type != 'rate')].fillna(-1) == dbv.loc[(dbv.var_type != 'rate')].fillna(-1)).all())
@@ -621,14 +560,6 @@ system(f'dismod_at {temp_file} set option zero_sum_child_rate "iota rho chi"')
 system(f'dismod_at {temp_file} set option tolerance_fixed 1e-8')
 system(f'dismod_at {temp_file} set option bound_random 3')
 
-db.data = dm.data
-if 0:
-    db.covariate = dm.covariate
-    db.prior = dm.prior
-    db.smooth = dm.smooth
-    db.smooth_grid = dm.smooth_grid
-    db.rate = dm.rate
-    db.mulcov = dm.mulcov
 
 if 0:
     print ('Are the two var tables alike?')
