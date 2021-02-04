@@ -164,6 +164,6 @@ def stdev_from_crosswalk_version(crosswalk_version):
 
     # Do a final check on standard error
     if ((standard_error <= 0) | standard_error.isnull()).any():
-        raise ValueError("There are still negative / 0 / or null values for standard error.")
+        LOG.error("There are unrepairable negative or null values for standard error in the bundle.")
 
     return standard_error
