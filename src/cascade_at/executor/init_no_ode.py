@@ -29,43 +29,29 @@ def system (command) :
     if run.returncode != 0 :
         raise Exception(f'"{command}" failed.')
 
-def compress_age_time_intervals(data, age_size = 10.0, time_size = 10.0):
-    mask = (data.age_upper - data.age_lower) < age_size
-    mean = data[['age_lower', 'age_upper']].mean(axis=1)
-    data.loc[mask, 'age_lower'] = data.loc[mask, 'age_upper'] = mean[mask]
-    mask = (data.time_upper - data.time_lower) < time_size
-    mean = data[['time_lower', 'time_upper']].mean(axis=1)
-    data.loc[mask, 'time_lower'] = data.loc[mask, 'time_upper'] = mean[mask]
-    return data
+def check_last_command(which_fit) :
+    log = db.log
+    fit_start = [i for i,l in enumerate(log.message) if l.startswith('begin fit')][-1]
+    fit_end = [fit_start+i for i,l in enumerate(log.loc[fit_start:, 'message']) if l.startswith('end fit')]
+    fit_end = fit_end[0] if fit_end else None
+    which_fit = log.loc[fit_start, 'message'].split()[-1]
+    assert fit_end and fit_end > fit_start, f"Fit {which_fit} failed."
+    fit_messages = log.loc[fit_start:fit_end]
+    msg = '\n'.join(fit_messages.loc[fit_messages.message_type.isin(['warning', 'error' ]), 'message'].tolist())
+    if msg == '' :
+        msg = f'\nfit_{which_fit} OK\n'
+    else :
+        msg = f'\nfit_{which_fit} Errors and or Warnings::\n' + msg
+    print (msg)
 
-def fix_ones_covariate_reference(covariate):
-    # Make sure the ones covariate reference is correct
-    mask = covariate.c_covariate_name == 's_one'
-    if covariate.loc[mask, 'reference'].values == 1:
-        covariate.loc[mask, 'reference'] = 0
-        print (f"Fixed the 'one' covariate reference:\n{covariate[mask]}")
-    return covariate
+# ============================================================================
+# Utilities that use global data tables but do not modify them
+# ============================================================================
 
-def check_ones_covariate(db):
-    data = db.data
-    integrand = db.integrand
-    covariate = db.covariate
-    mask = covariate.c_covariate_name == 's_one'
-    one_covariate_id, one_covariate_name  = covariate.loc[mask, ['covariate_id', 'covariate_name']].squeeze()
-    assert (data[one_covariate_name] == 1).all(), f"Error in data table values for covariate:\n {covariate[mask]}"
-
-def hold_out_ODE_integrands(db):
-    data = db.data.merge(db.integrand, how='left')
-    keep_mask = (data.integrand_name.isin(yes_ode_integrands) & (data.hold_out == 0)).values
-    data.loc[~keep_mask, 'hold_out'] = 1
-    return data
-
-def drop_ODE_integrands(db):
-    data = db.data.merge(db.integrand, how='left')
-    keep_mask = (data.integrand_name.isin(yes_ode_integrands) & (data.hold_out == 0)).values
-    data = data[~keep_mask].reset_index(drop=True)
-    data.data_id = data.index
-    return data
+def relative_covariate(db, covariate_id) :
+    column_name = 'x_{}'.format(covariate_id)
+    # sex is an absolute covariate and has 3 values, -0.5, 0.0, +0.5
+    return len(set(db.data[column_name])) > 3
 
 def useless_covariate(db, covariate_id):
     cov = db.covariate[db.covariate.covariate_id == covariate_id]
@@ -73,29 +59,174 @@ def useless_covariate(db, covariate_id):
     reference = cov.reference.squeeze()
     return (db.data[covariate_name].unique() == reference).all()
 
-def set_covariate_reference (db, covariate_id, reference_name = 'median') :
-    # set the reference value for a specified covariate where reference_name
-    # is 'mean' or 'median'
-    #
-    # covariate_value
+# =============================================================================
+# Routines that Only Change Data Table
+# =============================================================================
+
+def subset_data (db) :
+    # remove data that are held out or have out of bound covariates
+    msg  = '\nsubset_data\n'
+    msg += 'removing hold out and covariate out of bounds data'
+    print(msg)
+
     data = db.data
-    covariate = db.covariate
-    covariate_name = covariate.loc[covariate_id, 'covariate_name']
-    covariate_value = data[covariate_name].tolist()
-    new_reference = getattr(np, reference_name)(covariate_value)
-    old_reference  = float(covariate.loc[covariate_id, 'reference'])
+    data = data[data.hold_out == 0]
+    for i,cov in db.covariate.iterrows():
+        if np.isfinite(cov.max_difference):
+            difference = abs(data[cov.covariate_name] - cov.reference)
+            data = data[difference <= cov.max_difference]
+    data = data.reset_index(drop=True)
+    data['data_id'] = data.index
+    return data
+
+def random_subsample_data(db, integrand_name, max_sample) :
+    # for a specified integrand, sample at most max_sample entries.
+    # This does random sampling that can be seeded by calling random.seed.
+    # The origianl order of the data is preserved (in index plots)
+    # by sorting the subsample.
+    data = db.data
+    integrand_id = int(db.integrand.loc[db.integrand.integrand_name == integrand_name, 'integrand_id'])
+    mask = data.integrand_id == integrand_id
+    data_ids = data[mask].data_id.tolist()
+    if len(data_ids) > max_sample:
+        keep_ids = random.sample(data_ids, max_sample)
+        data.loc[mask, 'hold_out'] = 1
+        data.loc[data.data_id.isin(keep_ids), 'hold_out'] = 0
+        print (f'Subsampled {integrand_name} to {sum(data[mask].hold_out == 0)} samples.')
+    return data
+
+def hold_out_data (db, integrand_names=(), node_names=(), hold_out=False) :
+    if isinstance(integrand_names, str):
+        integrand_names = [integrand_names]
+    if isinstance(node_names, str):
+        node_names = [node_names]
+    data = db.data
+    cols = data.columns
+    data = data.merge(db.integrand).merge(db.node)
+    mask = [True]*len(data)
+    if integrand_names:
+        mask &= data.integrand_name.isin(integrand_names)
+    if node_names:
+        mask &= data.node_name.isin(node_names)
+    print (f"Setting hold_out = {hold_out} for integrand {integrand_names}, node {node_names}")
+    data.loc[mask, 'hold_out'] = hold_out
+    return data[cols]
+
+"""
+
+# -----------------------------------------------------------------------------
+def set_data_likelihood (
+		integrand_data, integrand_name, density_name, factor_eta=None, nu=None
+) :
+	# For a specified integrand, set its density, eta, and nu.
+	# The default value for eta and nu is None.
+	# If factor_eta is not None, eta is set to the factor times the median
+	# value for the integrand.
+	assert (factor_eta is None) or 0.0 <= factor_eta
+	#
+	msg  = '\nset_data_likelihood\n'
+	msg += 'integrand = {}'.format(integrand_name)
+	msg += ', density = {}'.format(density_name)
+	if factor_eta is not None :
+		msg += ', eta = m*{}'.format(factor_eta)
+	if nu is not None :
+		msg += ', nu = {}'.format(nu)
+	if factor_eta is not None :
+		msg += '\n' + 12 * ' ' + 'where m is the meadian of the'
+		msg += ' {} data'.format(integrand_name)
+	trace( msg )
+	#
+	# integrand_id
+	integrand_id =integrand_name2id[integrand_name]
+	#
+	# density_id
+	density_id = density_name2id[density_name]
+	#
+	if factor_eta is None :
+		eta = None
+	else :
+		median = numpy.median( integrand_data[integrand_name] )
+		eta = factor_eta * median
+	for row in data_table :
+		if row['integrand_id'] == integrand_id :
+			row['density_id'] = density_id
+			row['eta']        = eta
+			row['nu']         = nu
+	#
+	table_name = 'data'
+	put_table(table_name, data_table, data_col_name, data_col_type)
+"""
+
+def compress_age_time_intervals(db, age_size = 10.0, time_size = 10.0):
+    data = db.data
+    mask = (data.age_upper - data.age_lower) < age_size
+    mean = data[['age_lower', 'age_upper']].mean(axis=1)
+    data.loc[mask, 'age_lower'] = data.loc[mask, 'age_upper'] = mean[mask]
+    mask = (data.time_upper - data.time_lower) < time_size
+    mean = data[['time_lower', 'time_upper']].mean(axis=1)
+    data.loc[mask, 'time_lower'] = data.loc[mask, 'time_upper'] = mean[mask]
+    return data[db.data.columns]
+
+def new_smoothing(integrand_name, age_grid, time_grid, value_prior, dage_prior, dtime_prior):
+    # Add a new smoothing that has one prior that is used for all age and
+    # time grid points. The smooth, smooth_grid, age, and time tables are
+    # modified, but the new versions are not written by this routine.
+    # The arguments value_prior, dage_prior, dtime_prior,
+    # contain the priors used in the smothing.
     #
-    covariate.loc[covariate_id, 'reference'] = new_reference
+
+    smooth = db.smooth
+    smooth_grid = db.smooth_grid
+    prior = db.prior
+
+    n_age = len(age_grid)
+    n_time = len(time_grid)
+    age_id_list = db.age.loc[db.age.age.isin(age_grid), 'age_id'].tolist()
+    time_id_list = db.time.loc[db.time.time.isin(time_grid), 'time_id'].tolist()
+    new_smooth_id = len(smooth)
     #
-    msg  = '\nset_covariate_reference\n'
-    msg += f'for covariate = {covariate_name}'
-    msg += f', covariate_id = {covariate_id}'
-    msg += f', reference_name = {reference_name}'
-    msg += f'\nold_reference = {old_reference:.5g}'
-    msg += f', new_reference = {new_reference:.5g}'
-    print( msg )
+    # add value_prior to prior_table
+    new_value_prior_id = len(prior)
+    prior = prior.append(copy.copy(value_prior), ignore_index=True)
     #
-    db.covariate = covariate
+    # add dage_prior to prior table
+    new_dage_prior_id = len(prior)
+    prior = prior.append(copy.copy(dage_prior), ignore_index=True)
+    #
+    # add dtime_prior to prior table
+    new_dtime_prior_id = len(prior)
+    prior = prior.append(copy.copy(dtime_prior), ignore_index=True)
+    #
+    # add row to smooth_table
+    smooth_name    = f'{integrand_name}_noise_smoothing_{new_smooth_id}'
+    row =  {'smooth_name'           : smooth_name    ,
+            'n_age'                 : n_age          ,
+            'n_time'                : n_time         ,
+            'mulstd_value_prior_id' : None           ,
+            'mulstd_dage_prior_id'  : None           ,
+            'mulstd_dtime_prior_id' : None           ,
+            }
+    smooth = smooth.append(row, ignore_index=True)
+    #
+    # add rows to smooth_grid_table
+    for i in range(n_age) :
+        for j in range(n_time) :
+            row = {'smooth_id'      : new_smooth_id                   ,
+                   'age_id'         : age_id_list[i]                  ,
+                   'time_id'        : time_id_list[j]                 ,
+                   'value_prior_id' : new_value_prior_id              ,
+                   'dage_prior_id'  : new_dage_prior_id               ,
+                   'dtime_prior_id' : new_dtime_prior_id              ,
+                   'const_value'    : None                            ,
+                   }
+            smooth_grid = smooth_grid.append(row, ignore_index=True)
+    #
+    # return the new smoothing
+    smooth = smooth.reset_index(drop=True); smooth['smooth_id'] = smooth.index
+    smooth_grid = smooth_grid.reset_index(drop=True); smooth_grid['smooth_grid_id'] = smooth_grid.index
+    prior = prior.reset_index(drop=True); prior['prior_id'] = prior.index
+
+    return new_smooth_id, smooth, smooth_grid, prior
 
 def new_zero_smooth_id (db, smooth_id) :
 # ----------------------------------------------------------------------------
@@ -193,41 +324,29 @@ def new_bounded_smooth_id (db, smooth_id, lower, upper, smooth_name = '') :
     
     return new_smooth_id
 
-def set_mulcov_zero (db, covariate_id, restore= None) :
-    # set all of the multipliers for a specified covariate to zero without
-    # changing the order or size of the var table
+def set_covariate_reference (db, covariate_id, reference_name = 'median') :
+    # set the reference value for a specified covariate where reference_name
+    # is 'mean' or 'median'
+    #
+    # covariate_value
+    data = db.data
     covariate = db.covariate
-    mulcov = db.mulcov
     covariate_name = covariate.loc[covariate_id, 'covariate_name']
-    msg            = 'covariate = {}'.format(covariate_name)
-    msg           += ', covariate_id = {}'.format(covariate_id)
-    if restore is None :
-        msg  = '\nset_mulcov_zero\n' + msg
-    else :
-        msg  = '\nrestore_mulcov\n' + msg
-    print (msg)
+    covariate_value = data[covariate_name].tolist()
+    new_reference = getattr(np, reference_name)(covariate_value)
+    old_reference  = float(covariate.loc[covariate_id, 'reference'])
     #
-    # -------------------------------------------------------------------------
-    if restore is not None :
-        for (mulcov_id, group_smooth_id, subgroup_smooth_id) in restore :
-            mulcov.loc[mulcov.mulcov_id == mulcov_id, 'group_smooth_id'] = group_smooth_id
-            mulcov.loc[mulcov.mulcov_id == mulcov_id, 'subgroup_smooth_id'] = subgroup_smooth_id
-        #
-        db.mulcov = mulcov
-        return None
-    # -------------------------------------------------------------------------
-    restore = list()
-    for (mulcov_id, row)  in  mulcov.iterrows():
-        if row['covariate_id'] == covariate_id :
-            group_smooth_id, subgroup_smooth_id = row['group_smooth_id', 'subgroup_smooth_id']
-            row['group_smooth_id']    = new_zero_smooth_id(group_smooth_id)
-            row['subgroup_smooth_id'] = new_zero_smooth_id(subgroup_smooth_id)
-            restore.append( (mulcov_id, group_smooth_id, subgroup_smooth_id) )
+    covariate.loc[covariate_id, 'reference'] = new_reference
     #
-    db.mulcov = mulcov
-    db.smooth = smooth
-    db.smooth_grid = smooth_grid
-    return restore
+    msg  = '\nset_covariate_reference\n'
+    msg += f'for covariate = {covariate_name}'
+    msg += f', covariate_id = {covariate_id}'
+    msg += f', reference_name = {reference_name}'
+    msg += f'\nold_reference = {old_reference:.5g}'
+    msg += f', new_reference = {new_reference:.5g}'
+    print( msg )
+    #
+    db.covariate = covariate
 
 def set_mulcov_bound(db, covariate_id, max_covariate_effect = 2) :
     # Set bounds for all of the multipliers for a specified covariate so
@@ -287,96 +406,11 @@ def set_mulcov_bound(db, covariate_id, max_covariate_effect = 2) :
     print( msg )
     return
 
-def random_subsample_data(db, integrand_name, max_sample) :
-    # for a specified integrand, sample at most max_sample entries.
-    # This does random sampling that can be seeded by calling random.seed.
-    # The origianl order of the data is preserved (in index plots)
-    # by sorting the subsample.
-    data = db.data
-    integrand_id = int(db.integrand.loc[db.integrand.integrand_name == integrand_name, 'integrand_id'])
-    mask = data.integrand_id == integrand_id
-    data_ids = data[mask].data_id.tolist()
-    if len(data_ids) > max_sample:
-        keep_ids = random.sample(data_ids, max_sample)
-        data.loc[mask, 'hold_out'] = 1
-        data.loc[data.data_id.isin(keep_ids), 'hold_out'] = 0
-        print (f'Subsampled {integrand_name} to {sum(data[mask].hold_out == 0)} samples.')
-    return data
-
-def check_last_fit(which_fit) :
-    fit_start = [i for i,l in enumerate(log.message) if l.startswith('begin fit')][-1]
-    fit_end = [fit_start+i for i,l in enumerate(log.loc[fit_start:, 'message']) if l.startswith('end fit')]
-    fit_end = fit_end[0] if fit_end else None
-    which_fit = log.loc[fit_start, 'message'].split()[-1]
-    assert fit_end and fit_end > fit_start, f"Fit {which_fit} failed."
-    fit_messages = log.loc[fit_start:fit_end]
-    msg = '\n'.join(fit_messages.loc[fit_messages.message_type.isin(['warning', 'error' ]), 'message'].tolist())
-    if msg == '' :
-        msg = f'\nfit_{which_fit} OK\n'
-    else :
-        msg = f'\nfit_{which_fit} Errors and or Warnings::\n' + msg
-    print (msg)
-
-def new_smoothing(integrand_name, age_grid, time_grid, value_prior, dage_prior, dtime_prior):
-    # Add a new smoothing that has one prior that is used for all age and
-    # time grid points. The smooth, smooth_grid, age, and time tables are
-    # modified, but the new versions are not written by this routine.
-    # The arguments value_prior, dage_prior, dtime_prior,
-    # contain the priors used in the smothing.
-    #
-
-    smooth = db.smooth
-    smooth_grid = db.smooth_grid
-    prior = db.prior
-
-    n_age = len(age_grid)
-    n_time = len(time_grid)
-    age_id_list = db.age.loc[db.age.age.isin(age_grid), 'age_id'].tolist()
-    time_id_list = db.time.loc[db.time.time.isin(time_grid), 'time_id'].tolist()
-    new_smooth_id = len(smooth)
-    #
-    # add value_prior to prior_table
-    new_value_prior_id = len(prior)
-    prior = prior.append(copy.copy(value_prior), ignore_index=True)
-    #
-    # add dage_prior to prior table
-    new_dage_prior_id = len(prior)
-    prior = prior.append(copy.copy(dage_prior), ignore_index=True)
-    #
-    # add dtime_prior to prior table
-    new_dtime_prior_id = len(prior)
-    prior = prior.append(copy.copy(dtime_prior), ignore_index=True)
-    #
-    # add row to smooth_table
-    smooth_name    = f'{integrand_name}_noise_smoothing_{new_smooth_id}'
-    row =  {'smooth_name'           : smooth_name    ,
-            'n_age'                 : n_age          ,
-            'n_time'                : n_time         ,
-            'mulstd_value_prior_id' : None           ,
-            'mulstd_dage_prior_id'  : None           ,
-            'mulstd_dtime_prior_id' : None           ,
-            }
-    smooth = smooth.append(row, ignore_index=True)
-    #
-    # add rows to smooth_grid_table
-    for i in range(n_age) :
-        for j in range(n_time) :
-            row = {'smooth_id'      : new_smooth_id                   ,
-                   'age_id'         : age_id_list[i]                  ,
-                   'time_id'        : time_id_list[j]                 ,
-                   'value_prior_id' : new_value_prior_id              ,
-                   'dage_prior_id'  : new_dage_prior_id               ,
-                   'dtime_prior_id' : new_dtime_prior_id              ,
-                   'const_value'    : None                            ,
-                   }
-            smooth_grid = smooth_grid.append(row, ignore_index=True)
-    #
-    # return the new smoothing
-    smooth = smooth.reset_index(drop=True); smooth['smooth_id'] = smooth.index
-    smooth_grid = smooth_grid.reset_index(drop=True); smooth_grid['smooth_grid_id'] = smooth_grid.index
-    prior = prior.reset_index(drop=True); prior['prior_id'] = prior.index
-
-    return new_smooth_id, smooth, smooth_grid, prior
+def set_option (db, name, value) :
+    # Set option specified by name to its value where name and value are
+    # strings. The routine system_command to prints the processing message
+    # for this operation.
+    system(f'dismod_at {db.path} set option {name} {value}')
 
 def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
     # Add a meas_noise covariate multiplier for a specified integrand.
@@ -409,6 +443,12 @@ def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
     group_name = subgroup.loc[mask, 'group_name'].squeeze()
     assert group_name or not group_name.empty, 'Group name error for group_id = {group_id}' 
 
+    covariate_id = int(db.covariate.loc[db.covariate.c_covariate_name == 's_one', 'covariate_id'])
+    integrand_id = int(db.integrand.loc[db.integrand.integrand_name == integrand_name, 'integrand_id'])
+
+    mulcov_values = mulcov[['mulcov_type', 'integrand_id', 'covariate_id']].values.tolist()
+    if ['meas_noise', integrand_id, covariate_id] in mulcov_values:
+        return
     #
     median = abs( data.loc[data.integrand_name == integrand_name, 'meas_value'].median() )
     lower  = ( median * factor['lower'] )**2
@@ -449,9 +489,6 @@ def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
     smooth_id, smooth, smooth_grid, prior = new_smoothing(integrand_name,
         age_grid, time_grid, value_prior, dage_prior, dtime_prior )
 
-    covariate_id = int(db.covariate.loc[db.covariate.c_covariate_name == 's_one', 'covariate_id'])
-    integrand_id = int(db.integrand.loc[db.integrand.integrand_name == integrand_name, 'integrand_id'])
-
     #
     # new row in mulcov_table
     row = dict(mulcov_id = None,
@@ -473,11 +510,77 @@ def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
     db.smooth_grid = smooth_grid
     db.prior = prior
 
-original_file =  '/Users/gma/ihme/epi/at_cascade/data/475645/dbs/100/2/dismod.db'
-original_file =  '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db'
-original_file =  '/Users/gma/ihme/epi/at_cascade/data/475647/dbs/100/2/dismod.db'
-original_file =  '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/100/2/dismod.db'
+def fix_ones_covariate_reference(covariate):
+    # Make sure the ones covariate reference is correct
+    mask = covariate.c_covariate_name == 's_one'
+    if covariate.loc[mask, 'reference'].values == 1:
+        covariate.loc[mask, 'reference'] = 0
+        print (f"Fixed the 'one' covariate reference:\n{covariate[mask]}")
+    return covariate
 
+def check_ones_covariate(db):
+    data = db.data
+    integrand = db.integrand
+    covariate = db.covariate
+    mask = covariate.c_covariate_name == 's_one'
+    one_covariate_id, one_covariate_name  = covariate.loc[mask, ['covariate_id', 'covariate_name']].squeeze()
+    assert (data[one_covariate_name] == 1).all(), f"Error in data table values for covariate:\n {covariate[mask]}"
+
+def drop_holdouts(db):
+    data = db.data
+    keep_mask = data.hold_out == 0
+    data = data[keep_mask].reset_index(drop=True)
+    data.data_id = data.index
+    return data
+
+def integrand_count(db):
+    data = db.data.merge(db.integrand, how='left')
+    return{n: len(data[(data.hold_out == 0) & (data.integrand_id == i)])
+           for i,n in db.integrand[['integrand_id', 'integrand_name']].values
+           if i in data.integrand_id.values}
+
+def set_mulcov_zero (db, covariate_id, restore= None) :
+    # set all of the multipliers for a specified covariate to zero without
+    # changing the order or size of the var table
+    covariate = db.covariate
+    mulcov = db.mulcov
+    covariate_name = covariate.loc[covariate_id, 'covariate_name']
+    msg            = 'covariate = {}'.format(covariate_name)
+    msg           += ', covariate_id = {}'.format(covariate_id)
+    if restore is None :
+        msg  = '\nset_mulcov_zero\n' + msg
+    else :
+        msg  = '\nrestore_mulcov\n' + msg
+    print (msg)
+    #
+    # -------------------------------------------------------------------------
+    if restore is not None :
+        for (mulcov_id, group_smooth_id, subgroup_smooth_id) in restore :
+            mulcov.loc[mulcov.mulcov_id == mulcov_id, 'group_smooth_id'] = group_smooth_id
+            mulcov.loc[mulcov.mulcov_id == mulcov_id, 'subgroup_smooth_id'] = subgroup_smooth_id
+        #
+        db.mulcov = mulcov
+        return None
+    # -------------------------------------------------------------------------
+    restore = list()
+    for (mulcov_id, row)  in  mulcov.iterrows():
+        if row['covariate_id'] == covariate_id :
+            group_smooth_id, subgroup_smooth_id = row['group_smooth_id', 'subgroup_smooth_id']
+            row['group_smooth_id']    = new_zero_smooth_id(group_smooth_id)
+            row['subgroup_smooth_id'] = new_zero_smooth_id(subgroup_smooth_id)
+            restore.append( (mulcov_id, group_smooth_id, subgroup_smooth_id) )
+    #
+    db.mulcov = mulcov
+    db.smooth = smooth
+    db.smooth_grid = smooth_grid
+    return restore
+
+
+original_file =  '/Users/gma/ihme/epi/at_cascade/data/475645/dbs/100/2/dismod.db'
+original_file =  '/Users/gma/ihme/epi/at_cascade/data/475647/dbs/100/2/dismod.db'
+original_file =  '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db'
+# original_file =  '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/100/2/dismod.db'
+original_file =  '/Users/gma/ihme/epi/at_cascade/t1_diabetes/temp.db'
 temp_file = '/tmp/temp.db'
 shutil.copy2(original_file, temp_file)
 
@@ -490,7 +593,6 @@ msg = '\nrandom_seed  = ' + str( random_seed )
 print(msg)
 
 db = DismodIO(Path(temp_file))
-data_original = db.data
 mask = db.integrand.integrand_id.isin(db.data.integrand_id.unique())
 data_integrands = sorted(set(db.integrand.loc[mask, 'integrand_name']) - set(['mtall', 'mtother']))
 no_ode_integrands = sorted(set(['Sincidence', 'mtexcess', 'mtother', 'remission']).intersection(data_integrands))
@@ -499,19 +601,13 @@ integrands = yes_ode_integrands + no_ode_integrands
 
 check_ones_covariate(db)
 db.covariate = fix_ones_covariate_reference(db.covariate)
-db.data = compress_age_time_intervals(db.data)
+db.data = compress_age_time_intervals(db)
 
 # add measurement noise covariates
 group_id = 0
 factor   = { 'lower':1e-1, 'mean':1e-1, 'upper':1e-1 }
 for integrand in integrands:
     add_meas_noise_mulcov(db, integrand, group_id, factor)
-
-set_covariate_reference (db, 0, reference_name = 'median')
-
-if 1:
-    for integrand in data_integrands:
-        data = random_subsample_data(db, integrand, max_sample = 1000)
 
 # set bounds for all the covariates
 for covariate_id in sorted(db.covariate.covariate_id.unique()):
@@ -522,17 +618,50 @@ for covariate_id in sorted(db.covariate.covariate_id.unique()):
         # set_mulcov_bound(db, , covariate_id)
         set_mulcov_bound(db, covariate_id, max_covariate_effect = 2)
 
-dm = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
+max_num_iter_fixed = 50
+dm_no_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
+dm_yes_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/yes_ode/yes_ode.db')
+dmn = dm_no_ode
+dmy = dm_yes_ode
 
-system(f'dismod_at {temp_file} set option meas_noise_effect add_var_scale_none')
-db.data = drop_ODE_integrands(db)[db.data.columns]
 
-system(f'dismod_at {temp_file} init')
-import pandas as pd
-dmv = pd.read_csv('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/variable.csv')
-system(f'dismodat.py {temp_file} db2csv')
-dbv = pd.read_csv('/tmp/variable.csv')
+rate = db.rate
+iota_zero = not np.isfinite(rate.loc[rate.rate_name == 'iota', 'parent_smooth_id']).squeeze()
+rho_zero = not np.isfinite(rate.loc[rate.rate_name == 'rho', 'parent_smooth_id']).squeeze()
+chi_zero = not np.isfinite(rate.loc[rate.rate_name == 'chi', 'parent_smooth_id']).squeeze()
+rate_case = ('iota_zero' if iota_zero else 'iota_pos') + '_' + ('rho_zero' if rho_zero else 'rho_pos')
 
+set_option(db, 'tolerance_fixed', '1e-8')
+set_option(db, 'max_num_iter_fixed', max_num_iter_fixed)
+set_option(db, 'quasi_fixed', 'false')
+set_option(db, 'zero_sum_child_rate', 'iota rho chi')
+set_option(db, 'bound_random', '3')
+set_option(db, 'meas_noise_effect', 'add_var_scale_none')
+set_option(db, 'rate_case', rate_case)
+
+reference_name  = 'median'
+for covariate_id in range( len(db.covariate) ) :
+    if relative_covariate(db, covariate_id):
+        set_covariate_reference(db, covariate_id)
+
+data_original = db.data
+
+
+if 1:
+    for integrand in data_integrands:
+        db.data = random_subsample_data(db, integrand, max_sample = 1000)
+db.data = subset_data(db)
+
+db.data = hold_out_data(db, integrand_names = yes_ode_integrands, hold_out=1)
+
+# db.data = drop_holdouts(db)
+
+
+if 0:
+    import pandas as pd
+    dmv = pd.read_csv('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/variable.csv')
+    system(f'dismodat.py {temp_file} db2csv')
+    dbv = pd.read_csv('/tmp/variable.csv')
 
 if 0:
     for r in ['pini', 'iota', 'chi']:
@@ -556,15 +685,7 @@ if 0:
         print ('>>>>>>>', rate_name)
         print ((dm.var[dm.var.rate_id==rate_id].drop(columns='var_id').fillna(-1).merge(dm.age).merge(dm.time) == db.var[db.var.rate_id==rate_id].drop(columns='var_id').fillna(-1).merge(db.age).merge(db.time)).all())
 
-system(f'dismod_at {temp_file} set option zero_sum_child_rate "iota rho chi"')
-system(f'dismod_at {temp_file} set option tolerance_fixed 1e-8')
-system(f'dismod_at {temp_file} set option bound_random 3')
-
-
 if 0:
-    print ('Are the two var tables alike?')
-    print ((db.var.fillna(-1) == dm.var.fillna(-1)).all())
-
     print ('Check the smooth')
     omega_id = 4
     cols = ['density_id', 'lower', 'upper', 'mean', 'std', 'eta']
@@ -584,26 +705,107 @@ if 0:
                 print ('dm', m)
                 print ('db', b)
 
+print ('Active integrands', integrand_count(db))
+
 system(f'dismod_at {temp_file} init')
 system(f'dismod_at {temp_file} fit both')
 
+check_last_command(db)
 
+db.data = data_original
 
-"""
+if 1:
+    for integrand in data_integrands:
+        db.data = random_subsample_data(db, integrand, max_sample = 1000)
 
-check_last_fit(db)
-
+data = db.data.merge(db.integrand, how='left')
+hold_outs = []
+if iota_zero: hold_outs.append('Sincidence')
+if rho_zero: hold_outs.append('remission')
+if chi_zero: hold_outs.append('mtexcess')
 # Consider dropping mtexcess if there is sufficient mtspecific
-data = data_original.copy().merge(db.integrand, how='left')
 count = sum(data.integrand_name == 'mtspecific')
 if count > enough_mtspecific:
-    data.loc[data.integrand_name == 'mtexcess', 'hold_out'] = 1
     print (f'Holding out mtexcess because there are sufficient mtspecific data ({count} rows).')
+    hold_outs.append('mtexcess')
+db.data = hold_out_data(db, integrand_names = hold_outs, hold_out=1)
 
-data = compress_age_time_intervals(data)
+db.data = drop_holdouts(db)
+
+db.data = compress_age_time_intervals(db)
+
+print ('Active integrands', integrand_count(db))
+
+
+# for t in ['option', 'data', 'rate', 'var', 'fit_var', 'scale_var', 'start_var', 'covariate', 'mulcov', 'nslist', 'nslist_pair']:
+#     if not np.all(getattr(db,t).fillna(-1) == getattr(dm, t).fillna(-1)):
+#         setattr(db,t, getattr(dm, t))        
+
+if 0:
+    for t in ['covariate',
+              'data',
+              'fit_var',
+              'prior',
+              'scale_var',
+              'start_var',
+
+              # not required
+              # 'option',
+
+
+              # identical?
+              # 'smooth',
+              # 'data_subset',
+              # 'truth_var', 
+              'age', 'avgint', 'rate', 'density', 'integrand', 'mulcov', 'node', 'nslist', 'nslist_pair', 
+              'smooth_grid', 'subgroup', 'time', 'var', 'weight', 'weight_grid']:
+
+        try:
+            tst = not np.all(getattr(db,t).fillna(-1) == getattr(dm, t).fillna(-1))
+        except:
+            tst = True
+        if not tst:
+            print (f'Table db.{t} and dm.{t} are equal')
+        else:
+            print (f'setting db.{t} = dm.{t}')
+            setattr(db,t, getattr(dm, t))
+
+
+if 1:
+    db.data = dm.data
+    print ('Are the two var tables alike?')
+    print ((db.var.fillna(-1) == dm.var.fillna(-1)).all())
+    print ('Are the two data tables alike?')
+    print ((db.data.fillna(-1) == dm.data.fillna(-1)).all())
+
+system(f'dismod_at {temp_file} set start_var fit_var')
+
+print ("""BRADS RESULT:
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.1042442e+03 9.30e-04 2.07e+03  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+Warning: Cutting back alpha due to evaluation error
+   1  2.8986326e+02 7.93e-04 1.06e+03  -1.0 4.05e+00    -  4.98e-01 4.89e-01f  2""")
+
+
+
+system(f'dismod_at {temp_file} fit both')
+system(f'dismod_at {temp_file} sample asymptotic both 10')
+
+check_last_command(db)
+
+
+'''
+
+
+data['density_id'] = 3
+data['nu'] = 5
 db.data = data[db.data.columns]
 system(f'dismod_at {temp_file} set start_var fit_var')
 system(f'dismod_at {temp_file} fit both')
-check_last_fit(db)
+check_last_command(db)
 
-"""
+
+os.system(f'DB_plot.py {temp_file} -v 475882')
+'''
+
+
