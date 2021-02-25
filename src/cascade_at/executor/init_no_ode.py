@@ -350,7 +350,7 @@ def new_bounded_smooth_id (db, smooth_id, lower, upper, density_name = 'uniform'
     new_smooth_id = len(smooth_table)
     new_row = copy.copy( smooth_table.loc[smooth_id] )
     new_row['smooth_id'] = new_smooth_id
-    new_row['smooth_name'] = f'{smooth_name}_bound_smoothing_' + str( new_smooth_id )
+    new_row['smooth_name'] = f'{smooth_name}bound_smoothing_' + str( new_smooth_id )
     smooth_table = smooth_table.append( new_row )
     #
     new_prior_id  = len(prior_table)
@@ -775,19 +775,37 @@ max_num_iter_fixed = 50
 
 if 0:
     original_file = t1_diabetes
-else:
-    original_file = crohns
-    
-if original_file == t1_diabetes:
     dm_no_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
     dm_yes_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/yes_ode/yes_ode.db')
     max_covariate_effect = 2
-elif original_file == crohns:
+if 1:
+    original_file = crohns
     dm_no_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/crohns/no_ode/no_ode.db')
     dm_yes_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/crohns/yes_ode/yes_ode.db')
     max_covariate_effect = 4
-else: raise Exception('Crap')
+if 0:
+    original_file = dialysis
+    dm_no_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/dialysis/no_ode/no_ode.db')
+    dm_yes_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/dialysis/yes_ode/yes_ode.db')
+    max_covariate_effect = 4
+if 0:
+    original_file = kidney
+    dm_no_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/kidney/no_ode/no_ode.db')
+    dm_yes_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/kidney/yes_ode/yes_ode.db')
+    max_covariate_effect = 4
+if 0:
+    original_file = osteo_hip
+    dm_no_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/osteo_hip/no_ode/no_ode.db')
+    dm_yes_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/osteo_hip/yes_ode/yes_ode.db')
+    max_covariate_effect = 4
+if 0:
+    original_file = osteo_knee
+    dm_no_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/osteo_knee/no_ode/no_ode.db')
+    dm_yes_ode = DismodIO('/Users/gma/ihme/epi/at_cascade/osteo_knee/yes_ode/yes_ode.db')
+    max_covariate_effect = 4
 
+
+assert os.path.exists(original_file)
 temp_file = '/tmp/temp.db'
 shutil.copy2(original_file, temp_file)
 db = DismodIO(Path(temp_file))
