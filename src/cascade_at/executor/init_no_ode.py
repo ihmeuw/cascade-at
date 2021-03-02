@@ -15,8 +15,6 @@ Check convergence
 Check prediction
 """
 
-enough_mtspecific = 100
-
 sys.path.append('/Users/gma/Projects/IHME/GIT/cascade-at/src')
 from cascade_at.dismod.api.dismod_io import DismodIO
 
@@ -26,39 +24,25 @@ def system (command) :
     print (command)
     if isinstance(command, str):
         command = command.split()
-    run = subprocess.run(command)
+        run = subprocess.run(command)
     if run.returncode != 0 :
         raise Exception(f'"{command}" failed.')
-
-# ============================================================================
-# Utilities that use global data tables but do not modify them
-# ============================================================================
-
-# def random_subsample_data_new(db, integrand_name, max_sample) :
-#     # for a specified integrand, sample at most max_sample entries.
-#     # This does random sampling that can be seeded by calling random.seed.
-#     # The origianl order of the data is preserved (in index plots)
-#     # by sorting the subsample.
-#     data = db.data
-#     integrand_id = int(db.integrand.loc[db.integrand.integrand_name == integrand_name, 'integrand_id'])
-#     mask = data.integrand_id == integrand_id
-#     index = list(range(len(mask)))
-#     if sum(mask) > max_sample:
-#         keep_ids = sorted(random.sample(index, max_sample))
-#         keep = mask.index.isin(keep_ids)
-#         data = data[~mask | keep]
-#         print (f'Subsampled {integrand_name} to {sum(keep)} samples.')
-#     return data
-
-# -----------------------------------------------------------------------------
 
 class FitNoODE(DismodIO):
     def __init__(db, *args, **kwds):
         super().__init__(*args, **kwds)
+        db.predict_integrands   = [ 'susceptible', 'withC' ]
+        db.enough_mtspecific = 100
+
+    # ============================================================================
+    # Utilities that use database tables but do not modify them
+    # ============================================================================
 
     def relative_covariate(db, covariate_id) :
         column_name = 'x_{}'.format(covariate_id)
         # sex is an absolute covariate and has 3 values, -0.5, 0.0, +0.5
+        # one is an absolute covariate and has perhaps 2 values, 0.0, 1.0
+        # it is reasonable to assume that a covariate with more than 3 covariate values is relative
         return len(set(db.data[column_name])) > 3
 
     def get_integrand_list (db, ode) :
@@ -72,136 +56,12 @@ class FitNoODE(DismodIO):
             integrand_list = sorted(set(data.integrand_name.unique()) - integrand_model_uses_ode)
         return integrand_list
 
-    # =============================================================================
-    # Routines that Only Change Data Table
-    # =============================================================================
-
-    def subset_data (db) :
-        # remove data that are held out or have out of bound covariates
-        msg  = '\nsubset_data\n'
-        msg += 'removing hold out and covariate out of bounds data'
-        print(msg)
-
-        data = db.data
-        data = data[data.hold_out == 0]
-        for i,cov in db.covariate.iterrows():
-            if np.isfinite(cov.max_difference):
-                difference = abs(data[cov.covariate_name] - cov.reference)
-                data = data[difference <= cov.max_difference]
-        data = data.reset_index(drop=True)
-        data['data_id'] = data.index
-        db.data = data
-
-    def random_subsample_data(db, integrand_name, max_sample) :
-        # for a specified integrand, sample at most max_sample entries.
-        # This does random sampling that can be seeded by calling random.seed.
-        # The origianl order of the data is preserved (in index plots)
-        # by sorting the subsample.
-        #
-        data = db.data.merge(db.integrand, how='left')
-        table_in = data
-        #
-        # indices for this integrand
-        count = 0
-        count_list = []
-        for i,row in table_in.iterrows() :
-            if row['integrand_name'] == integrand_name :
-                count_list.append(count)
-                count += 1
-        n_sample_in = count
-        #
-        # subsample of indices for this integrand
-        n_sample_out = min(max_sample, n_sample_in)
-        if n_sample_out < n_sample_in :
-            count_list = random.sample(count_list,  n_sample_out)
-            count_list = sorted( count_list )
-        #
-        # subsample the integrand
-        index  = 0
-        count  = 0
-        table_out = []
-        for i,row in table_in.iterrows() :
-            if row['integrand_name'] != integrand_name :
-                table_out.append(dict(row))
-            else :
-                if index < n_sample_out :
-                    if count_list[index] == count :
-                        table_out.append(dict(row))
-                        index += 1
-                count += 1
-        assert index == n_sample_out
-        assert count == n_sample_in
-
-        msg  = '\nrandom_subsample_data\n'
-        msg += 'number of {} samples: in = {} out = {}'
-        print( msg.format(integrand_name, n_sample_in, n_sample_out) )
-        data = pd.DataFrame(table_out)[db.data.columns]
-        data['data_id'] = data.index
-        db.data = data
-
-    def hold_out_data (db, integrand_names=(), node_names=(), hold_out=False) :
-        if isinstance(integrand_names, str):
-            integrand_names = [integrand_names]
-        if isinstance(node_names, str):
-            node_names = [node_names]
-        data = db.data.merge(db.integrand).merge(db.node)
-        mask = [True]*len(data)
-        if integrand_names:
-            mask &= data.integrand_name.isin(integrand_names)
-        if node_names:
-            mask &= data.node_name.isin(node_names)
-        print (f"Setting hold_out = {hold_out} for integrand {integrand_names}, node {node_names}")
-        data.loc[mask, 'hold_out'] = hold_out
-        db.data = data[db.data.columns]
-
-    def set_data_likelihood (db, integrand_name, density_name, factor_eta=None, nu=None):
-        # For a specified integrand, set its density, eta, and nu.
-        # The default value for eta and nu is None.
-        # If factor_eta is not None, eta is set to the factor times the median
-        # value for the integrand.
-        assert (factor_eta is None) or 0.0 <= factor_eta
-        #
-        msg  = '\nset_data_likelihood\n'
-        msg += 'integrand = {}'.format(integrand_name)
-        msg += ', density = {}'.format(density_name)
-        if factor_eta is not None :
-            msg += ', eta = m*{}'.format(factor_eta)
-        if nu is not None :
-            msg += ', nu = {}'.format(nu)
-        if factor_eta is not None :
-            msg += '\n' + 12 * ' ' + 'where m is the meadian of the'
-            msg += ' {} data'.format(integrand_name)
-            print( msg )
-        
-        data = db.data.merge(db.integrand, how='left')
-        density_id = int(db.density.loc[db.density.density_name == density_name, 'density_id'])
-        #
-        mask = data.integrand_name == integrand_name
-        if factor_eta is None :
-            eta = None
-        else :
-            median = data[mask].median
-            eta = factor_eta * median
-        data.loc[mask, 'density_id'] = density_id
-        data.loc[mask, 'eta'] = eta
-        data.loc[mask, 'nu'] = nu
-        db.data = data[db.data.columns]
-
-    def compress_age_time_intervals(db, age_size = 10.0, time_size = 10.0):
-        data = db.data
-        mask = (data.age_upper - data.age_lower) <= age_size
-        mean = data[['age_lower', 'age_upper']].mean(axis=1)
-        data.loc[mask, 'age_lower'] = data.loc[mask, 'age_upper'] = mean[mask]
-        mask = (data.time_upper - data.time_lower) <= time_size
-        mean = data[['time_lower', 'time_upper']].mean(axis=1)
-        data.loc[mask, 'time_lower'] = data.loc[mask, 'time_upper'] = mean[mask]
-        print ('compress_age_time_intervals -- all integrands')
-        print ('Use midpoint for intervals less than or equal specified size')
-        db.data = data[db.data.columns]
-
-    # ============================================================================
-    # Routines that Change Other Tables
-    # ============================================================================
+    def get_rate_case(db):
+        iota_zero = not np.isfinite(db.rate.loc[db.rate.rate_name == 'iota', 'parent_smooth_id']).squeeze()
+        rho_zero = not np.isfinite(db.rate.loc[db.rate.rate_name == 'rho', 'parent_smooth_id']).squeeze()
+        chi_zero = not np.isfinite(db.rate.loc[db.rate.rate_name == 'chi', 'parent_smooth_id']).squeeze()
+        rate_case = ('iota_zero' if iota_zero else 'iota_pos') + '_' + ('rho_zero' if rho_zero else 'rho_pos')
+        return rate_case
 
     def new_smoothing(db, integrand_name, age_grid, time_grid, value_prior, dage_prior, dtime_prior):
         # Add a new smoothing that has one prior that is used for all age and
@@ -256,16 +116,152 @@ class FitNoODE(DismodIO):
                        'const_value'    : None                            ,
                        }
                 smooth_grid = smooth_grid.append(row, ignore_index=True)
-        #
-        # return the new smoothing
+                #
+                # return the new smoothing
         smooth = smooth.reset_index(drop=True); smooth['smooth_id'] = smooth.index
         smooth_grid = smooth_grid.reset_index(drop=True); smooth_grid['smooth_grid_id'] = smooth_grid.index
         prior = prior.reset_index(drop=True); prior['prior_id'] = prior.index
 
         return new_smooth_id, smooth, smooth_grid, prior
 
+    # =============================================================================
+    # Routines that Only Change Data Table
+    # =============================================================================
+
+    def subset_data (db) :
+        # remove data that are held out or have out of bound covariates
+        msg  = '\nsubset_data\n'
+        msg += 'removing hold out and covariate out of bounds data'
+        print(msg)
+
+        data = db.data
+        data = data[data.hold_out == 0]
+        for i,cov in db.covariate.iterrows():
+            if np.isfinite(cov.max_difference):
+                difference = abs(data[cov.covariate_name] - cov.reference)
+                data = data[difference <= cov.max_difference]
+                data = data.reset_index(drop=True)
+                data['data_id'] = data.index
+                db.data = data
+
+    def random_subsample_data(db, integrand_name, max_sample) :
+        # for a specified integrand, sample at most max_sample entries.
+        # This does random sampling that can be seeded by calling random.seed.
+        # The origianl order of the data is preserved (in index plots)
+        # by sorting the subsample.
+        #
+        data = db.data.merge(db.integrand, how='left')
+        table_in = data
+        #
+        # indices for this integrand
+        count = 0
+        count_list = []
+        for i,row in table_in.iterrows() :
+            if row['integrand_name'] == integrand_name :
+                count_list.append(count)
+                count += 1
+                n_sample_in = count
+                #
+                # subsample of indices for this integrand
+        n_sample_out = min(max_sample, n_sample_in)
+        if n_sample_out < n_sample_in :
+            count_list = random.sample(count_list,  n_sample_out)
+            count_list = sorted( count_list )
+            #
+            # subsample the integrand
+        index  = 0
+        count  = 0
+        table_out = []
+        for i,row in table_in.iterrows() :
+            if row['integrand_name'] != integrand_name :
+                table_out.append(dict(row))
+            else :
+                if index < n_sample_out :
+                    if count_list[index] == count :
+                        table_out.append(dict(row))
+                        index += 1
+                        count += 1
+                        assert index == n_sample_out
+                        assert count == n_sample_in
+
+        msg  = '\nrandom_subsample_data\n'
+        msg += 'number of {} samples: in = {} out = {}'
+        print( msg.format(integrand_name, n_sample_in, n_sample_out) )
+        data = pd.DataFrame(table_out)[db.data.columns]
+        data['data_id'] = data.index
+        db.data = data
+
+    def hold_out_data (db, integrand_names=(), node_names=(), hold_out=False) :
+        if isinstance(integrand_names, str):
+            integrand_names = [integrand_names]
+        if isinstance(node_names, str):
+            node_names = [node_names]
+            data = db.data.merge(db.integrand).merge(db.node)
+            mask = [True]*len(data)
+        if integrand_names:
+            mask &= data.integrand_name.isin(integrand_names)
+        if node_names:
+            mask &= data.node_name.isin(node_names)
+            print (f"Setting hold_out = {hold_out} for integrand {integrand_names}, node {node_names}")
+            data.loc[mask, 'hold_out'] = hold_out
+            db.data = data[db.data.columns]
+
+    def set_data_likelihood (db, integrand_name, density_name, factor_eta=None, nu=None):
+        # For a specified integrand, set its density, eta, and nu.
+        # The default value for eta and nu is None.
+        # If factor_eta is not None, eta is set to the factor times the median
+        # value for the integrand.
+        assert (factor_eta is None) or 0.0 <= factor_eta
+        #
+        msg  = '\nset_data_likelihood\n'
+        msg += 'integrand = {}'.format(integrand_name)
+        msg += ', density = {}'.format(density_name)
+        if factor_eta is not None :
+            msg += ', eta = m*{}'.format(factor_eta)
+        if nu is not None :
+            msg += ', nu = {}'.format(nu)
+        if factor_eta is not None :
+            msg += '\n' + 12 * ' ' + 'where m is the meadian of the'
+            msg += ' {} data'.format(integrand_name)
+            print( msg )
+            
+        data = db.data.merge(db.integrand, how='left')
+        density_id = int(db.density.loc[db.density.density_name == density_name, 'density_id'])
+        #
+        mask = data.integrand_name == integrand_name
+        if factor_eta is None :
+            eta = None
+        else :
+            median = data[mask].median
+            eta = factor_eta * median
+            data.loc[mask, 'density_id'] = density_id
+            data.loc[mask, 'eta'] = eta
+            data.loc[mask, 'nu'] = nu
+            db.data = data[db.data.columns]
+
+    def compress_age_time_intervals(db, age_size = 10.0, time_size = 10.0):
+        data = db.data
+        mask = (data.age_upper - data.age_lower) <= age_size
+        mean = data[['age_lower', 'age_upper']].mean(axis=1)
+        data.loc[mask, 'age_lower'] = data.loc[mask, 'age_upper'] = mean[mask]
+        mask = (data.time_upper - data.time_lower) <= time_size
+        mean = data[['time_lower', 'time_upper']].mean(axis=1)
+        data.loc[mask, 'time_lower'] = data.loc[mask, 'time_upper'] = mean[mask]
+        print ('compress_age_time_intervals -- all integrands')
+        print ('Use midpoint for intervals less than or equal specified size')
+        db.data = data[db.data.columns]
+
+    # ============================================================================
+    # Routines that Change Other Tables
+    # ============================================================================
+
+    def set_option (db, name, value) :
+        # Set option specified by name to its value where name and value are
+        # strings. The routine system_command to prints the processing message
+        # for this operation.
+        system(f'dismod_at {db.path} set option {name} {value}')
+
     def new_zero_smooth_id (db, smooth_id) :
-    # ----------------------------------------------------------------------------
         # FIXME: Remove this when bounds on mulcov work
         # add a new smoothing that has the same grid as smooth_id smoothing
         # and that constrains to zero. The smooth and smooth_grid tables are
@@ -291,9 +287,9 @@ class FitNoODE(DismodIO):
                 new_row['dtime_prior_id'] = None
                 new_row['const_value']    = 0.0
                 smooth_grid = smooth_grid.append( new_row ).reset_index(drop=True)
-        smooth_grid['smooth_grid_id'] = smooth_grid.index
-        db.smooth = smooth
-        db.smooth_grid = smooth_grid
+                smooth_grid['smooth_grid_id'] = smooth_grid.index
+                db.smooth = smooth
+                db.smooth_grid = smooth_grid
 
     def new_bounded_smooth_id (db, smooth_id, lower, upper, density_name = 'uniform', smooth_name = '') :
         # add a new smoothing that has the same grid as smooth_id smoothing
@@ -407,8 +403,8 @@ class FitNoODE(DismodIO):
                            for integrand_id in data.integrand_id.unique()}
         if data[covariate_name].notna().any():
             difference_dict[covariate_name] = data[covariate_name] - reference
-        #
-        # lower_dict and  upper_dict
+            #
+            # lower_dict and  upper_dict
         lower_dict = dict()
         upper_dict = dict()
         for integrand_id in difference_dict :
@@ -429,9 +425,9 @@ class FitNoODE(DismodIO):
             if upper == float("inf") :
                 lower = 0.0
                 upper = 0.0
-            lower_dict[integrand_id] = lower
-            upper_dict[integrand_id] = upper
-        #
+                lower_dict[integrand_id] = lower
+                upper_dict[integrand_id] = upper
+                #
 
         for i,row in mulcov.iterrows() :
             if row['covariate_id'] == covariate_id :
@@ -465,25 +461,18 @@ class FitNoODE(DismodIO):
                         subgroup_smooth_id, lower, upper, 'uniform'
                     )
                     row['subgroup_smooth_id'] = subgroup_smooth_id
-                mulcov.loc[i] = row
-        db.mulcov = mulcov
-        #
+                    mulcov.loc[i] = row
+                    #
         if lower is None :
             lower = - float('inf')
         if upper is None :
             upper = + float('inf')
-        msg  = '\nset_mulcov_bound\n'
-        msg += 'covariate = x_{}, max_covariate_effect = {}, '
-        msg += 'lower = {:.5g}, upper = {:.5g}'
-        msg  = msg.format(covariate_id, max_covariate_effect, lower, upper)
-        print( msg )
-        return
-
-    def set_option (db, name, value) :
-        # Set option specified by name to its value where name and value are
-        # strings. The routine system_command to prints the processing message
-        # for this operation.
-        system(f'dismod_at {db.path} set option {name} {value}')
+            msg  = '\nset_mulcov_bound\n'
+            msg += 'covariate = x_{}, max_covariate_effect = {}, '
+            msg += 'lower = {:.5g}, upper = {:.5g}'
+            msg  = msg.format(covariate_id, max_covariate_effect, lower, upper)
+            print( msg )
+            db.mulcov = mulcov
 
     def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
         # Add a meas_noise covariate multiplier for a specified integrand.
@@ -561,7 +550,7 @@ class FitNoODE(DismodIO):
         time_grid = db.time.loc[:0, 'time'].tolist()
 
         smooth_id, smooth, smooth_grid, prior = db.new_smoothing(integrand_name,
-            age_grid, time_grid, value_prior, dage_prior, dtime_prior )
+                                                                 age_grid, time_grid, value_prior, dage_prior, dtime_prior )
 
         #
         # new row in mulcov_table
@@ -583,7 +572,7 @@ class FitNoODE(DismodIO):
         db.smooth = smooth
         db.smooth_grid = smooth_grid
         db.prior = prior
-                           
+        
     def check_last_command(db, which_fit) :
         log = db.log
         fit_start = [i for i,l in enumerate(log.message) if l.startswith('begin fit')][-1]
@@ -595,13 +584,12 @@ class FitNoODE(DismodIO):
         msg = '\n'.join(fit_messages.loc[fit_messages.message_type.isin(['warning', 'error' ]), 'message'].tolist())
         if msg == '' :
             msg = f'\nfit_{which_fit} OK\n'
+            return True
         else :
             msg = f'\nfit_{which_fit} Errors and or Warnings::\n' + msg
-        print (msg)
+            return False
 
-    def set_avgint(db,
-            covariate_integrand_list, predict_integrand_list, directory, which_fit
-        ) :
+    def set_avgint(db, covariate_integrand_list, directory, which_fit) :
         # -----------------------------------------------------------------------
         # create avgint table
         # For each covariate_integrand
@@ -612,8 +600,8 @@ class FitNoODE(DismodIO):
         #
         covariate_id_list = db.integrand.loc[db.integrand.integrand_name.isin(covariate_integrand_list),
                                              'integrand_id'].tolist()
-        predict_id_list = db.integrand.loc[db.integrand.integrand_name.isin(predict_integrand_list),
-                                             'integrand_id'].tolist()
+        predict_id_list = db.integrand.loc[db.integrand.integrand_name.isin(db.predict_integrands),
+                                           'integrand_id'].tolist()
 
         db.avgint = pd.DataFrame()
         avgint_cols = db.avgint.columns.tolist() + db.covariate.covariate_name.tolist()
@@ -627,28 +615,26 @@ class FitNoODE(DismodIO):
             tmp = data.copy()
             tmp['integrand_id'] = integrand_id
             avgint = avgint.append(tmp)
-        avgint = avgint.sort_values(by=['integrand_id', 'data_id'])[avgint_cols]
-        avgint = avgint.reset_index(drop=True)
-        avgint['avgint_id'] = avgint.index
-        db.avgint = avgint
-                           
-    def setup_for_no_ode(db, max_covariate_effect):
+            avgint = avgint.sort_values(by=['integrand_id', 'data_id'])[avgint_cols]
+            avgint = avgint.reset_index(drop=True)
+            avgint['avgint_id'] = avgint.index
+            db.avgint = avgint
+            
+    def setup_no_ode_fit(db, max_covariate_effect):
 
         # seed used to randomly subsample data
         random_seed = 123
         if random_seed == 0 :
             random_seed = int( time.time() )
-        random.seed(random_seed)
-        msg = '\nrandom_seed  = ' + str( random_seed )
-        print(msg)
+            random.seed(random_seed)
+            msg = '\nrandom_seed  = ' + str( random_seed )
+            print(msg)
 
-        db.subset_data()
-
-        # subsetting the data can remove some integrands
+        # subsetting the data can remove some integrands, so get integrand after
+        db.subset_data() 
         no_ode_integrands = db.get_integrand_list(False)
         yes_ode_integrands = db.get_integrand_list(True)
         integrands = yes_ode_integrands + no_ode_integrands
-        predict_integrands   = [ 'susceptible', 'withC' ]
         data_integrands = sorted(set(integrands) - set(['mtall', 'mtother']))
         msg = '\nintegrands   = ' + str( integrands )
         print(msg)
@@ -661,13 +647,9 @@ class FitNoODE(DismodIO):
         for integrand in integrands:
             db.random_subsample_data(integrand, max_sample = 1000)
 
-        iota_zero = not np.isfinite(db.rate.loc[db.rate.rate_name == 'iota', 'parent_smooth_id']).squeeze()
-        rho_zero = not np.isfinite(db.rate.loc[db.rate.rate_name == 'rho', 'parent_smooth_id']).squeeze()
-        chi_zero = not np.isfinite(db.rate.loc[db.rate.rate_name == 'chi', 'parent_smooth_id']).squeeze()
-        rate_case = ('iota_zero' if iota_zero else 'iota_pos') + '_' + ('rho_zero' if rho_zero else 'rho_pos')
+        rate_case = db.get_rate_case()
 
         db.set_option('tolerance_fixed', '1e-8')
-        db.set_option('max_num_iter_fixed', max_num_iter_fixed)
         db.set_option('quasi_fixed', 'false')
         db.set_option('zero_sum_child_rate', '"iota rho chi"')
         db.set_option('bound_random', '3')
@@ -688,13 +670,35 @@ class FitNoODE(DismodIO):
 
         db.hold_out_data(integrand_names = yes_ode_integrands, hold_out=1)
 
-        if 0:
-            dmv = pd.read_csv('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/variable.csv')
-            os.system(f'dismodat.py {db.path} db2csv')
-            dbv = pd.read_csv('/tmp/variable.csv')
+        db.set_avgint(yes_ode_integrands, db.path.parent, 'no_ode')
 
-        db.set_avgint(yes_ode_integrands, predict_integrands, db.path.parent, 'no_ode')
+        system(f'dismod_at {db.path} init')
 
+    def fit_no_ode(db, max_num_iter_fixed = 100):
+        db.set_option('max_num_iter_fixed', max_num_iter_fixed)
+        system(f'dismod_at {db.path} fit both')
+        system(f'dismod_at {db.path} predict fit_var')
+        db.check_last_command('no_ode')
+
+    def fit_yes_ode(db, max_num_iter_fixed = 100, ode_hold_out_list = []):
+        # use previous fit as starting point
+        system(f'dismod_at {db.path} set start_var fit_var')
+
+        # put ode integrands data back in the fit
+        yes_ode_integrands = db.get_integrand_list(True)
+        for integrand_name in yes_ode_integrands :
+            db.hold_out_data(integrand_names = integrand_name, hold_out = 0)
+            # exclude integerands that are just used to get starting value
+        for integrand_name in ode_hold_out_list :
+            db.hold_out_data(integrand_names = integrand_name, hold_out = 1)
+            t0 = time.time()
+            system(f'dismod_at {db.path} fit both')
+            msg  = 'fit_with_ode time = '
+            msg += str( round( time.time() - t0 ) ) + ' seconds'
+            print(msg)
+
+        if not db.check_last_command('yes_ode') :
+            print('Exiting due to problems with this fit command\n')
 
 if __name__ == '__main__':
 
@@ -713,24 +717,29 @@ if __name__ == '__main__':
         if covariate.loc[mask, 'reference'].values == 1:
             covariate.loc[mask, 'reference'] = 0
             print (f"Fixed the 'one' covariate reference:\n{covariate[mask]}")
-        db.covariate = covariate
+            db.covariate = covariate
+
+    def compare_dataframes(df0, df1):
+        if 0:
+            for i in sorted(df0.integrand_name.unique()):
+                print ('db0', i, len(df0[(df0.integrand_name == i) & (df0.hold_out == 0)]))
+                print ('db1', i, len(df1[(df1.integrand_name == i) & (df1.hold_out == 0)]))
+                print ((df0[(df0.integrand_name == i) & (df0.hold_out == 0)].fillna(-1) ==
+                        df1[(df1.integrand_name == i) & (df1.hold_out == 0)].fillna(-1)).all())
+                print ((df0.fillna(-1) == df1.fillna(-1)).all())
+                tol = {'atol': 1e-8, 'rtol': 1e-10}
+
+        mask0 = (df0.fillna(-1) != df1.fillna(-1)).any(1).values
+        mask1 = (df0.fillna(-1) != df1.fillna(-1)).any(0).values
+        diff0 = df0.loc[mask0, mask1]
+        diff1 = df1.loc[mask0, mask1]
+        error = np.max(np.abs(diff0 - diff1))
+        assert np.allclose(diff0, diff1, **tol), 'ERROR: dataframes do not match'
+        msg = '' if error.empty else f' within tolerance, (max abs error = {error}'
+        return f'dataframes are equal{msg}.'
 
     def check_data(db0, db1):
-        db0_data = db0.data # .merge(db0.integrand, how='left')
-        db1_data = db1.data # .merge(db1.integrand, how='left')
-        if 0:
-            for i in sorted(db0_data.integrand_name.unique()):
-                print ('db0', i, len(db0_data[(db0_data.integrand_name == i) & (db0_data.hold_out == 0)]))
-                print ('db1', i, len(db1_data[(db1_data.integrand_name == i) & (db1_data.hold_out == 0)]))
-                print ((db0_data[(db0_data.integrand_name == i) & (db0_data.hold_out == 0)].fillna(-1) ==
-                        db1_data[(db1_data.integrand_name == i) & (db1_data.hold_out == 0)].fillna(-1)).all())
-            print ((db0.data.fillna(-1) == db1.data.fillna(-1)).all())
-        tol = {'atol': 1e-8, 'rtol': 1e-10}
-
-        mask0 = (db0.data.fillna(-1) != db1.data.fillna(-1)).any(1).values
-        mask1 = (db0.data.fillna(-1) != db1.data.fillna(-1)).any(0).values
-        assert np.allclose(db0.data.loc[mask0, mask1], db1.data.loc[mask0, mask1], **tol), 'ERROR: Data does not match'
-        print ('Data tables agree')
+        return compare_dataframes(db0.data, db1.data)
 
     def check_var(db0, db1):
         def var_values(db):
@@ -765,43 +774,48 @@ if __name__ == '__main__':
             print (vd1.loc[mask0, mask1].merge(d1[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
             print ('init_no_ode:')
             print (vd0.loc[mask0, mask1].merge(d0[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
-            print ('ERROR -- var tables do not agree')
-    max_num_iter_fixed = 50
-
-    def main(case):
+            raise Exception ('ERROR -- var tables do not agree')
+    def test(case):
         crohns = '/Users/gma/ihme/epi/at_cascade/data/475533/dbs/1/2/dismod.db'
         dialysis = '/Users/gma/ihme/epi/at_cascade/data/475527/dbs/96/2/dismod.db'
         kidney = '/Users/gma/ihme/epi/at_cascade/data/475718/dbs/70/1/dismod.db'
         osteo_hip =  '/Users/gma/ihme/epi/at_cascade/data/475526/dbs/1/2/dismod.db'
         osteo_knee = '/Users/gma/ihme/epi/at_cascade/data/475746/dbs/64/2/dismod.db'
         t1_diabetes =  '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/100/2/dismod.db'
-        # t1_diabetes =  '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db'
+        #t1_diabetes =  '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db'
+
 
         if case == 't1_diabetes':
             original_file = t1_diabetes
             max_covariate_effect = 2
+            ode_hold_out_list = ['mtexcess']
         elif case == 'crohns':
             original_file = crohns
             max_covariate_effect = 4
+            ode_hold_out_list = []
         elif case == 'dialysis':
             original_file = dialysis
             max_covariate_effect = 4
+            ode_hold_out_list = []
         elif case == 'kidney':
             original_file = kidney
-            max_covariate_effect = 4
+            max_covariate_effect = 2
+            ode_hold_out_list = []
         elif case == 'osteo_hip':
             original_file = osteo_hip
-            max_covariate_effect = 4
+            max_covariate_effect = 2
+            ode_hold_out_list = []
         elif case == 'osteo_knee':
             original_file = osteo_knee
-            max_covariate_effect = 4
+            max_covariate_effect = 2
+            ode_hold_out_list = []
         else:
             raise Exception(f'Disease {case} not found')
 
+        global dm, db
+
         dm_no_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/no_ode/no_ode.db')
         dm_yes_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/yes_ode/yes_ode.db')
-                           
-        dm = dm_no_ode
 
         assert os.path.exists(original_file)
         temp_file = '/tmp/temp.db'
@@ -821,85 +835,42 @@ if __name__ == '__main__':
             print (rate_mulcov_priors(DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')))
 
 
+        db.setup_no_ode_fit(max_covariate_effect)
+        if __debug__:
+            dm = dm_no_ode
+            check_var(db, dm)
+            print ('db.data', check_data(db, dm))
+            db.fit_no_ode(max_num_iter_fixed = 500)
 
-        db.setup_for_no_ode(max_covariate_effect)
+        if __debug__:
+            dmv = pd.read_csv(dm.path.parent / 'variable.csv')
+            os.system(f'dismodat.py {db.path} db2csv')
+            dbv = pd.read_csv(db.path.parent / 'variable.csv')
+            print ('variable.csv', compare_dataframes(dmv, dbv))
 
-        system(f'dismod_at {temp_file} init')
-        check_data(db, dm)
-        check_var(db, dm)
-        system(f'dismod_at {temp_file} fit both')
-        system(f'dismod_at {temp_file} predict fit_var')
-        db.check_last_command('no_ode')
+        if 1:
+            db.fit_yes_ode(max_num_iter_fixed = 500, ode_hold_out_list = ode_hold_out_list)
 
+            if __debug__:
+                dm = dm_yes_ode
+                check_var(db, dm)
+                print ('db.data', check_data(db, dm))
+                dmv = pd.read_csv(dm.path.parent / 'variable.csv')
+                os.system(f'dismodat.py {db.path} db2csv')
+                dbv = pd.read_csv(db.path.parent / 'variable.csv')
+                print ('variable.csv', compare_dataframes(dmv, dbv))
 
-for d in ['t1_diabetes','crohns','dialysis','kidney','osteo_hip','osteo_knee']:
-    print ('>>>', d)
-    main(d)
-
-if 0:
-
+# 'dialysis' hessian failure
+# for case in reversed(['t1_diabetes', 'crohns','kidney','osteo_hip','osteo_knee']):
+for case in ['t1_diabetes']:
+    print ('>>>', case, '<<<')
     if 1:
-        print ('Are the two var tables alike?')
-        print ((db.var.fillna(-1) == dm.var.fillna(-1)).all())
-        print ((db.var.fillna(-1)[:-3] == dm.var.fillna(-1)[:-3]).all())
-        print ('Are the two data tables alike?')
-        print ((db.data.fillna(-1) == dm.data.fillna(-1)).all())
-        print ('Are the two mulcov tables alike?')
-        print ((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)).all())
+        import os
+        # os.system(f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123')
+        # os.system(f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode')
+    test(case)
 
-
-    data = db.data.merge(db.integrand, how='left')
-    hold_outs = []
-    if iota_zero: hold_outs.append('Sincidence')
-    if rho_zero: hold_outs.append('remission')
-    if chi_zero: hold_outs.append('mtexcess')
-    # Consider dropping mtexcess if there is sufficient mtspecific
-    count = sum(data.integrand_name == 'mtspecific')
-    if count > enough_mtspecific:
-        print (f'Holding out mtexcess because there are sufficient mtspecific data ({count} rows).')
-        hold_outs.append('mtexcess')
-    db.hold_out_data(integrand_names = hold_outs, hold_out=1)
-
-    db.data = compress_age_time_intervals(db)
-
-    if 0:
-        for t in ['covariate',
-                  'data',
-                  'fit_var',
-                  'prior',
-                  'scale_var',
-                  'start_var',
-
-                  # not required
-                  # 'option',
-
-
-                  # identical?
-                  # 'smooth',
-                  # 'data_subset',
-                  # 'truth_var', 
-                  'age', 'avgint', 'rate', 'density', 'integrand', 'mulcov', 'node', 'nslist', 'nslist_pair', 
-                  'smooth_grid', 'subgroup', 'time', 'var', 'weight', 'weight_grid']:
-
-            try:
-                tst = not np.all(getattr(db,t).fillna(-1) == getattr(dm, t).fillna(-1))
-            except:
-                tst = True
-            if not tst:
-                print (f'Table db.{t} and dm.{t} are equal')
-            else:
-                print (f'setting db.{t} = dm.{t}')
-                setattr(db,t, getattr(dm, t))
-
-
-
-    print ("""BRADS RESULT:
-    iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
-       0  1.1042442e+03 9.30e-04 2.07e+03  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
-    Warning: Cutting back alpha due to evaluation error
-       1  2.8986326e+02 7.93e-04 1.06e+03  -1.0 4.05e+00    -  4.98e-01 4.89e-01f  2""")
-
-
+"""
 
     system(f'dismod_at {temp_file} set start_var fit_var')
     if 1:
@@ -931,7 +902,6 @@ if 0:
 
     os.system(f'DB_plot.py {temp_file} -v 475882')
 
-"""
 sys.path.append('/opt/prefix/dismod_at/lib/python3.8/site-packages')
 from dismod_at.ihme.t1_diabetes import relative_path
 brad = DismodIO(Path('/Users/gma/ihme/epi/at_cascade') / relative_path)
