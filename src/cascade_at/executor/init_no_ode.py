@@ -696,7 +696,7 @@ class FitNoODE(DismodIO):
             msg  = 'fit_with_ode time = '
             msg += str( round( time.time() - t0 ) ) + ' seconds'
             print(msg)
-
+        system(f'dismod_at {db.path} fit both')
         if not db.check_last_command('yes_ode') :
             print('Exiting due to problems with this fit command\n')
 
@@ -720,13 +720,6 @@ if __name__ == '__main__':
         db.covariate = covariate
 
     def compare_dataframes(df0, df1):
-        if 0:
-            for i in sorted(df0.integrand_name.unique()):
-                print ('db0', i, len(df0[(df0.integrand_name == i) & (df0.hold_out == 0)]))
-                print ('db1', i, len(df1[(df1.integrand_name == i) & (df1.hold_out == 0)]))
-                print ((df0[(df0.integrand_name == i) & (df0.hold_out == 0)].fillna(-1) ==
-                        df1[(df1.integrand_name == i) & (df1.hold_out == 0)].fillna(-1)).all())
-                print ((df0.fillna(-1) == df1.fillna(-1)).all())
         tol = {'atol': 1e-8, 'rtol': 1e-10}
 
         mask0 = (df0.fillna(-1) != df1.fillna(-1)).any(1).values
@@ -734,7 +727,10 @@ if __name__ == '__main__':
         diff0 = df0.loc[mask0, mask1]
         diff1 = df1.loc[mask0, mask1]
         error = np.max(np.abs(diff0 - diff1))
-        assert np.allclose(diff0, diff1, **tol), 'ERROR: dataframes do not match'
+        if not np.allclose(diff0, diff1, **tol):
+            print (diff0)
+            print (diff1)
+            raise Exception('ERROR: dataframes do not match')
         msg = '' if error.empty else f' within tolerance, (max abs error = {error}'
         return f'dataframes are equal{msg}.'
 
