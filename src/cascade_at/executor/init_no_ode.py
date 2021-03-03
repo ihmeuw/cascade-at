@@ -24,7 +24,7 @@ def system (command) :
     print (command)
     if isinstance(command, str):
         command = command.split()
-        run = subprocess.run(command)
+    run = subprocess.run(command)
     if run.returncode != 0 :
         raise Exception(f'"{command}" failed.')
 
@@ -116,8 +116,8 @@ class FitNoODE(DismodIO):
                        'const_value'    : None                            ,
                        }
                 smooth_grid = smooth_grid.append(row, ignore_index=True)
-                #
-                # return the new smoothing
+        #
+        # return the new smoothing
         smooth = smooth.reset_index(drop=True); smooth['smooth_id'] = smooth.index
         smooth_grid = smooth_grid.reset_index(drop=True); smooth_grid['smooth_grid_id'] = smooth_grid.index
         prior = prior.reset_index(drop=True); prior['prior_id'] = prior.index
@@ -140,9 +140,9 @@ class FitNoODE(DismodIO):
             if np.isfinite(cov.max_difference):
                 difference = abs(data[cov.covariate_name] - cov.reference)
                 data = data[difference <= cov.max_difference]
-                data = data.reset_index(drop=True)
-                data['data_id'] = data.index
-                db.data = data
+        data = data.reset_index(drop=True)
+        data['data_id'] = data.index
+        db.data = data
 
     def random_subsample_data(db, integrand_name, max_sample) :
         # for a specified integrand, sample at most max_sample entries.
@@ -160,15 +160,15 @@ class FitNoODE(DismodIO):
             if row['integrand_name'] == integrand_name :
                 count_list.append(count)
                 count += 1
-                n_sample_in = count
-                #
-                # subsample of indices for this integrand
+        n_sample_in = count
+        #
+        # subsample of indices for this integrand
         n_sample_out = min(max_sample, n_sample_in)
         if n_sample_out < n_sample_in :
             count_list = random.sample(count_list,  n_sample_out)
             count_list = sorted( count_list )
-            #
-            # subsample the integrand
+        #
+        # subsample the integrand
         index  = 0
         count  = 0
         table_out = []
@@ -180,9 +180,9 @@ class FitNoODE(DismodIO):
                     if count_list[index] == count :
                         table_out.append(dict(row))
                         index += 1
-                        count += 1
-                        assert index == n_sample_out
-                        assert count == n_sample_in
+                count += 1
+        assert index == n_sample_out
+        assert count == n_sample_in
 
         msg  = '\nrandom_subsample_data\n'
         msg += 'number of {} samples: in = {} out = {}'
@@ -196,15 +196,15 @@ class FitNoODE(DismodIO):
             integrand_names = [integrand_names]
         if isinstance(node_names, str):
             node_names = [node_names]
-            data = db.data.merge(db.integrand).merge(db.node)
-            mask = [True]*len(data)
+        data = db.data.merge(db.integrand).merge(db.node)
+        mask = [True]*len(data)
         if integrand_names:
             mask &= data.integrand_name.isin(integrand_names)
         if node_names:
             mask &= data.node_name.isin(node_names)
-            print (f"Setting hold_out = {hold_out} for integrand {integrand_names}, node {node_names}")
-            data.loc[mask, 'hold_out'] = hold_out
-            db.data = data[db.data.columns]
+        print (f"Setting hold_out = {hold_out} for integrand {integrand_names}, node {node_names}")
+        data.loc[mask, 'hold_out'] = hold_out
+        db.data = data[db.data.columns]
 
     def set_data_likelihood (db, integrand_name, density_name, factor_eta=None, nu=None):
         # For a specified integrand, set its density, eta, and nu.
@@ -224,7 +224,7 @@ class FitNoODE(DismodIO):
             msg += '\n' + 12 * ' ' + 'where m is the meadian of the'
             msg += ' {} data'.format(integrand_name)
             print( msg )
-            
+
         data = db.data.merge(db.integrand, how='left')
         density_id = int(db.density.loc[db.density.density_name == density_name, 'density_id'])
         #
@@ -287,9 +287,9 @@ class FitNoODE(DismodIO):
                 new_row['dtime_prior_id'] = None
                 new_row['const_value']    = 0.0
                 smooth_grid = smooth_grid.append( new_row ).reset_index(drop=True)
-                smooth_grid['smooth_grid_id'] = smooth_grid.index
-                db.smooth = smooth
-                db.smooth_grid = smooth_grid
+        smooth_grid['smooth_grid_id'] = smooth_grid.index
+        db.smooth = smooth
+        db.smooth_grid = smooth_grid
 
     def new_bounded_smooth_id (db, smooth_id, lower, upper, density_name = 'uniform', smooth_name = '') :
         # add a new smoothing that has the same grid as smooth_id smoothing
@@ -403,8 +403,8 @@ class FitNoODE(DismodIO):
                            for integrand_id in data.integrand_id.unique()}
         if data[covariate_name].notna().any():
             difference_dict[covariate_name] = data[covariate_name] - reference
-            #
-            # lower_dict and  upper_dict
+        #
+        # lower_dict and  upper_dict
         lower_dict = dict()
         upper_dict = dict()
         for integrand_id in difference_dict :
@@ -425,9 +425,9 @@ class FitNoODE(DismodIO):
             if upper == float("inf") :
                 lower = 0.0
                 upper = 0.0
-                lower_dict[integrand_id] = lower
-                upper_dict[integrand_id] = upper
-                #
+            lower_dict[integrand_id] = lower
+            upper_dict[integrand_id] = upper
+        #
 
         for i,row in mulcov.iterrows() :
             if row['covariate_id'] == covariate_id :
@@ -461,18 +461,18 @@ class FitNoODE(DismodIO):
                         subgroup_smooth_id, lower, upper, 'uniform'
                     )
                     row['subgroup_smooth_id'] = subgroup_smooth_id
-                    mulcov.loc[i] = row
-                    #
+                mulcov.loc[i] = row
+        #
         if lower is None :
             lower = - float('inf')
         if upper is None :
             upper = + float('inf')
-            msg  = '\nset_mulcov_bound\n'
-            msg += 'covariate = x_{}, max_covariate_effect = {}, '
-            msg += 'lower = {:.5g}, upper = {:.5g}'
-            msg  = msg.format(covariate_id, max_covariate_effect, lower, upper)
-            print( msg )
-            db.mulcov = mulcov
+        msg  = '\nset_mulcov_bound\n'
+        msg += 'covariate = x_{}, max_covariate_effect = {}, '
+        msg += 'lower = {:.5g}, upper = {:.5g}'
+        msg  = msg.format(covariate_id, max_covariate_effect, lower, upper)
+        print( msg )
+        db.mulcov = mulcov
 
     def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
         # Add a meas_noise covariate multiplier for a specified integrand.
@@ -549,8 +549,8 @@ class FitNoODE(DismodIO):
         age_grid  = db.age.loc[:0, 'age'].tolist()
         time_grid = db.time.loc[:0, 'time'].tolist()
 
-        smooth_id, smooth, smooth_grid, prior = db.new_smoothing(integrand_name,
-                                                                 age_grid, time_grid, value_prior, dage_prior, dtime_prior )
+        smooth_id, smooth, smooth_grid, prior = db.new_smoothing(
+            integrand_name, age_grid, time_grid, value_prior, dage_prior, dtime_prior )
 
         #
         # new row in mulcov_table
@@ -572,7 +572,7 @@ class FitNoODE(DismodIO):
         db.smooth = smooth
         db.smooth_grid = smooth_grid
         db.prior = prior
-        
+
     def check_last_command(db, which_fit) :
         log = db.log
         fit_start = [i for i,l in enumerate(log.message) if l.startswith('begin fit')][-1]
@@ -615,11 +615,11 @@ class FitNoODE(DismodIO):
             tmp = data.copy()
             tmp['integrand_id'] = integrand_id
             avgint = avgint.append(tmp)
-            avgint = avgint.sort_values(by=['integrand_id', 'data_id'])[avgint_cols]
-            avgint = avgint.reset_index(drop=True)
-            avgint['avgint_id'] = avgint.index
-            db.avgint = avgint
-            
+        avgint = avgint.sort_values(by=['integrand_id', 'data_id'])[avgint_cols]
+        avgint = avgint.reset_index(drop=True)
+        avgint['avgint_id'] = avgint.index
+        db.avgint = avgint
+
     def setup_no_ode_fit(db, max_covariate_effect):
 
         # seed used to randomly subsample data
@@ -717,7 +717,7 @@ if __name__ == '__main__':
         if covariate.loc[mask, 'reference'].values == 1:
             covariate.loc[mask, 'reference'] = 0
             print (f"Fixed the 'one' covariate reference:\n{covariate[mask]}")
-            db.covariate = covariate
+        db.covariate = covariate
 
     def compare_dataframes(df0, df1):
         if 0:
@@ -727,7 +727,7 @@ if __name__ == '__main__':
                 print ((df0[(df0.integrand_name == i) & (df0.hold_out == 0)].fillna(-1) ==
                         df1[(df1.integrand_name == i) & (df1.hold_out == 0)].fillna(-1)).all())
                 print ((df0.fillna(-1) == df1.fillna(-1)).all())
-                tol = {'atol': 1e-8, 'rtol': 1e-10}
+        tol = {'atol': 1e-8, 'rtol': 1e-10}
 
         mask0 = (df0.fillna(-1) != df1.fillna(-1)).any(1).values
         mask1 = (df0.fillna(-1) != df1.fillna(-1)).any(0).values
@@ -861,8 +861,8 @@ if __name__ == '__main__':
                 print ('variable.csv', compare_dataframes(dmv, dbv))
 
 # 'dialysis' hessian failure
-# for case in reversed(['t1_diabetes', 'crohns','kidney','osteo_hip','osteo_knee']):
-for case in ['t1_diabetes']:
+# for case in reversed(['crohns','kidney','osteo_hip','osteo_knee']): # 't1_diabetes'  fails
+for case in ['osteo_hip']:
     print ('>>>', case, '<<<')
     if 1:
         import os
