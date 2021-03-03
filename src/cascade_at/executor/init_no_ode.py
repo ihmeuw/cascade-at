@@ -626,9 +626,9 @@ class FitNoODE(DismodIO):
         random_seed = 123
         if random_seed == 0 :
             random_seed = int( time.time() )
-            random.seed(random_seed)
-            msg = '\nrandom_seed  = ' + str( random_seed )
-            print(msg)
+        random.seed(random_seed)
+        msg = '\nrandom_seed  = ' + str( random_seed )
+        print(msg)
 
         # subsetting the data can remove some integrands, so get integrand after
         db.subset_data() 
@@ -866,8 +866,8 @@ for case in ['osteo_hip']:
     print ('>>>', case, '<<<')
     if 1:
         import os
-        # os.system(f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123')
-        # os.system(f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode')
+        os.system(f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123')
+        os.system(f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode')
     test(case)
 
 """
