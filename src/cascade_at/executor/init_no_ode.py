@@ -856,9 +856,10 @@ if __name__ == '__main__':
                 dbv = pd.read_csv(db.path.parent / 'variable.csv')
                 print ('variable.csv', compare_dataframes(dmv, dbv))
 
-# 'dialysis' hessian failure
-# for case in reversed(['crohns','kidney','osteo_hip','osteo_knee']): # 't1_diabetes'  fails
-for case in ['osteo_hip']:
+# for case in ['crohns','kidney','osteo_hip','osteo_knee',]: # 'dialysis', 't1_diabetes']:
+for case in ['dialysis']:
+    # 'dialysis' RE hessian failure -- needs Brad's settings
+    # 't1_diabetes' dismod doesn't converge -- needs Brad's settings
     print ('>>>', case, '<<<')
     if 1:
         import os
