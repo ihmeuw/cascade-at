@@ -1,4 +1,5 @@
 import sys
+import os
 import shutil
 import subprocess
 import copy
@@ -397,12 +398,24 @@ class FitNoODE(DismodIO):
         mulcov = db.mulcov
         #
         # difference_dict = covariate minus reference
+        # breakpoint()
         covariate_name = f'x_{covariate_id}'
         reference = float(covariate.loc[covariate_id, 'reference'])
-        difference_dict = {integrand_id: (data.loc[(data.integrand_id == integrand_id) & ~data[covariate_name].isna(), covariate_name] - reference).values
+        difference_dict_gma = {integrand_id: (data.loc[(data.integrand_id == integrand_id) & ~data[covariate_name].isna(), covariate_name] - reference).values
                            for integrand_id in data.integrand_id.unique()}
         if data[covariate_name].notna().any():
-            difference_dict[covariate_name] = data[covariate_name] - reference
+            difference_dict_gma[covariate_name] = data[covariate_name] - reference
+        difference_dict = {}
+        for i,row in data.iterrows() :
+            integrand_id = row['integrand_id']
+            covariate   = row[covariate_name]
+            if covariate is not None :
+                if integrand_id not in difference_dict :
+                    difference_dict[integrand_id] = list()
+                if covariate_name not in difference_dict :
+                    difference_dict[covariate_name] = list()
+                difference_dict[integrand_id].append( covariate - reference )
+                difference_dict[covariate_name].append( covariate - reference )
         #
         # lower_dict and  upper_dict
         lower_dict = dict()
@@ -431,6 +444,8 @@ class FitNoODE(DismodIO):
 
         for i,row in mulcov.iterrows() :
             if row['covariate_id'] == covariate_id :
+                lower = - float('inf')
+                upper = + float('inf')
                 integrand_id = row['integrand_id']
                 if integrand_id in difference_dict :
                     lower = lower_dict[integrand_id]
@@ -442,10 +457,10 @@ class FitNoODE(DismodIO):
                     assert row['mulcov_type'] != 'rate_value'
                 else :
                     assert row['mulcov_type'] == 'rate_value'
-                    column_name = 'x_{}'.format(covariate_id)
-                    if column_name in difference_dict :
-                        lower = lower_dict[column_name]
-                        upper = upper_dict[column_name]
+                    covariate_name = 'x_{}'.format(covariate_id)
+                    if covariate_name in difference_dict :
+                        lower = lower_dict[covariate_name]
+                        upper = upper_dict[covariate_name]
                     else :
                         lower = 0.0
                         upper = 0.0
@@ -462,16 +477,13 @@ class FitNoODE(DismodIO):
                     )
                     row['subgroup_smooth_id'] = subgroup_smooth_id
                 mulcov.loc[i] = row
-        #
-        if lower is None :
-            lower = - float('inf')
-        if upper is None :
-            upper = + float('inf')
-        msg  = '\nset_mulcov_bound\n'
-        msg += 'covariate = x_{}, max_covariate_effect = {}, '
-        msg += 'lower = {:.5g}, upper = {:.5g}'
-        msg  = msg.format(covariate_id, max_covariate_effect, lower, upper)
-        print( msg )
+                #
+                integrand_name = db.integrand.loc[db.integrand.integrand_id == integrand_id, 'integrand_name'].squeeze()
+                msg  = '\nset_mulcov_bound\n'
+                msg += 'integrand = {}, covariate = x_{}, max_covariate_effect = {}, '
+                msg += 'lower = {:.5g}, upper = {:.5g}'
+                msg  = msg.format(integrand_name, covariate_id, max_covariate_effect, lower, upper)
+                print( msg )
         db.mulcov = mulcov
 
     def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
@@ -630,6 +642,9 @@ class FitNoODE(DismodIO):
         msg = '\nrandom_seed  = ' + str( random_seed )
         print(msg)
 
+        db.check_ones_covariate()
+        db.fix_ones_covariate_reference()
+
         # subsetting the data can remove some integrands, so get integrand after
         db.subset_data() 
         no_ode_integrands = db.get_integrand_list(False)
@@ -674,8 +689,9 @@ class FitNoODE(DismodIO):
 
         system(f'dismod_at {db.path} init')
 
-    def fit_no_ode(db, max_num_iter_fixed = 100):
+    def fit_no_ode(db, random_seed = None, max_num_iter_fixed = 100):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
+        system(f'dismod_at {db.path} set option max_num_iter_fixed {max_num_iter_fixed}')
         system(f'dismod_at {db.path} fit both')
         system(f'dismod_at {db.path} predict fit_var')
         db.check_last_command('no_ode')
@@ -700,14 +716,13 @@ class FitNoODE(DismodIO):
         if not db.check_last_command('yes_ode') :
             print('Exiting due to problems with this fit command\n')
 
-if __name__ == '__main__':
-
     def check_ones_covariate(db):
         data = db.data
         integrand = db.integrand
         covariate = db.covariate
         mask = covariate.c_covariate_name == 's_one'
-        one_covariate_id, one_covariate_name  = covariate.loc[mask, ['covariate_id', 'covariate_name']].squeeze()
+        one_covariate_id, one_covariate_name, reference  = covariate.loc[mask, ['covariate_id', 'covariate_name', 'reference']].squeeze()
+        assert reference == 0, f'Error -- reference is not 0\n{covariate[mask]}'
         assert (data[one_covariate_name] == 1).all(), f"Error in data table values for covariate:\n {covariate[mask]}"
 
     def fix_ones_covariate_reference(db):
@@ -718,6 +733,8 @@ if __name__ == '__main__':
             covariate.loc[mask, 'reference'] = 0
             print (f"Fixed the 'one' covariate reference:\n{covariate[mask]}")
         db.covariate = covariate
+
+if __name__ == '__main__':
 
     def compare_dataframes(df0, df1):
         tol = {'atol': 1e-8, 'rtol': 1e-10}
@@ -778,9 +795,8 @@ if __name__ == '__main__':
         osteo_hip =  '/Users/gma/ihme/epi/at_cascade/data/475526/dbs/1/2/dismod.db'
         osteo_knee = '/Users/gma/ihme/epi/at_cascade/data/475746/dbs/64/2/dismod.db'
         t1_diabetes =  '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/100/2/dismod.db'
-        #t1_diabetes =  '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db'
-
-
+        #t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db'
+        #t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475861/inputs/25079_parameters.json' # gma ran 3/3/2020 from a backup. All I could get was the json file with Brad's settings
         if case == 't1_diabetes':
             original_file = t1_diabetes
             max_covariate_effect = 2
@@ -818,9 +834,6 @@ if __name__ == '__main__':
         shutil.copy2(original_file, temp_file)
         db = FitNoODE(Path(temp_file))
         
-        check_ones_covariate(db)
-        fix_ones_covariate_reference(db)
-
         if 0:
             def rate_mulcov_priors(db):
                 prior_ids = db.smooth_grid.loc[db.smooth_grid.smooth_id.isin(db.var[-2:].smooth_id),
@@ -832,19 +845,22 @@ if __name__ == '__main__':
 
 
         db.setup_no_ode_fit(max_covariate_effect)
-        if __debug__:
+
+        __check__ = True
+
+        if __check__ and __debug__:
             dm = dm_no_ode
             check_var(db, dm)
             print ('db.data', check_data(db, dm))
-            db.fit_no_ode(max_num_iter_fixed = 500)
+        db.fit_no_ode(max_num_iter_fixed = 500)
 
-        if __debug__:
+        if __check__ and __debug__:
             dmv = pd.read_csv(dm.path.parent / 'variable.csv')
             os.system(f'dismodat.py {db.path} db2csv')
             dbv = pd.read_csv(db.path.parent / 'variable.csv')
             print ('variable.csv', compare_dataframes(dmv, dbv))
 
-        if 1:
+        if 1000000000000000000:
             db.fit_yes_ode(max_num_iter_fixed = 500, ode_hold_out_list = ode_hold_out_list)
 
             if __debug__:
@@ -856,57 +872,70 @@ if __name__ == '__main__':
                 dbv = pd.read_csv(db.path.parent / 'variable.csv')
                 print ('variable.csv', compare_dataframes(dmv, dbv))
 
-# for case in ['crohns','kidney','osteo_hip','osteo_knee',]: # 'dialysis', 't1_diabetes']:
-for case in ['dialysis']:
-    # 'dialysis' RE hessian failure -- needs Brad's settings
-    # 't1_diabetes' dismod doesn't converge -- needs Brad's settings
-    print ('>>>', case, '<<<')
-    if 1:
-        import os
-        os.system(f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123')
-        os.system(f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode')
-    test(case)
+if __name__ == '__main__':
+    # the following are broken 
 
-"""
+    # the following are all OK 
 
-    system(f'dismod_at {temp_file} set start_var fit_var')
-    if 1:
-        dm = dmy
+    # for case in ['crohns']:
+    # for case in ['kidney']:
+    # for case in ['osteo_hip',]:
+    # for case in ['osteo_knee',]:
+    # for case in ['dialysis']:
+    for case in ['osteo_hip','osteo_knee','crohns', 'kidney']: # ,'t1_diabetes', 'dialysis'
+        # 'dialysis' RE hessian failure -- needs Brad's settings
+        # 't1_diabetes' dismod doesn't converge -- needs Brad's settings
+        print ('>>>', case, '<<<')
+
+        if 1:
+            cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123'
+            print (cmd); os.system(cmd)
+        if 0:
+            cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode'
+            print (cmd); os.system(cmd)
+        test(case)
+
+
+        """
+
+        system(f'dismod_at {temp_file} set start_var fit_var')
+        if 1:
+            dm = dmy
+            system(f'dismod_at {temp_file} fit both')
+            system(f'dismod_at {temp_file} sample asymptotic both 10')
+
+            check_last_command(db)
+
+
+            if 0:
+                print ('Are the two var tables alike?')
+                print ((db.var.fillna(-1) == dm.var.fillna(-1)).all())
+                assert np.all((db.var.fillna(-1) == dm.var.fillna(-1)))
+                print ('Are the two data tables alike?')
+                print ((db.data.fillna(-1) == dm.data.fillna(-1)).all())
+                assert np.all((db.data.fillna(-1) == dm.data.fillna(-1)))
+                print ('Are the two mulcov tables alike?')
+                print ((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)).all())
+                assert np.all((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)))
+
+        data['density_id'] = 3
+        data['nu'] = 5
+        db.data = data[db.data.columns]
+        system(f'dismod_at {temp_file} set start_var fit_var')
         system(f'dismod_at {temp_file} fit both')
-        system(f'dismod_at {temp_file} sample asymptotic both 10')
-
         check_last_command(db)
 
 
-        if 0:
-            print ('Are the two var tables alike?')
-            print ((db.var.fillna(-1) == dm.var.fillna(-1)).all())
-            assert np.all((db.var.fillna(-1) == dm.var.fillna(-1)))
-            print ('Are the two data tables alike?')
-            print ((db.data.fillna(-1) == dm.data.fillna(-1)).all())
-            assert np.all((db.data.fillna(-1) == dm.data.fillna(-1)))
-            print ('Are the two mulcov tables alike?')
-            print ((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)).all())
-            assert np.all((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)))
+        os.system(f'DB_plot.py {temp_file} -v 475882')
 
-    data['density_id'] = 3
-    data['nu'] = 5
-    db.data = data[db.data.columns]
-    system(f'dismod_at {temp_file} set start_var fit_var')
-    system(f'dismod_at {temp_file} fit both')
-    check_last_command(db)
+    sys.path.append('/opt/prefix/dismod_at/lib/python3.8/site-packages')
+    from dismod_at.ihme.t1_diabetes import relative_path
+    brad = DismodIO(Path('/Users/gma/ihme/epi/at_cascade') / relative_path)
+    brad2 = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
+    for iid in brad.data.integrand_id.unique():
+        print (brad.path, iid, len(brad.data[brad.data.integrand_id == iid]))
+        print (brad2.path, iid, len(brad2.data[brad2.data.integrand_id == iid]))
 
+        print (original_file, iid, len(db.data[db.data.integrand_id == iid]))
 
-    os.system(f'DB_plot.py {temp_file} -v 475882')
-
-sys.path.append('/opt/prefix/dismod_at/lib/python3.8/site-packages')
-from dismod_at.ihme.t1_diabetes import relative_path
-brad = DismodIO(Path('/Users/gma/ihme/epi/at_cascade') / relative_path)
-brad2 = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
-for iid in brad.data.integrand_id.unique():
-    print (brad.path, iid, len(brad.data[brad.data.integrand_id == iid]))
-    print (brad2.path, iid, len(brad2.data[brad2.data.integrand_id == iid]))
-
-    print (original_file, iid, len(db.data[db.data.integrand_id == iid]))
-
-"""
+    """
