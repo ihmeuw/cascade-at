@@ -585,21 +585,42 @@ class FitNoODE(DismodIO):
         db.smooth_grid = smooth_grid
         db.prior = prior
 
-    def check_last_command(db, which_fit) :
+    def check_last_command(db, command):
         log = db.log
-        fit_start = [i for i,l in enumerate(log.message) if l.startswith('begin fit')][-1]
-        fit_end = [fit_start+i for i,l in enumerate(log.loc[fit_start:, 'message']) if l.startswith('end fit')]
-        fit_end = fit_end[0] if fit_end else None
-        which_fit = log.loc[fit_start, 'message'].split()[-1]
-        assert fit_end and fit_end > fit_start, f"Fit {which_fit} failed."
-        fit_messages = log.loc[fit_start:fit_end]
-        msg = '\n'.join(fit_messages.loc[fit_messages.message_type.isin(['warning', 'error' ]), 'message'].tolist())
-        if msg == '' :
-            msg = f'\nfit_{which_fit} OK\n'
-            return True
-        else :
-            msg = f'\nfit_{which_fit} Errors and or Warnings::\n' + msg
-            return False
+        last_begin = [l for i,l in log.iterrows()
+                      if l.message_type == 'command'
+                      and l.message.startswith('begin ')]
+        rtn = True
+        if not last_begin:
+            print (f"ERROR: Failed to find a 'begin' command.")
+            rtn = False
+        else:
+            last_begin = last_begin[-1]
+        if rtn:
+            start_cmd = [l for i,l in log[last_begin.log_id:].iterrows()
+                         if l.message_type == 'command'
+                         and l.message.startswith(f'begin {command}')]
+            if not start_cmd:
+                print (f"ERROR: Expected 'begin {command}' but found '{last_begin.message}'.")
+                rtn = False
+            else:
+                start_cmd = start_cmd[-1]
+        if rtn:
+            end_cmd = [l for i,l in log[start_cmd.log_id:].iterrows()
+                       if l.message_type == 'command'
+                       and l.message.startswith(f'end {command}')]
+            if not end_cmd:
+                print (f"ERROR: Did not find end for this '{start_cmd.message}' command")
+                rtn = False
+            for i,l in log[start_cmd.log_id:].iterrows():
+                if l.message_type in ['error', 'warning']:
+                    print (f"DISMOD {l.message_type}: {l.message.rstrip()}")
+                    rtn = False
+        if rtn:
+            print (f"dismod_at {command} OK")
+        else:
+            print (f"ERROR: dismod_at {command} had errors, warnings, or failed to complete.")
+        return rtn
 
     def set_avgint(db, covariate_integrand_list, directory, which_fit) :
         # -----------------------------------------------------------------------
@@ -632,11 +653,9 @@ class FitNoODE(DismodIO):
         avgint['avgint_id'] = avgint.index
         db.avgint = avgint
 
-    def setup_no_ode_fit(db, max_covariate_effect):
-
+    def setup_no_ode_fit(db, max_covariate_effect, random_seed = None):
         # seed used to randomly subsample data
-        random_seed = 123
-        if random_seed == 0 :
+        if random_seed in [0, None]:
             random_seed = int( time.time() )
         random.seed(random_seed)
         msg = '\nrandom_seed  = ' + str( random_seed )
@@ -693,10 +712,13 @@ class FitNoODE(DismodIO):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
         system(f'dismod_at {db.path} set option max_num_iter_fixed {max_num_iter_fixed}')
         system(f'dismod_at {db.path} fit both')
+        assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
         system(f'dismod_at {db.path} predict fit_var')
-        db.check_last_command('no_ode')
+        assert db.check_last_command('predict'), 'Exiting due to problems with this predict command'
 
     def fit_yes_ode(db, max_num_iter_fixed = 100, ode_hold_out_list = []):
+        db.set_option('max_num_iter_fixed', max_num_iter_fixed)
+
         # use previous fit as starting point
         system(f'dismod_at {db.path} set start_var fit_var')
 
@@ -707,14 +729,25 @@ class FitNoODE(DismodIO):
             # exclude integerands that are just used to get starting value
         for integrand_name in ode_hold_out_list :
             db.hold_out_data(integrand_names = integrand_name, hold_out = 1)
-            t0 = time.time()
-            system(f'dismod_at {db.path} fit both')
-            msg  = 'fit_with_ode time = '
-            msg += str( round( time.time() - t0 ) ) + ' seconds'
-            print(msg)
+        t0 = time.time()
         system(f'dismod_at {db.path} fit both')
-        if not db.check_last_command('yes_ode') :
-            print('Exiting due to problems with this fit command\n')
+        msg  = 'fit_with_ode time = '
+        msg += str( round( time.time() - t0 ) ) + ' seconds'
+        print(msg)
+        assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
+
+    def fit_students(db, max_num_iter_fixed = 100):
+        db.set_option('max_num_iter_fixed', max_num_iter_fixed)
+
+        # use previous fit as starting point
+        system(f'dismod_at {db.path} set start_var fit_var')
+
+        db.data = data
+        data['density_id'] = 3
+        data['nu'] = 5
+        db.data = data
+        system(f'dismod_at {temp_file} fit both')
+        assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
 
     def check_ones_covariate(db):
         data = db.data
@@ -844,36 +877,38 @@ if __name__ == '__main__':
             print (rate_mulcov_priors(DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')))
 
 
-        db.setup_no_ode_fit(max_covariate_effect)
+        db.setup_no_ode_fit(max_covariate_effect, random_seed = 123)
 
         __check__ = True
 
-        if __check__ and __debug__:
+        if __check__:
             dm = dm_no_ode
             check_var(db, dm)
             print ('db.data', check_data(db, dm))
         db.fit_no_ode(max_num_iter_fixed = 500)
 
-        if __check__ and __debug__:
+        if __check__:
             dmv = pd.read_csv(dm.path.parent / 'variable.csv')
             os.system(f'dismodat.py {db.path} db2csv')
             dbv = pd.read_csv(db.path.parent / 'variable.csv')
             print ('variable.csv', compare_dataframes(dmv, dbv))
 
-        if 1000000000000000000:
-            db.fit_yes_ode(max_num_iter_fixed = 500, ode_hold_out_list = ode_hold_out_list)
+        db.fit_yes_ode(max_num_iter_fixed = 500, ode_hold_out_list = ode_hold_out_list)
 
-            if __debug__:
-                dm = dm_yes_ode
-                check_var(db, dm)
-                print ('db.data', check_data(db, dm))
-                dmv = pd.read_csv(dm.path.parent / 'variable.csv')
-                os.system(f'dismodat.py {db.path} db2csv')
-                dbv = pd.read_csv(db.path.parent / 'variable.csv')
-                print ('variable.csv', compare_dataframes(dmv, dbv))
+        if __check__:
+            dm = dm_yes_ode
+            check_var(db, dm)
+            print ('db.data', check_data(db, dm))
+            dmv = pd.read_csv(dm.path.parent / 'variable.csv')
+            os.system(f'dismodat.py {db.path} db2csv')
+            dbv = pd.read_csv(db.path.parent / 'variable.csv')
+            print ('variable.csv', compare_dataframes(dmv, dbv))
 
 if __name__ == '__main__':
-    # the following are broken 
+    # the following fail
+
+    for case in ['t1_diabetes']: # dismod doesn't converge -- needs Brad's settings
+    # for case in ['dialysis']: # RE hessian failure -- needs Brad's settings
 
     # the following are all OK 
 
@@ -882,9 +917,7 @@ if __name__ == '__main__':
     # for case in ['osteo_hip',]:
     # for case in ['osteo_knee',]:
     # for case in ['dialysis']:
-    for case in ['osteo_hip','osteo_knee','crohns', 'kidney']: # ,'t1_diabetes', 'dialysis'
-        # 'dialysis' RE hessian failure -- needs Brad's settings
-        # 't1_diabetes' dismod doesn't converge -- needs Brad's settings
+    # for case in ['osteo_hip','osteo_knee','crohns', 'kidney']: # ,'t1_diabetes', 'dialysis'
         print ('>>>', case, '<<<')
 
         if 1:
@@ -904,7 +937,7 @@ if __name__ == '__main__':
             system(f'dismod_at {temp_file} fit both')
             system(f'dismod_at {temp_file} sample asymptotic both 10')
 
-            check_last_command(db)
+            assert check_last_command(db)
 
 
             if 0:
@@ -923,7 +956,7 @@ if __name__ == '__main__':
         db.data = data[db.data.columns]
         system(f'dismod_at {temp_file} set start_var fit_var')
         system(f'dismod_at {temp_file} fit both')
-        check_last_command(db)
+        assert check_last_command(db)
 
 
         os.system(f'DB_plot.py {temp_file} -v 475882')
