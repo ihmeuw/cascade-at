@@ -1,3 +1,47 @@
+"""
+
+        system(f'dismod_at {temp_file} set start_var fit_var')
+        if 1:
+            dm = dmy
+            system(f'dismod_at {temp_file} fit both')
+            system(f'dismod_at {temp_file} sample asymptotic both 10')
+
+            assert check_last_command(db)
+
+
+            if 0:
+                print ('Are the two var tables alike?')
+                print ((db.var.fillna(-1) == dm.var.fillna(-1)).all())
+                assert np.all((db.var.fillna(-1) == dm.var.fillna(-1)))
+                print ('Are the two data tables alike?')
+                print ((db.data.fillna(-1) == dm.data.fillna(-1)).all())
+                assert np.all((db.data.fillna(-1) == dm.data.fillna(-1)))
+                print ('Are the two mulcov tables alike?')
+                print ((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)).all())
+                assert np.all((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)))
+
+        data['density_id'] = 3
+        data['nu'] = 5
+        db.data = data[db.data.columns]
+        system(f'dismod_at {temp_file} set start_var fit_var')
+        system(f'dismod_at {temp_file} fit both')
+        assert check_last_command(db)
+
+
+        os.system(f'DB_plot.py {temp_file} -v 475882')
+
+    sys.path.append('/opt/prefix/dismod_at/lib/python3.8/site-packages')
+    from dismod_at.ihme.t1_diabetes import relative_path
+    brad = DismodIO(Path('/Users/gma/ihme/epi/at_cascade') / relative_path)
+    brad2 = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
+    for iid in brad.data.integrand_id.unique():
+        print (brad.path, iid, len(brad.data[brad.data.integrand_id == iid]))
+        print (brad2.path, iid, len(brad2.data[brad2.data.integrand_id == iid]))
+
+        print (original_file, iid, len(db.data[db.data.integrand_id == iid]))
+
+"""
+
 import sys
 import os
 import shutil
@@ -7,6 +51,7 @@ import numpy as np
 import pandas as pd
 import random
 import time
+import tempfile
 from pathlib import Path
 
 """
@@ -227,13 +272,13 @@ class FitNoODE(DismodIO):
             print( msg )
 
         data = db.data.merge(db.integrand, how='left')
-        density_id = int(db.density.loc[db.density.density_name == density_name, 'density_id'])
         #
+        density_id = int(db.density.loc[db.density.density_name == density_name, 'density_id'])
         mask = data.integrand_name == integrand_name
         if factor_eta is None :
             eta = None
         else :
-            median = data[mask].median
+            median = data.meas_value[mask].median()
             eta = factor_eta * median
             data.loc[mask, 'density_id'] = density_id
             data.loc[mask, 'eta'] = eta
@@ -711,8 +756,13 @@ class FitNoODE(DismodIO):
     def fit_no_ode(db, random_seed = None, max_num_iter_fixed = 100):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
         system(f'dismod_at {db.path} set option max_num_iter_fixed {max_num_iter_fixed}')
+
+        t0 = time.time()
         system(f'dismod_at {db.path} fit both')
+        print(f'fit_no_ode time = str(round(time.time() - t0)) seconds.')
+
         assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
+
         system(f'dismod_at {db.path} predict fit_var')
         assert db.check_last_command('predict'), 'Exiting due to problems with this predict command'
 
@@ -726,14 +776,14 @@ class FitNoODE(DismodIO):
         yes_ode_integrands = db.get_integrand_list(True)
         for integrand_name in yes_ode_integrands :
             db.hold_out_data(integrand_names = integrand_name, hold_out = 0)
-            # exclude integerands that are just used to get starting value
+        # exclude integrands that are just used to get starting value
         for integrand_name in ode_hold_out_list :
             db.hold_out_data(integrand_names = integrand_name, hold_out = 1)
+
         t0 = time.time()
         system(f'dismod_at {db.path} fit both')
-        msg  = 'fit_with_ode time = '
-        msg += str( round( time.time() - t0 ) ) + ' seconds'
-        print(msg)
+        print(f'fit_with_ode time = str(round(time.time() - t0)) seconds.')
+
         assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
 
     def fit_students(db, max_num_iter_fixed = 100):
@@ -742,12 +792,29 @@ class FitNoODE(DismodIO):
         # use previous fit as starting point
         system(f'dismod_at {db.path} set start_var fit_var')
 
-        db.data = data
-        data['density_id'] = 3
-        data['nu'] = 5
-        db.data = data
-        system(f'dismod_at {temp_file} fit both')
+        # put ode integrands data back in the fit
+        yes_ode_integrands = db.get_integrand_list(True)
+        for integrand_name in yes_ode_integrands :
+            db.hold_out_data(integrand_names = integrand_name, hold_out = 0)
+        # exclude integrands that are just used to get starting value
+        for integrand_name in ode_hold_out_list :
+            db.hold_out_data(integrand_names = integrand_name, hold_out = 1)
+
+        integrand_list = db.integrand.loc[db.data.integrand_id.unique(), 'integrand_name'].tolist()
+        density_name   = 'log_students'
+        factor_eta     = 1e-2
+        nu             = 5
+        for integrand_name in integrand_list :
+            db.set_data_likelihood(integrand_name, density_name, factor_eta, nu)
+
+        t0 = time.time()
+        system(f'dismod_at {db.path} fit both')
+        print(f'fit_students time = str(round(time.time() - t0)) seconds.')
+
         assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
+
+        system(f'dismod_at {db.path} predict fit_var')
+        assert db.check_last_command('predict'), 'Exiting due to problems with this predict command'
 
     def check_ones_covariate(db):
         data = db.data
@@ -821,7 +888,7 @@ if __name__ == '__main__':
             print ('init_no_ode:')
             print (vd0.loc[mask0, mask1].merge(d0[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
             raise Exception ('ERROR -- var tables do not agree')
-    def test(case):
+    def test_cases(case):
         crohns = '/Users/gma/ihme/epi/at_cascade/data/475533/dbs/1/2/dismod.db'
         dialysis = '/Users/gma/ihme/epi/at_cascade/data/475527/dbs/96/2/dismod.db'
         kidney = '/Users/gma/ihme/epi/at_cascade/data/475718/dbs/70/1/dismod.db'
@@ -859,12 +926,18 @@ if __name__ == '__main__':
 
         global dm, db
 
+        return original_file, max_covariate_effect, ode_hold_out_list
+
+    def test(case, original_file, max_covariate_effect, ode_hold_out_list): 
+
         dm_no_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/no_ode/no_ode.db')
         dm_yes_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/yes_ode/yes_ode.db')
+        dm_students = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/students/students.db')
 
         assert os.path.exists(original_file)
         temp_file = '/tmp/temp.db'
         shutil.copy2(original_file, temp_file)
+        global db
         db = FitNoODE(Path(temp_file))
         
         if 0:
@@ -904,71 +977,73 @@ if __name__ == '__main__':
             dbv = pd.read_csv(db.path.parent / 'variable.csv')
             print ('variable.csv', compare_dataframes(dmv, dbv))
 
+        if 1:
+            db.fit_students(max_num_iter_fixed = 500)
+
+            if __check__:
+                dm = dm_students
+                check_var(db, dm)
+                print ('db.data', check_data(db, dm))
+                dmv = pd.read_csv(dm.path.parent / 'variable.csv')
+                os.system(f'dismodat.py {db.path} db2csv')
+                dbv = pd.read_csv(db.path.parent / 'variable.csv')
+                print ('variable.csv', compare_dataframes(dmv, dbv))
+
+
 if __name__ == '__main__':
     # the following fail
 
-    for case in ['t1_diabetes']: # dismod doesn't converge -- needs Brad's settings
+    # for case in ['t1_diabetes']: # dismod doesn't converge -- needs Brad's settings
     # for case in ['dialysis']: # RE hessian failure -- needs Brad's settings
 
     # the following are all OK 
 
     # for case in ['crohns']:
     # for case in ['kidney']:
-    # for case in ['osteo_hip',]:
+    for case in ['osteo_hip',]:
     # for case in ['osteo_knee',]:
     # for case in ['dialysis']:
     # for case in ['osteo_hip','osteo_knee','crohns', 'kidney']: # ,'t1_diabetes', 'dialysis'
         print ('>>>', case, '<<<')
 
         if 1:
-            cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123'
-            print (cmd); os.system(cmd)
-        if 0:
-            cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode'
-            print (cmd); os.system(cmd)
-        test(case)
-
-
-        """
-
-        system(f'dismod_at {temp_file} set start_var fit_var')
-        if 1:
-            dm = dmy
-            system(f'dismod_at {temp_file} fit both')
-            system(f'dismod_at {temp_file} sample asymptotic both 10')
-
-            assert check_last_command(db)
-
-
             if 0:
-                print ('Are the two var tables alike?')
-                print ((db.var.fillna(-1) == dm.var.fillna(-1)).all())
-                assert np.all((db.var.fillna(-1) == dm.var.fillna(-1)))
-                print ('Are the two data tables alike?')
-                print ((db.data.fillna(-1) == dm.data.fillna(-1)).all())
-                assert np.all((db.data.fillna(-1) == dm.data.fillna(-1)))
-                print ('Are the two mulcov tables alike?')
-                print ((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)).all())
-                assert np.all((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)))
+                if 1:
+                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123'
+                    print (cmd); os.system(cmd)
+                if 1:
+                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode'
+                    print (cmd); os.system(cmd)
+                if 1:
+                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} students'
+                    print (cmd); os.system(cmd)
 
-        data['density_id'] = 3
-        data['nu'] = 5
-        db.data = data[db.data.columns]
-        system(f'dismod_at {temp_file} set start_var fit_var')
-        system(f'dismod_at {temp_file} fit both')
-        assert check_last_command(db)
+            original_file, max_covariate_effect, ode_hold_out_list = test_cases(case)  
+            test(case, original_file, max_covariate_effect, ode_hold_out_list)
 
+        else:
 
-        os.system(f'DB_plot.py {temp_file} -v 475882')
+            dm_no_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/no_ode/no_ode.db')
+            dm_yes_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/yes_ode/yes_ode.db')
+            dm_students = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/students/students.db')
 
-    sys.path.append('/opt/prefix/dismod_at/lib/python3.8/site-packages')
-    from dismod_at.ihme.t1_diabetes import relative_path
-    brad = DismodIO(Path('/Users/gma/ihme/epi/at_cascade') / relative_path)
-    brad2 = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
-    for iid in brad.data.integrand_id.unique():
-        print (brad.path, iid, len(brad.data[brad.data.integrand_id == iid]))
-        print (brad2.path, iid, len(brad2.data[brad2.data.integrand_id == iid]))
+            original_file, max_covariate_effect, ode_hold_out_list = test_cases(case)  
+            fd, temp_file = tempfile.mkstemp(prefix='dismod_', suffix='_no_ode.db')
+            shutil.copy2(original_file, temp_file)
+            no_ode_db = FitNoODE(Path(temp_file))
 
-        print (original_file, iid, len(db.data[db.data.integrand_id == iid]))
+            no_ode_db.setup_no_ode_fit(max_covariate_effect, random_seed = 123)
+            no_ode_db.fit_no_ode(max_num_iter_fixed = 500)
 
-    """
+            fit_var = no_ode_db.fit_var
+
+            fd, temp_file2 = tempfile.mkstemp(prefix='dismod_', suffix='_no_ode.db')
+            shutil.copy2(original_file, temp_file2)
+            yes_ode_db = FitNoODE(Path(temp_file2))
+
+            yes_ode_db.setup_no_ode_fit(max_covariate_effect, random_seed = 123)
+            yes_ode_db.fit_var = fit_var
+            os.system(f'dismod_at {yes_ode_db.path} set start_var fit_var')
+            yes_ode_db.fit_no_ode(max_num_iter_fixed = 500)
+            
+            
