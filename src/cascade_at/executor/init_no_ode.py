@@ -790,7 +790,7 @@ class FitNoODE(DismodIO):
 
         db.set_avgint(integrands)
 
-    def fit_no_ode(db, random_seed = None, max_num_iter_fixed = 100, before = null, after = null):
+    def fit_no_ode(db, max_num_iter_fixed = 100, before = null, after = null):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
         system(f'dismod_at {db.path} set option max_num_iter_fixed {max_num_iter_fixed}')
 
@@ -805,11 +805,15 @@ class FitNoODE(DismodIO):
         system(f'dismod_at {db.path} predict fit_var')
         assert db.check_last_command('predict'), 'Exiting due to problems with this predict command'
 
-    def fit_yes_ode(db, max_num_iter_fixed = 100, before = null, after = null):
+    def fit_yes_ode(db, max_num_iter_fixed = 100, before = null, after = null, previous_fit_path = None):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
 
-        # use previous fit as starting point
-        system(f'dismod_at {db.path} set start_var fit_var')
+        if previous_fit_path and os.path.exists(previous_fit_path):
+            fit_db = DismodIO(previous_fit_path)
+            db.fit_var = fit_db.fit_var
+
+            # use previous fit as starting point
+            system(f'dismod_at {db.path} set start_var fit_var')
 
         before(db)
         t0 = time.time()
@@ -819,11 +823,14 @@ class FitNoODE(DismodIO):
 
         after(db)
 
-    def fit_students(db, max_num_iter_fixed = 100, before = null, after = null):
+    def fit_students(db, max_num_iter_fixed = 100, before = null, after = null, previous_fit_path = None):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
 
-        # use previous fit as starting point
-        system(f'dismod_at {db.path} set start_var fit_var')
+        if previous_fit_path and os.path.exists(previous_fit_path):
+            fit_db = DismodIO(previous_fit_path)
+            db.fit_var = fit_db.fit_var
+            # use previous fit as starting point
+            system(f'dismod_at {db.path} set start_var fit_var')
 
         integrand_list = db.integrand.loc[db.data.integrand_id.unique(), 'integrand_name'].tolist()
         density_name   = 'log_students'
@@ -915,6 +922,7 @@ if __name__ == '__main__':
             print ('init_no_ode:')
             print (vd0.loc[mask0, mask1].merge(d0[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
             raise Exception ('ERROR -- var tables do not agree')
+
     def test_cases(case):
         crohns = '/Users/gma/ihme/epi/at_cascade/data/475533/dbs/1/2/dismod.db'
         dialysis = '/Users/gma/ihme/epi/at_cascade/data/475527/dbs/96/2/dismod.db'
@@ -990,6 +998,7 @@ if __name__ == '__main__':
                 check_var(db, dm)
                 print ('Check input tables OK')
             except Exception as ex:
+                breakpoint()
                 print ('\n\n\n          FUCK!!!!! \n\n\n')
                 print (ex)
 
@@ -1006,17 +1015,14 @@ if __name__ == '__main__':
                 print ('\n\n\n          FUCK!!!!! \n\n\n')
                 print (ex)
 
-        dm_no_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/no_ode/no_ode.db')
-        dm_yes_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/yes_ode/yes_ode.db')
-        dm_students = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/students/students.db')
+        def setup_db(original_file):
+            assert os.path.exists(original_file)
+            temp_file = '/tmp/temp.db'
+            shutil.copy2(original_file, temp_file)
+            global db, db_original
+            db = FitNoODE(Path(temp_file))
+            return db
 
-        assert os.path.exists(original_file)
-        temp_file = '/tmp/temp.db'
-        shutil.copy2(original_file, temp_file)
-        global db, db_original
-        db_original = DismodIO(original_file)
-        db = FitNoODE(Path(temp_file))
-        
         if 0:
             def rate_mulcov_priors(db):
                 prior_ids = db.smooth_grid.loc[db.smooth_grid.smooth_id.isin(db.var[-2:].smooth_id),
@@ -1026,84 +1032,100 @@ if __name__ == '__main__':
             print (rate_mulcov_priors(DismodIO(original_file)))
             print (rate_mulcov_priors(DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')))
 
-
+        fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
+        dm_no_ode = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db')
+        dm_yes_ode = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db')
+        dm_students = DismodIO(f'{fit_ihme_path}/students/students.db')
+        cascade_path = f'/Users/gma/ihme/epi/at_cascade/{case}/cascade'
+        if not os.path.isdir(cascade_path):
+            os.mkdir(cascade_path)
+        path_no_ode = f'{fit_ihme_path}/cascade/no_ode.db'
+        path_yes_ode = f'{fit_ihme_path}/cascade/yes_ode.db'
+        path_students = f'{fit_ihme_path}/cascade/students.db'
+        
         no_ode = True
         yes_ode = True
-        students = not True
+        students = True
         subsample = True
         __check__ = True
         __run_fit_ihme__ = not True
-        if no_ode:
-            print ('--- no_ode ---')
-            db.setup_ode_fit(max_covariate_effect, random_seed = 123, fit = 'no_ode', ode_hold_out_list = ode_hold_out_list,
-                             mulcov_values = mulcov_values, subsample = subsample)
-            system(f'dismod_at {db.path} init')
 
+        kwds = dict(random_seed = 123, ode_hold_out_list = ode_hold_out_list,
+                    mulcov_values = mulcov_values, subsample = subsample)
+        if no_ode:
+            before = after = null
             if __check__:
                 if __run_fit_ihme__:
                     cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123'
                     print (cmd); os.system(cmd)
-                if case == 'crohns':
-                    fix_data_table(db, dm_no_ode)
 
                 def before(db):
                     check_input_tables(db, dm = dm_no_ode, check_hold_out = True)
                 def after(db):
                     check_output_tables(db, dm = dm_no_ode)
 
+            print ('--- no_ode ---')
+            db = setup_db(original_file)
+            db.setup_ode_fit(max_covariate_effect, fit = 'no_ode', **kwds)
+
+            if __check__ and case == 'crohns':
+                fix_data_table(db, dm_no_ode)
+
+            system(f'dismod_at {db.path} init')
             db.fit_no_ode(max_num_iter_fixed = 500, before = before, after = after)
 
-            shutil.copy2(db.path, f'{db.path}_no_ode')
-
-            if subsample:
-                # Restore the original data
-                db.data = db.input_data
+            shutil.copy2(db.path, path_no_ode)
 
         if yes_ode:
-            print ('--- yes_ode ---')
-            db.setup_ode_fit(max_covariate_effect, random_seed = 123, fit = 'yes_ode', ode_hold_out_list = ode_hold_out_list,
-                             subsample = subsample)
-
+            before = after = null
             if __check__:
                 if __run_fit_ihme__:
                     cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode'
                     print (cmd); os.system(cmd)
-                if case == 'crohns':
-                    fix_data_table(db, dm_yes_ode)
 
                 def before (db):
                     check_input_tables(db, dm_yes_ode, check_hold_out = True)
                 def after(db):
                     check_output_tables(db, dm = dm_yes_ode)
 
-            db.fit_yes_ode(max_num_iter_fixed = 500, before = before, after = after)
+            print ('--- yes_ode ---')
 
-            shutil.copy2(db.path, f'{db.path}_yes_ode')
+            db = setup_db(original_file)
+            db.setup_ode_fit(max_covariate_effect, fit = 'yes_ode', **kwds)
 
-            if subsample:
-                # Restore the original data
-                db.data = db.input_data
+            if __check__ and case == 'crohns':
+                fix_data_table(db, dm_yes_ode)
+
+            system(f'dismod_at {db.path} init')
+            db.fit_yes_ode(max_num_iter_fixed = 500, before = before, after = after,
+                           previous_fit_path = path_no_ode)
+
+            shutil.copy2(db.path, path_yes_ode)
 
         if students:
-            print ('--- students ---')
-            db.setup_ode_fit(max_covariate_effect, random_seed = 123, fit = 'yes_ode', ode_hold_out_list = ode_hold_out_list,
-                             subsample = subsample)
-
+            before = after = null
             if __check__:
                 if __run_fit_ihme__:
                     cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} students'
                     print (cmd); os.system(cmd)
-                    if case == 'crohns':
-                        fix_data_table(db, dm_students)
 
                 def before (db):
                     check_input_tables(db, dm_students, check_hold_out = True)
                 def after(db):
                     check_output_tables(db, dm = dm_students)
 
-            db.fit_students(max_num_iter_fixed = 500, before = before, after = after)
+            print ('--- students ---')
+            db = setup_db(original_file)
 
-            shutil.copy2(db.path, f'{db.path}_students')
+            if __check__ and case == 'crohns':
+                fix_data_table(db, dm_students)
+
+            db.setup_ode_fit(max_covariate_effect, fit = 'students', **kwds)
+            system(f'dismod_at {db.path} init')
+            db.fit_students(max_num_iter_fixed = 500, before = before, after = after,
+                            previous_fit_path = path_yes_ode)
+
+            shutil.copy2(db.path, path_students)
 
 
 if __name__ == '__main__':
@@ -1114,14 +1136,14 @@ if __name__ == '__main__':
 
     # the following are all OK 
 
-    for case in ['crohns']:
+    # for case in ['crohns']:
     # for case in ['kidney']:
     
     # for case in ['osteo_hip',]:
     # for case in ['osteo_knee',]:
     # for case in ['dialysis']:
-
-    # for case in ['osteo_hip','osteo_knee', 'kidney', 'dialysis','crohns']: # ,'t1_diabetes'
+    
+    for case in ['osteo_hip','osteo_knee', 'kidney', 'dialysis','crohns']: # ,'t1_diabetes'
         print ('>>>', case, '<<<')
 
         original_file, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case)  
