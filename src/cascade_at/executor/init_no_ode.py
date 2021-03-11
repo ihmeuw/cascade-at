@@ -64,6 +64,8 @@ Check prediction
 sys.path.append('/Users/gma/Projects/IHME/GIT/cascade-at/src')
 from cascade_at.dismod.api.dismod_io import DismodIO
 
+def null(*args, **kwds): pass
+
 def system (command) :
     # flush python's pending standard output in case this command generates more standard output
     sys.stdout.flush()
@@ -79,6 +81,7 @@ class FitNoODE(DismodIO):
         super().__init__(*args, **kwds)
         db.predict_integrands   = [ 'susceptible', 'withC' ]
         db.enough_mtspecific = 100
+        db.input_data = db.data
 
     # ============================================================================
     # Utilities that use database tables but do not modify them
@@ -243,11 +246,11 @@ class FitNoODE(DismodIO):
         if isinstance(node_names, str):
             node_names = [node_names]
         data = db.data.merge(db.integrand).merge(db.node)
-        mask = [True]*len(data)
+        mask = [False]*len(data)
         if integrand_names:
-            mask &= data.integrand_name.isin(integrand_names)
+            mask |= data.integrand_name.isin(integrand_names)
         if node_names:
-            mask &= data.node_name.isin(node_names)
+            mask |= data.node_name.isin(node_names)
         print (f"Setting hold_out = {hold_out} for integrand {integrand_names}, node {node_names}")
         data.loc[mask, 'hold_out'] = hold_out
         db.data = data[db.data.columns]
@@ -266,11 +269,6 @@ class FitNoODE(DismodIO):
             msg += ', eta = m*{}'.format(factor_eta)
         if nu is not None :
             msg += ', nu = {}'.format(nu)
-        if factor_eta is not None :
-            msg += '\n' + 12 * ' ' + 'where m is the meadian of the'
-            msg += ' {} data'.format(integrand_name)
-            print( msg )
-
         data = db.data.merge(db.integrand, how='left')
         #
         density_id = int(db.density.loc[db.density.density_name == density_name, 'density_id'])
@@ -284,6 +282,9 @@ class FitNoODE(DismodIO):
             data.loc[mask, 'eta'] = eta
             data.loc[mask, 'nu'] = nu
             db.data = data[db.data.columns]
+
+            msg += f'\n            = {median:6.4f} where m is the median of the {integrand_name} data'
+            print( msg )
 
     def compress_age_time_intervals(db, age_size = 10.0, time_size = 10.0):
         data = db.data
@@ -414,9 +415,10 @@ class FitNoODE(DismodIO):
         covariate = db.covariate
         covariate_name = covariate.loc[covariate_id, 'covariate_name']
         covariate_value = data[covariate_name].tolist()
-        new_reference = getattr(np, reference_name)(covariate_value)
         old_reference  = float(covariate.loc[covariate_id, 'reference'])
+        new_reference = getattr(np, reference_name)(covariate_value)
         #
+        print (777, len(db.data[~db.data.x_0.isna()]), db.data.x_0.median())
         covariate.loc[covariate_id, 'reference'] = new_reference
         #
         msg  = '\nset_covariate_reference\n'
@@ -437,13 +439,11 @@ class FitNoODE(DismodIO):
         # The bounds for an integerand are set to zero if the covariate
         # is identically equalt the reference for that integrand.
         assert max_covariate_effect >= 0.0, 'disease specific max_covariate_effect is negative'
-
         data = db.data
         covariate = db.covariate
         mulcov = db.mulcov
         #
         # difference_dict = covariate minus reference
-        # breakpoint()
         covariate_name = f'x_{covariate_id}'
         reference = float(covariate.loc[covariate_id, 'reference'])
         difference_dict_gma = {integrand_id: (data.loc[(data.integrand_id == integrand_id) & ~data[covariate_name].isna(), covariate_name] - reference).values
@@ -530,6 +530,29 @@ class FitNoODE(DismodIO):
                 msg  = msg.format(integrand_name, covariate_id, max_covariate_effect, lower, upper)
                 print( msg )
         db.mulcov = mulcov
+
+    def set_mulcov_value(db, covariate_name, rate_or_integrand_name, mulcov_value) :
+        # Set the value for a specific covariate multiplier.
+        # The corresponding multiplier must be in the covariate table.
+        # Noise covariate multipliers are not included.
+        #
+        mulcov = (db.mulcov.merge(db.covariate, how='left').merge(db.rate, how='left').merge(db.integrand, how='left'))
+        mask = ((mulcov.covariate_name == covariate_name)
+                & (mulcov.rate_name == rate_or_integrand_name)
+                & mulcov.mulcov_type.isin(['rate_value', 'meas_value']))
+        assert mask.any(), f'Failed to find {covariate_name} for {rate_or_integrand_name} in mulcov table.'
+        matches = mulcov[mask]
+        for i, row in matches.iterrows():
+            lower = upper = mulcov_value
+            group_smooth_id = db.new_bounded_smooth_id(row.group_smooth_id, lower, upper)
+            mulcov.loc[mulcov.mulcov_id == row.mulcov_id, 'group_smooth_id'] = group_smooth_id
+            #
+            subgroup_smooth_id = db.new_bounded_smooth_id(row.subgroup_smooth_id, lower, upper)
+            mulcov.loc[mulcov.mulcov_id == row.mulcov_id, 'subgroup_smooth_id'] = subgroup_smooth_id
+            print (f'\nset_mulcov_value')
+            print (f'covariate = {covariate_name}, {row.mulcov_type}  = {rate_or_integrand_name}, value = {mulcov_value:.5g}')
+        #
+        db.mulcov = mulcov[db.mulcov.columns]
 
     def add_meas_noise_mulcov(db, integrand_name, group_id, factor) :
         # Add a meas_noise covariate multiplier for a specified integrand.
@@ -667,7 +690,7 @@ class FitNoODE(DismodIO):
             print (f"ERROR: dismod_at {command} had errors, warnings, or failed to complete.")
         return rtn
 
-    def set_avgint(db, covariate_integrand_list, directory, which_fit) :
+    def set_avgint(db, covariate_integrand_list) :
         # -----------------------------------------------------------------------
         # create avgint table
         # For each covariate_integrand
@@ -682,7 +705,12 @@ class FitNoODE(DismodIO):
                                            'integrand_id'].tolist()
 
         db.avgint = pd.DataFrame()
-        avgint_cols = db.avgint.columns.tolist() + db.covariate.covariate_name.tolist()
+
+        # First access of an empty db.avgint does not have covariate names. 
+        # Once it is initialized, it does. This is DismodIO weirdness.
+        avgint_cols = db.avgint.columns.tolist()
+        avgint_cols += sorted(set(db.covariate.covariate_name) - set(avgint_cols))
+
         data = db.data[db.data.data_id.isin(db.data_subset.data_id)]
         data = data[data.integrand_id.isin(covariate_id_list)]
         data['avgint_id'] = data['data_id']
@@ -698,7 +726,8 @@ class FitNoODE(DismodIO):
         avgint['avgint_id'] = avgint.index
         db.avgint = avgint
 
-    def setup_no_ode_fit(db, max_covariate_effect, random_seed = None):
+    def setup_ode_fit(db, max_covariate_effect, random_seed = None, fit = None,
+                         ode_hold_out_list = [], mulcov_values = [], subsample = False):
         # seed used to randomly subsample data
         if random_seed in [0, None]:
             random_seed = int( time.time() )
@@ -709,12 +738,13 @@ class FitNoODE(DismodIO):
         db.check_ones_covariate()
         db.fix_ones_covariate_reference()
 
-        # subsetting the data can remove some integrands, so get integrand after
-        db.subset_data() 
-        no_ode_integrands = db.get_integrand_list(False)
+        # subsetting the data can remove some integrands, so get integrands after
+        if subsample:
+            db.subset_data() 
+
         yes_ode_integrands = db.get_integrand_list(True)
+        no_ode_integrands = db.get_integrand_list(False)
         integrands = yes_ode_integrands + no_ode_integrands
-        data_integrands = sorted(set(integrands) - set(['mtall', 'mtother']))
         msg = '\nintegrands   = ' + str( integrands )
         print(msg)
 
@@ -746,59 +776,54 @@ class FitNoODE(DismodIO):
         # set bounds for all the covariates
         for covariate_id in db.covariate.covariate_id.values:
             db.set_mulcov_bound(covariate_id, max_covariate_effect = max_covariate_effect)
+	#
+	# Covariate multipliers that we are setting a specific value for
+	# (this must be done after set_mulcov_bound).
+        for [covariate_name, rate_or_integrand_name, mulcov_value] in mulcov_values :
+            db.set_mulcov_value(covariate_name, rate_or_integrand_name, mulcov_value)
+	#
+	# hold out all ode integrand data
+        if fit == 'no_ode':
+            db.hold_out_data(integrand_names = yes_ode_integrands, hold_out=1)
+        else:
+            db.hold_out_data(integrand_names = ode_hold_out_list, hold_out=1)
 
-        db.hold_out_data(integrand_names = yes_ode_integrands, hold_out=1)
+        db.set_avgint(integrands)
 
-        db.set_avgint(yes_ode_integrands, db.path.parent, 'no_ode')
-
-        system(f'dismod_at {db.path} init')
-
-    def fit_no_ode(db, random_seed = None, max_num_iter_fixed = 100):
+    def fit_no_ode(db, random_seed = None, max_num_iter_fixed = 100, before = null, after = null):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
         system(f'dismod_at {db.path} set option max_num_iter_fixed {max_num_iter_fixed}')
 
+        before(db)
         t0 = time.time()
         system(f'dismod_at {db.path} fit both')
         print(f'fit_no_ode time = str(round(time.time() - t0)) seconds.')
-
         assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
+
+        after(db)
 
         system(f'dismod_at {db.path} predict fit_var')
         assert db.check_last_command('predict'), 'Exiting due to problems with this predict command'
 
-    def fit_yes_ode(db, max_num_iter_fixed = 100, ode_hold_out_list = []):
+    def fit_yes_ode(db, max_num_iter_fixed = 100, before = null, after = null):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
 
         # use previous fit as starting point
         system(f'dismod_at {db.path} set start_var fit_var')
 
-        # put ode integrands data back in the fit
-        yes_ode_integrands = db.get_integrand_list(True)
-        for integrand_name in yes_ode_integrands :
-            db.hold_out_data(integrand_names = integrand_name, hold_out = 0)
-        # exclude integrands that are just used to get starting value
-        for integrand_name in ode_hold_out_list :
-            db.hold_out_data(integrand_names = integrand_name, hold_out = 1)
-
+        before(db)
         t0 = time.time()
         system(f'dismod_at {db.path} fit both')
         print(f'fit_with_ode time = str(round(time.time() - t0)) seconds.')
-
         assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
 
-    def fit_students(db, max_num_iter_fixed = 100):
+        after(db)
+
+    def fit_students(db, max_num_iter_fixed = 100, before = null, after = null):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
 
         # use previous fit as starting point
         system(f'dismod_at {db.path} set start_var fit_var')
-
-        # put ode integrands data back in the fit
-        yes_ode_integrands = db.get_integrand_list(True)
-        for integrand_name in yes_ode_integrands :
-            db.hold_out_data(integrand_names = integrand_name, hold_out = 0)
-        # exclude integrands that are just used to get starting value
-        for integrand_name in ode_hold_out_list :
-            db.hold_out_data(integrand_names = integrand_name, hold_out = 1)
 
         integrand_list = db.integrand.loc[db.data.integrand_id.unique(), 'integrand_name'].tolist()
         density_name   = 'log_students'
@@ -807,11 +832,13 @@ class FitNoODE(DismodIO):
         for integrand_name in integrand_list :
             db.set_data_likelihood(integrand_name, density_name, factor_eta, nu)
 
+        before(db)
         t0 = time.time()
         system(f'dismod_at {db.path} fit both')
         print(f'fit_students time = str(round(time.time() - t0)) seconds.')
-
         assert db.check_last_command('fit'), 'Exiting due to problems with this fit command'
+
+        after(db)
 
         system(f'dismod_at {db.path} predict fit_var')
         assert db.check_last_command('predict'), 'Exiting due to problems with this predict command'
@@ -848,11 +875,11 @@ if __name__ == '__main__':
             print (diff0)
             print (diff1)
             raise Exception('ERROR: dataframes do not match')
-        msg = '' if error.empty else f' within tolerance, (max abs error = {error}'
+        msg = '' if error.empty else f' within tolerance, max(abs(error)) = {error}'
         return f'dataframes are equal{msg}.'
 
-    def check_data(db0, db1):
-        return compare_dataframes(db0.data, db1.data)
+    def check_data(data0, data1):
+        return compare_dataframes(data0, data1)
 
     def check_var(db0, db1):
         def var_values(db):
@@ -901,34 +928,83 @@ if __name__ == '__main__':
             original_file = t1_diabetes
             max_covariate_effect = 2
             ode_hold_out_list = ['mtexcess']
+            mulcov_values = []
         elif case == 'crohns':
             original_file = crohns
-            max_covariate_effect = 4
+            max_covariate_effect = 2
             ode_hold_out_list = []
+            mulcov_values = [[ 'x_0', 'iota', 3.8661 ]]
         elif case == 'dialysis':
             original_file = dialysis
             max_covariate_effect = 4
             ode_hold_out_list = []
+            mulcov_values = []
         elif case == 'kidney':
             original_file = kidney
             max_covariate_effect = 2
             ode_hold_out_list = []
+            mulcov_values = []
         elif case == 'osteo_hip':
             original_file = osteo_hip
             max_covariate_effect = 2
             ode_hold_out_list = []
+            mulcov_values = []
         elif case == 'osteo_knee':
             original_file = osteo_knee
             max_covariate_effect = 2
             ode_hold_out_list = []
+            mulcov_values = []
         else:
             raise Exception(f'Disease {case} not found')
 
         global dm, db
 
-        return original_file, max_covariate_effect, ode_hold_out_list
+        return original_file, max_covariate_effect, ode_hold_out_list, mulcov_values
 
-    def test(case, original_file, max_covariate_effect, ode_hold_out_list): 
+
+
+    def test(case, original_file, max_covariate_effect, ode_hold_out_list, mulcov_values): 
+
+        def fix_data_table(db, dm):
+            # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
+            # This causes divergence in the fit results
+            mask = (dm.data.fillna(-1) != db.data.fillna(-1))
+            mask0 = mask.any(1)
+            data = db.data
+            diff = np.max(np.abs(dm.data.values[mask] - data.values[mask]))
+            assert diff < 1e-10, 'Error was too large'
+            if np.any(mask):
+                print (f'WARNING -- fixed {np.sum(mask.values)} slight differences max ({diff}) between fit_ihme and this data table.')
+            data[mask0] = dm.data[mask0]
+            db.data = data
+            assert np.all(dm.data.fillna(-1) == db.data.fillna(-1)) , 'Assignment in fix_data_table  failed'
+
+        def check_input_tables(db, dm=None, check_hold_out = True):
+            print (f'+++ db.path {db.path}')
+            print (f'+++ dm.path {dm.path}')
+            try:
+                if check_hold_out:
+                    print ('db.data', check_data(db.data, dm.data))
+                else:
+                    print ('db.data', check_data(db.data.drop(columns = 'hold_out'), dm.data.drop(columns = 'hold_out')))
+                check_var(db, dm)
+                print ('Check input tables OK')
+            except Exception as ex:
+                print ('\n\n\n          FUCK!!!!! \n\n\n')
+                print (ex)
+
+        def check_output_tables(db, dm=None):
+            print (f'+++ db.path {db.path}')
+            print (f'+++ dm.path {dm.path}')
+            try:
+                dmv = pd.read_csv(dm.path.parent / 'variable.csv')
+                os.system(f'dismodat.py {db.path} db2csv')
+                dbv = pd.read_csv(db.path.parent / 'variable.csv')
+                print ('variable.csv', compare_dataframes(dmv, dbv))
+                print ('Check output tables OK')
+            except Exception as ex:
+                print ('\n\n\n          FUCK!!!!! \n\n\n')
+                print (ex)
 
         dm_no_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/no_ode/no_ode.db')
         dm_yes_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/yes_ode/yes_ode.db')
@@ -937,7 +1013,8 @@ if __name__ == '__main__':
         assert os.path.exists(original_file)
         temp_file = '/tmp/temp.db'
         shutil.copy2(original_file, temp_file)
-        global db
+        global db, db_original
+        db_original = DismodIO(original_file)
         db = FitNoODE(Path(temp_file))
         
         if 0:
@@ -950,44 +1027,83 @@ if __name__ == '__main__':
             print (rate_mulcov_priors(DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')))
 
 
-        db.setup_no_ode_fit(max_covariate_effect, random_seed = 123)
-
+        no_ode = True
+        yes_ode = True
+        students = not True
+        subsample = True
         __check__ = True
-
-        if __check__:
-            dm = dm_no_ode
-            check_var(db, dm)
-            print ('db.data', check_data(db, dm))
-        db.fit_no_ode(max_num_iter_fixed = 500)
-
-        if __check__:
-            dmv = pd.read_csv(dm.path.parent / 'variable.csv')
-            os.system(f'dismodat.py {db.path} db2csv')
-            dbv = pd.read_csv(db.path.parent / 'variable.csv')
-            print ('variable.csv', compare_dataframes(dmv, dbv))
-
-        db.fit_yes_ode(max_num_iter_fixed = 500, ode_hold_out_list = ode_hold_out_list)
-
-        if __check__:
-            dm = dm_yes_ode
-            check_var(db, dm)
-            print ('db.data', check_data(db, dm))
-            dmv = pd.read_csv(dm.path.parent / 'variable.csv')
-            os.system(f'dismodat.py {db.path} db2csv')
-            dbv = pd.read_csv(db.path.parent / 'variable.csv')
-            print ('variable.csv', compare_dataframes(dmv, dbv))
-
-        if 1:
-            db.fit_students(max_num_iter_fixed = 500)
+        __run_fit_ihme__ = not True
+        if no_ode:
+            print ('--- no_ode ---')
+            db.setup_ode_fit(max_covariate_effect, random_seed = 123, fit = 'no_ode', ode_hold_out_list = ode_hold_out_list,
+                             mulcov_values = mulcov_values, subsample = subsample)
+            system(f'dismod_at {db.path} init')
 
             if __check__:
-                dm = dm_students
-                check_var(db, dm)
-                print ('db.data', check_data(db, dm))
-                dmv = pd.read_csv(dm.path.parent / 'variable.csv')
-                os.system(f'dismodat.py {db.path} db2csv')
-                dbv = pd.read_csv(db.path.parent / 'variable.csv')
-                print ('variable.csv', compare_dataframes(dmv, dbv))
+                if __run_fit_ihme__:
+                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123'
+                    print (cmd); os.system(cmd)
+                if case == 'crohns':
+                    fix_data_table(db, dm_no_ode)
+
+                def before(db):
+                    check_input_tables(db, dm = dm_no_ode, check_hold_out = True)
+                def after(db):
+                    check_output_tables(db, dm = dm_no_ode)
+
+            db.fit_no_ode(max_num_iter_fixed = 500, before = before, after = after)
+
+            shutil.copy2(db.path, f'{db.path}_no_ode')
+
+            if subsample:
+                # Restore the original data
+                db.data = db.input_data
+
+        if yes_ode:
+            print ('--- yes_ode ---')
+            db.setup_ode_fit(max_covariate_effect, random_seed = 123, fit = 'yes_ode', ode_hold_out_list = ode_hold_out_list,
+                             subsample = subsample)
+
+            if __check__:
+                if __run_fit_ihme__:
+                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode'
+                    print (cmd); os.system(cmd)
+                if case == 'crohns':
+                    fix_data_table(db, dm_yes_ode)
+
+                def before (db):
+                    check_input_tables(db, dm_yes_ode, check_hold_out = True)
+                def after(db):
+                    check_output_tables(db, dm = dm_yes_ode)
+
+            db.fit_yes_ode(max_num_iter_fixed = 500, before = before, after = after)
+
+            shutil.copy2(db.path, f'{db.path}_yes_ode')
+
+            if subsample:
+                # Restore the original data
+                db.data = db.input_data
+
+        if students:
+            print ('--- students ---')
+            db.setup_ode_fit(max_covariate_effect, random_seed = 123, fit = 'yes_ode', ode_hold_out_list = ode_hold_out_list,
+                             subsample = subsample)
+
+            if __check__:
+                if __run_fit_ihme__:
+                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} students'
+                    print (cmd); os.system(cmd)
+                    if case == 'crohns':
+                        fix_data_table(db, dm_students)
+
+                def before (db):
+                    check_input_tables(db, dm_students, check_hold_out = True)
+                def after(db):
+                    check_output_tables(db, dm = dm_students)
+
+            db.fit_students(max_num_iter_fixed = 500, before = before, after = after)
+
+            shutil.copy2(db.path, f'{db.path}_students')
 
 
 if __name__ == '__main__':
@@ -998,52 +1114,15 @@ if __name__ == '__main__':
 
     # the following are all OK 
 
-    # for case in ['crohns']:
+    for case in ['crohns']:
     # for case in ['kidney']:
-    for case in ['osteo_hip',]:
+    
+    # for case in ['osteo_hip',]:
     # for case in ['osteo_knee',]:
     # for case in ['dialysis']:
-    # for case in ['osteo_hip','osteo_knee','crohns', 'kidney']: # ,'t1_diabetes', 'dialysis'
+
+    # for case in ['osteo_hip','osteo_knee', 'kidney', 'dialysis','crohns']: # ,'t1_diabetes'
         print ('>>>', case, '<<<')
 
-        if 1:
-            if 0:
-                if 1:
-                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123'
-                    print (cmd); os.system(cmd)
-                if 1:
-                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} yes_ode'
-                    print (cmd); os.system(cmd)
-                if 1:
-                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} students'
-                    print (cmd); os.system(cmd)
-
-            original_file, max_covariate_effect, ode_hold_out_list = test_cases(case)  
-            test(case, original_file, max_covariate_effect, ode_hold_out_list)
-
-        else:
-
-            dm_no_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/no_ode/no_ode.db')
-            dm_yes_ode = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/yes_ode/yes_ode.db')
-            dm_students = DismodIO(f'/Users/gma/ihme/epi/at_cascade/{case}/students/students.db')
-
-            original_file, max_covariate_effect, ode_hold_out_list = test_cases(case)  
-            fd, temp_file = tempfile.mkstemp(prefix='dismod_', suffix='_no_ode.db')
-            shutil.copy2(original_file, temp_file)
-            no_ode_db = FitNoODE(Path(temp_file))
-
-            no_ode_db.setup_no_ode_fit(max_covariate_effect, random_seed = 123)
-            no_ode_db.fit_no_ode(max_num_iter_fixed = 500)
-
-            fit_var = no_ode_db.fit_var
-
-            fd, temp_file2 = tempfile.mkstemp(prefix='dismod_', suffix='_no_ode.db')
-            shutil.copy2(original_file, temp_file2)
-            yes_ode_db = FitNoODE(Path(temp_file2))
-
-            yes_ode_db.setup_no_ode_fit(max_covariate_effect, random_seed = 123)
-            yes_ode_db.fit_var = fit_var
-            os.system(f'dismod_at {yes_ode_db.path} set start_var fit_var')
-            yes_ode_db.fit_no_ode(max_num_iter_fixed = 500)
-            
-            
+        original_file, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case)  
+        test(case, original_file, max_covariate_effect, ode_hold_out_list, mulcov_values)
