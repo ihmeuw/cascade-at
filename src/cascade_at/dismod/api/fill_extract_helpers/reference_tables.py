@@ -138,8 +138,8 @@ def construct_covariate_table(covariates: List[Covariate]) -> pd.DataFrame:
         "covariate_id": np.arange(len(covariates_reordered)),
         "covariate_name": [covariate_rename[col.name] for col in covariates_reordered],
         "c_covariate_name": [col.name for col in covariates_reordered],
-        "reference": np.array([col.reference for col in covariates_reordered], dtype=np.float),
-        "max_difference": np.array([col.max_difference for col in covariates_reordered], dtype=np.float)
+        "reference": np.array([col.reference for col in covariates_reordered], dtype=float),
+        "max_difference": np.array([col.max_difference for col in covariates_reordered], dtype=float)
     })
     return covariate_table
 

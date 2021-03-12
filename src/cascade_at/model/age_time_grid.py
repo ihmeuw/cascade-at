@@ -42,8 +42,8 @@ class AgeTimeGrid:
     """
     def __init__(self, ages, times, columns):
         try:
-            self.ages = np.sort(np.atleast_1d(ages).astype(np.float))
-            self.times = np.sort(np.atleast_1d(times).astype(np.float))
+            self.ages = np.sort(np.atleast_1d(ages).astype(float))
+            self.times = np.sort(np.atleast_1d(times).astype(float))
         except TypeError:
             raise TypeError(f"Ages and times should be arrays of floats {(ages, times)}.")
         type_constraint = "Columns should be either a string or an iterable of strings."
