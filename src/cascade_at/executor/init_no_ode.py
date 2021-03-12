@@ -286,6 +286,14 @@ class FitNoODE(DismodIO):
             msg += f'\n            = {median:6.4f} where m is the median of the {integrand_name} data'
             print( msg )
 
+    def set_student_likelihoods(db, factor_eta = 1e-2, nu = 5):
+        integrand_list = db.integrand.loc[db.data.integrand_id.unique(), 'integrand_name'].tolist()
+        density_name   = 'log_students'
+        factor_eta     = 1e-2
+        nu             = 5
+        for integrand_name in integrand_list :
+            db.set_data_likelihood(integrand_name, density_name, factor_eta, nu)
+
     def compress_age_time_intervals(db, age_size = 10.0, time_size = 10.0):
         data = db.data
         mask = (data.age_upper - data.age_lower) <= age_size
@@ -832,13 +840,6 @@ class FitNoODE(DismodIO):
             # use previous fit as starting point
             system(f'dismod_at {db.path} set start_var fit_var')
 
-        integrand_list = db.integrand.loc[db.data.integrand_id.unique(), 'integrand_name'].tolist()
-        density_name   = 'log_students'
-        factor_eta     = 1e-2
-        nu             = 5
-        for integrand_name in integrand_list :
-            db.set_data_likelihood(integrand_name, density_name, factor_eta, nu)
-
         before(db)
         t0 = time.time()
         system(f'dismod_at {db.path} fit both')
@@ -998,9 +999,7 @@ if __name__ == '__main__':
                 check_var(db, dm)
                 print ('Check input tables OK')
             except Exception as ex:
-                breakpoint()
-                print ('\n\n\n          FUCK!!!!! \n\n\n')
-                print (ex)
+                print ('\n\nERROR in inputs\n\n', ex)
 
         def check_output_tables(db, dm=None):
             print (f'+++ db.path {db.path}')
@@ -1012,8 +1011,7 @@ if __name__ == '__main__':
                 print ('variable.csv', compare_dataframes(dmv, dbv))
                 print ('Check output tables OK')
             except Exception as ex:
-                print ('\n\n\n          FUCK!!!!! \n\n\n')
-                print (ex)
+                print ('\n\nERROR in output\n\n', ex)
 
         def setup_db(original_file):
             assert os.path.exists(original_file)
@@ -1043,8 +1041,8 @@ if __name__ == '__main__':
         path_yes_ode = f'{fit_ihme_path}/cascade/yes_ode.db'
         path_students = f'{fit_ihme_path}/cascade/students.db'
         
-        no_ode = True
-        yes_ode = True
+        no_ode = not True
+        yes_ode = not True
         students = True
         subsample = True
         __check__ = True
@@ -1116,11 +1114,12 @@ if __name__ == '__main__':
 
             print ('--- students ---')
             db = setup_db(original_file)
+            db.setup_ode_fit(max_covariate_effect, fit = 'students', **kwds)
+            db.set_student_likelihoods(db, factor_eta = 1e-2, nu = 5)
 
             if __check__ and case == 'crohns':
                 fix_data_table(db, dm_students)
 
-            db.setup_ode_fit(max_covariate_effect, fit = 'students', **kwds)
             system(f'dismod_at {db.path} init')
             db.fit_students(max_num_iter_fixed = 500, before = before, after = after,
                             previous_fit_path = path_yes_ode)
@@ -1143,7 +1142,7 @@ if __name__ == '__main__':
     # for case in ['osteo_knee',]:
     # for case in ['dialysis']:
     
-    for case in ['osteo_hip','osteo_knee', 'kidney', 'dialysis','crohns']: # ,'t1_diabetes'
+    for case in ['osteo_hip','osteo_knee', 'kidney','crohns']: # , 'dialysis' ,'t1_diabetes'
         print ('>>>', case, '<<<')
 
         original_file, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case)  
