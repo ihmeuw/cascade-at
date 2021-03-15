@@ -793,7 +793,7 @@ class FitNoODE(DismodIO):
 	# hold out all ode integrand data
         if fit == 'no_ode':
             db.hold_out_data(integrand_names = yes_ode_integrands, hold_out=1)
-        else:
+        elif fit == 'yes_ode':
             db.hold_out_data(integrand_names = ode_hold_out_list, hold_out=1)
 
         db.set_avgint(integrands)
@@ -813,15 +813,8 @@ class FitNoODE(DismodIO):
         system(f'dismod_at {db.path} predict fit_var')
         assert db.check_last_command('predict'), 'Exiting due to problems with this predict command'
 
-    def fit_yes_ode(db, max_num_iter_fixed = 100, before = null, after = null, previous_fit_path = None):
+    def fit_yes_ode(db, max_num_iter_fixed = 100, before = null, after = null):
         db.set_option('max_num_iter_fixed', max_num_iter_fixed)
-
-        if previous_fit_path and os.path.exists(previous_fit_path):
-            fit_db = DismodIO(previous_fit_path)
-            db.fit_var = fit_db.fit_var
-
-            # use previous fit as starting point
-            system(f'dismod_at {db.path} set start_var fit_var')
 
         before(db)
         t0 = time.time()
@@ -831,14 +824,21 @@ class FitNoODE(DismodIO):
 
         after(db)
 
-    def fit_students(db, max_num_iter_fixed = 100, before = null, after = null, previous_fit_path = None):
-        db.set_option('max_num_iter_fixed', max_num_iter_fixed)
+    def fit_no_and_yes_ode(db, max_num_iter_fixed = 100, ode_hold_out_list = [], before = null, after = null):
+        data = db.data
+        yes_ode_integrands = db.get_integrand_list(True)
+        db.hold_out_data(integrand_names = yes_ode_integrands, hold_out=1)
+        before(db)
+        db.fit_no_ode(max_num_iter_fixed = max_num_iter_fixed, before = before)
+        db.data = data
+        db.hold_out_data(integrand_names = ode_hold_out_list, hold_out=1)
+        # use previous fit as starting point
+        system(f'dismod_at {db.path} set start_var fit_var')
+        db.fit_yes_ode(max_num_iter_fixed = max_num_iter_fixed, after = after)
+        after(db)
 
-        if previous_fit_path and os.path.exists(previous_fit_path):
-            fit_db = DismodIO(previous_fit_path)
-            db.fit_var = fit_db.fit_var
-            # use previous fit as starting point
-            system(f'dismod_at {db.path} set start_var fit_var')
+    def fit_students(db, max_num_iter_fixed = 100, before = null, after = null):
+        db.set_option('max_num_iter_fixed', max_num_iter_fixed)
 
         before(db)
         t0 = time.time()
@@ -929,6 +929,7 @@ if __name__ == '__main__':
         dialysis = '/Users/gma/ihme/epi/at_cascade/data/475527/dbs/96/2/dismod.db'
         kidney = '/Users/gma/ihme/epi/at_cascade/data/475718/dbs/70/1/dismod.db'
         osteo_hip =  '/Users/gma/ihme/epi/at_cascade/data/475526/dbs/1/2/dismod.db'
+        osteo_hip_world = '/Users/gma/ihme/epi/at_cascade/data/475745/dbs/1/2/dismod.db'
         osteo_knee = '/Users/gma/ihme/epi/at_cascade/data/475746/dbs/64/2/dismod.db'
         t1_diabetes =  '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/100/2/dismod.db'
         #t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db'
@@ -955,6 +956,11 @@ if __name__ == '__main__':
             mulcov_values = []
         elif case == 'osteo_hip':
             original_file = osteo_hip
+            max_covariate_effect = 2
+            ode_hold_out_list = []
+            mulcov_values = []
+        elif case == 'osteo_hip_world':
+            original_file = osteo_hip_world
             max_covariate_effect = 2
             ode_hold_out_list = []
             mulcov_values = []
@@ -1036,20 +1042,48 @@ if __name__ == '__main__':
         dm_students = DismodIO(f'{fit_ihme_path}/students/students.db')
         cascade_path = f'/Users/gma/ihme/epi/at_cascade/{case}/cascade'
         if not os.path.isdir(cascade_path):
-            os.mkdir(cascade_path)
+            os.makedirs(cascade_path, exist_ok=True)
         path_no_ode = f'{fit_ihme_path}/cascade/no_ode.db'
         path_yes_ode = f'{fit_ihme_path}/cascade/yes_ode.db'
         path_students = f'{fit_ihme_path}/cascade/students.db'
         
-        no_ode = not True
-        yes_ode = not True
-        students = True
+        if 0:
+            no_and_yes_ode = False
+            no_ode = True
+            yes_ode = True
+        else:
+            no_and_yes_ode = True
+            no_ode = False
+            yes_ode = False
+
+        students = not True
         subsample = True
         __check__ = True
         __run_fit_ihme__ = not True
 
         kwds = dict(random_seed = 123, ode_hold_out_list = ode_hold_out_list,
                     mulcov_values = mulcov_values, subsample = subsample)
+        if no_and_yes_ode:
+            before = after = null
+            if __check__:
+                if __run_fit_ihme__:
+                    cmd = f'fit_ihme.py ~/ihme/epi/at_cascade {case} no_ode 123'
+                    print (cmd); os.system(cmd)
+
+                def before(db):
+                    check_input_tables(db, dm = dm_no_ode, check_hold_out = True)
+                def after(db):
+                    check_output_tables(db, dm = dm_yes_ode)
+            print ('--- both no and yes ode ---')
+            db = setup_db(original_file)
+            db.setup_ode_fit(max_covariate_effect, **kwds)
+
+            if __check__ and case == 'crohns':
+                fix_data_table(db, dm_no_ode)
+
+            system(f'dismod_at {db.path} init')
+            db.fit_no_and_yes_ode(max_num_iter_fixed = 500, before = before, after = after)
+
         if no_ode:
             before = after = null
             if __check__:
@@ -1095,8 +1129,12 @@ if __name__ == '__main__':
                 fix_data_table(db, dm_yes_ode)
 
             system(f'dismod_at {db.path} init')
-            db.fit_yes_ode(max_num_iter_fixed = 500, before = before, after = after,
-                           previous_fit_path = path_no_ode)
+
+            # use previous fit as starting point
+            db.fit_var = dm_no_ode.fit_var
+            system(f'dismod_at {db.path} set start_var fit_var')
+
+            db.fit_yes_ode(max_num_iter_fixed = 500, before = before, after = after)
 
             shutil.copy2(db.path, path_yes_ode)
 
@@ -1115,14 +1153,18 @@ if __name__ == '__main__':
             print ('--- students ---')
             db = setup_db(original_file)
             db.setup_ode_fit(max_covariate_effect, fit = 'students', **kwds)
-            db.set_student_likelihoods(db, factor_eta = 1e-2, nu = 5)
+            db.set_student_likelihoods(factor_eta = 1e-2, nu = 5)
 
             if __check__ and case == 'crohns':
                 fix_data_table(db, dm_students)
 
             system(f'dismod_at {db.path} init')
-            db.fit_students(max_num_iter_fixed = 500, before = before, after = after,
-                            previous_fit_path = path_yes_ode)
+
+            # use previous fit as starting point
+            db.fit_var = dm_yes_ode.fit_var
+            system(f'dismod_at {db.path} set start_var fit_var')
+
+            db.fit_students(max_num_iter_fixed = 500, before = before, after = after)
 
             shutil.copy2(db.path, path_students)
 
@@ -1139,10 +1181,10 @@ if __name__ == '__main__':
     # for case in ['kidney']:
     
     # for case in ['osteo_hip',]:
-    # for case in ['osteo_knee',]:
+    for case in ['osteo_knee',]:
     # for case in ['dialysis']:
     
-    for case in ['osteo_hip','osteo_knee', 'kidney','crohns']: # , 'dialysis' ,'t1_diabetes'
+    # for case in ['osteo_hip','osteo_knee', 'kidney','crohns']: # , 'dialysis' ,'t1_diabetes'
         print ('>>>', case, '<<<')
 
         original_file, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case)  
