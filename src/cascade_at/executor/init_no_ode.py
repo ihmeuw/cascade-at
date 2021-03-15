@@ -734,7 +734,7 @@ class FitNoODE(DismodIO):
         avgint['avgint_id'] = avgint.index
         db.avgint = avgint
 
-    def setup_ode_fit(db, max_covariate_effect, random_seed = None, fit = None,
+    def setup_ode_fit(db, max_covariate_effect, random_seed = None,
                          ode_hold_out_list = [], mulcov_values = [], subsample = False):
         # seed used to randomly subsample data
         if random_seed in [0, None]:
@@ -743,16 +743,16 @@ class FitNoODE(DismodIO):
         msg = '\nrandom_seed  = ' + str( random_seed )
         print(msg)
 
+        db.ode_hold_out_list = ode_hold_out_list
         db.check_ones_covariate()
         db.fix_ones_covariate_reference()
 
         # subsetting the data can remove some integrands, so get integrands after
         if subsample:
             db.subset_data() 
-
-        yes_ode_integrands = db.get_integrand_list(True)
-        no_ode_integrands = db.get_integrand_list(False)
-        integrands = yes_ode_integrands + no_ode_integrands
+        db.yes_ode_integrands = db.get_integrand_list(True)
+        db.no_ode_integrands = db.get_integrand_list(False)
+        integrands = db.yes_ode_integrands + db.no_ode_integrands
         msg = '\nintegrands   = ' + str( integrands )
         print(msg)
 
@@ -789,13 +789,6 @@ class FitNoODE(DismodIO):
 	# (this must be done after set_mulcov_bound).
         for [covariate_name, rate_or_integrand_name, mulcov_value] in mulcov_values :
             db.set_mulcov_value(covariate_name, rate_or_integrand_name, mulcov_value)
-	#
-	# hold out all ode integrand data
-        if fit == 'no_ode':
-            db.hold_out_data(integrand_names = yes_ode_integrands, hold_out=1)
-        elif fit == 'yes_ode':
-            db.hold_out_data(integrand_names = ode_hold_out_list, hold_out=1)
-
         db.set_avgint(integrands)
 
     def fit_no_ode(db, max_num_iter_fixed = 100, before = null, after = null):
@@ -824,14 +817,14 @@ class FitNoODE(DismodIO):
 
         after(db)
 
-    def fit_no_and_yes_ode(db, max_num_iter_fixed = 100, ode_hold_out_list = [], before = null, after = null):
+    def fit_ode(db, max_num_iter_fixed = 100, ode_hold_out_list = [], before = null, after = null):
+        # Combined no_ode and yes_ode fits
         data = db.data
-        yes_ode_integrands = db.get_integrand_list(True)
-        db.hold_out_data(integrand_names = yes_ode_integrands, hold_out=1)
+        db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
         before(db)
         db.fit_no_ode(max_num_iter_fixed = max_num_iter_fixed, before = before)
         db.data = data
-        db.hold_out_data(integrand_names = ode_hold_out_list, hold_out=1)
+        db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
         # use previous fit as starting point
         system(f'dismod_at {db.path} set start_var fit_var')
         db.fit_yes_ode(max_num_iter_fixed = max_num_iter_fixed, after = after)
@@ -870,6 +863,14 @@ class FitNoODE(DismodIO):
         db.covariate = covariate
 
 if __name__ == '__main__':
+
+    def setup_db(original_file):
+        assert os.path.exists(original_file)
+        temp_file = '/tmp/temp.db'
+        shutil.copy2(original_file, temp_file)
+        global db, db_original
+        db = FitNoODE(Path(temp_file))
+        return db
 
     def compare_dataframes(df0, df1):
         tol = {'atol': 1e-8, 'rtol': 1e-10}
@@ -1018,15 +1019,6 @@ if __name__ == '__main__':
                 print ('Check output tables OK')
             except Exception as ex:
                 print ('\n\nERROR in output\n\n', ex)
-
-        def setup_db(original_file):
-            assert os.path.exists(original_file)
-            temp_file = '/tmp/temp.db'
-            shutil.copy2(original_file, temp_file)
-            global db, db_original
-            db = FitNoODE(Path(temp_file))
-            return db
-
         if 0:
             def rate_mulcov_priors(db):
                 prior_ids = db.smooth_grid.loc[db.smooth_grid.smooth_id.isin(db.var[-2:].smooth_id),
@@ -1047,22 +1039,20 @@ if __name__ == '__main__':
         path_yes_ode = f'{fit_ihme_path}/cascade/yes_ode.db'
         path_students = f'{fit_ihme_path}/cascade/students.db'
         
-        if 0:
+        if 1:
             no_and_yes_ode = False
-            no_ode = True
-            yes_ode = True
-        else:
-            no_and_yes_ode = True
             no_ode = False
             yes_ode = False
 
-        students = not True
+        no_and_yes_ode = True
+        students = True
+
         subsample = True
         __check__ = True
         __run_fit_ihme__ = not True
 
-        kwds = dict(random_seed = 123, ode_hold_out_list = ode_hold_out_list,
-                    mulcov_values = mulcov_values, subsample = subsample)
+        kwds = dict(random_seed = 123, mulcov_values = mulcov_values, subsample = subsample,
+                    ode_hold_out_list = ode_hold_out_list)
         if no_and_yes_ode:
             before = after = null
             if __check__:
@@ -1082,7 +1072,7 @@ if __name__ == '__main__':
                 fix_data_table(db, dm_no_ode)
 
             system(f'dismod_at {db.path} init')
-            db.fit_no_and_yes_ode(max_num_iter_fixed = 500, before = before, after = after)
+            db.fit_ode(max_num_iter_fixed = 500, before = before, after = after)
 
         if no_ode:
             before = after = null
@@ -1098,7 +1088,9 @@ if __name__ == '__main__':
 
             print ('--- no_ode ---')
             db = setup_db(original_file)
-            db.setup_ode_fit(max_covariate_effect, fit = 'no_ode', **kwds)
+
+            db.setup_ode_fit(max_covariate_effect, **kwds)
+            db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
             if __check__ and case == 'crohns':
                 fix_data_table(db, dm_no_ode)
@@ -1123,7 +1115,8 @@ if __name__ == '__main__':
             print ('--- yes_ode ---')
 
             db = setup_db(original_file)
-            db.setup_ode_fit(max_covariate_effect, fit = 'yes_ode', **kwds)
+            db.setup_ode_fit(max_covariate_effect, **kwds)
+            db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
             if __check__ and case == 'crohns':
                 fix_data_table(db, dm_yes_ode)
@@ -1152,7 +1145,7 @@ if __name__ == '__main__':
 
             print ('--- students ---')
             db = setup_db(original_file)
-            db.setup_ode_fit(max_covariate_effect, fit = 'students', **kwds)
+            db.setup_ode_fit(max_covariate_effect, **kwds)
             db.set_student_likelihoods(factor_eta = 1e-2, nu = 5)
 
             if __check__ and case == 'crohns':
