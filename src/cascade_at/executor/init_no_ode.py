@@ -155,6 +155,8 @@ class FitNoODE(DismodIO):
         # The origianl order of the data is preserved (in index plots)
         # by sorting the subsample.
         #
+        # This code may seem a little obtuse, but for comparison, it matches Brad's method
+        #
         data_in = db.data.merge(db.integrand, how='left')
         integrand = data_in[data_in.integrand_name == integrand_name]
         n_sample_out = min(max_sample, len(integrand))
