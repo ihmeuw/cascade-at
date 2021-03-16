@@ -981,10 +981,13 @@ if __name__ == '__main__':
 
     def test(case, original_file, max_covariate_effect, ode_hold_out_list, mulcov_values): 
 
-        def fix_data_table(db, dm):
+        def fix_data_table(db, dm, ignore_hold_out = False):
             # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
             # This causes divergence in the fit results
+            cols = db.data.columns.drop('hold_out')
             mask = (dm.data.fillna(-1) != db.data.fillna(-1))
+            if ignore_hold_out:
+                mask['hold_out'] = False
             mask0 = mask.any(1)
             data = db.data
             diff = np.max(np.abs(dm.data.values[mask] - data.values[mask]))
@@ -993,7 +996,7 @@ if __name__ == '__main__':
                 print (f'WARNING -- fixed {np.sum(mask.values)} slight differences max ({diff}) between fit_ihme and this data table.')
             data[mask0] = dm.data[mask0]
             db.data = data
-            assert np.all(dm.data.fillna(-1) == db.data.fillna(-1)) , 'Assignment in fix_data_table  failed'
+            assert np.all(dm.data[cols].fillna(-1) == db.data[cols].fillna(-1)) , 'Assignment in fix_data_table  failed'
 
         def check_input_tables(db, dm=None, check_hold_out = True):
             print (f'+++ db.path {db.path}')
@@ -1044,7 +1047,12 @@ if __name__ == '__main__':
             no_ode = False
             yes_ode = False
 
+        if 0:
+            no_ode = True
+            yes_ode = True
+
         no_and_yes_ode = True
+            
         students = True
 
         subsample = True
@@ -1069,7 +1077,7 @@ if __name__ == '__main__':
             db.setup_ode_fit(max_covariate_effect, **kwds)
 
             if __check__ and case == 'crohns':
-                fix_data_table(db, dm_no_ode)
+                fix_data_table(db, dm_no_ode, ignore_hold_out = True)
 
             system(f'dismod_at {db.path} init')
             db.fit_ode(max_num_iter_fixed = 500, before = before, after = after)
@@ -1170,11 +1178,11 @@ if __name__ == '__main__':
 
     # the following are all OK 
 
-    # for case in ['crohns']:
+    for case in ['crohns']:
     # for case in ['kidney']:
     
     # for case in ['osteo_hip',]:
-    for case in ['osteo_knee',]:
+    # for case in ['osteo_knee',]:
     # for case in ['dialysis']:
     
     # for case in ['osteo_hip','osteo_knee', 'kidney','crohns']: # , 'dialysis' ,'t1_diabetes'
