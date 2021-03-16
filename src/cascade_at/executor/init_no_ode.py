@@ -155,46 +155,16 @@ class FitNoODE(DismodIO):
         # The origianl order of the data is preserved (in index plots)
         # by sorting the subsample.
         #
-        data = db.data.merge(db.integrand, how='left')
-        table_in = data
-        #
-        # indices for this integrand
-        count = 0
-        count_list = []
-        for i,row in table_in.iterrows() :
-            if row['integrand_name'] == integrand_name :
-                count_list.append(count)
-                count += 1
-        n_sample_in = count
-        #
-        # subsample of indices for this integrand
-        n_sample_out = min(max_sample, n_sample_in)
-        if n_sample_out < n_sample_in :
-            count_list = random.sample(count_list,  n_sample_out)
-            count_list = sorted( count_list )
-        #
-        # subsample the integrand
-        index  = 0
-        count  = 0
-        table_out = []
-        for i,row in table_in.iterrows() :
-            if row['integrand_name'] != integrand_name :
-                table_out.append(dict(row))
-            else :
-                if index < n_sample_out :
-                    if count_list[index] == count :
-                        table_out.append(dict(row))
-                        index += 1
-                count += 1
-        assert index == n_sample_out
-        assert count == n_sample_in
-
-        msg  = '\nrandom_subsample_data\n'
-        msg += 'number of {} samples: in = {} out = {}'
-        print( msg.format(integrand_name, n_sample_in, n_sample_out) )
-        data = pd.DataFrame(table_out)[db.data.columns]
+        data_in = db.data.merge(db.integrand, how='left')
+        integrand = data_in[data_in.integrand_name == integrand_name]
+        n_sample_out = min(max_sample, len(integrand))
+        integrand_indices = random.sample(integrand.index.tolist(), n_sample_out)
+        keep_indices = data_in.index[data_in.integrand_name != integrand_name].tolist()
+        keep_indices = sorted(keep_indices + integrand_indices)
+        data = data_in.loc[keep_indices, db.data.columns].reset_index(drop=True)
         data['data_id'] = data.index
-        db.data = data
+
+        return data
 
     def hold_out_data (db, integrand_names=(), node_names=(), hold_out=False) :
         if isinstance(integrand_names, str):
@@ -717,7 +687,7 @@ class FitNoODE(DismodIO):
                 db.set_covariate_reference(covariate_id)
 
         for integrand in integrands:
-            db.random_subsample_data(integrand, max_sample = 1000)
+            db.data = db.random_subsample_data(integrand, max_sample = 1000)
 
         rate_case = db.get_rate_case()
 
@@ -938,26 +908,26 @@ if __name__ == '__main__':
 
     def test(case, original_file, max_covariate_effect, ode_hold_out_list, mulcov_values): 
 
-    def fix_data_table(db, dm, bypass_hold_out = False):
-        # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
-        # This causes divergence in the fit results
-        if bypass_hold_out:
-            hold_out = db.data.hold_out
-        cols = db.data.columns.drop('hold_out')
-        mask = (dm.data.fillna(-1) != db.data.fillna(-1))
-        if bypass_hold_out:
-            mask['hold_out'] = False
-        mask0 = mask.any(1)
-        data = db.data
-        diff = np.max(np.abs(dm.data.values[mask] - data.values[mask]))
-        assert diff < 1e-10, 'Error was too large'
-        if np.any(mask):
-            print (f'WARNING -- fixed {np.sum(mask.values)} slight differences max ({diff}) between fit_ihme and this data table.')
-        data[mask0] = dm.data[mask0]
-        if bypass_hold_out:
-            data['hold_out'] = hold_out
-        db.data = data
-        assert np.all(dm.data[cols].fillna(-1) == db.data[cols].fillna(-1)) , 'Assignment in fix_data_table  failed'
+        def fix_data_table(db, dm, bypass_hold_out = False):
+            # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
+            # This causes divergence in the fit results
+            if bypass_hold_out:
+                hold_out = db.data.hold_out
+            cols = db.data.columns.drop('hold_out')
+            mask = (dm.data.fillna(-1) != db.data.fillna(-1))
+            if bypass_hold_out:
+                mask['hold_out'] = False
+            mask0 = mask.any(1)
+            data = db.data
+            diff = np.max(np.abs(dm.data.values[mask] - data.values[mask]))
+            assert diff < 1e-10, 'Error was too large'
+            if np.any(mask):
+                print (f'WARNING -- fixed {np.sum(mask.values)} slight differences max ({diff}) between fit_ihme and this data table.')
+            data[mask0] = dm.data[mask0]
+            if bypass_hold_out:
+                data['hold_out'] = hold_out
+            db.data = data
+            assert np.all(dm.data[cols].fillna(-1) == db.data[cols].fillna(-1)) , 'Assignment in fix_data_table  failed'
 
         def check_input_tables(db, dm=None, check_hold_out = True):
             print (f'+++ db.path {db.path}')
@@ -1142,6 +1112,7 @@ if __name__ == '__main__':
 
     # The following are OK 
     # for case in ['osteo_hip','osteo_knee', 'kidney','crohns']: # , 'dialysis' ,'t1_diabetes'
+    for case in ['osteo_knee']:
         print ('>>>', case, '<<<')
 
         original_file, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case)  
