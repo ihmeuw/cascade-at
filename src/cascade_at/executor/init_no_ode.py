@@ -1,47 +1,3 @@
-"""
-
-        system(f'dismod_at {temp_file} set start_var fit_var')
-        if 1:
-            dm = dmy
-            system(f'dismod_at {temp_file} fit both')
-            system(f'dismod_at {temp_file} sample asymptotic both 10')
-
-            assert check_last_command(db)
-
-
-            if 0:
-                print ('Are the two var tables alike?')
-                print ((db.var.fillna(-1) == dm.var.fillna(-1)).all())
-                assert np.all((db.var.fillna(-1) == dm.var.fillna(-1)))
-                print ('Are the two data tables alike?')
-                print ((db.data.fillna(-1) == dm.data.fillna(-1)).all())
-                assert np.all((db.data.fillna(-1) == dm.data.fillna(-1)))
-                print ('Are the two mulcov tables alike?')
-                print ((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)).all())
-                assert np.all((db.mulcov.fillna(-1) == dm.mulcov.fillna(-1)))
-
-        data['density_id'] = 3
-        data['nu'] = 5
-        db.data = data[db.data.columns]
-        system(f'dismod_at {temp_file} set start_var fit_var')
-        system(f'dismod_at {temp_file} fit both')
-        assert check_last_command(db)
-
-
-        os.system(f'DB_plot.py {temp_file} -v 475882')
-
-    sys.path.append('/opt/prefix/dismod_at/lib/python3.8/site-packages')
-    from dismod_at.ihme.t1_diabetes import relative_path
-    brad = DismodIO(Path('/Users/gma/ihme/epi/at_cascade') / relative_path)
-    brad2 = DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')
-    for iid in brad.data.integrand_id.unique():
-        print (brad.path, iid, len(brad.data[brad.data.integrand_id == iid]))
-        print (brad2.path, iid, len(brad2.data[brad2.data.integrand_id == iid]))
-
-        print (original_file, iid, len(db.data[db.data.integrand_id == iid]))
-
-"""
-
 import sys
 import os
 import shutil
@@ -493,7 +449,6 @@ class FitNoODE(DismodIO):
                 upper = 0.0
             lower_dict[integrand_id] = lower
             upper_dict[integrand_id] = upper
-        #
 
         for i,row in mulcov.iterrows() :
             if row['covariate_id'] == covariate_id :
@@ -823,10 +778,14 @@ class FitNoODE(DismodIO):
         db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
         before(db)
         db.fit_no_ode(max_num_iter_fixed = max_num_iter_fixed, before = before)
+        print (check_data(db.data, dm_no_ode.data))
+        check_var(db, dm_no_ode)
         db.data = data
         db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
         # use previous fit as starting point
         system(f'dismod_at {db.path} set start_var fit_var')
+        print (check_data(db.data, dm_yes_ode.data))
+        check_var(db, dm_yes_ode)
         db.fit_yes_ode(max_num_iter_fixed = max_num_iter_fixed, after = after)
         after(db)
 
@@ -977,26 +936,28 @@ if __name__ == '__main__':
 
         return original_file, max_covariate_effect, ode_hold_out_list, mulcov_values
 
-
-
     def test(case, original_file, max_covariate_effect, ode_hold_out_list, mulcov_values): 
 
-        def fix_data_table(db, dm, ignore_hold_out = False):
-            # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
-            # This causes divergence in the fit results
-            cols = db.data.columns.drop('hold_out')
-            mask = (dm.data.fillna(-1) != db.data.fillna(-1))
-            if ignore_hold_out:
-                mask['hold_out'] = False
-            mask0 = mask.any(1)
-            data = db.data
-            diff = np.max(np.abs(dm.data.values[mask] - data.values[mask]))
-            assert diff < 1e-10, 'Error was too large'
-            if np.any(mask):
-                print (f'WARNING -- fixed {np.sum(mask.values)} slight differences max ({diff}) between fit_ihme and this data table.')
-            data[mask0] = dm.data[mask0]
-            db.data = data
-            assert np.all(dm.data[cols].fillna(-1) == db.data[cols].fillna(-1)) , 'Assignment in fix_data_table  failed'
+    def fix_data_table(db, dm, bypass_hold_out = False):
+        # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
+        # This causes divergence in the fit results
+        if bypass_hold_out:
+            hold_out = db.data.hold_out
+        cols = db.data.columns.drop('hold_out')
+        mask = (dm.data.fillna(-1) != db.data.fillna(-1))
+        if bypass_hold_out:
+            mask['hold_out'] = False
+        mask0 = mask.any(1)
+        data = db.data
+        diff = np.max(np.abs(dm.data.values[mask] - data.values[mask]))
+        assert diff < 1e-10, 'Error was too large'
+        if np.any(mask):
+            print (f'WARNING -- fixed {np.sum(mask.values)} slight differences max ({diff}) between fit_ihme and this data table.')
+        data[mask0] = dm.data[mask0]
+        if bypass_hold_out:
+            data['hold_out'] = hold_out
+        db.data = data
+        assert np.all(dm.data[cols].fillna(-1) == db.data[cols].fillna(-1)) , 'Assignment in fix_data_table  failed'
 
         def check_input_tables(db, dm=None, check_hold_out = True):
             print (f'+++ db.path {db.path}')
@@ -1010,6 +971,7 @@ if __name__ == '__main__':
                 print ('Check input tables OK')
             except Exception as ex:
                 print ('\n\nERROR in inputs\n\n', ex)
+                raise
 
         def check_output_tables(db, dm=None):
             print (f'+++ db.path {db.path}')
@@ -1022,6 +984,7 @@ if __name__ == '__main__':
                 print ('Check output tables OK')
             except Exception as ex:
                 print ('\n\nERROR in output\n\n', ex)
+                raise
         if 0:
             def rate_mulcov_priors(db):
                 prior_ids = db.smooth_grid.loc[db.smooth_grid.smooth_id.isin(db.var[-2:].smooth_id),
@@ -1032,6 +995,7 @@ if __name__ == '__main__':
             print (rate_mulcov_priors(DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')))
 
         fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
+        global dm_no_ode, dm_yes_ode
         dm_no_ode = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db')
         dm_yes_ode = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db')
         dm_students = DismodIO(f'{fit_ihme_path}/students/students.db')
@@ -1043,7 +1007,7 @@ if __name__ == '__main__':
         path_students = f'{fit_ihme_path}/cascade/students.db'
         
         if 1:
-            no_and_yes_ode = False
+            no_and_yes_ode = True
             no_ode = False
             yes_ode = False
 
@@ -1051,7 +1015,6 @@ if __name__ == '__main__':
             no_ode = True
             yes_ode = True
 
-        no_and_yes_ode = True
             
         students = True
 
@@ -1077,7 +1040,8 @@ if __name__ == '__main__':
             db.setup_ode_fit(max_covariate_effect, **kwds)
 
             if __check__ and case == 'crohns':
-                fix_data_table(db, dm_no_ode, ignore_hold_out = True)
+                hold_out = db.data.hold_out
+                fix_data_table(db, dm_no_ode, bypass_hold_out = True)
 
             system(f'dismod_at {db.path} init')
             db.fit_ode(max_num_iter_fixed = 500, before = before, after = after)
@@ -1171,20 +1135,12 @@ if __name__ == '__main__':
 
 
 if __name__ == '__main__':
-    # the following fail
+    # The following fail
 
     # for case in ['t1_diabetes']: # dismod doesn't converge -- needs Brad's settings
     # for case in ['dialysis']: # RE hessian failure -- needs Brad's settings
 
-    # the following are all OK 
-
-    for case in ['crohns']:
-    # for case in ['kidney']:
-    
-    # for case in ['osteo_hip',]:
-    # for case in ['osteo_knee',]:
-    # for case in ['dialysis']:
-    
+    # The following are OK 
     # for case in ['osteo_hip','osteo_knee', 'kidney','crohns']: # , 'dialysis' ,'t1_diabetes'
         print ('>>>', case, '<<<')
 
