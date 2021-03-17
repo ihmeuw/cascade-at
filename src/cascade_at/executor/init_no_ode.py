@@ -155,18 +155,31 @@ class FitNoODE(DismodIO):
         # The origianl order of the data is preserved (in index plots)
         # by sorting the subsample.
         #
-        # This code may seem a little obtuse, but for comparison, it matches Brad's method
+        # This code may seem a little obtuse, but for comparison, it matches Brad's sampling method
         #
         data_in = db.data.merge(db.integrand, how='left')
         integrand = data_in[data_in.integrand_name == integrand_name]
-        n_sample_out = min(max_sample, len(integrand))
-        integrand_indices = random.sample(integrand.index.tolist(), n_sample_out)
-        keep_indices = data_in.index[data_in.integrand_name != integrand_name].tolist()
-        keep_indices = sorted(keep_indices + integrand_indices)
-        data = data_in.loc[keep_indices, db.data.columns].reset_index(drop=True)
-        data['data_id'] = data.index
 
-        return data
+        n_sample_in = len(integrand)
+        n_sample_out = min(max_sample, len(integrand))
+        print (f'random_subsample_data')
+        print (f'number of {integrand_name} samples: in = {n_sample_in} out = {n_sample_out}')
+
+        # Dataframe indices of integrands other than the one being sampled
+        non_integrand_indices = data_in.index[data_in.integrand_name != integrand_name].tolist()
+
+        # Note: A preferred, direct integrand sampling (e.g., integrand.sample(n_sample_out)) didn't match Brad's sampling
+        # Sample the integrand dataframe row index
+        row_index = list(range(len(integrand)))
+        if n_sample_out < n_sample_in :
+            row_index = sorted(random.sample(range(len(integrand)),  n_sample_out))
+        # Sample the dataframe by row index, and return the dataframe index
+        integrand_indices = integrand.iloc[row_index].index.tolist()
+        
+        # Sample the database data by filtering on dataframe index
+        data = data_in.loc[sorted(integrand_indices + non_integrand_indices)].reset_index(drop=True)
+        data['data_id'] = data.index
+        db.data = data[db.data.columns]
 
     def hold_out_data (db, integrand_names=(), node_names=(), hold_out=False) :
         if isinstance(integrand_names, str):
@@ -689,7 +702,7 @@ class FitNoODE(DismodIO):
                 db.set_covariate_reference(covariate_id)
 
         for integrand in integrands:
-            db.data = db.random_subsample_data(integrand, max_sample = 1000)
+            db.random_subsample_data(integrand, max_sample = 1000)
 
         rate_case = db.get_rate_case()
 
@@ -806,8 +819,9 @@ if __name__ == '__main__':
     def compare_dataframes(df0, df1):
         tol = {'atol': 1e-8, 'rtol': 1e-10}
 
-        mask0 = (df0.fillna(-1) != df1.fillna(-1)).any(1).values
-        mask1 = (df0.fillna(-1) != df1.fillna(-1)).any(0).values
+        tmp = (df0.fillna(-1) != df1.fillna(-1))
+        mask0 = tmp.any(1).values
+        mask1 = tmp.any(0).values
         diff0 = df0.loc[mask0, mask1]
         diff1 = df1.loc[mask0, mask1]
         error = np.max(np.abs(diff0 - diff1))
@@ -984,10 +998,10 @@ if __name__ == '__main__':
             yes_ode = False
 
         if 0:
+            no_and_yes_ode = False
             no_ode = True
             yes_ode = True
 
-            
         students = True
 
         subsample = True
@@ -1113,8 +1127,8 @@ if __name__ == '__main__':
     # for case in ['dialysis']: # RE hessian failure -- needs Brad's settings
 
     # The following are OK 
-    # for case in ['osteo_hip','osteo_knee', 'kidney','crohns']: # , 'dialysis' ,'t1_diabetes'
-    for case in ['osteo_knee']:
+    for case in ['osteo_hip','osteo_knee', 'kidney','crohns']: # , 'dialysis' ,'t1_diabetes'
+    # for case in ['osteo_hip']:
         print ('>>>', case, '<<<')
 
         original_file, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case)  
