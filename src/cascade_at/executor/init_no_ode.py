@@ -26,8 +26,8 @@ _dm_no_ode_ = None
 _dm_yes_ode_ = None
 _dm_students_ = None 
 
-__run_fit_ihme__ = not True
-_use_single_database_ = not True
+__run_fit_ihme__ = True
+_use_single_database_ = True
 _fit_ihme_py_ = 'fit_ihme.py'
 
 def null(*args, **kwds): pass
@@ -1041,14 +1041,6 @@ if __name__ == '__main__':
             except Exception as ex:
                 print ('\n\nERROR in output\n\n', ex)
                 raise
-        if 0:
-            def rate_mulcov_priors(db):
-                prior_ids = db.smooth_grid.loc[db.smooth_grid.smooth_id.isin(db.var[-2:].smooth_id),
-                                               'value_prior_id']
-                return db.prior[db.prior.prior_id.isin(prior_ids)]
-
-            print (rate_mulcov_priors(DismodIO(original_file)))
-            print (rate_mulcov_priors(DismodIO('/Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db')))
 
         fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
         global _dm_no_ode_, _dm_yes_ode_
@@ -1062,11 +1054,10 @@ if __name__ == '__main__':
         path_yes_ode = f'{fit_ihme_path}/cascade/yes_ode.db'
         path_students = f'{fit_ihme_path}/cascade/students.db'
         
-        if 0:
+        if 1:
             no_yes_ode = True
             no_ode = False
             yes_ode = False
-
         else:
             no_yes_ode = False
             no_ode = True
