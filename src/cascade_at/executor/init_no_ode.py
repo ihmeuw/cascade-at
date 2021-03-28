@@ -30,7 +30,26 @@ __run_fit_ihme__ = True
 _use_single_database_ = True
 _fit_ihme_py_ = 'fit_ihme.py'
 
-def null(*args, **kwds): pass
+if 1:
+    no_yes_ode = True
+    no_ode = False
+    yes_ode = False
+else:
+    no_yes_ode = False
+    no_ode = True
+    yes_ode = True
+
+students = True
+
+if 0:
+    students = False
+    yes_ode = False
+
+
+subsample = True
+random_seed = 123
+__check__ = True
+_max_iters_ = 500
 
 def system (command) :
     # flush python's pending standard output in case this command generates more standard output
@@ -818,7 +837,13 @@ def init_ode_command(args):
                           mulcov_values = [],
                           ode_hold_out_list = [])
     db.ode_init(**FIXME_ode_kwds)
-    if not _use_single_database_:
+    if _use_single_database_:
+        db_in = DismodIO(path)
+        print (f"Setting fit_var table in {db_in.path}")
+        db_in.fit_var = db.fit_var
+        return db_in
+    else:
+        print (f"Copy {db.path} to {path}")
         shutil.copy2(db.path, path)
 
 def fit_ode_command(args):
@@ -838,9 +863,14 @@ def fit_ode_command(args):
 
     db.fit(msg = 'fit_no_ode')
 
-    if not _use_single_database_:
+    if _use_single_database_:
+        db_in = DismodIO(path)
+        print (f"Setting fit_var table in {db_in.path}")
+        db_in.fit_var = db.fit_var
+        return db_in
+    else:
+        print (f"Copy {db.path} to {path}")
         shutil.copy2(db.path, path)
-
     
 def fit_students_command(args, nu = 5):
     dismod, path, cmd, option = args[:4]
@@ -855,31 +885,9 @@ def fit_students_command(args, nu = 5):
 
     if not _use_single_database_:
         shutil.copy2(db.path, path)
+    return db
 
-def test_command():
-    osteo_knee = '/opt/local/bin/dmdismod /Users/gma/ihme/epi/at_cascade/data/475746/dbs/64/2/dismod.db fit ode'
-    osteo_hip = '/opt/local/bin/dmdismod /Users/gma/ihme/epi/at_cascade/data/475526/dbs/1/2/dismod.db fit ode'
-
-    cmd = osteo_knee
-
-    args = cmd.split()
-    path = args[1]
-    os.system(f'chmod u+w {path}')
-
-    init_ode_command(args)
-
-    fit_ode_command(args)
-    
-    fit_students_command(args)
-
-"""
-
-test_command()
-
-
-"""
 if __name__ == '__main__':
-
     def compare_dataframes(df0, df1):
         tol = {'atol': 1e-8, 'rtol': 1e-10}
 
@@ -933,6 +941,69 @@ if __name__ == '__main__':
             print ('init_no_ode:')
             print (vd0.loc[mask0, mask1].merge(d0[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
             raise Exception ('ERROR -- var tables do not agree')
+
+    def check_input_tables(db, dm=None, check_hold_out = True):
+        print (f'+++ db.path {db.path}')
+        print (f'+++ dm.path {dm.path}')
+        try:
+            if check_hold_out:
+                print ('db.data', check_data(db.data, dm.data))
+            else:
+                print ('db.data', check_data(db.data.drop(columns = 'hold_out'), dm.data.drop(columns = 'hold_out')))
+            check_var(db, dm)
+            print ('Check input tables OK')
+        except Exception as ex:
+            print ('\n\nERROR in inputs\n\n', ex)
+            raise
+
+    def check_output_tables(db, dm=None):
+        print (f'+++ db.path {db.path}')
+        print (f'+++ dm.path {dm.path}')
+        try:
+            dmv = pd.read_csv(dm.path.parent / 'variable.csv')
+            os.system(f'dismodat.py {db.path} db2csv')
+            dbv = pd.read_csv(db.path.parent / 'variable.csv')
+            print ('variable.csv', compare_dataframes(dmv, dbv))
+            print ('Check output tables OK')
+        except Exception as ex:
+            print ('\n\nERROR in output\n\n', ex)
+            raise
+
+    def test_command(check = True):
+        cases = dict(osteo_knee = '/opt/local/bin/dmdismod /Users/gma/ihme/epi/at_cascade/data/475746/dbs/64/2/dismod.db fit ode',
+                     osteo_hip = '/opt/local/bin/dmdismod /Users/gma/ihme/epi/at_cascade/data/475526/dbs/1/2/dismod.db fit ode',
+                     dialysis = '/opt/local/bin/dmdismod /Users/gma/ihme/epi/at_cascade/data/475527/dbs/96/2/dismod.db fit ode')
+
+        case = 'dialysis'
+        cmd = cases[case]
+
+        fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
+        _dm_no_ode_ = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db')
+        _dm_yes_ode_ = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db')
+        _dm_students_ = DismodIO(f'{fit_ihme_path}/students/students.db')
+
+        args = cmd.split()
+        path = args[1]
+        os.system(f'chmod u+w {path}')
+
+        db = init_ode_command(args)
+        if check:
+            check_output_tables(db, dm = _dm_no_ode_)
+
+        fit_ode_command(args)
+        if check:
+            check_output_tables(db, dm = _dm_yes_ode_)
+
+        fit_students_command(args)
+        if check:
+            check_output_tables(db, dm = _dm_students_)
+
+    """
+
+    test_command()
+
+    """
+
 
     def test_cases(case):
         crohns = '/Users/gma/ihme/epi/at_cascade/data/475533/dbs/1/2/dismod.db'
@@ -1015,32 +1086,6 @@ if __name__ == '__main__':
             db.data = data
             assert np.all(dm.data[cols].fillna(-1) == db.data[cols].fillna(-1)) , 'Assignment in fix_data_table  failed'
 
-        def check_input_tables(db, dm=None, check_hold_out = True):
-            print (f'+++ db.path {db.path}')
-            print (f'+++ dm.path {dm.path}')
-            try:
-                if check_hold_out:
-                    print ('db.data', check_data(db.data, dm.data))
-                else:
-                    print ('db.data', check_data(db.data.drop(columns = 'hold_out'), dm.data.drop(columns = 'hold_out')))
-                check_var(db, dm)
-                print ('Check input tables OK')
-            except Exception as ex:
-                print ('\n\nERROR in inputs\n\n', ex)
-                raise
-
-        def check_output_tables(db, dm=None):
-            print (f'+++ db.path {db.path}')
-            print (f'+++ dm.path {dm.path}')
-            try:
-                dmv = pd.read_csv(dm.path.parent / 'variable.csv')
-                os.system(f'dismodat.py {db.path} db2csv')
-                dbv = pd.read_csv(db.path.parent / 'variable.csv')
-                print ('variable.csv', compare_dataframes(dmv, dbv))
-                print ('Check output tables OK')
-            except Exception as ex:
-                print ('\n\nERROR in output\n\n', ex)
-                raise
 
         fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
         global _dm_no_ode_, _dm_yes_ode_
@@ -1054,20 +1099,6 @@ if __name__ == '__main__':
         path_yes_ode = f'{fit_ihme_path}/cascade/yes_ode.db'
         path_students = f'{fit_ihme_path}/cascade/students.db'
         
-        if 1:
-            no_yes_ode = True
-            no_ode = False
-            yes_ode = False
-        else:
-            no_yes_ode = False
-            no_ode = True
-            yes_ode = True
-
-        students = True
-
-        subsample = True
-        random_seed = 123
-        __check__ = True
 
         kwds = dict(mulcov_values = mulcov_values, ode_hold_out_list = ode_hold_out_list)
         global db
@@ -1096,7 +1127,8 @@ if __name__ == '__main__':
             system(f'{db.dismod} {db.path} init')
             if __check__:
                 check_input_tables(db, dm = _dm_no_ode_, check_hold_out = True)
-            db.set_option('max_num_iter_fixed', 500)
+            if _max_iters_ is not None: 
+                db.set_option('max_num_iter_fixed', _max_iters_)
             db.fit(msg = 'fit_no_ode')
             if __check__:
                 check_output_tables(db, dm = _dm_no_ode_)
@@ -1147,7 +1179,6 @@ if __name__ == '__main__':
             else:
                 db = setup_db(original_file)
 
-            system(f'{db.dismod} {db.path} init')
             db.simplify_data(random_seed = random_seed, subsample = subsample)
             db.setup_ode_fit(max_covariate_effect, **kwds)
             db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
@@ -1156,9 +1187,11 @@ if __name__ == '__main__':
                 fix_data_table(db, _dm_no_ode_)
 
             system(f'{db.dismod} {db.path} init')
+
             if __check__:
                 check_input_tables(db, dm = _dm_no_ode_, check_hold_out = True)
-            db.set_option('max_num_iter_fixed', 500)
+            if _max_iters_ is not None:
+                db.set_option('max_num_iter_fixed', _max_iters_)
             db.fit(msg = 'fit_no_ode')
             if __check__:
                 check_output_tables(db, dm = _dm_no_ode_)
@@ -1200,7 +1233,8 @@ if __name__ == '__main__':
 
             if __check__:
                 check_input_tables(db, _dm_yes_ode_, check_hold_out = True)
-            db.set_option('max_num_iter_fixed', 500)
+            if _max_iters_ is not None:
+                db.set_option('max_num_iter_fixed', _max_iters_)
             db.fit(msg='fit_with_ode')
             if __check__:
                 check_output_tables(db, dm = _dm_yes_ode_)
@@ -1239,7 +1273,8 @@ if __name__ == '__main__':
                 db.fit_var = DismodIO(path_yes_ode).fit_var
             system(f'{db.dismod} {db.path} set start_var fit_var')
 
-            db.set_option('max_num_iter_fixed', 500)
+            if _max_iters_ is not None: 
+                db.set_option('max_num_iter_fixed', _max_iters_)
             if __check__:
                 check_input_tables(db, _dm_students_, check_hold_out = True)
             db.fit(msg = 'fit_students')
@@ -1256,8 +1291,9 @@ if __name__ == '__main__':
     # for case in ['osteo_knee']:
     # for case in ['crohns']:
     # for case in ['t1_diabetes']: # Fixed the json on my local machine, now it has  Brad's settings
-    for case in ['dialysis']:
-    # for case in ['osteo_hip','osteo_knee', 'kidney','crohns', 't1_diabetes', 'dialysis']:
+    # for case in ['dialysis']:
+    # for case in ['kidney']:
+    for case in ['osteo_hip','osteo_knee', 'kidney','crohns', 'dialysis', 't1_diabetes']:
         print ('>>>', case, '<<<')
         original_file, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case)  
 
@@ -1266,5 +1302,4 @@ if __name__ == '__main__':
 
 if 0 and __name__ == '__main__':
     os.system("dismod_db --model-version-id 475746 --parent-location-id 64 --sex-id 2 --fill --dm-commands init fit-ode set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var --save-fit")
-
 
