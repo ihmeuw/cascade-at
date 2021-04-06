@@ -28,7 +28,7 @@ _dm_students_ = None
 _run_fit_ihme_ = True
 _fit_ihme_py_ = 'fit_ihme.py'
 
-if 0:
+if 1:
     no_yes_ode = True
     no_ode = False
     yes_ode = False
@@ -419,7 +419,6 @@ class FitNoODE(DismodIO):
         old_reference  = float(covariate.loc[covariate_id, 'reference'])
         new_reference = getattr(np, reference_name)(covariate_value)
         #
-        print (777, len(db.data[~db.data.x_0.isna()]), db.data.x_0.median())
         covariate.loc[covariate_id, 'reference'] = new_reference
         #
         msg  = '\nset_covariate_reference\n'
@@ -728,7 +727,7 @@ class FitNoODE(DismodIO):
         if subsample:
             db.subset_data() 
         for integrand in db.integrands:
-            db.random_subsample_data(integrand, max_sample = 1000)
+            db.random_subsample_data(integrand, max_sample = subsample)
         db.compress_age_time_intervals()
  
     def setup_ode_fit(db, max_covariate_effect = 2,
@@ -889,7 +888,7 @@ class FitNoODE(DismodIO):
             raise
 
 def setup_db(path, dismod = 'dismod_at', ode_hold_out_list = ()):
-    assert os.path.exists(path)
+    assert os.path.exists(path), f'Path {path} does not exist'
     db = FitNoODE(Path(path), dismod = dismod, ode_hold_out_list = ode_hold_out_list)
     print (f'Initializing FitNoODE database {db.path}')
     return db
@@ -969,7 +968,7 @@ def setup_db(path, dismod = 'dismod_at', ode_hold_out_list = ()):
 #     return _fit_ode_command(*args, **kwds)
 
 
-def _ode_command(args, init = True, subsample = True,
+def _ode_command(args, init = True, subset = True, random_subsample = None,
                  ode_hold_out_list = [], random_seed = None, save_to_path = None, reference_db = None,
                  max_covariate_effect = 2, mulcov_values = [],
                  students = False, nu = 5):
@@ -985,38 +984,44 @@ def _ode_command(args, init = True, subsample = True,
     dismod, path, cmd, option = args[:4]
 
     db = setup_db(path, dismod = dismod, ode_hold_out_list = ode_hold_out_list)
-    data = db.data
+    try:
+        if __check__:
+            if reference_db and isinstance(reference_db, str):
+                reference_db = DismodIO(reference_db)
 
-    db.simplify_data(random_seed = random_seed, subsample = subsample)
+        db.simplify_data(random_seed = random_seed, subsample = random_subsample)
 
-    if init:
-        db.setup_ode_fit(max_covariate_effect = max_covariate_effect,
-                         mulcov_values = mulcov_values,
-                         ode_hold_out_list = ode_hold_out_list)
-        integrands = db.yes_ode_integrands
-    else:
-        integrands = db.ode_hold_out_list
+        if init:
+            db.setup_ode_fit(max_covariate_effect = max_covariate_effect,
+                             mulcov_values = mulcov_values,
+                             ode_hold_out_list = ode_hold_out_list)
+            integrands = db.yes_ode_integrands
+        else:
+            integrands = db.ode_hold_out_list
 
-    # Fit only a subsample the
-    db.hold_out_data(integrand_names = integrands, hold_out=1)
+        # Fit only a subsample
+        if subset:
+            db.hold_out_data(integrand_names = integrands, hold_out=1)
 
-    if init:
-        system(f'{db.dismod} {db.path} init')
-    else:
-        system(f'{db.dismod} {db.path} set start_var fit_var')
+        if init:
+            system(f'{db.dismod} {db.path} init')
+        else:
+            system(f'{db.dismod} {db.path} set start_var fit_var')
 
-    if students:
-        db.set_student_likelihoods(factor_eta = 1e-2, nu = nu)
+        if students:
+            db.set_student_likelihoods(factor_eta = 1e-2, nu = nu)
 
-    if __check__:
-        db.check_input_tables(reference_db)
+        if __check__ and reference_db:
+            db.check_input_tables(reference_db)
 
-    db.fit(msg = f'fit_ode -- {cmd}_{option}')
+        db.fit(msg = f'fit_ode -- {cmd}_{option}')
 
-    db.save_database(save_to_path)
-    if __check__:
-        db.check_output_tables(reference_db)
-    db.data = data
+        db.save_database(save_to_path)
+        if __check__ and reference_db:
+            db.check_output_tables(reference_db)
+    except: raise
+    finally:
+        db.data = db.input_data
     return db
 
 
@@ -1034,39 +1039,40 @@ def fit_students_command(*args, **kwds):
     kwds.update({'students': True})
     _ode_command(*args, **kwds)
 
+def compare_dataframes(df0, df1):
+    # FIXME -- poor design, should probably return the error between the dataframes instead 
+    # of raising an exeption or returning a string
+    tol = {'atol': 1e-8, 'rtol': 1e-10}
+    assert set(df0.columns) == set(df1.columns), "Can't compare dataframes with different columns."
+    tmp = (df0.fillna(-1) != df1.fillna(-1))
+    mask0 = tmp.any(1).values
+    mask1 = tmp.any(0).values
+    msg = ''
+    if mask0.any():
+        diff0 = df0.loc[mask0, mask1]
+        diff1 = df1.loc[mask0, mask1]
+        numeric_cols = [k for k in diff0.columns
+                        if not (isinstance(diff0[:1][k].squeeze(), str) or 
+                                isinstance(diff1[:1][k].squeeze(), str))]
+        error = np.max(np.abs(diff0[numeric_cols] - diff1[numeric_cols]))
+        if not error.empty:
+            msg = f' within tolerance, max(abs(error)) = {error}'
+        if not np.allclose(diff0[numeric_cols], diff1[numeric_cols], **tol):
+            print (diff0)
+            print (diff1)
+            raise Exception('ERROR: dataframes do not match')
+    return f'Dataframes are equal{msg}.'
+
 if __name__ == '__main__':
-    def compare_dataframes(df0, df1):
-        # FIXME -- poor design, should probably return the error between the dataframes instead 
-        # of raising an exeption or returning a string
-        tol = {'atol': 1e-8, 'rtol': 1e-10}
-        assert set(df0.columns) == set(df1.columns), "Can't compare dataframes with different columns."
-        tmp = (df0.fillna(-1) != df1.fillna(-1))
-        mask0 = tmp.any(1).values
-        mask1 = tmp.any(0).values
-        msg = ''
-        if mask0.any():
-            diff0 = df0.loc[mask0, mask1]
-            diff1 = df1.loc[mask0, mask1]
-            numeric_cols = [k for k in diff0.columns
-                            if not (isinstance(diff0[:1][k].squeeze(), str) or 
-                                    isinstance(diff1[:1][k].squeeze(), str))]
-            error = np.max(np.abs(diff0[numeric_cols] - diff1[numeric_cols]))
-            if not error.empty:
-                msg = f' within tolerance, max(abs(error)) = {error}'
-            if not np.allclose(diff0[numeric_cols], diff1[numeric_cols], **tol):
-                print (diff0)
-                print (diff1)
-                raise Exception('ERROR: dataframes do not match')
-        return f'Dataframes are equal{msg}.'
 
     def test_commands(case, db_path, max_covariate_effect, ode_hold_out_list, mulcov_values,
                       random_seed = None, subsample = True, check = True):
 
         fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
         global _dm_no_ode_, _dm_yes_ode_, _dm_students_
-        _dm_no_ode_ = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db')
-        _dm_yes_ode_ = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db')
-        _dm_students_ = DismodIO(f'{fit_ihme_path}/students/students.db')
+        _dm_no_ode_ = f'{fit_ihme_path}/no_ode/no_ode.db'
+        _dm_yes_ode_ = f'{fit_ihme_path}/yes_ode/yes_ode.db'
+        _dm_students_ = f'{fit_ihme_path}/students/students.db'
 
         global path_ode_cmds, path_students_cmds
         path_no_ode_cmds = f'{fit_ihme_path}/cascade/no_ode_cmds.db'
@@ -1075,6 +1081,7 @@ if __name__ == '__main__':
 
         cmd = f'dmdismod {db_path} fit ode'
         cmd = f'dismod_at {db_path} fit ode'
+        
         args = cmd.split()
         path = args[1]
         print (f"Testing commands on database {path}")
@@ -1207,45 +1214,44 @@ if __name__ == '__main__':
 
             print ('--- no_yes_ode ---')
             db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
+            try:
+                system(f'{db.dismod} {db.path} init')
+                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.setup_ode_fit(max_covariate_effect, **kwds)
+                db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
-            system(f'{db.dismod} {db.path} init')
-            db.simplify_data(random_seed = random_seed, subsample = subsample)
-            db.setup_ode_fit(max_covariate_effect, **kwds)
-            db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
+                if __check__ and _dm_no_ode_ and case == 'crohns':
+                    fix_data_table(db, _dm_no_ode_)
 
-            if __check__ and case == 'crohns':
-                fix_data_table(db, _dm_no_ode_)
+                system(f'{db.dismod} {db.path} init')
+                if _max_iters_ is not None: 
+                    db.set_option('max_num_iter_fixed', _max_iters_)
 
-            system(f'{db.dismod} {db.path} init')
-            if _max_iters_ is not None: 
-                db.set_option('max_num_iter_fixed', _max_iters_)
+                if __check__ and _dm_no_ode_:
+                    db.check_input_tables(_dm_no_ode_, check_hold_out = True)
+                db.fit(msg = 'fit_no_ode')
+                db.save_database(path_no_ode)
+                if __check__ and _dm_no_ode_:
+                    db.check_output_tables(_dm_no_ode_)
 
-            if __check__:
-                db.check_input_tables(_dm_no_ode_, check_hold_out = True)
-            db.fit(msg = 'fit_no_ode')
-            db.save_database(path_no_ode)
-            if __check__:
-                db.check_output_tables(_dm_no_ode_)
+                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
-            db.data = db.input_data
+                if __check__ and _dm_yes_ode_ and case == 'crohns':
+                    fix_data_table(db, _dm_yes_ode_)
 
-            db.simplify_data(random_seed = random_seed, subsample = subsample)
-            db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
+                # use previous fit as starting point
+                system(f'{db.dismod} {db.path} set start_var fit_var')
 
-            if __check__ and case == 'crohns':
-                fix_data_table(db, _dm_yes_ode_)
-
-            # use previous fit as starting point
-            system(f'{db.dismod} {db.path} set start_var fit_var')
-
-            if __check__:
-                db.check_input_tables(_dm_yes_ode_, check_hold_out = True)
-            db.fit(msg='fit_with_ode')
-            db.save_database(path_yes_ode)
-            if __check__:
-                db.check_output_tables(_dm_yes_ode_)
-
-            db.data = db.input_data
+                if __check__ and _dm_yes_ode_:
+                    db.check_input_tables(_dm_yes_ode_, check_hold_out = True)
+                db.fit(msg='fit_with_ode')
+                db.save_database(path_yes_ode)
+                if __check__ and _dm_yes_ode_:
+                    db.check_output_tables(_dm_yes_ode_)
+            except: raise
+            finally:
+                db.data = db.input_data
 
         if no_ode:
             if __check__:
@@ -1257,28 +1263,30 @@ if __name__ == '__main__':
             print ('--- no_ode ---')
 
             db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
+            
+            try:
+                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.setup_ode_fit(max_covariate_effect, **kwds)
+                db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
-            db.simplify_data(random_seed = random_seed, subsample = subsample)
-            db.setup_ode_fit(max_covariate_effect, **kwds)
-            db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
+                if __check__ and _dm_no_ode_ and case == 'crohns':
+                    fix_data_table(db, _dm_no_ode_)
 
-            if __check__ and case == 'crohns':
-                fix_data_table(db, _dm_no_ode_)
+                system(f'{db.dismod} {db.path} init')
 
-            system(f'{db.dismod} {db.path} init')
+                if _max_iters_ is not None:
+                    db.set_option('max_num_iter_fixed', _max_iters_)
 
-            if _max_iters_ is not None:
-                db.set_option('max_num_iter_fixed', _max_iters_)
+                if __check__ and _dm_no_ode_:
+                    db.check_input_tables(_dm_no_ode_, check_hold_out = True)
+                db.fit(msg = 'fit_no_ode')
+                db.save_database(path_no_ode)
+                if __check__ and _dm_no_ode_:
+                    db.check_output_tables(_dm_no_ode_)
 
-            if __check__:
-                db.check_input_tables(_dm_no_ode_, check_hold_out = True)
-            db.fit(msg = 'fit_no_ode')
-            db.save_database(path_no_ode)
-            if __check__:
-                db.check_output_tables(_dm_no_ode_)
-
-            db.data = db.input_data
-
+            except: raise
+            finally:
+                db.data = db.input_data
 
         if yes_ode:
             if __check__:
@@ -1290,26 +1298,29 @@ if __name__ == '__main__':
 
             db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
 
-            db.simplify_data(random_seed = random_seed, subsample = subsample)
-            db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
+            try:
+                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
-            if __check__ and case == 'crohns':
-                fix_data_table(db, _dm_yes_ode_)
+                if __check__ and _dm_yes_ode_ and case == 'crohns':
+                    fix_data_table(db, _dm_yes_ode_)
 
-            # use previous fit as starting point
-            system(f'{db.dismod} {db.path} set start_var fit_var')
+                # use previous fit as starting point
+                system(f'{db.dismod} {db.path} set start_var fit_var')
 
-            if _max_iters_ is not None:
-                db.set_option('max_num_iter_fixed', _max_iters_)
+                if _max_iters_ is not None:
+                    db.set_option('max_num_iter_fixed', _max_iters_)
 
-            if __check__:
-                db.check_input_tables(_dm_yes_ode_, check_hold_out = True)
-            db.fit(msg='fit_with_ode')
-            db.save_database(path_yes_ode)
-            if __check__:
-                db.check_output_tables(_dm_yes_ode_)
+                if __check__ and _dm_yes_ode_:
+                    db.check_input_tables(_dm_yes_ode_, check_hold_out = True)
+                db.fit(msg='fit_with_ode')
+                db.save_database(path_yes_ode)
+                if __check__ and _dm_yes_ode_:
+                    db.check_output_tables(_dm_yes_ode_)
 
-            db.data = db.input_data
+            except: raise
+            finally:
+                db.data = db.input_data
 
         if students:
             if __check__:
@@ -1321,26 +1332,29 @@ if __name__ == '__main__':
 
             db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
 
-            db.simplify_data(random_seed = random_seed, subsample = subsample)
-            db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
-            db.set_student_likelihoods(factor_eta = 1e-2, nu = 5)
+            try:
+                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
+                db.set_student_likelihoods(factor_eta = 1e-2, nu = 5)
 
-            if __check__ and case == 'crohns':
-                fix_data_table(db, _dm_students_)
+                if __check__ and _dm_students_ and case == 'crohns':
+                    fix_data_table(db, _dm_students_)
 
-            system(f'{db.dismod} {db.path} set start_var fit_var')
+                system(f'{db.dismod} {db.path} set start_var fit_var')
 
-            if _max_iters_ is not None: 
-                db.set_option('max_num_iter_fixed', _max_iters_)
+                if _max_iters_ is not None: 
+                    db.set_option('max_num_iter_fixed', _max_iters_)
 
-            if __check__:
-                db.check_input_tables(_dm_students_, check_hold_out = True)
-            db.fit(msg = 'fit_students')
-            db.save_database(path_students)
-            if __check__:
-                db.check_output_tables(_dm_students_)
+                if __check__ and _dm_students_:
+                    db.check_input_tables(_dm_students_, check_hold_out = True)
+                db.fit(msg = 'fit_students')
+                db.save_database(path_students)
+                if __check__ and _dm_students_:
+                    db.check_output_tables(_dm_students_)
 
-            db.data = db.input_data
+            except: raise
+            finally:
+                db.data = db.input_data
 
 if __name__ == '__main__':
     
@@ -1383,3 +1397,4 @@ if __name__ == '__main__':
 
 if 0 and __name__ == '__main__':
     os.system("dismod_db --model-version-id 475746 --parent-location-id 64 --sex-id 2 --fill --dm-commands init fit-ode set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var --save-fit")
+
