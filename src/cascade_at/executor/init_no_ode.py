@@ -20,20 +20,6 @@ Check prediction
 sys.path.append('/Users/gma/Projects/IHME/GIT/cascade-at/src')
 from cascade_at.dismod.api.dismod_io import DismodIO
 
-if 1:
-    # This option closest to the enhanced dismod command version
-    # The ODE 'init' command runs dismod init, then a no_ode fit -- the no_ode option
-    # The ODE 'fit' command runs a yes_ode fit -- the yes_ode option
-    # The ODE 'students' command runs a students fit -- the students option
-    ode_option = dict(no_yes_ode = False, no_ode = True, yes_ode = True, students = True)
-else:
-    # This option runs dismod init, then no_ode and yes_ode fits in a single step
-    ode_option = dict(no_yes_ode = True, no_ode = False, yes_ode = False, students = True)
-if 0:
-    ode_option.update(dict(yes_ode = False))
-if 0:
-    ode_option.update(dict(students = False))
-
 def system (command) :
     # flush python's pending standard output in case this command generates more standard output
     sys.stdout.flush()
@@ -960,10 +946,22 @@ def compare_dataframes(df0, df1):
 
 if __name__ == '__main__':
 
-    _fit_ihme_py_ = 'fit_ihme.py'
+    if 1:
+        # This option closest to the enhanced dismod command version
+        # The ODE 'init' command runs dismod init, then a no_ode fit -- the no_ode option
+        # The ODE 'fit' command runs a yes_ode fit -- the yes_ode option
+        # The ODE 'students' command runs a students fit -- the students option
+        ode_option = dict(no_yes_ode = False, no_ode = True, yes_ode = True, students = True)
+    else:
+        # This option runs dismod init, then no_ode and yes_ode fits in a single step
+        ode_option = dict(no_yes_ode = True, no_ode = False, yes_ode = False, students = True)
+    if 0:
+        ode_option.update(dict(yes_ode = False))
+    if 0:
+        ode_option.update(dict(students = False))
 
     _subset_ = True
-    _random_seed_ = 12345
+    _random_seed_ = 123456
     _n_subsample_ = 1000
     _max_iters_ = 500
 
@@ -976,6 +974,10 @@ if __name__ == '__main__':
     _dm_students_ = None 
 
     __check__ = True
+
+    if __check__:
+        _fit_ihme_py_ = 'fit_ihme.py'
+        os.system(f'which {_fit_ihme_py_}')
 
     def test_commands(case, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulcov_values=[],
                       subset=True, random_seed=None, random_subsample=None, check=True):
@@ -1289,7 +1291,6 @@ if __name__ == '__main__':
     # cases = ['dialysis']
     # cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
     cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
-    cases = ['t1_diabetes']
 
     common_kwds = dict(subset = _subset_, random_seed = _random_seed_, random_subsample = _n_subsample_)
     if 1:
