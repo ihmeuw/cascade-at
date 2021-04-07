@@ -25,10 +25,16 @@ _dm_no_ode_ = None
 _dm_yes_ode_ = None
 _dm_students_ = None 
 
+_subset_ = True
+_random_seed_ = 1234
+_n_subsample_ = 1000
+__check__ = True
+_max_iters_ = 500
+
 _run_fit_ihme_ = True
 _fit_ihme_py_ = 'fit_ihme.py'
 
-if 1:
+if 0:
     no_yes_ode = True
     no_ode = False
     yes_ode = False
@@ -42,11 +48,6 @@ students = True
 if 0:
     yes_ode = False
     students = False
-
-subsample = True
-_random_seed_ = 1234
-__check__ = True
-_max_iters_ = 500
 
 def system (command) :
     # flush python's pending standard output in case this command generates more standard output
@@ -717,17 +718,18 @@ class FitNoODE(DismodIO):
         avgint['avgint_id'] = avgint.index
         db.avgint = avgint
 
-    def simplify_data(db, random_seed = None, subsample=False):
+    def simplify_data(db, subset=False, random_seed = None, random_subsample=None):
         # seed used to randomly subsample data
         if random_seed in [0, None]:
             random_seed = int( time.time() )
         random.seed(random_seed)
         msg = '\nrandom_seed  = ' + str( random_seed )
         print(msg)
-        if subsample:
+        if subset:
             db.subset_data() 
-        for integrand in db.integrands:
-            db.random_subsample_data(integrand, max_sample = subsample)
+        if random_subsample is not None:
+            for integrand in db.integrands:
+                db.random_subsample_data(integrand, max_sample = random_subsample)
         db.compress_age_time_intervals()
  
     def setup_ode_fit(db, max_covariate_effect = 2,
@@ -774,22 +776,6 @@ class FitNoODE(DismodIO):
         print(f'{msg} time = {str(round(time.time() - t0))} seconds.')
         if not db.check_last_command('fit'):
             print ('ERROR -- should have exited due to problems with this fit command')
-
-    # def ode_init(db, max_covariate_effect = 2, mulcov_values = [], ode_hold_out_list = [],
-    #              random_seed = None, subsample = False):
-
-    #     db.simplify_data(random_seed = random_seed, subsample = subsample)
-
-    #     db.setup_ode_fit(max_covariate_effect = max_covariate_effect,
-    #                      mulcov_values = mulcov_values,
-    #                      ode_hold_out_list = ode_hold_out_list)
-
-    #     # Fit only a subsample the non-ODE integrands
-    #     db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
-    #     system(f'{db.dismod} {db.path} init')
-    #     db.check_input_tables(_dm_no_ode_)
-    #     db.fit(msg = 'fit_no_ode')
-    #     return db
 
     def check_ones_covariate(db):
         data = db.data
@@ -893,81 +879,6 @@ def setup_db(path, dismod = 'dismod_at', ode_hold_out_list = ()):
     print (f'Initializing FitNoODE database {db.path}')
     return db
 
-# def init_ode_command(args,
-#                      ode_hold_out_list = [], random_seed = None, save_to_path = None, reference_db = None,
-#                      subsample = True, max_covariate_effect = 2, mulcov_values = []):
-#     """
-#     1) Initialize the database for the non-ODE/ODE fitting strategy
-#     2) Hold out the ODE integrands
-#     3) Fit both on a subset of the integrands corresponding directly to the rates
-#        (e.g. Sincidence, chi and rho). Omega is always constrained.
-#     4) Restore the data table to it's original state
-#     """
-
-#     dismod, path, cmd, option = args[:4]
-
-#     db = setup_db(path, dismod = dismod, ode_hold_out_list = ode_hold_out_list)
-#     data = db.data
-
-#     db.simplify_data(random_seed = random_seed, subsample = subsample)
-
-#     db.setup_ode_fit(max_covariate_effect = max_covariate_effect,
-#                      mulcov_values = mulcov_values,
-#                      ode_hold_out_list = ode_hold_out_list)
-
-#     # Fit only a subsample the non-ODE integrands
-#     db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
-#     system(f'{db.dismod} {db.path} init')
-#     db.check_input_tables(_dm_no_ode_)
-#     db.fit(msg = 'fit_no_ode')
-
-#     db.save_database(save_to_path)
-#     db.check_output_tables(reference_db)
-#     db.data = data
-#     return db
-
-# def _fit_ode_command(args, 
-#                      ode_hold_out_list = [], random_seed = None, save_to_path = None, reference_db = None,
-#                      subsample = True, students = False, nu = 5):
-#     """
-#     1) Initialize the database for the non-ODE/ODE fitting strategy
-#     2) Hold out the ODE integrands
-#     3) Fit both on a subset of the integrands corresponding directly to the rates
-#        (e.g. Sincidence, chi and rho). Omega is always constrained.
-#     4) Restore the data table to it's original state
-#     """
-    
-#     dismod, path, cmd, option = args[:4]
-
-#     db = setup_db(path, dismod = dismod, ode_hold_out_list = ode_hold_out_list)
-#     data = db.data
-
-#     db.simplify_data(random_seed = random_seed, subsample = subsample)
-
-#     db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
-
-#     system(f'{db.dismod} {db.path} set start_var fit_var')
-
-#     if students:
-#         db.set_student_likelihoods(factor_eta = 1e-2, nu = nu)
-
-#     db.fit(msg = f'fit_yes_ode -- {cmd}_{option}')
-#     db.save_database(save_to_path)
-#     db.check_output_tables(reference_db)
-
-#     db.data = data
-
-#     return db
-    
-# def fit_ode_command(*args, **kwds):
-#     kwds.update({'students': False})
-#     return _fit_ode_command(*args, **kwds)
-
-# def fit_students_command(*args, **kwds):
-#     kwds.update({'students': True})
-#     return _fit_ode_command(*args, **kwds)
-
-
 def _ode_command(args, init = True, subset = True, random_subsample = None,
                  ode_hold_out_list = [], random_seed = None, save_to_path = None, reference_db = None,
                  max_covariate_effect = 2, mulcov_values = [],
@@ -989,7 +900,7 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
             if reference_db and isinstance(reference_db, str):
                 reference_db = DismodIO(reference_db)
 
-        db.simplify_data(random_seed = random_seed, subsample = random_subsample)
+        db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
 
         if init:
             db.setup_ode_fit(max_covariate_effect = max_covariate_effect,
@@ -999,7 +910,7 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
         else:
             integrands = db.ode_hold_out_list
 
-        # Fit only a subsample
+        # Fit only a subset
         if subset:
             db.hold_out_data(integrand_names = integrands, hold_out=1)
 
@@ -1066,7 +977,7 @@ def compare_dataframes(df0, df1):
 if __name__ == '__main__':
 
     def test_commands(case, db_path, max_covariate_effect, ode_hold_out_list, mulcov_values,
-                      random_seed = None, subsample = True, check = True):
+                      subset = True, random_seed = None, random_subsample = None, check = True):
 
         fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
         global _dm_no_ode_, _dm_yes_ode_, _dm_students_
@@ -1089,19 +1000,22 @@ if __name__ == '__main__':
         global db
         db = init_ode_command(args, max_covariate_effect = max_covariate_effect,
                               mulcov_values = mulcov_values,
-                              ode_hold_out_list = ode_hold_out_list, random_seed = random_seed, subsample = subsample,
+                              ode_hold_out_list = ode_hold_out_list,
+                              subset = subset, random_seed = random_seed, random_subsample = random_subsample,
                               save_to_path = path_no_ode_cmds, reference_db = _dm_no_ode_)
 
         if no_yes_ode or yes_ode:
             print (f"Testing commands on database {path}")
-            fit_ode_command(args, ode_hold_out_list = ode_hold_out_list, random_seed = random_seed, subsample = subsample,
+            fit_ode_command(args, ode_hold_out_list = ode_hold_out_list,
+                            subset = subset, random_seed = random_seed, random_subsample = random_subsample,
                             save_to_path = path_yes_ode_cmds, reference_db = _dm_yes_ode_)
 
         if students:
             cmd = f'dmdismod {db_path} fit students'
             cmd = f'dismod_at {db_path} fit students'
             args = cmd.split()
-            fit_students_command(args, ode_hold_out_list = ode_hold_out_list, random_seed = random_seed, subsample = subsample,
+            fit_students_command(args, ode_hold_out_list = ode_hold_out_list, 
+                                 subset = subset, random_seed = random_seed, random_subsample = random_subsample,
                                  save_to_path = path_students_cmds, reference_db = _dm_students_)
 
     def test_cases(case, specific_name = 'fitODE'):
@@ -1162,7 +1076,7 @@ if __name__ == '__main__':
         return db_path, max_covariate_effect, ode_hold_out_list, mulcov_values
 
     def test(case, db_path, max_covariate_effect, ode_hold_out_list, mulcov_values,
-             random_seed = None): 
+             subset = True, random_seed = None, random_subsample = None): 
 
         def fix_data_table(db, dm, bypass_hold_out = False):
             # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
@@ -1216,7 +1130,7 @@ if __name__ == '__main__':
             db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
             try:
                 system(f'{db.dismod} {db.path} init')
-                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.simplify_data(subset = True, random_seed = random_seed, random_subsample = random_subsample)
                 db.setup_ode_fit(max_covariate_effect, **kwds)
                 db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
@@ -1234,7 +1148,7 @@ if __name__ == '__main__':
                 if __check__ and _dm_no_ode_:
                     db.check_output_tables(_dm_no_ode_)
 
-                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.simplify_data(subset = True, random_seed = random_seed, random_subsample = random_subsample)
                 db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
                 if __check__ and _dm_yes_ode_ and case == 'crohns':
@@ -1265,7 +1179,7 @@ if __name__ == '__main__':
             db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
             
             try:
-                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
                 db.setup_ode_fit(max_covariate_effect, **kwds)
                 db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
@@ -1299,7 +1213,7 @@ if __name__ == '__main__':
             db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
 
             try:
-                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
                 db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
                 if __check__ and _dm_yes_ode_ and case == 'crohns':
@@ -1333,7 +1247,7 @@ if __name__ == '__main__':
             db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
 
             try:
-                db.simplify_data(random_seed = random_seed, subsample = subsample)
+                db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
                 db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
                 db.set_student_likelihoods(factor_eta = 1e-2, nu = 5)
 
@@ -1386,11 +1300,13 @@ if __name__ == '__main__':
             print (cmd)
             print ('+'*100)
 
+    for case in cases:
         if 1:
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
             print ('='*200)
             print ('>>>', case, 'test commands <<<')
-            test_commands(case, db_path, max_covariate_effect, ode_hold_out_list, mulcov_values, random_seed = _random_seed_)
+            test_commands(case, db_path, max_covariate_effect, ode_hold_out_list, mulcov_values,
+                          subset = _subset_, random_seed = _random_seed_, random_subsample = _n_subsample_)
 
 
 # test_commands('dialysis')
