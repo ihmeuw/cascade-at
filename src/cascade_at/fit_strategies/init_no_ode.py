@@ -684,9 +684,10 @@ class FitNoODE(DismodIO):
             tmp = data.copy()
             tmp['integrand_id'] = integrand_id
             avgint = avgint.append(tmp)
-        avgint = avgint.sort_values(by=['integrand_id', 'data_id'])[avgint_cols]
-        avgint = avgint.reset_index(drop=True)
-        avgint['avgint_id'] = avgint.index
+        if not avgint.empty:
+            avgint = avgint.sort_values(by=['integrand_id', 'data_id'])[avgint_cols]
+            avgint = avgint.reset_index(drop=True)
+            avgint['avgint_id'] = avgint.index
         db.avgint = avgint
 
     def simplify_data(db, subset=False, random_seed = None, random_subsample=None):
