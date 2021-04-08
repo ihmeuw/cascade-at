@@ -1,7 +1,20 @@
 #!/usr/bin/env python
-# ------------------------------------------------------------------------
+
+"""
+Example shell command sequence:
+
+cp /Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db /tmp/t1_diabetes.db
+
+./dmdismod_extensions.py /tmp/t1_diabetes.db ODE init  --random-seed 1234 --subset True --random-subsample 1000 --save-to-path /tmp/t1_diabetes_no_ode.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db
+
+./dmdismod_extensions.py /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess  --random-seed 1234 --subset True --random-subsample 1000 --save-to-path /tmp/t1_diabetes_yes_ode.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/yes_ode/yes_ode.db
+
+./dmdismod_extensions.py /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess  --random-seed 1234 --subset True --random-subsample 1000 --save-to-path /tmp/t1_diabetes_students.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/students/students.db
+
+"""
 
 import sys
+import os
 import pandas as pd
 import numpy as np
 import shutil
@@ -10,48 +23,62 @@ from collections import OrderedDict
 from cascade_at.executor.init_no_ode import init_ode_command, fit_ode_command, fit_students_command
 
 __check__ = True
-
-def parse_args(args):
-    import argparse
-    from distutils.util import strtobool as str2bool
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('cmd', type=str, help='An extended dmdismod command, to handle the ODE_init and ODE_students fit strategies.')
-    parser.add_argument('path', type=str, help='Path to the Dismod_AT sqlite database')
-    parser.add_argument('dispatch', type=str, help='Switch to switch to ODE strategy')
-    parser.add_argument('option', type=str, help='One of ODE_fit or ODE_students. Everything else is passed directly on to the regular dmdismod command.')
-
-    parser.add_argument("-m", "--max-covariate-effect", nargs='?', type=float, default = 2,
-                        help = ("Maximum absolute covariate effect = multiplier * (covariate - referece). "
-                                "Note that exp(effect) multiplies a model value to get the model value for "
-                                "this covariate value. (Noise covariate multipliers are not included.)"))
-    parser.add_argument("-c", '--mulcov-values', nargs='+', type=str, default = None,
-                        help = "Constrain covariate multipliers to the specified value")
-    parser.add_argument("-o", "--ode-hold-out-list", nargs='?', type=str, default = None, const = None,
-                        help = "Integrands to hold out during the ODE fit") 
-    parser.add_argument("-s", "--random-seed", nargs='?', type=int, default = None,
-                        help = "Random seed for the random_subsampling") 
-    parser.add_argument("-f", "--subset", nargs='?', type=str2bool, default = False, const = False,
-                        help = "Filter out all hold out and covariate out-of-range data prior to fit.")
-    parser.add_argument("-d", "--random-subsample", nargs='?', type=int, default = 1000, const = None,
-                        help = "Number of random subsamples to fit.")
-    parser.add_argument("-p", "--save-to-path", nargs='?', type=str, default = None, const = None,
-                        help = "Path to directory where to store the results") 
-    parser.add_argument("-t", "--reference_db", nargs='?', type=str, default = "", const = "",
-                        help = "Path to the reference databases. Fit results are compared to these databases for testing purposes.")
-
-    get_help = len(args) > 1 and any(a.startswith('-h') for a in args[1:])
-    if get_help:
-        args = parser.parse_args(args[1:])
-    else:
-        args = parser.parse_args(args)
-    if args.mulcov_values is None:
-        args.mulcov_values = []
-    else:
-        args.mulcov_values = [[a,b,float(c)] for a,b,c in np.asarray(args.mulcov_values).reshape(-1, 3)]
-    return args
+_random_seed_ = 1234
+ 
 
 def dmdismod(cmd):
+    """
+    Example calling sequence:
+    os.system('cp /Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db /tmp/t1_diabetes.db')
+    dmdismod('dismod_at /tmp/t1_diabetes.db ODE init')
+    dmdismod('dismod_at /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess')
+    dmdismod('dismod_at /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess')
+    """
+
+    help=("An extended dmdismod command, to handle Brad's strategy of:\n"
+          "  1) fit the non-ODE integrands to initialize an ODE fit,\n"
+          "  2) fit the non-ODE and ODE integrands\n"
+          "  3) fit to log-student data densities.")
+
+    def parse_args(args):
+        import argparse
+        from distutils.util import strtobool as str2bool
+        parser = argparse.ArgumentParser()
+
+        parser.add_argument('path', type=str, help = 'Path to the Dismod_AT sqlite database')
+        parser.add_argument('dispatch', type=str,
+                            help = ("If dispatch == 'ODE', use ODE fitting strategy."
+                                    "If missing, use standard dismod_at commands."))
+        parser.add_argument('option', type=str,
+                            help = "For the ODE fitting strategy, one of ('init', 'fit' or 'students').")
+        parser.add_argument("-m", "--max-covariate-effect", nargs='?', type=float, default = 2,
+                            help = ("Maximum absolute covariate effect = multiplier * (covariate - referece). "
+                                    "Note that exp(effect) multiplies a model value to get the model value for "
+                                    "this covariate value. (Noise covariate multipliers are not included.)"))
+        parser.add_argument("-c", '--mulcov-values', nargs='+', type=str, default = None,
+                            help = "Constrain covariate multipliers to the specified value")
+        parser.add_argument("-o", "--ode-hold-out-list", nargs='?', type=str, default = None, const = None,
+                            help = "Integrands to hold out during the ODE fit") 
+        parser.add_argument("-s", "--random-seed", nargs='?', type=int, default = None,
+                            help = "Random seed for the random_subsampling") 
+        parser.add_argument("-f", "--subset", nargs='?', type=str2bool, default = False, const = False,
+                            help = "Filter out all hold out and covariate out-of-range data prior to fit.")
+        parser.add_argument("-d", "--random-subsample", nargs='?', type=int, default = 1000, const = None,
+                            help = "Number of random subsamples to fit.")
+        parser.add_argument("-p", "--save-to-path", nargs='?', type=str, default = None, const = None,
+                            help = "Path to directory where to store the results") 
+        parser.add_argument("-t", "--reference_db", nargs='?', type=str, default = "", const = "",
+                            help = "Path to the reference databases. Fit results are compared to these databases for testing purposes.")
+
+        get_help = len(args) > 1 and any(a.startswith('-h') for a in args[1:])
+        args = parser.parse_args(args[1:])
+        args.cmd = sys.argv[0]
+        if args.mulcov_values is None:
+            args.mulcov_values = []
+        else:
+            args.mulcov_values = [[a,b,float(c)] for a,b,c in np.asarray(args.mulcov_values).reshape(-1, 3)]
+        return args
+
     args = cmd.split()
     p_args = parse_args(cmd.split())
     print ('-'*10)
@@ -95,7 +122,7 @@ if __name__ == '__main__':
             path = cmd.split()[1]
             type = dispatch[cmd.split()[3]]
             save_path = path.replace('.db', f'_{type}.db')
-            arg_str = (f" --random-seed 1234 --subset True --random-subsample 1000"
+            arg_str = (f" --random-seed {_random_seed_} --subset True --random-subsample 1000"
                        f" --save-to-path {save_path}"
                        f" --reference /Users/gma/ihme/epi/at_cascade/{disease}/{type}/{type}.db")
             return arg_str
@@ -132,8 +159,9 @@ if __name__ == '__main__':
                                      'dismod_at /tmp/crohns.db ODE students --mulcov-values x_0 iota 3.8661'],
                     )
 
-
-        for disease,_cmds in cmds.items():
+        diseases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
+        for disease in diseases:
+            _cmds = cmds[disease]
             path_in = paths[disease]
             path_fit = f'/tmp/{disease}.db'
             print (f'Copying {path_in} to {path_fit} for testing.')
@@ -149,7 +177,7 @@ if __name__ == '__main__':
 
                 dmdismod(cmd)
 
-
+if __name__ == '__main__':
     if sys.argv[0]:
         cmd = ' '.join(sys.argv)
         print (cmd)
@@ -157,8 +185,3 @@ if __name__ == '__main__':
     else:
         test()
 
-"""
-dmdismod('dismod_at /tmp/t1_diabetes.db ODE init')
-dmdismod('dismod_at /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess')
-dmdismod('dismod_at /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess')
-"""
