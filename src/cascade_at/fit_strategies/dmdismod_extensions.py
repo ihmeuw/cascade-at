@@ -20,7 +20,7 @@ import numpy as np
 import shutil
 
 from collections import OrderedDict
-from cascade_at.executor.init_no_ode import init_ode_command, fit_ode_command, fit_students_command
+from cascade_at.fit_strategies.init_no_ode import init_ode_command, fit_ode_command, fit_students_command
 
 __check__ = True
 _random_seed_ = 1234
