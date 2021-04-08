@@ -961,11 +961,9 @@ if __name__ == '__main__':
         ode_option.update(dict(students = False))
 
     _subset_ = True
-    _random_seed_ = 123
+    _random_seed_ = 1234
     _n_subsample_ = 1000
     _max_iters_ = 500
-
-    _run_fit_ihme_ = True
 
     db = None
 
