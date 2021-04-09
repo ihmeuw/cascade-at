@@ -1,5 +1,7 @@
 import pytest
 import os
+import numpy as np
+
 if __name__ == '__main__':
     import example_db
     import dismod_tests
@@ -30,7 +32,6 @@ db_kwds = dict(test_config=config,
                tol_fixed=dismod_tests.tol_fixed,
                tol_random=dismod_tests.tol_random)
 
-
 def test_1(dismod, assert_correct=True):
     db = example_db.example_db(file_name, **db_kwds)
     # FIXME -- hacks
@@ -40,13 +41,24 @@ def test_1(dismod, assert_correct=True):
     cov.loc[cov.covariate_name == 'one', 'covariate_name'] = 'x_0'
     cov.loc[cov.covariate_name == 'sex', 'covariate_name'] = 'x_1'
     db.covariate = cov
+    truth = dismod_tests.get_truth(db_kwds['test_config'], db_kwds['truth']) 
     try:
         os.system('dmdismod')
         os.system('dmdismod --help')
         os.system(f'dmdismod {db.path} ODE init')
         os.system(f'dmdismod {db.path} ODE fit')
+
+        # Remove the meas_noise the ODE fitting strategy adds
+        fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')
+        fit = fit_var.loc[fit_var.var_type != 'mulcov_meas_noise', 'fit_var_value'].values
+        success = np.allclose(truth, fit, atol=1e-8, rtol=1e-8)
+
         os.system(f'dmdismod {db.path} ODE students')
-        success = True
+        # Remove the meas_noise the ODE fitting strategy adds
+        fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')
+        fit = fit_var.loc[fit_var.var_type != 'mulcov_meas_noise', 'fit_var_value'].values
+        success &= np.allclose(truth, fit, atol=1e-8, rtol=1e-8)
+
     except:
         success = False
     if assert_correct:
