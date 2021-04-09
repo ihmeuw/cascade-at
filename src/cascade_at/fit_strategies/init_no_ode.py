@@ -667,14 +667,18 @@ class FitNoODE(DismodIO):
         predict_id_list = db.integrand.loc[db.integrand.integrand_name.isin(db.predict_integrands),
                                            'integrand_id'].tolist()
 
-        db.avgint = pd.DataFrame()
-
         # First access of an empty db.avgint does not have covariate names. 
         # Once it is initialized, it does. This is DismodIO weirdness.
+        db.avgint = pd.DataFrame()
         avgint_cols = db.avgint.columns.tolist()
-        avgint_cols += sorted(set(db.covariate.covariate_name) - set(avgint_cols))
+        cov_cols = sorted(set(db.covariate.covariate_name) - set(avgint_cols))
+        avgint_cols += cov_cols
 
-        data = db.data[db.data.data_id.isin(db.data_subset.data_id)]
+        try:
+            data = db.data[db.data.data_id.isin(db.data_subset.data_id)]
+        except:
+            data = db.data
+
         data = data[data.integrand_id.isin(covariate_id_list)]
         data['avgint_id'] = data['data_id']
 
@@ -684,7 +688,9 @@ class FitNoODE(DismodIO):
             tmp = data.copy()
             tmp['integrand_id'] = integrand_id
             avgint = avgint.append(tmp)
-        if not avgint.empty:
+        if avgint.empty:
+            avgint = db.data[:0].rename(columns = {'data_id': 'avgint_id'})[avgint_cols]
+        else:
             avgint = avgint.sort_values(by=['integrand_id', 'data_id'])[avgint_cols]
             avgint = avgint.reset_index(drop=True)
             avgint['avgint_id'] = avgint.index
