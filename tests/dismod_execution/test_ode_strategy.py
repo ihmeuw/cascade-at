@@ -46,23 +46,27 @@ def test_1(dismod, assert_correct=True):
         os.system('dmdismod')
         os.system('dmdismod --help')
         os.system(f'dmdismod {db.path} ODE init')
-        os.system(f'dmdismod {db.path} ODE fit')
 
         # Remove the meas_noise the ODE fitting strategy adds
         fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')
         fit = fit_var.loc[fit_var.var_type != 'mulcov_meas_noise', 'fit_var_value'].values
         success = np.allclose(truth, fit, atol=1e-8, rtol=1e-8)
+        os.system(f'dmdismod {db.path} ODE fit')
 
-        os.system(f'dmdismod {db.path} ODE students')
         # Remove the meas_noise the ODE fitting strategy adds
         fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')
         fit = fit_var.loc[fit_var.var_type != 'mulcov_meas_noise', 'fit_var_value'].values
         success &= np.allclose(truth, fit, atol=1e-8, rtol=1e-8)
 
+        os.system(f'dmdismod {db.path} ODE students')
+        # Remove the meas_noise the ODE fitting strategy adds
+        fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')
+        fit = fit_var.loc[fit_var.var_type != 'mulcov_meas_noise', 'fit_var_value'].values
+        np.allclose(truth, fit, atol=1e-8, rtol=1e-4)
     except:
         success = False
     if assert_correct:
         assert success
 
 if __name__ == '__main__':
-    test_1(None, assert_correct=False)
+    test_1(None, assert_correct=True)
