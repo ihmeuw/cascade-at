@@ -61,6 +61,7 @@ class DismodExtractor(DismodIO):
             predictions = self.predict
         df = predictions.merge(self.avgint, on=['avgint_id'])
         df = df.merge(self.integrand, on=['integrand_id'])
+        df = df.merge(self.node, on=['node_id'])
         df['rate'] = df['integrand_name'].map(
             PRIMARY_INTEGRANDS_TO_RATES
         )
