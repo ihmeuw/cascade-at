@@ -49,3 +49,11 @@ def test_format_fit(ihme, dismod, df):
     assert all(pred.columns == [
         'location_id', 'year_id', 'age_group_id', 'sex_id', 'measure_id', 'mean'
     ])
+
+if __name__ == '__main__':
+    os.chdir('/Users/gma/Projects/IHME/GIT/cascade-at')
+    test_empty_database()
+    args = (None, None, None)
+    test_run_dismod_fit_predict(*args)
+    test_get_predictions(*args)
+    test_format_fit(*args)
