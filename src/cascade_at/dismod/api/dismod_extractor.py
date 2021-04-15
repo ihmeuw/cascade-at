@@ -62,13 +62,17 @@ class DismodExtractor(DismodIO):
             predictions = self.predict
         df = predictions.merge(self.avgint, on=['avgint_id'])
         df = df.merge(self.integrand, on=['integrand_id'])
-        df = df.merge(self.node, on=['node_id'])
         df['rate'] = df['integrand_name'].map(
             PRIMARY_INTEGRANDS_TO_RATES
         )
-        sex_cov = self.covariate.loc[self.covariate.c_covariate_name.isin(['sex', 's_sex']), 'covariate_name'].squeeze()
-        sex_id_map = {v:SEX_NAME_TO_ID[k] for k,v in StudyCovConstants.SEX_COV_VALUE_MAP.items()}
-        df['sex_id'] = df[sex_cov].replace(sex_id_map)
+        # FIXME When running the pytests, the avgint table has node and covariate information included,
+        # but when running the regular code, it does not.
+        if not [c for c in df.columns if 'location_id' in c]:
+            df = df.merge(self.node, on=['node_id'])
+        if not [c for c in df.columns if 'sex_id' in c]:
+            sex_cov = self.covariate.loc[self.covariate.c_covariate_name.isin(['sex', 's_sex']), 'covariate_name'].squeeze()
+            sex_id_map = {v:SEX_NAME_TO_ID[k] for k,v in StudyCovConstants.SEX_COV_VALUE_MAP.items()}
+            df['sex_id'] = df[sex_cov].replace(sex_id_map)
         return df
 
     def get_predictions(self, locations: Optional[List[int]] = None,
