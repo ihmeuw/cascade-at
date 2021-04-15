@@ -283,7 +283,8 @@ class _DismodDB(_CascadeOperation):
 class Fit(_DismodDB):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
                  predict: bool = True, fill: bool = True, both: bool = False,
-                 save_fit: bool = False, save_prior: bool = False, **kwargs):
+                 save_fit: bool = False, save_prior: bool = False,
+                 ode_fit_strategy = False, **kwargs):
         """
         Perform a fit on the dismod database for this model version ID,
         parent location, and sex ID. (See undocumented arguments
@@ -305,11 +306,14 @@ class Fit(_DismodDB):
         kwargs
         """
 
-        dm_commands = ['init', 'fit fixed']
-        if both:
-            dm_commands += [
-                'set start_var fit_var', 'set scale_var fit_var', 'fit both'
-            ]
+        if ode_fit_strategy:
+            dm_commands = ['ODE init', 'ODE fit']
+        else:
+            dm_commands = ['init', 'fit fixed']
+            if both:
+                dm_commands += [
+                    'set start_var fit_var', 'set scale_var fit_var', 'fit both'
+                ]
         if predict:
             dm_commands.append('predict fit_var')
         if save_fit and not predict:

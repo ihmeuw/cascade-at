@@ -137,7 +137,8 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
              child_locations: List[int], child_sexes: List[int],
              skip_configure: bool = False,
              mulcov_stats: bool = True,
-             n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
+             n_sim: int = _n_sim, n_pool: int = _n_pool,
+             ode_fit_strategy: bool = True) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
     Does a fit fixed, then fit both, then creates posteriors
@@ -183,7 +184,8 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         predict=True,
         upstream_commands=upstream,
         save_fit=True,
-        save_prior=True
+        save_prior=True,
+        ode_fit_strategy=ode_fit_strategy
     )
     tasks.append(t2)
     t3 = Predict(
