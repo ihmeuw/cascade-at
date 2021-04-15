@@ -82,6 +82,11 @@ db_queries = ModuleProxy("db_queries")
 
 if 'darwin' in sys.platform:    # gma Add logic to skip jobmon imports if jobmon switch is not set at top level call
     LOG.warning("FIXME -- gma -- Add logic to skip jobmon imports if jobmon switch is not set at top level call")
+    swarm = None
+    api = None
+    task = None
+    task_template = None
+    sge = None
 else:
     swarm = ModuleProxy("jobmon.client.swarm")
     api = ModuleProxy("jobmon.client.api")
