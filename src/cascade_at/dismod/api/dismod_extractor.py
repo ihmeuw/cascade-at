@@ -10,6 +10,7 @@ from cascade_at.dismod.api import DismodAPIError
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES, integrand_to_gbd_measures
 from cascade_at.inputs.utilities.gbd_ids import DEMOGRAPHIC_ID_COLS, format_age_time
+from cascade_at.inputs.utilities.gbd_ids import SEX_NAME_TO_ID, StudyCovConstants
 
 LOG = get_loggers(__name__)
 
@@ -65,6 +66,9 @@ class DismodExtractor(DismodIO):
         df['rate'] = df['integrand_name'].map(
             PRIMARY_INTEGRANDS_TO_RATES
         )
+        sex_cov = self.covariate.loc[self.covariate.c_covariate_name.isin(['sex', 's_sex']), 'covariate_name'].squeeze()
+        sex_id_map = {v:SEX_NAME_TO_ID[k] for k,v in StudyCovConstants.SEX_COV_VALUE_MAP.items()}
+        df['sex_id'] = df[sex_cov].replace(sex_id_map)
         return df
 
     def get_predictions(self, locations: Optional[List[int]] = None,
