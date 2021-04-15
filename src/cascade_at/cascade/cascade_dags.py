@@ -89,6 +89,7 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
         mulcov_stats=True,
         skip_configure=skip_configure,
         n_sim=n_sim, n_pool=n_pool,
+        ode_fit_strategy=True,
     )
     tasks += top_level
     for sex in sexes:
