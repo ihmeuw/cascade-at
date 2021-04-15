@@ -35,7 +35,7 @@ class FitNoODE(DismodIO):
         if 'dismod' in kwds:
             db.dismod = kwds.pop('dismod')
         else:
-            db.dismod = 'dismod_at'
+            db.dismod = dismod_cmd
         super().__init__(*args, **kwds)
         db.predict_integrands   = [ 'susceptible', 'withC' ]
         db.enough_mtspecific = 100
@@ -851,7 +851,7 @@ class FitNoODE(DismodIO):
             print ('\n\nERROR in output\n\n', ex)
             raise
 
-def setup_db(path, dismod = 'dismod_at', ode_hold_out_list = ()):
+def setup_db(path, dismod = dismod_cmd, ode_hold_out_list = ()):
     assert os.path.exists(path), f'Path {path} does not exist'
     db = FitNoODE(Path(path), dismod = dismod, ode_hold_out_list = ode_hold_out_list)
     print (f'Initializing FitNoODE database {db.path}')
@@ -980,6 +980,9 @@ if __name__ == '__main__':
 
     __check__ = True
 
+    # dismod_cmd = 'dismod_at'
+    dismod_cmd = 'dmdismod'
+
     if __check__:
         _fit_ihme_py_ = 'fit_ihme.py'
         os.system(f'which {_fit_ihme_py_}')
@@ -998,8 +1001,7 @@ if __name__ == '__main__':
         path_yes_ode_cmds = f'{fit_ihme_path}/cascade/yes_ode_cmds.db'
         path_students_cmds = f'{fit_ihme_path}/cascade/students_cmds.db'
 
-        cmd = f'dmdismod {db_path} fit ode'
-        cmd = f'dismod_at {db_path} fit ode'
+        cmd = f'{dismod_cmd} {db_path} fit ode'
         
         args = cmd.split()
         path = args[1]
@@ -1019,8 +1021,7 @@ if __name__ == '__main__':
                             save_to_path = path_yes_ode_cmds, reference_db = _dm_yes_ode_)
 
         if ode_option['students']:
-            cmd = f'dmdismod {db_path} fit students'
-            cmd = f'dismod_at {db_path} fit students'
+            cmd = f'{dismod_cmd} {db_path} fit students'
             args = cmd.split()
             fit_students_command(args, ode_hold_out_list = ode_hold_out_list, 
                                  subset = subset, random_seed = random_seed, random_subsample = random_subsample,
@@ -1296,9 +1297,10 @@ if __name__ == '__main__':
     # cases = ['dialysis']
     # cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
     cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
+    cases = ['t1_diabetes']
 
     common_kwds = dict(subset = _subset_, random_seed = _random_seed_, random_subsample = _n_subsample_)
-    if 1:
+    if 0:
         for case in cases:
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE')
             print ()
