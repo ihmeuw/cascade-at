@@ -25,6 +25,8 @@ from cascade_at.fit_strategies.init_no_ode import init_ode_command, fit_ode_comm
 __check__ = True
 _random_seed_ = 1234
  
+# _dismod_ = 'dismod_at'
+_dismod_ = 'dmdismod'
 
 def dmdismod(cmd):
     """
@@ -86,7 +88,7 @@ def dmdismod(cmd):
     print ('-'*10)
     
     if p_args.option == "init":
-        db = init_ode_command(['dismod_at'] + args[1:], 
+        db = init_ode_command([_dismod_] + args[1:], 
                               max_covariate_effect = p_args.max_covariate_effect,
                               mulcov_values = p_args.mulcov_values,
                               ode_hold_out_list = p_args.ode_hold_out_list,
@@ -96,7 +98,7 @@ def dmdismod(cmd):
                               save_to_path = p_args.save_to_path,
                               reference_db = p_args.reference_db)
     elif p_args.option == "fit":
-        db = fit_ode_command(['dismod_at'] + args[1:],
+        db = fit_ode_command([_dismod_] + args[1:],
                              ode_hold_out_list = p_args.ode_hold_out_list,
                              random_seed = p_args.random_seed,
                              subset = p_args.subset,
@@ -104,7 +106,7 @@ def dmdismod(cmd):
                              save_to_path = p_args.save_to_path,
                              reference_db = p_args.reference_db)
     elif p_args.option == "students":
-        fit_students_command(['dismod_at'] + args[1:],
+        fit_students_command([_dismod_] + args[1:],
                              ode_hold_out_list = p_args.ode_hold_out_list,
                              subset = p_args.subset,
                              random_seed = p_args.random_seed,
