@@ -255,7 +255,7 @@ class DismodFiller(DismodIO):
             'random_seed': self.settings.model.random_seed,
             'ode_step_size': self.settings.model.ode_step_size,
             'rate_case': self.settings.model.rate_case,
-            'meas_noise_effect': self.settings.policies.meas_std_effect
+            'meas_noise_effect': self.settings.policies.meas_noise_effect
         }
         for kind in ['fixed', 'random']:
             for opt in ['derivative_test', 'max_num_iter', 'print_level', 'accept_after_max_steps', 'tolerance']:

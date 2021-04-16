@@ -291,7 +291,7 @@ class MulCov(Base):
     mulcov_type = Column(String(), nullable=False)
     rate_id = Column(None, ForeignKey("rate.rate_id"), nullable=True)
     """Determines the rate that this covariate and multiplier affects.
-    If mulcov_type is of type meas_value or meas_std, this must be null."""
+    If mulcov_type is of type meas_value or meas_noise, this must be null."""
     integrand_id = Column(None, ForeignKey("integrand.integrand_id"), nullable=True)
     covariate_id = Column(None, ForeignKey("covariate.covariate_id"), nullable=False)
     group_smooth_id = Column(None, ForeignKey("smooth.smooth_id"), nullable=True)

@@ -185,7 +185,7 @@ class StudyCovariate(Form):
 
     measure_id: StrField = StrField(display="Measure")
     mulcov_type: OptionField = OptionField(
-        ["rate_value", "meas_value", "meas_std"], display="Multiplier type")
+        ["rate_value", "meas_value", "meas_noise"], display="Multiplier type")
     transformation: IntField = IntField(display="Transformation")
     age_time_specific: IntField = IntField(display="Age and Time specific")
 
@@ -206,7 +206,7 @@ class CountryCovariate(Form):
 
     measure_id: StrField = StrField(display="Measure")
     mulcov_type: OptionField = OptionField(
-        ["rate_value", "meas_value", "meas_std"], display="Multiplier type")
+        ["rate_value", "meas_value", "meas_noise"], display="Multiplier type")
     transformation: IntField = IntField(display="Transformation")
     age_time_specific: IntField = IntField(display="Age and Time specific")
 
@@ -373,7 +373,7 @@ class Policies(Form):
         default=12, nullable=True, display="Age groups for analysis work.")
     exclude_relative_risk: OptionField = OptionField(
         [1, 0], default=1, constructor=int, nullable=True)
-    meas_std_effect: OptionField = OptionField(
+    meas_noise_effect: OptionField = OptionField(
         ["add_std_scale_all", "add_std_scale_log", "add_var_scale_all",
          "add_var_scale_log"],
         default="add_var_scale_log",

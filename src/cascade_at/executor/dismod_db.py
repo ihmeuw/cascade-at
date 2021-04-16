@@ -77,8 +77,7 @@ def get_mulcov_priors(model_version_id: int) -> Dict[Tuple[str, str, str], _Prio
     model_version_id
         The model version ID to pull covariate multiplier statistics from
     """
-    LOG.info("FIXME -- need the greek symbol for meas_noise.")
-    convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_std': 'gamma', 'meas_noise': 'gamma'}
+    convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_noise': 'gamma'}
     mulcov_prior = {}
     ctx = Context(model_version_id=model_version_id)
     path = os.path.join(ctx.outputs_dir, 'mulcov_stats.csv')
