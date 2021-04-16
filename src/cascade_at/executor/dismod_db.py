@@ -77,7 +77,8 @@ def get_mulcov_priors(model_version_id: int) -> Dict[Tuple[str, str, str], _Prio
     model_version_id
         The model version ID to pull covariate multiplier statistics from
     """
-    convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_std': 'gamma'}
+    LOG.info("FIXME -- need the greek symbol for meas_noise.")
+    convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_std': 'gamma', 'meas_noise': 'meas_noise'}
     mulcov_prior = {}
     ctx = Context(model_version_id=model_version_id)
     path = os.path.join(ctx.outputs_dir, 'mulcov_stats.csv')
@@ -87,11 +88,11 @@ def get_mulcov_priors(model_version_id: int) -> Dict[Tuple[str, str, str], _Prio
     if mulcov_stats_df.empty:
         return {}
     for _,  row in mulcov_stats_df.iterrows():
-        if row['rate_name'] is not None:
+        if row['rate_name'] != 'none':
             mulcov_prior[
                 (convert_type[row['mulcov_type']], row['c_covariate_name'], row['rate_name'])
             ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
-        if row['integrand_name'] is not None:
+        if row['integrand_name'] != 'none':
             mulcov_prior[
                 (convert_type[row['mulcov_type']], row['c_covariate_name'], row['integrand_name'])
             ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
