@@ -17,6 +17,10 @@ Check convergence
 Check prediction
 """
 
+# dismod_cmd = 'dismod_at'
+dismod_cmd = 'dmdismod'
+
+
 sys.path.append('/Users/gma/Projects/IHME/GIT/cascade-at/src')
 from cascade_at.dismod.api.dismod_io import DismodIO
 
@@ -979,9 +983,6 @@ if __name__ == '__main__':
     _dm_students_ = None 
 
     __check__ = True
-
-    # dismod_cmd = 'dismod_at'
-    dismod_cmd = 'dmdismod'
 
     if __check__:
         _fit_ihme_py_ = 'fit_ihme.py'
