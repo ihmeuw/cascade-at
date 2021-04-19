@@ -1326,7 +1326,6 @@ if __name__ == '__main__':
     # cases = ['dialysis']
     # cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
     cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
-    # cases = ['t1_diabetes']
 
     cases_with_json_smoothings_set_to_brads_values = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
@@ -1351,7 +1350,7 @@ if __name__ == '__main__':
                 if case in cases_with_json_smoothings_set_to_brads_values:
                     disease_smoothings.restore()
 
-    if 1:
+    if 0:
         for case in cases:
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
             print ('='*200)
@@ -1359,18 +1358,33 @@ if __name__ == '__main__':
             test_commands(case, db_path, max_covariate_effect = max_covariate_effect, ode_hold_out_list = ode_hold_out_list,
                           mulcov_values = mulcov_values, **common_kwds)
     
-    if 0:
+    if 1:
         for case in cases:
             print ('='*200)
             print ('>>>', case, 'test commands <<<')
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
+            db = FitNoODE(db_path)
+
+            fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
+            _dm_no_ode_ = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db')
+            _dm_yes_ode_ = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db')
+            _dm_students_ = DismodIO(f'{fit_ihme_path}/students/students.db')
+
             kwd_str = (f'--random-seed {_random_seed_} --subset {_subset_} --random-subsample {_n_subsample_} '
-                       f'--ode-hold-out-list {ode_hold_out_list} --max-covariate-effect {max_covariate_effect}')
+                       f'--ode-hold-out-list {" ".join(ode_hold_out_list)} --max-covariate-effect {max_covariate_effect}')
             if mulcov_values:
                  kwd_str += f' --mulcov-values {mulcov_values}'
+
+            tol = dict(rtol = 1e-10, atol=1e-8)
+
             cmd = f'dmdismod {db_path} ODE init {kwd_str}'
             print (cmd); os.system(cmd)
+            assert (np.allclose(db.fit_var.fit_var_value, _dm_no_ode_.fit_var.fit_var_value, **tol))
+
             cmd = f'dmdismod {db_path} ODE fit {kwd_str}'
             print (cmd); os.system(cmd)
+            assert (np.allclose(db.fit_var.fit_var_value, _dm_yes_ode_.fit_var.fit_var_value, **tol))
+
             cmd = f'dmdismod {db_path} ODE students {kwd_str}'
             print (cmd); os.system(cmd)
+            assert (np.allclose(db.fit_var.fit_var_value, _dm_students_.fit_var.fit_var_value, **tol))
