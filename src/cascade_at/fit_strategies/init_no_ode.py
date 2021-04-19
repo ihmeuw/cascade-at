@@ -1326,7 +1326,9 @@ if __name__ == '__main__':
     # cases = ['dialysis']
     # cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
     cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
-    cases = ['t1_diabetes']
+    # cases = ['t1_diabetes']
+
+    cases_with_json_smoothings_set_to_brads_values = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
     common_kwds = dict(subset = _subset_, random_seed = _random_seed_, random_subsample = _n_subsample_)
 
@@ -1334,7 +1336,8 @@ if __name__ == '__main__':
         for case in cases:
             disease_smoothings = disable_disease_smoothings(case)
             try:
-                disease_smoothings.disable()
+                if case in cases_with_json_smoothings_set_to_brads_values:
+                    disease_smoothings.disable()
                 db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE')
                 print ()
                 print ('='*200)
@@ -1345,9 +1348,10 @@ if __name__ == '__main__':
             except:
                 raise
             finally:
-                disease_smoothings.restore()
+                if case in cases_with_json_smoothings_set_to_brads_values:
+                    disease_smoothings.restore()
 
-    if 0:
+    if 1:
         for case in cases:
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
             print ('='*200)
@@ -1357,6 +1361,8 @@ if __name__ == '__main__':
     
     if 0:
         for case in cases:
+            print ('='*200)
+            print ('>>>', case, 'test commands <<<')
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
             kwd_str = (f'--random-seed {_random_seed_} --subset {_subset_} --random-subsample {_n_subsample_} '
                        f'--ode-hold-out-list {ode_hold_out_list} --max-covariate-effect {max_covariate_effect}')
