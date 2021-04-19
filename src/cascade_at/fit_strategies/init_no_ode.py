@@ -1290,6 +1290,34 @@ if __name__ == '__main__':
 
 if __name__ == '__main__':
     
+    class disable_disease_smoothings:
+        """
+        Disease smoothings should be included in the disease settings.json file.
+        If they are, fit_ihme.py, which uses the disease module, will duplicate those smoothings, causing
+        the reference and the newly created smooth tables to differ, causing these tests to fail.
+        
+        This class disables the custom smoothings in the disease module for testing.
+        """
+        def __init__(self, case):
+            import importlib
+            import dismod_at
+            module_name = f'dismod_at.ihme.{case}'
+            specific = importlib.import_module(module_name, package = dismod_at)
+            self.filename = specific.__file__
+            with open (self.filename, 'r') as fn:
+                self.file_text = fn.read()
+        def disable(self):
+            print (f"Disable custom smoothings in {self.filename}")
+            txt = self.file_text[:]
+            txt = txt.replace('parent_smoothing[', '#disable-parent_smoothing[')
+            txt = txt.replace('child_smoothing[', '#disable-child_smoothing[')
+            with open (self.filename, 'w') as fn:
+                fn.write(txt)
+        def restore(self):
+            print (f"Restore custom smoothings in {self.filename}")
+            with open (self.filename, 'w') as fn:
+                fn.write(self.file_text)
+
     # cases = ['osteo_hip']
     # cases = ['osteo_knee']
     # cases = ['t1_diabetes']
@@ -1301,16 +1329,25 @@ if __name__ == '__main__':
     cases = ['t1_diabetes']
 
     common_kwds = dict(subset = _subset_, random_seed = _random_seed_, random_subsample = _n_subsample_)
-    if 0:
-        for case in cases:
-            db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE')
-            print ()
-            print ('='*200)
-            print ('>>>', case, 'test cases <<<')
-            print ('='*200)
-            test(case, db_path, max_covariate_effect = max_covariate_effect, ode_hold_out_list = ode_hold_out_list,
-                 mulcov_values = mulcov_values, **common_kwds)
+
     if 1:
+        for case in cases:
+            disease_smoothings = disable_disease_smoothings(case)
+            try:
+                disease_smoothings.disable()
+                db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE')
+                print ()
+                print ('='*200)
+                print ('>>>', case, 'test cases <<<')
+                print ('='*200)
+                test(case, db_path, max_covariate_effect = max_covariate_effect, ode_hold_out_list = ode_hold_out_list,
+                     mulcov_values = mulcov_values, **common_kwds)
+            except:
+                raise
+            finally:
+                disease_smoothings.restore()
+
+    if 0:
         for case in cases:
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
             print ('='*200)
