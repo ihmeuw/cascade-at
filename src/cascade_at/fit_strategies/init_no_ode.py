@@ -1330,7 +1330,7 @@ if __name__ == '__main__':
 
     common_kwds = dict(subset = _subset_, random_seed = _random_seed_, random_subsample = _n_subsample_)
 
-    if 1:
+    if 0:
         for case in cases:
             disease_smoothings = disable_disease_smoothings(case)
             try:
@@ -1355,3 +1355,16 @@ if __name__ == '__main__':
             test_commands(case, db_path, max_covariate_effect = max_covariate_effect, ode_hold_out_list = ode_hold_out_list,
                           mulcov_values = mulcov_values, **common_kwds)
     
+    if 0:
+        for case in cases:
+            db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
+            kwd_str = (f'--random-seed {_random_seed_} --subset {_subset_} --random-subsample {_n_subsample_} '
+                       f'--ode-hold-out-list {ode_hold_out_list} --max-covariate-effect {max_covariate_effect}')
+            if mulcov_values:
+                 kwd_str += f' --mulcov-values {mulcov_values}'
+            cmd = f'dmdismod {db_path} ODE init {kwd_str}'
+            print (cmd); os.system(cmd)
+            cmd = f'dmdismod {db_path} ODE fit {kwd_str}'
+            print (cmd); os.system(cmd)
+            cmd = f'dmdismod {db_path} ODE students {kwd_str}'
+            print (cmd); os.system(cmd)
