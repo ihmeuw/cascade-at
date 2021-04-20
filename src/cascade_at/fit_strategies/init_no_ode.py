@@ -1331,7 +1331,8 @@ if __name__ == '__main__':
 
     common_kwds = dict(subset = _subset_, random_seed = _random_seed_, random_subsample = _n_subsample_)
 
-    if 0:
+
+    if 1:
         for case in cases:
             disease_smoothings = disable_disease_smoothings(case)
             try:
@@ -1350,7 +1351,7 @@ if __name__ == '__main__':
                 if case in cases_with_json_smoothings_set_to_brads_values:
                     disease_smoothings.restore()
 
-    if 0:
+    if 1:
         for case in cases:
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
             print ('='*200)
@@ -1360,7 +1361,7 @@ if __name__ == '__main__':
     
     if 1:
         for case in cases:
-            print ('='*200)
+            print ('+'*200)
             print ('>>>', case, 'test commands <<<')
             db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
             db = FitNoODE(db_path)
@@ -1373,18 +1374,18 @@ if __name__ == '__main__':
             kwd_str = (f'--random-seed {_random_seed_} --subset {_subset_} --random-subsample {_n_subsample_} '
                        f'--ode-hold-out-list {" ".join(ode_hold_out_list)} --max-covariate-effect {max_covariate_effect}')
             if mulcov_values:
-                 kwd_str += f' --mulcov-values {mulcov_values}'
+                 kwd_str += f' --mulcov-values {" ".join([str(b) for a in mulcov_values for b in a])}'
 
             tol = dict(rtol = 1e-10, atol=1e-8)
 
             cmd = f'dmdismod {db_path} ODE init {kwd_str}'
-            print (cmd); os.system(cmd)
+            os.system(cmd)
             assert (np.allclose(db.fit_var.fit_var_value, _dm_no_ode_.fit_var.fit_var_value, **tol))
 
             cmd = f'dmdismod {db_path} ODE fit {kwd_str}'
-            print (cmd); os.system(cmd)
+            os.system(cmd)
             assert (np.allclose(db.fit_var.fit_var_value, _dm_yes_ode_.fit_var.fit_var_value, **tol))
 
             cmd = f'dmdismod {db_path} ODE students {kwd_str}'
-            print (cmd); os.system(cmd)
+            os.system(cmd)
             assert (np.allclose(db.fit_var.fit_var_value, _dm_students_.fit_var.fit_var_value, **tol))
