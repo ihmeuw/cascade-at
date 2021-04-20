@@ -17,9 +17,10 @@ Check convergence
 Check prediction
 """
 
-# dismod_cmd = 'dismod_at'
-dismod_cmd = 'dmdismod'
-
+# _dismod_cmd_ = 'dismod_at'
+_dismod_cmd_ = 'dmdismod'
+_fit_ihme_py_ = 'fit_ihme.py'
+_max_iters_ = 500
 
 sys.path.append('/Users/gma/Projects/IHME/GIT/cascade-at/src')
 from cascade_at.dismod.api.dismod_io import DismodIO
@@ -39,7 +40,7 @@ class FitNoODE(DismodIO):
         if 'dismod' in kwds:
             db.dismod = kwds.pop('dismod')
         else:
-            db.dismod = dismod_cmd
+            db.dismod = _dismod_cmd_
         super().__init__(*args, **kwds)
         db.predict_integrands   = [ 'susceptible', 'withC' ]
         db.enough_mtspecific = 100
@@ -855,7 +856,7 @@ class FitNoODE(DismodIO):
             print ('\n\nERROR in output\n\n', ex)
             raise
 
-def setup_db(path, dismod = dismod_cmd, ode_hold_out_list = ()):
+def setup_db(path, dismod = _dismod_cmd_, ode_hold_out_list = ()):
     assert os.path.exists(path), f'Path {path} does not exist'
     db = FitNoODE(Path(path), dismod = dismod, ode_hold_out_list = ode_hold_out_list)
     print (f'Initializing FitNoODE database {db.path}')
@@ -957,78 +958,7 @@ def compare_dataframes(df0, df1):
 
 if __name__ == '__main__':
 
-    if 1:
-        # This option closest to the enhanced dismod command version
-        # The ODE 'init' command runs dismod init, then a no_ode fit -- the no_ode option
-        # The ODE 'fit' command runs a yes_ode fit -- the yes_ode option
-        # The ODE 'students' command runs a students fit -- the students option
-        ode_option = dict(no_yes_ode = False, no_ode = True, yes_ode = True, students = True)
-    else:
-        # This option runs dismod init, then no_ode and yes_ode fits in a single step
-        ode_option = dict(no_yes_ode = True, no_ode = False, yes_ode = False, students = True)
-    if 1111111111111:
-        ode_option.update(dict(yes_ode = False))
-    if 1111111111111:
-        ode_option.update(dict(students = False))
-
-    _subset_ = True
-    _random_seed_ = 1234
-    _n_subsample_ = 1000
-    _max_iters_ = 500
-
     db = None
-
-    _dm_no_ode_ = None
-    _dm_yes_ode_ = None
-    _dm_students_ = None 
-
-    __check_results__ = True
-
-    if __check_results__:
-        _fit_ihme_py_ = 'fit_ihme.py'
-        os.system(f'which {_fit_ihme_py_}')
-    else:
-        _fit_ihme_py_ = None
-
-    def test_commands(case, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulcov_values=[],
-                      subset=True, random_seed=None, random_subsample=None):
-
-        fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
-        global _dm_no_ode_, _dm_yes_ode_, _dm_students_
-        _dm_no_ode_ = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db')
-        _dm_yes_ode_ = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db')
-        _dm_students_ = DismodIO(f'{fit_ihme_path}/students/students.db')
-
-        global path_ode_cmds, path_students_cmds
-        path_no_ode_cmds = f'{fit_ihme_path}/cascade/no_ode_cmds.db'
-        path_yes_ode_cmds = f'{fit_ihme_path}/cascade/yes_ode_cmds.db'
-        path_students_cmds = f'{fit_ihme_path}/cascade/students_cmds.db'
-
-        cmd = f'{dismod_cmd} {db_path} fit ode'
-        
-        args = cmd.split()
-        path = args[1]
-        print (f"Testing commands on database {path}")
-
-        global db               # For debugging
-        db = init_ode_command(args, max_covariate_effect = max_covariate_effect,
-                              mulcov_values = mulcov_values,
-                              ode_hold_out_list = ode_hold_out_list,
-                              subset = subset, random_seed = random_seed, random_subsample = random_subsample,
-                              save_to_path = path_no_ode_cmds, reference_db = _dm_no_ode_)
-
-        if ode_option['no_yes_ode'] or ode_option['yes_ode']:
-            print (f"Testing commands on database {path}")
-            fit_ode_command(args, ode_hold_out_list = ode_hold_out_list,
-                            subset = subset, random_seed = random_seed, random_subsample = random_subsample,
-                            save_to_path = path_yes_ode_cmds, reference_db = _dm_yes_ode_)
-
-        if ode_option['students']:
-            cmd = f'{dismod_cmd} {db_path} fit students'
-            args = cmd.split()
-            fit_students_command(args, ode_hold_out_list = ode_hold_out_list, 
-                                 subset = subset, random_seed = random_seed, random_subsample = random_subsample,
-                                 save_to_path = path_students_cmds, reference_db = _dm_students_)
 
     def test_cases(case, specific_name = 'fitODE'):
         crohns = '/Users/gma/ihme/epi/at_cascade/data/475533/dbs/1/2/dismod.db'
@@ -1087,8 +1017,46 @@ if __name__ == '__main__':
 
         return db_path, max_covariate_effect, ode_hold_out_list, mulcov_values
 
-    def test(case, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulcov_values=[],
-             subset=True, random_seed=None, random_subsample=None): 
+    def test_commands(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulcov_values=[],
+                      subset=True, random_seed=None, random_subsample=None,
+                      ode_option = {}, reference_dbs = {}):
+
+        global path_ode_cmds, path_students_cmds
+        path_no_ode_cmds = f'{fit_ihme_path}/cascade/no_ode_cmds.db'
+        path_yes_ode_cmds = f'{fit_ihme_path}/cascade/yes_ode_cmds.db'
+        path_students_cmds = f'{fit_ihme_path}/cascade/students_cmds.db'
+
+        cmd = f'{_dismod_cmd_} {db_path} fit ode'
+        
+        args = cmd.split()
+        path = args[1]
+        print (f"Testing commands on database {path}")
+
+        global db               # For debugging
+        if step == 'no_ode' and ode_option['no_ode']:
+            db = init_ode_command(args, max_covariate_effect = max_covariate_effect,
+                                  mulcov_values = mulcov_values,
+                                  ode_hold_out_list = ode_hold_out_list,
+                                  subset = subset, random_seed = random_seed, random_subsample = random_subsample,
+                                  save_to_path = path_no_ode_cmds, reference_db = reference_dbs['no_ode'])
+
+            if step == 'yes_ode' and ode_option['no_yes_ode'] or ode_option['yes_ode']:
+                print (f"Testing commands on database {path}")
+                fit_ode_command(args, ode_hold_out_list = ode_hold_out_list,
+                                subset = subset, random_seed = random_seed, random_subsample = random_subsample,
+                                save_to_path = path_yes_ode_cmds, reference_db = reference_dbs['yes_ode'])
+
+            if step == 'students' and ode_option['students']:
+                cmd = f'{_dismod_cmd_} {db_path} fit students'
+                args = cmd.split()
+                fit_students_command(args, ode_hold_out_list = ode_hold_out_list, 
+                                     subset = subset, random_seed = random_seed, random_subsample = random_subsample,
+                                     save_to_path = path_students_cmds, reference_db = reference_dbs['students'])
+
+    def test(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulcov_values=[],
+             subset=True, random_seed=None, random_subsample=None,
+             ode_option = {}, reference_dbs = {},
+             check_results = False): 
 
         def fix_data_table(db, dm, bypass_hold_out = False):
             # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
@@ -1114,28 +1082,22 @@ if __name__ == '__main__':
 
 
         fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
-
-        _dm_no_ode_ = _dm_yes_ode_ = _dm_students_ = None
-        if __check_results__:
-            _dm_no_ode_ = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db')
-            _dm_yes_ode_ = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db')
-            _dm_students_ = DismodIO(f'{fit_ihme_path}/students/students.db')
-
-        cascade_path = f'/Users/gma/ihme/epi/at_cascade/{case}/cascade'
-        if not os.path.isdir(cascade_path):
-            os.makedirs(cascade_path, exist_ok=True)
-            
         global path_no_ode, path_yes_ode, path_students
         path_no_ode = f'{fit_ihme_path}/cascade/no_ode.db'
         path_yes_ode = f'{fit_ihme_path}/cascade/yes_ode.db'
         path_students = f'{fit_ihme_path}/cascade/students.db'
 
+        cascade_path = f'/Users/gma/ihme/epi/at_cascade/{case}/cascade'
+        if not os.path.isdir(cascade_path):
+            os.makedirs(cascade_path, exist_ok=True)
+            
+
         kwds = dict(mulcov_values = mulcov_values, ode_hold_out_list = ode_hold_out_list)
 
         global db               # For debugging
 
-        if ode_option['no_yes_ode']:
-            if __check_results__:
+        if step == 'no_ode' or ode_option['no_yes_ode']:
+            if check_results:
                 if _fit_ihme_py_:
                     shutil.rmtree(os.path.join('~/ihme/epi/at_cascade'), case)
                     cmd = f'{_fit_ihme_py_} ~/ihme/epi/at_cascade {case} no_ode {random_seed}'
@@ -1152,47 +1114,46 @@ if __name__ == '__main__':
                 db.setup_ode_fit(max_covariate_effect, **kwds)
                 db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
-                if __check_results__ and _dm_no_ode_ and case == 'crohns':
-                    fix_data_table(db, _dm_no_ode_)
+                if check_results and reference_dbs['no_ode'] and case == 'crohns':
+                    fix_data_table(db, reference_dbs['no_ode'])
 
                 system(f'{db.dismod} {db.path} init')
                 if _max_iters_ is not None: 
                     db.set_option('max_num_iter_fixed', _max_iters_)
 
-                if _dm_no_ode_:
-                    db.check_input_tables(_dm_no_ode_, check_hold_out = True)
+                if reference_dbs['no_ode']:
+                    db.check_input_tables(reference_dbs['no_ode'], check_hold_out = True)
                 db.fit(msg = 'fit_no_ode')
+                if reference_dbs['no_ode']:
+                    db.check_output_tables(reference_dbs['no_ode'])
                 db.save_database(path_no_ode)
-                if _dm_no_ode_:
-                    db.check_output_tables(_dm_no_ode_)
 
                 # -- yes_ode portion --
                 db.data = db.input_data
                 db.simplify_data(subset = True, random_seed = random_seed, random_subsample = random_subsample)
                 db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
-                if _dm_yes_ode_ and case == 'crohns':
-                    fix_data_table(db, _dm_yes_ode_)
+                if reference_dbs['yes_ode'] and case == 'crohns':
+                    fix_data_table(db, reference_dbs['yes_ode'])
 
                 # use previous fit as starting point
                 system(f'{db.dismod} {db.path} set start_var fit_var')
 
-                if _dm_yes_ode_:
-                    db.check_input_tables(_dm_yes_ode_, check_hold_out = True)
+                if reference_dbs['yes_ode']:
+                    db.check_input_tables(reference_dbs['yes_ode'], check_hold_out = True)
                 db.fit(msg='fit_with_ode')
                 db.save_database(path_yes_ode)
-                if _dm_yes_ode_:
-                    db.check_output_tables(_dm_yes_ode_)
+                if reference_dbs['yes_ode']:
+                    db.check_output_tables(reference_dbs['yes_ode'])
             except: raise
             finally:
                 db.data = db.input_data
 
-        if ode_option['no_ode']:
-            if __check_results__:
-                if _fit_ihme_py_:
-                    shutil.rmtree(os.path.join('~/ihme/epi/at_cascade'), case)
-                    cmd = f'{_fit_ihme_py_} ~/ihme/epi/at_cascade {case} no_ode {random_seed}'
-                    print (cmd); os.system(cmd)
+        if step == 'no_ode' and ode_option['no_ode']:
+            if _fit_ihme_py_:
+                shutil.rmtree(os.path.join('~/ihme/epi/at_cascade'), case)
+                cmd = f'{_fit_ihme_py_} ~/ihme/epi/at_cascade {case} no_ode {random_seed}'
+                print (cmd); os.system(cmd)
 
             print ('--- no_ode ---')
 
@@ -1203,7 +1164,7 @@ if __name__ == '__main__':
                 db.setup_ode_fit(max_covariate_effect, **kwds)
                 db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
-                if _dm_no_ode_ and case == 'crohns':
+                if reference_dbs['no_ode'] and case == 'crohns':
                     fix_data_table(db, _dm_no_ode_)
 
                 system(f'{db.dismod} {db.path} init')
@@ -1211,19 +1172,19 @@ if __name__ == '__main__':
                 if _max_iters_ is not None:
                     db.set_option('max_num_iter_fixed', _max_iters_)
 
-                if _dm_no_ode_:
-                    db.check_input_tables(_dm_no_ode_, check_hold_out = True)
+                if reference_dbs['no_ode']:
+                    db.check_input_tables(reference_dbs['no_ode'], check_hold_out = True)
                 db.fit(msg = 'fit_no_ode')
                 db.save_database(path_no_ode)
-                if _dm_no_ode_:
-                    db.check_output_tables(_dm_no_ode_)
+                if reference_dbs['no_ode']:
+                    db.check_output_tables(reference_dbs['no_ode'])
 
             except: raise
             finally:
                 db.data = db.input_data
 
-        if ode_option['yes_ode']:
-            if __check_results__:
+        if step == 'yes_ode' and ode_option['yes_ode']:
+            if check_results:
                 if _fit_ihme_py_:
                     cmd = f'{_fit_ihme_py_} ~/ihme/epi/at_cascade {case} yes_ode'
                     print (cmd); os.system(cmd)
@@ -1236,8 +1197,8 @@ if __name__ == '__main__':
                 db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
                 db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
-                if _dm_yes_ode_ and case == 'crohns':
-                    fix_data_table(db, _dm_yes_ode_)
+                if reference_dbs['yes_ode'] and case == 'crohns':
+                    fix_data_table(db, reference_dbs['yes_ode'])
 
                 # use previous fit as starting point
                 system(f'{db.dismod} {db.path} set start_var fit_var')
@@ -1245,19 +1206,19 @@ if __name__ == '__main__':
                 if _max_iters_ is not None:
                     db.set_option('max_num_iter_fixed', _max_iters_)
 
-                if _dm_yes_ode_:
-                    db.check_input_tables(_dm_yes_ode_, check_hold_out = True)
+                if reference_dbs['yes_ode']:
+                    db.check_input_tables(reference_dbs['yes_ode'], check_hold_out = True)
                 db.fit(msg='fit_with_ode')
                 db.save_database(path_yes_ode)
-                if _dm_yes_ode_:
-                    db.check_output_tables(_dm_yes_ode_)
+                if reference_dbs['yes_ode']:
+                    db.check_output_tables(reference_dbs['yes_ode'])
 
             except: raise
             finally:
                 db.data = db.input_data
 
-        if ode_option['students']:
-            if __check_results__:
+        if step == 'students' and ode_option['students']:
+            if check_results:
                 if _fit_ihme_py_:
                     cmd = f'{_fit_ihme_py_} ~/ihme/epi/at_cascade {case} students'
                     print (cmd); os.system(cmd)
@@ -1271,27 +1232,24 @@ if __name__ == '__main__':
                 db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
                 db.set_student_likelihoods(factor_eta = 1e-2, nu = 5)
 
-                if _dm_students_ and case == 'crohns':
-                    fix_data_table(db, _dm_students_)
+                if reference_dbs['students'] and case == 'crohns':
+                    fix_data_table(db, reference_dbs['students'])
 
                 system(f'{db.dismod} {db.path} set start_var fit_var')
 
                 if _max_iters_ is not None: 
                     db.set_option('max_num_iter_fixed', _max_iters_)
 
-                if _dm_students_:
-                    db.check_input_tables(_dm_students_, check_hold_out = True)
+                if reference_dbs['students']:
+                    db.check_input_tables(reference_dbs['students'], check_hold_out = True)
                 db.fit(msg = 'fit_students')
                 db.save_database(path_students)
-                if _dm_students_:
-                    db.check_output_tables(_dm_students_)
-
+                if reference_dbs['students']:
+                    db.check_output_tables(reference_dbs['students'])
             except: raise
             finally:
                 db.data = db.input_data
 
-if __name__ == '__main__':
-    
     class disable_disease_smoothings:
         """
         Disease smoothings should be included in the disease settings.json file.
@@ -1320,6 +1278,31 @@ if __name__ == '__main__':
             with open (self.filename, 'w') as fn:
                 fn.write(self.file_text)
 
+    def reference_dbs(case):
+        fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
+        return dict(no_ode = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db'),
+                    yes_ode = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db'),
+                    students = DismodIO(f'{fit_ihme_path}/students/students.db'))
+
+if __name__ == '__main__':
+    
+    if 1:
+        # This option closest to the enhanced dismod command version
+        # The ODE 'init' command runs dismod init, then a no_ode fit -- the no_ode option
+        # The ODE 'fit' command runs a yes_ode fit -- the yes_ode option
+        # The ODE 'students' command runs a students fit -- the students option
+        ode_option = dict(no_yes_ode = False, no_ode = True, yes_ode = True, students = True)
+    else:
+        # This option runs dismod init, then no_ode and yes_ode fits in a single step
+        ode_option = dict(no_yes_ode = True, no_ode = False, yes_ode = False, students = True)
+    if 1:
+        ode_option.update(dict(yes_ode = False))
+    if 1:
+        ode_option.update(dict(students = False))
+
+    common_kwds = dict(subset = True, random_seed = 1234, random_subsample = 1000,
+                       ode_option = ode_option)
+
     cases_with_json_smoothings_set_to_brads_values = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
     # cases = ['osteo_hip']
@@ -1331,66 +1314,62 @@ if __name__ == '__main__':
     # cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
     cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
-    common_kwds = dict(subset = _subset_, random_seed = _random_seed_, random_subsample = _n_subsample_)
+    for case in cases:
+        db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE')
+        # for step in ['no_ode', 'yes_ode', 'students']:
+        for step in ['no_ode', 'yes_ode', 'students']:
+            if 1:
+                try:
+                    if case in cases_with_json_smoothings_set_to_brads_values:
+                        disease_smoothings = disable_disease_smoothings(case)
+                        disease_smoothings.disable()
+                    print ()
+                    print ('='*200)
+                    print ('>>>', case, 'test cases <<<')
+                    print ('='*200)
+                    test(case, step, db_path, max_covariate_effect = max_covariate_effect, ode_hold_out_list = ode_hold_out_list,
+                         mulcov_values = mulcov_values, reference_dbs = reference_dbs(case), check_results = True,
+                         **common_kwds)
+                except:
+                    raise
+                finally:
+                    if case in cases_with_json_smoothings_set_to_brads_values:
+                        disease_smoothings.restore()
 
-
-    if 1:
-        for case in cases:
-            try:
-                if case in cases_with_json_smoothings_set_to_brads_values:
-                    disease_smoothings = disable_disease_smoothings(case)
-                    disease_smoothings.disable()
-                db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE')
-                print ()
+            if 1:
                 print ('='*200)
-                print ('>>>', case, 'test cases <<<')
-                print ('='*200)
-                test(case, db_path, max_covariate_effect = max_covariate_effect, ode_hold_out_list = ode_hold_out_list,
-                     mulcov_values = mulcov_values, **common_kwds)
-            except:
-                raise
-            finally:
-                if case in cases_with_json_smoothings_set_to_brads_values:
-                    disease_smoothings.restore()
+                print ('>>>', case, 'test commands <<<')
+                test_commands(case, step, db_path, max_covariate_effect = max_covariate_effect, ode_hold_out_list = ode_hold_out_list,
+                              mulcov_values = mulcov_values, reference_dbs = reference_dbs(case), **common_kwds)
 
-    if 1:
-        for case in cases:
-            db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
-            print ('='*200)
-            print ('>>>', case, 'test commands <<<')
-            test_commands(case, db_path, max_covariate_effect = max_covariate_effect, ode_hold_out_list = ode_hold_out_list,
-                          mulcov_values = mulcov_values, **common_kwds)
-    
-    if 1:
-        for case in cases:
-            print ('+'*200)
-            print ('>>>', case, 'test commands <<<')
-            db_path, max_covariate_effect, ode_hold_out_list, mulcov_values = test_cases(case, 'FitODE_cmds')
-            db = FitNoODE(db_path)
+            if 1:
+                print ('+'*200)
+                print ('>>>', case, 'test commands <<<')
+                db = FitNoODE(db_path)
 
-            fit_ihme_path = f'/Users/gma/ihme/epi/at_cascade/{case}'
-            _dm_no_ode_ = DismodIO(f'{fit_ihme_path}/no_ode/no_ode.db')
-            _dm_yes_ode_ = DismodIO(f'{fit_ihme_path}/yes_ode/yes_ode.db')
-            _dm_students_ = DismodIO(f'{fit_ihme_path}/students/students.db')
+                ref_dbs = reference_dbs(case)
 
-            kwd_str = (f'--random-seed {_random_seed_} --subset {_subset_} --random-subsample {_n_subsample_} '
-                       f'--ode-hold-out-list {" ".join(ode_hold_out_list)} --max-covariate-effect {max_covariate_effect}')
-            if mulcov_values:
-                 kwd_str += f' --mulcov-values {" ".join([str(b) for a in mulcov_values for b in a])}'
+                kwd_str = (f'--random-seed {_random_seed_} --subset {_subset_} --random-subsample {_n_subsample_} '
+                           f'--ode-hold-out-list {" ".join(ode_hold_out_list)} --max-covariate-effect {max_covariate_effect}')
+                if mulcov_values:
+                     kwd_str += f' --mulcov-values {" ".join([str(b) for a in mulcov_values for b in a])}'
 
-            tol = dict(rtol = 1e-10, atol=1e-8)
+                tol = dict(rtol = 1e-10, atol=1e-8)
 
-            cmd = f'dmdismod {db_path} ODE init {kwd_str}'
-            os.system(cmd)
-            assert (np.allclose(db.fit_var.fit_var_value, _dm_no_ode_.fit_var.fit_var_value, **tol))
+                if step == 'no_ode':
+                    cmd = f'dmdismod {db_path} ODE init {kwd_str}'
+                    os.system(cmd)
+                    assert (np.allclose(db.fit_var.fit_var_value, ref_dbs['no_ode'].fit_var.fit_var_value, **tol))
 
-            cmd = f'dmdismod {db_path} ODE fit {kwd_str}'
-            os.system(cmd)
-            assert (np.allclose(db.fit_var.fit_var_value, _dm_yes_ode_.fit_var.fit_var_value, **tol))
+                    if step == 'yes_ode':
+                        cmd = f'dmdismod {db_path} ODE fit {kwd_str}'
+                        os.system(cmd)
+                        assert (np.allclose(db.fit_var.fit_var_value, ref_dbs['yes_ode'].fit_var.fit_var_value, **tol))
 
-            cmd = f'dmdismod {db_path} ODE students {kwd_str}'
-            os.system(cmd)
-            assert (np.allclose(db.fit_var.fit_var_value, _dm_students_.fit_var.fit_var_value, **tol))
+                    if step == 'students':
+                        cmd = f'dmdismod {db_path} ODE students {kwd_str}'
+                        os.system(cmd)
+                        assert (np.allclose(db.fit_var.fit_var_value, ref_dbs['students'].fit_var.fit_var_value, **tol))
 
 
-print ('fix 1111111111111')
+print (f'Test {ode_option} OK')
