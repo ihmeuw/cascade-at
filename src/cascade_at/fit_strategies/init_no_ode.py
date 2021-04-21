@@ -901,7 +901,7 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
     4) Restore the data table to it's original state
     """
 
-    print ('**************', args)
+    LOG.info(f"_ode_command: {' '.join(args)}")
     dismod, path, cmd, option = args[:4]
 
     db = setup_db(path, dismod = dismod, ode_hold_out_list = ode_hold_out_list)
