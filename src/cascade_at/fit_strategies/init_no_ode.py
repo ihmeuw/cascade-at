@@ -9,6 +9,7 @@ import random
 import time
 import tempfile
 from pathlib import Path
+from cascade_at.core.log import logging, get_loggers, LEVELS
 
 """
 If there is mtspecific, hold out mtexcess on the ode fit.
@@ -22,12 +23,16 @@ _dismod_cmd_ = 'dmdismod'
 _fit_ihme_py_ = 'fit_ihme.py'
 _max_iters_ = 500
 
+sys.path.append('/Users/gma/Projects/IHME/GIT/cascade-at/src')
 from cascade_at.dismod.api.dismod_io import DismodIO
+
+LOG = get_loggers(__name__)
+logging.basicConfig(level=LEVELS['info'])
 
 def system (command) :
     # flush python's pending standard output in case this command generates more standard output
     sys.stdout.flush()
-    print (command)
+    LOG.info(command)
     if isinstance(command, str):
         command = command.split()
     run = subprocess.run(command)
@@ -73,7 +78,6 @@ class FitNoODE(DismodIO):
         db.set_integrand_lists()
         msg = '\nInitial integrands   = ' + str( db.integrands )
         print(msg)
-
 
     # ============================================================================
     # Utilities that use database tables but do not modify them
@@ -811,7 +815,7 @@ class FitNoODE(DismodIO):
 
     def save_database(db, save_path):
         if save_path is not None:
-            print (f'Saving {db.path} to {save_path}')
+            LOG.info (f'Saving {db.path} to {save_path}')
             shutil.copy2(db.path, save_path)
 
     def check_input_tables(db, dm, check_hold_out = True):
@@ -845,44 +849,44 @@ class FitNoODE(DismodIO):
             mask0 = (vd0 != vd1).any(axis=1).values
             mask1 = (vd0 != vd1).any(axis=0).values
             if not mask1.any():
-                print ('Var tables agree')
+                LOG.info('Var tables agree')
             else:
-                print ("fit_ihme (Brad's):")
+                LOG.error("fit_ihme (Brad's):")
                 print (vd1.loc[mask0, mask1].merge(d1[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
-                print ('init_no_ode:')
+                LOG.error('init_no_ode:')
                 print (vd0.loc[mask0, mask1].merge(d0[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
                 raise Exception ('ERROR -- var tables do not agree')
 
-        print (f'+++ db.path {db.path}')
-        print (f'+++ dm.path {dm.path}')
+        LOG.info(f'+++ db.path {db.path}')
+        LOG.info(f'+++ dm.path {dm.path}')
         try:
             if check_hold_out:
-                print ('db.data', check_data(db.data, dm.data))
+                LOG.info(f"db.data {check_data(db.data, dm.data)}")
             else:
-                print ('db.data', check_data(db.data.drop(columns = 'hold_out'), dm.data.drop(columns = 'hold_out')))
+                LOG.info(f"db.data {check_data(db.data.drop(columns = 'hold_out'), dm.data.drop(columns = 'hold_out'))}")
             check_var(db, dm)
-            print ('Check input tables OK')
+            LOG.info('Check input tables OK')
         except Exception as ex:
-            print ('\n\nERROR in inputs\n\n', ex)
+            LOG.error('ERROR in inputs', ex)
             raise
 
     def check_output_tables(db, dm=None):
-        print (f'+++ db.path {db.path}')
-        print (f'+++ dm.path {dm.path}')
+        LOG.info(f'+++ db.path {db.path}')
+        LOG.info(f'+++ dm.path {dm.path}')
         try:
             dmv = pd.read_csv(dm.path.parent / 'variable.csv')
-            os.system(f'dismodat.py {db.path} db2csv')
+            system(f'dismodat.py {db.path} db2csv')
             dbv = pd.read_csv(db.path.parent / 'variable.csv')
-            print ('variable.csv', compare_dataframes(dmv, dbv))
-            print ('Check output tables OK')
+            LOG.info(f'variable.csv {compare_dataframes(dmv, dbv)}')
+            LOG.info('Check output tables OK')
         except Exception as ex:
-            print ('\n\nERROR in output\n\n', ex)
+            LOG.error('ERROR in outputs', ex)
             raise
 
 def setup_db(path, dismod = _dismod_cmd_, ode_hold_out_list = ()):
     assert os.path.exists(path), f'Path {path} does not exist'
     db = FitNoODE(Path(path), dismod = dismod, ode_hold_out_list = ode_hold_out_list)
-    print (f'Initializing FitNoODE database {db.path}')
+    LOG.info(f'Initializing FitNoODE database {db.path}')
     return db
 
 def _ode_command(args, init = True, subset = True, random_subsample = None,
