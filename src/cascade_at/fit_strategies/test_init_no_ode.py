@@ -346,27 +346,22 @@ if __name__ == '__main__':
     # cases = ['crohns']
     # cases = ['dialysis']
     cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
-    # cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
+    cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
     steps = ['no_ode', 'yes_ode', 'students']
-
 
     make_reference = True
     test_funs = True
     test_cmds = True
     test_sh = True
 
-    cases = ['t1_diabetes']
-
     for case in cases:
         fit_ihme_path, ref_dbs = reference_dbs(case)
         for step in steps:
-            ode_option['steps'] = steps
             print ()
             reference_db = ref_dbs[step]
             print ('='*200)
             if make_reference:
-                print ('='*200)
                 print (f">>> Making reference by running fit_ihme.py for {case} {step} <<<")
                 try:
                     if case in cases_with_json_smoothings_set_to_brads_values:
@@ -431,4 +426,8 @@ if __name__ == '__main__':
                     assert (np.allclose(db2.fit_var.fit_var_value, reference_db.fit_var.fit_var_value, **tol))
 
 
-print (f'Test {ode_option} OK')
+print ()
+print (f'Tested:    {cases}')
+print (f'  options: {ode_option}')
+print (f'  steps:   {steps}')
+print (f'OK')
