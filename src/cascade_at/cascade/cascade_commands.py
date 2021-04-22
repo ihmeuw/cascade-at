@@ -65,7 +65,8 @@ class _CascadeCommand:
 class Drill(_CascadeCommand):
     def __init__(self, model_version_id: int,
                  drill_parent_location_id: int, drill_sex: int,
-                 n_sim: int, n_pool: int = 10):
+                 n_sim: int, n_pool: int = 10,
+                 json_file: Optional[str] = ''):
         """
         A cascade command that runs a drill model, meaning
         that it runs one Dismod-AT model with a parent
@@ -84,6 +85,8 @@ class Drill(_CascadeCommand):
         n_pool
             The number of threads to create in a multiprocessing pool.
             If this is 1, then it will not do multiprocessing.
+        json_file
+            Pass this argument do configure_inputs
         """
         super().__init__()
 
@@ -97,6 +100,7 @@ class Drill(_CascadeCommand):
             sex_id=drill_sex,
             n_sim=n_sim,
             n_pool=n_pool,
+            json_file=json_file,
         )
         for t in tasks:
             self.add_task(t)
@@ -106,7 +110,8 @@ class TraditionalCascade(_CascadeCommand):
     def __init__(self, model_version_id: int, split_sex: bool,
                  dag: LocationDAG, n_sim: int, n_pool: int = 10,
                  location_start: Optional[int] = None,
-                 sex: Optional[int] = None, skip_configure: bool = False):
+                 sex: Optional[int] = None, skip_configure: bool = False,
+                 json_file: Optional[str] = ''):
         """
         Runs the "traditional" dismod cascade. The traditional cascade
         as implemented here runs fit fixed all the way to the leaf nodes of
@@ -138,6 +143,8 @@ class TraditionalCascade(_CascadeCommand):
         skip_configure
             Use this option to skip the initial inputs pulling; should only
             be used in debugging cases by developers.
+        json_file
+            Pass this argument do configure_inputs
         """
 
         super().__init__()
@@ -156,7 +163,8 @@ class TraditionalCascade(_CascadeCommand):
             split_sex=split_sex,
             n_sim=n_sim,
             n_pool=n_pool,
-            skip_configure=skip_configure
+            skip_configure=skip_configure,
+            json_file=json_file
         )
         for t in tasks:
             self.add_task(t)

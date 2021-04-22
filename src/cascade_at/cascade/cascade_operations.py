@@ -182,7 +182,9 @@ class _CascadeOperation:
 
 
 class ConfigureInputs(_CascadeOperation):
-    def __init__(self, model_version_id: int, **kwargs):
+    def __init__(self, model_version_id: int,
+                 json_file: str = '',
+                 **kwargs):
         """
         Configure the inputs for a model version ID.
 
@@ -198,7 +200,8 @@ class ConfigureInputs(_CascadeOperation):
         self._configure(
             model_version_id=model_version_id,
             make=True,
-            configure=True
+            configure=True,
+            json_file=json_file
         )
 
     @staticmethod

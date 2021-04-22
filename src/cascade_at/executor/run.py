@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from typing import Optional
+import json
 
 import logging
 
@@ -12,6 +13,7 @@ from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSi
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
 from cascade_at.settings.settings import settings_from_model_version_id
+from cascade_at.settings.settings import load_settings
 
 LOG = get_loggers(__name__)
 
@@ -26,12 +28,15 @@ ARG_LIST = ArgumentList([
     StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
            required=False),
     BoolArg('--skip-configure'),
+    StrArg('--json-file', help='for testing, pass a json file directly by filepath',
+           required=False),
     LogLevel()
 ])
 
 
 def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10, n_pool: int=10,
-        addl_workflow_args: Optional[str] = None, skip_configure: bool = False) -> None:
+        addl_workflow_args: Optional[str] = None, skip_configure: bool = False,
+        json_file:Optional[str] = None) -> None:
     """
     Runs the whole cascade or drill for a model version (whichever one is specified
     in the model version settings).
@@ -66,10 +71,16 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     )
     context.update_status(status='Submitted')
 
-    settings = settings_from_model_version_id(
-        model_version_id=model_version_id,
-        conn_def=context.model_connection
-    )
+    if json_file:
+        with open(json_file) as fn:
+            LOG.info(f"Reading settings from {json_file}")
+            parameter_json = json.loads(fn.read())
+        settings = load_settings(parameter_json)
+    else:
+        settings = settings_from_model_version_id(
+            model_version_id=model_version_id,
+            conn_def=context.model_connection
+        )
     dag = LocationDAG(location_set_version_id=settings.location_set_version_id,
                       gbd_round_id=settings.gbd_round_id)
 
@@ -80,6 +91,7 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             drill_sex=settings.model.drill_sex,
             n_sim=n_sim,
             n_pool=n_pool,
+            json_file=json_file,
         )
     elif settings.model.drill == 'cascade':
 
@@ -100,6 +112,7 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             location_start=settings.model.drill_location_start,
             sex=sex,
             skip_configure=skip_configure,
+            json_file=json_file,
         )
     else:
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")
@@ -147,6 +160,7 @@ def main():
         n_pool=args.n_pool,
         addl_workflow_args=args.addl_workflow_args,
         skip_configure=args.skip_configure,
+        json_file=args.json_file
     )
 
 
