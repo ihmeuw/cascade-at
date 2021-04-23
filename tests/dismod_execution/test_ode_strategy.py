@@ -58,8 +58,8 @@ def test_help(dismod, assert_correct=True):
         expect = ("usage:    dmdismod [-h | --help]                      # Print detailed help.\n"
                   "usage:    dmdismod database [ODE] command [arguments] # Run dmdismod commands.\n"
                   "Omitting 'ODE' calls the standard dismod_at executable.\n"
-                  "Specifying 'ODE' dispatches to the ODE fitting strategy code.\n").replace(' ', '')
-        rtn = subprocess.check_output('dmdismod').decode().replace(' ', '')
+                  "Specifying 'ODE' dispatches to the ODE fitting strategy code.\n").replace(' ', '').replace('\n','')
+        rtn = subprocess.check_output('dmdismod').decode().replace(' ', '').replace('\n','')
         assert rtn == expect, "dmdismod without arguments return was not correct."
 
         expect = ("/opt/local/bin/dmdismod --help\n"
@@ -90,8 +90,8 @@ def test_help(dismod, assert_correct=True):
                   "-p [SAVE_TO_PATH], --save-to-path [SAVE_TO_PATH]\n"
                   "Path to directory where to store the results\n"
                   "-t [REFERENCE_DB], --reference_db [REFERENCE_DB]\n"
-                  "Path to the reference databases. Fit results are compared to these databases for testing purposes.\n").replace(' ', '')
-        rtn = subprocess.check_output(['dmdismod', '--help']).decode().replace(' ', '')
+                  "Path to the reference databases. Fit results are compared to these databases for testing purposes.\n").replace(' ', '').replace('\n','')
+        rtn = subprocess.check_output(['dmdismod', '--help']).decode().replace(' ', '').replace('\n','')
         assert rtn == expect, "Help return was not correct."
         success = True
     except:
