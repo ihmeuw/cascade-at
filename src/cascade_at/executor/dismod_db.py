@@ -6,6 +6,7 @@ from typing import Union, List, Dict, Any, Optional, Tuple
 import os
 import numpy as np
 import pandas as pd
+import json
 
 from cascade_at.core import CascadeATError
 from cascade_at.context.model_context import Context
@@ -21,6 +22,7 @@ from cascade_at.inputs.measurement_inputs import MeasurementInputs
 from cascade_at.model.grid_alchemy import Alchemy
 from cascade_at.saver.results_handler import ResultsHandler
 from cascade_at.settings.settings_config import SettingsConfig
+from cascade_at.settings.settings import load_settings
 from cascade_at.model.priors import Gaussian, _Prior
 from cascade_at.dismod.api.fill_extract_helpers.posterior_to_prior import format_rate_grid_for_ihme
 
@@ -42,7 +44,9 @@ ARG_LIST = ArgumentList([
     BoolArg('--save-fit', help='whether or not to save the fit'),
     BoolArg('--save-prior', help='whether or not to save the prior'),
     LogLevel(),
-    StrArg('--test-dir', help='if set, will save files to the directory specified')
+    StrArg('--test-dir', help='if set, will save files to the directory specified'),
+    StrArg('--json-file', help='for testing, pass a json file directly by filepath',
+           required=False),
 ])
 
 
@@ -145,7 +149,8 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
               prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
               prior_mulcov_model_version_id: Optional[int] = None,
               test_dir: Optional[str] = None, fill: bool = False,
-              save_fit: bool = True, save_prior: bool = True) -> None:
+              save_fit: bool = True, save_prior: bool = True,
+              json_file: str = '') -> None:
     """
     Creates a dismod database using the saved inputs and the file
     structure specified in the context. Alternatively it will
@@ -202,6 +207,12 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
 
     db_path = context.db_file(location_id=parent_location_id, sex_id=sex_id)
     inputs, alchemy, settings = context.read_inputs()
+    if json_file:
+        with open(json_file) as f:
+            LOG.info(f"Overriding default json settings with information from {json_file}.")
+            settings_json = json.load(f)
+        settings = load_settings(settings_json=settings_json)
+
 
     # If we want to override the rate priors with posteriors from a previous
     # database, pass them in here.
@@ -276,6 +287,7 @@ def main():
         test_dir=args.test_dir,
         save_fit=args.save_fit,
         save_prior=args.save_prior,
+        json_file=args.json_file
     )
 
 
