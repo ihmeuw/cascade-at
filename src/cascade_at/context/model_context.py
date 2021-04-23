@@ -165,6 +165,7 @@ class Context:
             LOG.info(f"Reading input obj from {self.inputs_file}.")
             inputs = dill.load(f)
         with open(self.settings_file) as f:
+            LOG.info(f"Reading json file from {self.settings_file}.")
             settings_json = json.load(f)
         settings = load_settings(settings_json=settings_json)
         alchemy = Alchemy(settings=settings)
