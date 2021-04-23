@@ -197,12 +197,13 @@ class ConfigureInputs(_CascadeOperation):
         self.name_components = [model_version_id]
         self.j_resource = True
 
-        self._configure(
-            model_version_id=model_version_id,
-            make=True,
-            configure=True,
-            json_file=json_file
-        )
+        kwds = dict(model_version_id=model_version_id,
+                    make=True,
+                    configure=True)
+        if json_file:
+            kwds.update(dict(json_file = json_file))
+
+        self._configure(**kwds)
 
     @staticmethod
     def _script():
