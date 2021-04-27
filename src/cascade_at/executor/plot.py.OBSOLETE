@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys
 import numpy
 import math
@@ -10,15 +11,29 @@ case_study_title = "TBD"
 
 from fit_ihme import new_fit_directory, plot_rate, plot_integrand, plot_predict
 
-disease_directory = Path('/Users/gma/ihme/epi/at_cascade/t1_diabetes_test')
-which_fit = 'no_ode'
+if __name__ == '__main__' and len(sys.argv) == 2:
+    disease_directory = Path(sys.argv[1])
+    which_fit = ''
+    directory = disease_directory.parent
+    db = DismodIO(disease_directory)
+    print (directory)
+else:
+    disease_directory = Path('/Users/gma/ihme/epi/at_cascade/t1_diabetes_test')
+    which_fit = 'no_ode'
+    db = DismodIO(disease_directory / which_fit / 'no_ode.db')
 
-db = DismodIO(disease_directory / which_fit / 'no_ode.db')
+if 1:
+    disease_directory = Path('~/ihme/epi/at_cascade/data/475588/dbs/1/3').expanduser()
+    directory = disease_directory.parent
+    which_fit = ''
+    db = DismodIO(disease_directory / 'dismod.db')
+
+
 try: db.sample
 except:
     os.system(f'dismod_at {db.path} sample asymptotic fixed 10')
 
-def plot_rate(db, rate_name, directory, which_fit) :
+def plot_rate(db, rate_name, dir, which_fit) :
     color_style_list = [
         ('blue',       'dashed'),  ('lightblue',  'solid'),
         ('red',        'dashed'),  ('pink',       'solid'),
@@ -168,7 +183,7 @@ def plot_rate(db, rate_name, directory, which_fit) :
     from matplotlib import pyplot
     #
     import matplotlib.backends.backend_pdf
-    file_name = directory / which_fit / (rate_name + '.pdf')
+    file_name = dir / which_fit / (rate_name + '.pdf')
     pdf = matplotlib.backends.backend_pdf.PdfPages(file_name)
     #
     # ------------------------------------------------------------------------
@@ -376,7 +391,7 @@ def plot_rate(db, rate_name, directory, which_fit) :
     pdf.close()
 
 # ----------------------------------------------------------------------------
-def plot_integrand(db, integrand_name, directory, which_fit) :
+def plot_integrand(db, integrand_name, dir, which_fit) :
     # Plot the data, model, and residual values for a specified integrand.
     # Covariate values used for each model point are determined by
     # correspondign data point.
@@ -481,7 +496,7 @@ def plot_integrand(db, integrand_name, directory, which_fit) :
     #
     from matplotlib import pyplot
     import matplotlib.backends.backend_pdf
-    file_name = directory / which_fit / (integrand_name + '.pdf')
+    file_name = dir / which_fit / (integrand_name + '.pdf')
     print (file_name)
     pdf = matplotlib.backends.backend_pdf.PdfPages(file_name)
     #
@@ -541,7 +556,7 @@ def plot_integrand(db, integrand_name, directory, which_fit) :
 
 # ----------------------------------------------------------------------------
 def plot_predict(
-        covariate_integrand_list, predict_integrand_list, directory, which_fit
+        covariate_integrand_list, predict_integrand_list, dir, which_fit
     ) :
     # Plot the model predictions for each integrand in the predict integrand
     # list. The is one such plot for each integrand in the covariate integrand
@@ -624,7 +639,7 @@ def plot_predict(
     # initialize
     from matplotlib import pyplot
     import matplotlib.backends.backend_pdf
-    file_name = directory + '/predict.pdf'
+    file_name = dir + '/predict.pdf'
     pdf = matplotlib.backends.backend_pdf.PdfPages(file_name)
     #
     predict_id = 0
