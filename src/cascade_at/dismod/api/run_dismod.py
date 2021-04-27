@@ -66,8 +66,8 @@ def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
                 except RuntimeError:
                     sys.exit(process.exit_status)
         else:
-            if process.stdout:
-                LOG.info(f"{process.stdout}")
             if process.stderr:
-                LOG.error(f"{process.stderr}")
+                LOG.info(process.stderr)
+            if process.stdout:
+                LOG.info(process.stdout)
     return processes
