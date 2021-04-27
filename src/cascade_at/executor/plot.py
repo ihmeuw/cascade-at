@@ -5,12 +5,14 @@ import math
 import numpy as np
 import pandas as pd
 import subprocess
-
+from functools import lru_cache
 from pathlib import Path
 
 from matplotlib import pyplot as plt
 import matplotlib.backends.backend_pdf
-plt.interactive(1)
+
+interactive = not sys.argv[0]
+plt.interactive(interactive)
 
 def system (command) :
     # flush python's pending standard output in case this command generates more standard output
@@ -195,7 +197,7 @@ def plot_rate(db, rate_name, which_fit) :
             ])
         # --------------------------------------------------------------------
         pdf.savefig( fig )
-        # plt.close( fig )
+        plt.close( fig )
     # ------------------------------------------------------------------------
     # for each age, plot rate as a function of time
     # ------------------------------------------------------------------------
@@ -295,19 +297,16 @@ def plot_rate(db, rate_name, which_fit) :
             ])
         # --------------------------------------------------------------------
         pdf.savefig( fig )
-        # plt.close( fig )
+        plt.close( fig )
     #
     pdf.close()
 # ----------------------------------------------------------------------------
 
-def plot_integrand(db, integrand_name, which_fit) :
+def plot_integrand(db, data, integrand_name, which_fit) :
     # Plot the data, model, and residual values for a specified integrand.
     # Covariate values used for each model point are determined by
     # correspondign data point.
     fit_var = db.fit_var
-    data = (db.data_subset.merge(db.data, how='left').merge(db.integrand, how='left')
-            .merge(db.fit_data_subset, how='left', left_on = 'data_subset_id', right_on = 'fit_data_subset_id'))
-    data = data[data.integrand_name == integrand_name]
 
     this_integrand_id = int(db.integrand.loc[db.integrand.integrand_name == integrand_name, 'integrand_id'])
     parent_node_id = int(db.option.loc[db.option.option_name == 'parent_node_id', 'option_value'])
@@ -378,7 +377,8 @@ def plot_integrand(db, integrand_name, which_fit) :
         plt.yscale('log')
         mask = ~((y_min < y) & (y < y_max))
         plt.scatter(x[mask], y[mask], marker='+', color='red', s=marker_size )
-        plt.ylim(y_limit[0], y_limit[1])
+        if np.isfinite(y_limit).all():
+            plt.ylim(y_limit[0], y_limit[1])
         #
         plt.title( '\n'.join(case_study_title(db, which_fit)) )
         #
@@ -390,7 +390,8 @@ def plot_integrand(db, integrand_name, which_fit) :
         plt.yscale('log')
         mask = ~((y_min < y) & (y < y_max))
         plt.scatter(x[mask], y[mask], marker='+', color='red', s=marker_size )
-        plt.ylim(y_limit[0], y_limit[1])
+        if np.isfinite(y_limit).all():
+            plt.ylim(y_limit[0], y_limit[1])
         #
         # this plot at the bottom of the figure has its x tick labels
         plt.subplot(3, 1, 3)
@@ -399,15 +400,24 @@ def plot_integrand(db, integrand_name, which_fit) :
         plt.ylabel('residual')
         mask = ~((r_min < y) & (y < r_max))
         plt.scatter(x[mask], y[mask], marker='+', color='red', s=marker_size )
-        plt.ylim(r_limit[0], r_limit[1])
+        if np.isfinite(r_limit).all():
+            plt.ylim(r_limit[0], r_limit[1])
         y = 0.0
         plt.axhline(y, linestyle='solid', color='black', alpha=0.3 )
         #
         plt.xlabel(x_name)
         #
         pdf.savefig( fig )
+        plt.close( fig )
     #
     pdf.close()
+
+@lru_cache
+def get_fitted_data(db):
+    data = (db.data_subset.merge(db.data, how='left')
+            .merge(db.fit_data_subset, how='left', left_on= 'data_subset_id', right_on = 'fit_data_subset_id')
+            .merge(db.integrand, how='left'))
+    return data
 
 def plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit) :
     # Plot the model predictions for each integrand in the predict integrand
@@ -426,8 +436,7 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit
     covariate_id_list = db.integrand.loc[db.integrand.integrand_name.isin(covariate_integrand_list), 'integrand_id'].values
     predict_id_list = db.integrand.loc[db.integrand.integrand_name.isin(predict_integrand_list), 'integrand_id'].values
 
-    data = db.data_subset.merge(db.data, how='left').merge(db.integrand, how='left')
-
+    data = get_fitted_data(db)
     db.avgint = avgint = pd.DataFrame()
     cols = db.avgint.columns.drop('avgint_id').tolist() + db.covariate.covariate_name.tolist()
     for cov_id in covariate_id_list:
@@ -475,18 +484,19 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit
         plt.suptitle(f'Covariate Integrand = {covariate_name}\n{case_study_title(db, "")[-1]}' )
         #
         pdf.savefig( fig )
+        plt.close( fig )
     pdf.close()
 
 def main(args=None):
     from cascade_at.dismod.api.dismod_io import DismodIO
-    db = DismodIO(Path(args.filename))
+    db = DismodIO(Path(args.filename).expanduser())
 
     title = case_study_title(db, version = args.model_version_id, disease = args.disease, which_fit = args.fit_type)
 
-    mask = db.integrand.integrand_id.isin(db.data.integrand_id.unique())
-    data_integrands = sorted(set(db.integrand.loc[mask, 'integrand_name']) - set(['mtall', 'mtother']))
+    data = get_fitted_data(db)
+    data_integrands = sorted(set(data.integrand_name.unique()) - set(['mtall', 'mtother']))
     no_ode_integrands = sorted(set(['Sincidence', 'mtexcess', 'mtother', 'remission']).intersection(data_integrands))
-    yes_ode_integrands = sorted(set(data_integrands) - set(no_ode_integrands))
+    yes_ode_integrands = sorted((set(data_integrands) - set(no_ode_integrands)).intersection(data_integrands))
     all_integrands = no_ode_integrands + yes_ode_integrands
 
     covariate_integrand_list = yes_ode_integrands
@@ -495,14 +505,11 @@ def main(args=None):
     rate = db.rate
     integrand = db.integrand
     rate_names = rate.loc[~rate.parent_smooth_id.isna(), 'rate_name'].tolist()
-    which_fit = 'no_ode'
     for rate_name in rate_names:
-        plot_rate(db, rate_name, which_fit)
-
+        plot_rate(db, rate_name, which_fit = args.fit_type)
     for integrand_name in all_integrands:
-        plot_integrand(db, integrand_name, which_fit)
-    
-    plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit)
+        plot_integrand(db, data, integrand_name, which_fit = args.fit_type)
+    plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit = args.fit_type)
 
 
 if __name__ == '__main__':
@@ -521,10 +528,5 @@ if __name__ == '__main__':
         args = parser.parse_args()
         return args
 
-    if not sys.argv[0]:
-        fn = '/Users/gma/ihme/epi/at_cascade/t1_diabetes/yes_ode/yes_ode.db'
-        args = parse_args(fn)
-    else:
-        args = parse_args(sys.argv)
-    plt.close('all')
+    args = parse_args(sys.argv)
     main(args)
