@@ -487,9 +487,28 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit
         plt.close( fig )
     pdf.close()
 
-def main(args=None):
+def parse_args():
+    import argparse
+    from distutils.util import strtobool as str2bool
+    parser = argparse.ArgumentParser()
+    name_string = "-filename" if sys.argv[0] == '' else "filename"
+    parser.add_argument(name_string, type=str, help="Dismod_AT sqlite database filename")
+    parser.add_argument("-d", "--disease", type = str, help="Disease name (for plot title)")
+    parser.add_argument("-f", "--fit_type", type = str, help="Type of the fit (for plot title)")
+    parser.add_argument("-v", "--model_version_id", type = int, default = None,
+                        help = f"Model version id -- default = None")
+    parser.add_argument("-c", "--covariate_integrands", type = str, nargs='+', default = ['mtspecific', 'prevalence'],
+                        help = f"Integrands from which to derive covariates -- default = [mtspecific prevalence]")
+    args = parser.parse_args()
+    return args
+
+def main():
     from cascade_at.dismod.api.dismod_io import DismodIO
-    db = DismodIO(Path(args.filename).expanduser())
+
+    args = parse_args()
+    path = Path(args.filename).expanduser()
+    assert path.is_file(), f"The database path {path} does not exist."
+    db = DismodIO(path)
 
     title = case_study_title(db, version = args.model_version_id, disease = args.disease, which_fit = args.fit_type)
 
@@ -513,20 +532,5 @@ def main(args=None):
 
 
 if __name__ == '__main__':
-    def parse_args(fn=None):
-        import argparse
-        from distutils.util import strtobool as str2bool
-        parser = argparse.ArgumentParser()
-        name_string = "-filename" if sys.argv[0] == '' else "filename"
-        parser.add_argument(name_string, type=str, help="Dismod_AT sqlite database filename", default = fn)
-        parser.add_argument("-d", "--disease", type = str, help="Disease name (for plot title)")
-        parser.add_argument("-f", "--fit_type", type = str, help="Type of the fit (for plot title)")
-        parser.add_argument("-v", "--model_version_id", type = int, default = None,
-                            help = f"Model version id -- default = None")
-        parser.add_argument("-c", "--covariate_integrands", type = str, nargs='+', default = ['mtspecific', 'prevalence'],
-                            help = f"Integrands from which to derive covariates -- default = [mtspecific prevalence]")
-        args = parser.parse_args()
-        return args
+    main()
 
-    args = parse_args(sys.argv)
-    main(args)
