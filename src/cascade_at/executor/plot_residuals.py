@@ -18,10 +18,11 @@ def parse_args():
                         help="Location ids to plot, default = all")
     parser.add_argument("-i", "--integrands", type = str, nargs='+', default = None,
                         help = f"Integrands to plot, default = all")
+    parser.add_argument("-d", "--disease", type = str, help="Disease name (for plot title)")
     args = parser.parse_args()
     return args
 
-def plot(residuals, path, integrands = None):
+def plot(residuals, path, mvid, integrands = None, disease = ''):
     if integrands:
         integrand_names = integrands
     else:
@@ -37,7 +38,7 @@ def plot(residuals, path, integrands = None):
             # fig, ax = plt.subplots(1, 1, tight_layout=True)
             fig = plt.figure(i)
             ax = plt.gca()
-            plt.title(f"{n.capitalize()} Fit Summary for {m} of {l} Locations With Data")
+            plt.title(f"{disease} {n.capitalize()} MVID {mvid} \n({m} of {l} total locations have data)")
             plt.xlabel('Weighted Residual')
             plt.ylabel('Count')
             r = integrand.weighted_residual
@@ -90,7 +91,7 @@ def main():
     plot_path = path.parent / 'plots'
     if not plot_path.exists():
         plot_path.mkdir(parents=True, exist_ok=True)
-    plot(residuals, plot_path, integrands = args.integrands)
+    plot(residuals, plot_path, mvid, integrands = args.integrands, disease = args.disease)
 
 if __name__ == '__main__':
     if not sys.argv[0]:
