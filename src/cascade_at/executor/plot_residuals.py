@@ -87,7 +87,7 @@ def main():
     print (f"Accumulating the fit residuals for the entire cascade execution of mvid {mvid}.")
 
     residuals = collect(dbs, location_ids = args.location_ids)
-    plot_path = path.parent / 'plot'
+    plot_path = path.parent / 'plots'
     if not plot_path.exists():
         plot_path.mkdir(parents=True, exist_ok=True)
     plot(residuals, plot_path, integrands = args.integrands)
