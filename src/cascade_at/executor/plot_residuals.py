@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import sqlalchemy
 from cascade_at.dismod.api.dismod_io import DismodIO
-import matplotlib.backends.backend_pdf
+from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import pyplot as plt
 plt.interactive(1)
 
@@ -26,21 +26,26 @@ def plot(residuals, path, integrands = None):
         integrand_names = integrands
     else:
         integrand_names = residuals.integrand_name.unique()
-    for n in integrand_names:
+    pdf_file = path / 'weighted_residuals.pdf'
+    pdf = PdfPages(pdf_file)
+    print (f"Saving plot {pdf_file}")
+    for i, n in enumerate(integrand_names):
         integrand = residuals.loc[residuals.integrand_name == n]
-        fig, ax = plt.subplots(1, 1, tight_layout=True)
         l = len(residuals.c_parent_location_id.unique())
         m = len(integrand.c_parent_location_id.unique())
-        plt.title(f"{n.capitalize()} Fit Summary for {m} of {l} Locations With Data")
-        plt.xlabel('Weighted Residual')
-        plt.ylabel('Count')
-        r = integrand.weighted_residual
-        n_bins = max(100, int(len(r)/100))
-        ax.hist(r, bins=n_bins)
-        pdf_file = path / (n + '.pdf')
-        pdf = matplotlib.backends.backend_pdf.PdfPages(pdf_file)
-        print (f"Saving plot {pdf_file}")
-        pdf.savefig( fig )
+        if m:
+            # fig, ax = plt.subplots(1, 1, tight_layout=True)
+            fig = plt.figure(i)
+            ax = plt.gca()
+            plt.title(f"{n.capitalize()} Fit Summary for {m} of {l} Locations With Data")
+            plt.xlabel('Weighted Residual')
+            plt.ylabel('Count')
+            r = integrand.weighted_residual
+            n_bins = max(100, int(len(r)/100))
+            ax.hist(r, bins=n_bins)
+            pdf.savefig( fig )
+            plt.close( fig.number )
+    pdf.close()
 
 def collect(dbs, location_ids = None):
     residuals = pd.DataFrame()
@@ -72,7 +77,6 @@ def collect(dbs, location_ids = None):
     return residuals
 
 def main():
-    global args
     args = parse_args()
     path = Path(args.filename).expanduser()
     assert path.is_dir()
@@ -83,17 +87,17 @@ def main():
     print (f"Accumulating the fit residuals for the entire cascade execution of mvid {mvid}.")
 
     residuals = collect(dbs, location_ids = args.location_ids)
-    plot(residuals, path, integrands = args.integrands)
-
-    return residuals
+    plot_path = path.parent / 'plot'
+    if not plot_path.exists():
+        plot_path.mkdir(parents=True, exist_ok=True)
+    plot(residuals, plot_path, integrands = args.integrands)
 
 if __name__ == '__main__':
-    """
     if not sys.argv[0]:
         mvid_path = '/Users/gma/ihme/epi/at_cascade/data/475588/dbs'
         superregions = [str(i) for i in [4, 31, 64, 103, 137, 158, 166]]
+        superregions = [str(i) for i in ['1']]
         sys.argv = ['plot_residuals', mvid_path, '--location-ids'] + superregions
-    """
     residuals = main()
 
 
