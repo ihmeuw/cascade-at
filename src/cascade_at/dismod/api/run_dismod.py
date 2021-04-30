@@ -20,7 +20,7 @@ def run_dismod(dm_file: str, command: str):
     """
     command = ["dmdismod", str(dm_file), command]
     command = ' '.join(command)
-    LOG.info(f"Running {command}...")
+    LOG.info(f"Running {command}")
 
     process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -47,6 +47,18 @@ def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
         whether to exit the code altogether if there is an error. If False,
         then it will pass the error string back to the original python process.
     """
+    def log_stream(stream, exit_status):
+        "Log the dismod return messages appropriately"
+        if exit_status or 'error' in stream.lower():
+            log = LOG.error
+        elif 'warn' in stream.lower():
+            log = LOG.warning
+        else:
+            log = LOG.info
+        for i,line in enumerate(stream.splitlines()):
+            if line:
+                log(line)
+
     processes = dict()
     if isinstance(commands, str):
         commands = [commands]
@@ -55,8 +67,8 @@ def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
         processes.update({c: process})
         if process.exit_status:
             LOG.error(f"{c} failed with exit_status {process.exit_status}:")
-            LOG.error(f"Error: {process.stderr}")
-            LOG.error(f"Output: {process.stdout}")
+            log_stream(process.stderr, process.exit_status)
+            log_stream(process.stdout, process.exit_status)
             if sys_exit:
                 try:
                     raise RuntimeError(
@@ -66,8 +78,6 @@ def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
                 except RuntimeError:
                     sys.exit(process.exit_status)
         else:
-            if process.stderr:
-                LOG.info(process.stderr)
-            if process.stdout:
-                LOG.info(process.stdout)
+            log_stream(process.stderr, process.exit_status)
+            log_stream(process.stdout, process.exit_status)
     return processes
