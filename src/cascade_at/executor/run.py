@@ -27,7 +27,7 @@ ARG_LIST = ArgumentList([
     NPool(),
     StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
            required=False),
-    BoolArg('--skip-configure'),
+    BoolArg('--skip-configure', help='Disable building the inputs.p and settings.json files.'),
     StrArg('--json-file', help='for testing, pass a json file directly by filepath',
            required=False),
     LogLevel()

@@ -161,6 +161,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         The sexes to predict for.
     skip_configure
         Don't run a task to configure the inputs. Only do this if it has already happened.
+        This disables building the inputs.p and setting.json files.
     mulcov_stats
         Compute mulcov statistics at this level
     n_sim
