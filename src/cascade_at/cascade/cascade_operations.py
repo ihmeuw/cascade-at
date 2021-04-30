@@ -313,11 +313,15 @@ class Fit(_DismodDB):
         if ode_fit_strategy:
             dm_commands = ['ODE init', 'ODE fit']
         else:
-            dm_commands = ['init', 'fit fixed']
+            # dm_commands = ['init', 'fit fixed']
+            # if both:
+            #     dm_commands += [
+            #         'set start_var fit_var', 'set scale_var fit_var', 'fit both'
+            #     ]
             if both:
-                dm_commands += [
-                    'set start_var fit_var', 'set scale_var fit_var', 'fit both'
-                ]
+                dm_commands = ['init', 'fit both']
+            else:
+                dm_commands = ['init', 'fit fixed']
         if predict:
             dm_commands.append('predict fit_var')
         if save_fit and not predict:
