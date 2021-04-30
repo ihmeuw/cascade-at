@@ -26,8 +26,14 @@ _max_iters_ = 500
 sys.path.append('/Users/gma/Projects/IHME/GIT/cascade-at/src')
 from cascade_at.dismod.api.dismod_io import DismodIO
 
-LOG = get_loggers(__name__)
-logging.basicConfig(level=LEVELS['info'])
+__compare_to_fit_ihme_dot_py__ = False
+if __compare_to_fit_ihme_dot_py__:
+    class LOG:
+        def info(msg): print (msg)
+        def error(msg): print (msg)
+else:
+    LOG = get_loggers(__name__)
+    logging.basicConfig(level=LEVELS['info'])
 
 def system (command) :
     # flush python's pending standard output in case this command generates more standard output
@@ -77,7 +83,7 @@ class FitNoODE(DismodIO):
         db.ode_hold_out_list = ode_hold_out_list
         db.set_integrand_lists()
         msg = '\nInitial integrands   = ' + str( db.integrands )
-        print(msg)
+        LOG.info(msg)
 
     # ============================================================================
     # Utilities that use database tables but do not modify them
@@ -177,7 +183,7 @@ class FitNoODE(DismodIO):
         # remove data that are held out or have out of bound covariates
         msg  = '\nsubset_data\n'
         msg += 'removing hold out and covariate out of bounds data'
-        print(msg)
+        LOG.info(msg)
 
         data = db.data
         data = data[data.hold_out == 0]
@@ -192,7 +198,7 @@ class FitNoODE(DismodIO):
         # subsetting the data can remove some integrands, so get integrands after
         db.set_integrand_lists()
         msg = '\nintegrands   = ' + str( db.integrands )
-        print(msg)
+        LOG.info(msg)
 
 
     def random_subsample_data(db, integrand_name, max_sample) :
@@ -208,8 +214,8 @@ class FitNoODE(DismodIO):
 
         n_sample_in = len(integrand)
         n_sample_out = min(max_sample, len(integrand))
-        print (f'random_subsample_data')
-        print (f'number of {integrand_name} samples: in = {n_sample_in} out = {n_sample_out}')
+        LOG.info (f'random_subsample_data')
+        LOG.info (f'number of {integrand_name} samples: in = {n_sample_in} out = {n_sample_out}')
 
         # Dataframe indices of integrands other than the one being sampled
         non_integrand_indices = data_in.index[data_in.integrand_name != integrand_name].tolist()
@@ -238,7 +244,7 @@ class FitNoODE(DismodIO):
             mask |= data.integrand_name.isin(integrand_names)
         if node_names:
             mask |= data.node_name.isin(node_names)
-        print (f"Setting hold_out = {hold_out} for integrand {integrand_names}, node {node_names}")
+        LOG.info (f"Setting hold_out = {hold_out} for integrand {integrand_names}, node {node_names}")
         data.loc[mask, 'hold_out'] = hold_out
         db.data = data[db.data.columns]
 
@@ -271,7 +277,7 @@ class FitNoODE(DismodIO):
             db.data = data[db.data.columns]
 
             msg += f'\n            = {median:6.4f} where m is the median of the {integrand_name} data'
-            print( msg )
+            LOG.info( msg )
 
     def set_student_likelihoods(db, factor_eta = 1e-2, nu = 5):
         integrand_list = db.integrand.loc[db.data.integrand_id.unique(), 'integrand_name'].tolist()
@@ -289,8 +295,8 @@ class FitNoODE(DismodIO):
         mask = (data.time_upper - data.time_lower) <= time_size
         mean = data[['time_lower', 'time_upper']].mean(axis=1)
         data.loc[mask, 'time_lower'] = data.loc[mask, 'time_upper'] = mean[mask]
-        print ('compress_age_time_intervals -- all integrands')
-        print ('Use midpoint for intervals less than or equal specified size')
+        LOG.info ('compress_age_time_intervals -- all integrands')
+        LOG.info ('Use midpoint for intervals less than or equal specified size')
         db.data = data[db.data.columns]
 
     # ============================================================================
@@ -431,7 +437,7 @@ class FitNoODE(DismodIO):
         msg += f', reference_name = {reference_name}'
         msg += f'\nold_reference = {old_reference:.5g}'
         msg += f', new_reference = {new_reference:.5g}'
-        print( msg )
+        LOG.info( msg )
         #
         db.covariate = covariate
 
@@ -523,7 +529,7 @@ class FitNoODE(DismodIO):
                 msg += 'integrand = {}, covariate = x_{}, max_covariate_effect = {}, '
                 msg += 'lower = {:.5g}, upper = {:.5g}'
                 msg  = msg.format(integrand_name, covariate_id, max_covariate_effect, lower, upper)
-                print( msg )
+                LOG.info( msg )
         db.mulcov = mulcov
 
     def set_mulcov_value(db, covariate_name, rate_or_integrand_name, mulcov_value) :
@@ -544,8 +550,8 @@ class FitNoODE(DismodIO):
             #
             subgroup_smooth_id = db.new_bounded_smooth_id(row.subgroup_smooth_id, lower, upper)
             mulcov.loc[mulcov.mulcov_id == row.mulcov_id, 'subgroup_smooth_id'] = subgroup_smooth_id
-            print (f'\nset_mulcov_value')
-            print (f'covariate = {covariate_name}, {row.mulcov_type}  = {rate_or_integrand_name}, value = {mulcov_value:.5g}')
+            LOG.info (f'\nset_mulcov_value')
+            LOG.info (f'covariate = {covariate_name}, {row.mulcov_type}  = {rate_or_integrand_name}, value = {mulcov_value:.5g}')
         #
         db.mulcov = mulcov[db.mulcov.columns]
 
@@ -599,7 +605,7 @@ class FitNoODE(DismodIO):
         msg += f'mean  = (|median|*{factor["mean"]})^2 = {mean:.5g}\n'
         msg += f'upper = (|median|*{factor["upper"]})^2 = {upper:.5g}\n'
         msg += 'where median is the median of the {} data'.format(integrand_name)
-        print( msg )
+        LOG.info( msg )
         #
         mulcov_id = len(mulcov)
         #
@@ -655,7 +661,7 @@ class FitNoODE(DismodIO):
                       and l.message.startswith('begin ')]
         rtn = True
         if not last_begin:
-            print (f"ERROR: Failed to find a 'begin' command.")
+            LOG.error(f"ERROR: Failed to find a 'begin' command.")
             rtn = False
         else:
             last_begin = last_begin[-1]
@@ -664,7 +670,7 @@ class FitNoODE(DismodIO):
                          if l.message_type == 'command'
                          and l.message.startswith(f'begin {command}')]
             if not start_cmd:
-                print (f"ERROR: Expected 'begin {command}' but found '{last_begin.message}'.")
+                LOG.error(f"ERROR: Expected 'begin {command}' but found '{last_begin.message}'.")
                 rtn = False
             else:
                 start_cmd = start_cmd[-1]
@@ -673,16 +679,16 @@ class FitNoODE(DismodIO):
                        if l.message_type == 'command'
                        and l.message.startswith(f'end {command}')]
             if not end_cmd:
-                print (f"ERROR: Did not find end for this '{start_cmd.message}' command")
+                LOG.error(f"ERROR: Did not find end for this '{start_cmd.message}' command")
                 rtn = False
             for i,l in log[start_cmd.log_id:].iterrows():
                 if l.message_type in ['error', 'warning']:
-                    print (f"DISMOD {l.message_type}: {l.message.rstrip()}")
+                    LOG.info (f"DISMOD {l.message_type}: {l.message.rstrip()}")
                     rtn = False
         if rtn:
-            print (f"{db.dismod} {command} OK")
+            LOG.info (f"{db.dismod} {command} OK")
         else:
-            print (f"ERROR: {db.dismod} {command} had errors, warnings, or failed to complete.")
+            LOG.error (f"ERROR: {db.dismod} {command} had errors, warnings, or failed to complete.")
         return rtn
 
     def set_avgint(db, covariate_integrand_list) :
@@ -734,7 +740,7 @@ class FitNoODE(DismodIO):
             random_seed = int( time.time() )
         random.seed(random_seed)
         msg = '\nrandom_seed  = ' + str( random_seed )
-        print(msg)
+        LOG.info(msg)
         if subset:
             db.subset_data() 
         if random_subsample is not None:
@@ -783,9 +789,9 @@ class FitNoODE(DismodIO):
     def fit(db, msg = ''):
         t0 = time.time()
         system(f'{db.dismod} {db.path} fit both')
-        print(f'{msg} time = {str(round(time.time() - t0))} seconds.')
+        LOG.info(f'{msg} time = {str(round(time.time() - t0))} seconds.')
         if not db.check_last_command('fit'):
-            print ('ERROR -- should have exited due to problems with this fit command')
+            LOG.error ('ERROR -- should have exited due to problems with this fit command')
 
     def check_ones_covariate(db):
         data = db.data
@@ -802,7 +808,7 @@ class FitNoODE(DismodIO):
         mask = covariate.c_covariate_name == 's_one'
         if covariate.loc[mask, 'reference'].values == 1:
             covariate.loc[mask, 'reference'] = 0
-            print (f"Fixed the 'one' covariate reference:\n{covariate[mask]}")
+            LOG.info (f"Fixed the 'one' covariate reference:\n{covariate[mask]}")
         db.covariate = covariate
 
     def check_covariate_max_difference(db):
@@ -851,9 +857,9 @@ class FitNoODE(DismodIO):
             if not mask1.any():
                 LOG.info('Var tables agree')
             else:
-                LOG.error("fit_ihme (Brad's):")
+                print ("fit_ihme (Brad's):")
                 print (vd1.loc[mask0, mask1].merge(d1[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
-                LOG.error('init_no_ode:')
+                print ('init_no_ode:')
                 print (vd0.loc[mask0, mask1].merge(d0[['var_id', 'prior_id', 'prior_name']], left_index = True, right_index = True))
                 raise Exception ('ERROR -- var tables do not agree')
 
@@ -939,6 +945,8 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
         db.save_database(save_to_path)
         if reference_db:
             db.check_output_tables(reference_db)
+        cmd = f"dismodat.py {db.path} db2csv"
+        LOG.info(cmd); os.system(cmd)
     except: raise
     finally:
         db.data = db.input_data
