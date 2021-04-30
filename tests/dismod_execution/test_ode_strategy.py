@@ -101,7 +101,7 @@ def test_help(dismod, assert_correct=True):
 
 def test_ode_init(dismod, assert_correct=True):
     try:
-        os.system(f'dmdismod {db.path} ODE init')
+        os.system(f'dmdismod {db.path} ODE init --random-seed 123')
 
         # Remove the meas_noise the ODE fitting strategy adds and check the fit value
         fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')

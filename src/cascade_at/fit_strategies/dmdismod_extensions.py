@@ -102,6 +102,7 @@ def dmdismod(cmd):
             random_seed = int(random_seed)
             LOG.info(f"Setting the subsampling random_seed to the database option table value = {random_seed}")
         else:
+            random_seed = None
             LOG.info(f"The subsampling random_seed not set.")
 
     if p_args.option == "init":
