@@ -21,10 +21,14 @@ import shutil
 
 from collections import OrderedDict
 from cascade_at.fit_strategies.init_no_ode import init_ode_command, fit_ode_command, fit_students_command
+from cascade_at.dismod.api.dismod_io import DismodIO
+from cascade_at.core.log import logging, get_loggers, LEVELS
 
-__check__ = True
-_random_seed_ = 1234
- 
+
+LOG = get_loggers(__name__)
+logging.basicConfig(level=LEVELS['info'])
+
+
 # _dismod_ = 'dismod_at'
 _dismod_ = 'dmdismod'
 
@@ -84,15 +88,29 @@ def dmdismod(cmd):
     args = cmd.split()
     p_args = parse_args(cmd.split())
     print ('-'*10)
-    print (cmd)
+    LOG.info(cmd)
     print ('-'*10)
     
+    if p_args.random_seed:
+        random_seed = p_args.random_seed
+        LOG.info(f"Setting the subsampling random_seed to the dmdismod argument value = {random_seed}")
+    else:
+        db = DismodIO(p_args.path)
+        option = db.option
+        random_seed = option.loc[option.option_name == 'random_seed', 'option_value']
+        if not random_seed.empty:
+            random_seed = int(random_seed)
+            LOG.info(f"Setting the subsampling random_seed to the database option table value = {random_seed}")
+        else:
+            LOG.info(f"The subsampling random_seed not set.")
+
     if p_args.option == "init":
         db = init_ode_command([_dismod_] + args[1:], 
                               max_covariate_effect = p_args.max_covariate_effect,
                               mulcov_values = p_args.mulcov_values,
                               ode_hold_out_list = p_args.ode_hold_out_list,
-                              random_seed = p_args.random_seed,
+                              # random_seed = p_args.random_seed,
+                              random_seed = random_seed,
                               subset = p_args.subset,
                               random_subsample = p_args.random_subsample,
                               save_to_path = p_args.save_to_path,
@@ -100,7 +118,8 @@ def dmdismod(cmd):
     elif p_args.option == "fit":
         db = fit_ode_command([_dismod_] + args[1:],
                              ode_hold_out_list = p_args.ode_hold_out_list,
-                             random_seed = p_args.random_seed,
+                             # random_seed = p_args.random_seed,
+                             random_seed = random_seed,
                              subset = p_args.subset,
                              random_subsample = p_args.random_subsample,
                              save_to_path = p_args.save_to_path,
@@ -109,12 +128,16 @@ def dmdismod(cmd):
         fit_students_command([_dismod_] + args[1:],
                              ode_hold_out_list = p_args.ode_hold_out_list,
                              subset = p_args.subset,
-                             random_seed = p_args.random_seed,
+                             # random_seed = p_args.random_seed,
+                             random_seed = random_seed,
                              random_subsample = p_args.random_subsample,
                              save_to_path = p_args.save_to_path,
                              reference_db = p_args.reference_db)
 
 if __name__ == '__main__':
+
+    _random_seed_ = 1234
+    __check__ = True
 
     def test():
         def test_args(cmd, disease):
