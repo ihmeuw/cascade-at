@@ -58,7 +58,7 @@ def test_fit_both():
         f'--parent-location-id 1 '
         f'--sex-id 1 '
         f'--fill '
-        f'--dm-commands init fit-fixed set-start_var-fit_var set-scale_var-fit_var fit-both predict-fit_var'
+        f'--dm-commands init fit-both predict-fit_var'
     )
 
 
