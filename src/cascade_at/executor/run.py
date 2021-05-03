@@ -76,6 +76,9 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             LOG.info(f"Reading settings from {json_file}")
             parameter_json = json.loads(fn.read())
         settings = load_settings(parameter_json)
+        # Save the json file as it is used throughout the cascade
+        LOG.info(f"Replacing {context.settings_file}")
+        context.write_inputs(settings = parameter_json)
     else:
         settings = settings_from_model_version_id(
             model_version_id=model_version_id,
@@ -91,7 +94,6 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             drill_sex=settings.model.drill_sex,
             n_sim=n_sim,
             n_pool=n_pool,
-            json_file=json_file,
         )
     elif settings.model.drill == 'cascade':
 
@@ -112,7 +114,6 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             location_start=settings.model.drill_location_start,
             sex=sex,
             skip_configure=skip_configure,
-            json_file=json_file,
         )
     else:
         raise NotImplementedError(f"The drill/cascade setting {settings.model.drill} is not implemented.")

@@ -43,8 +43,7 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
 
 def make_cascade_dag(model_version_id: int, dag: LocationDAG,
                      location_start: int, sex_start: int, split_sex: bool,
-                     n_sim: int = 100, n_pool: int = 100, skip_configure: bool = False,
-                     json_file: str = '') -> List[_CascadeOperation]:
+                     n_sim: int = 100, n_pool: int = 100, skip_configure: bool = False) -> List[_CascadeOperation]:
     """
     Make a traditional cascade dag for a model version. Relies on a location DAG and a starting
     point in the DAG for locations and sexes.
@@ -91,7 +90,6 @@ def make_cascade_dag(model_version_id: int, dag: LocationDAG,
         skip_configure=skip_configure,
         n_sim=n_sim, n_pool=n_pool,
         ode_fit_strategy=True,
-        json_file=json_file,
     )
     tasks += top_level
     for sex in sexes:

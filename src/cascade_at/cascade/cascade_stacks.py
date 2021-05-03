@@ -67,8 +67,7 @@ def single_fit(model_version_id: int,
 
 def single_fit_with_uncertainty(model_version_id: int,
                                 location_id: int, sex_id: int,
-                                n_sim: int = _n_sim, n_pool: int = _n_pool,
-                                json_file: str = '') -> List[_CascadeOperation]:
+                                n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a single fit both model. Configures
     inputs, does a fit fixed, then fit both, then predict and uploads the result.
@@ -92,7 +91,6 @@ def single_fit_with_uncertainty(model_version_id: int,
     """
     t1 = ConfigureInputs(
         model_version_id=model_version_id,
-        json_file=json_file
     )
     t2 = Fit(
         model_version_id=model_version_id,
@@ -140,8 +138,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
              skip_configure: bool = False,
              mulcov_stats: bool = True,
              n_sim: int = _n_sim, n_pool: int = _n_pool,
-             ode_fit_strategy: bool = True,
-             json_file: str = '') -> List[_CascadeOperation]:
+             ode_fit_strategy: bool = True) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
     Does a fit fixed, then fit both, then creates posteriors
@@ -174,7 +171,6 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
     if not skip_configure:
         t1 = ConfigureInputs(
             model_version_id=model_version_id,
-            json_file=json_file
         )
         upstream = [t1.command]
         tasks.append(t1)

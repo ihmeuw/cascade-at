@@ -183,7 +183,6 @@ class _CascadeOperation:
 
 class ConfigureInputs(_CascadeOperation):
     def __init__(self, model_version_id: int,
-                 json_file: str = '',
                  **kwargs):
         """
         Configure the inputs for a model version ID.
@@ -200,9 +199,6 @@ class ConfigureInputs(_CascadeOperation):
         kwds = dict(model_version_id=model_version_id,
                     make=True,
                     configure=True)
-        if json_file:
-            kwds.update(dict(json_file = json_file))
-
         self._configure(**kwds)
 
     @staticmethod
