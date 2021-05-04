@@ -47,14 +47,19 @@ def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
         whether to exit the code altogether if there is an error. If False,
         then it will pass the error string back to the original python process.
     """
-    def check_for_ipopt_errors(msg):
-        if 'ipopt' in msg:
-            LOG.info('Checking Ipopt output for errors')
-            # Handle the 'Overall NLP error' Ipopt output
-            msg = msg.replace('overall nlp error', 'overall nlp      ')
-            if msg.count('error') > 0:
-                return True
-        return False
+    def ipopt_output_logger(msg):
+        # See https://coin-or.github.io/Ipopt/OUTPUT.html
+        LOG.info('Checking Ipopt output for errors')
+        if (('optimal solution found' in msg) or
+            ('solved to acceptable level' in msg)):
+            return LOG.info
+        if ('maximum number of iterations exceeded') in msg:
+            return LOG.warning
+        # Handle other possible Ipopt console messages?
+        msg = msg.replace('overall nlp error', 'overall nlp      ')
+        if msg.count('error') > 0:
+            return LOG.error
+        return LOG.info
 
     def log_stream(stream, exit_status):
         "Log the dismod return messages appropriately"
@@ -62,10 +67,10 @@ def run_dismod_commands(dm_file: str, commands: List[str], sys_exit=True):
         if exit_status:
             log = LOG.error
         else:
-            if 'error' in msg:
+            if 'ipopt' in msg:
+                log = ipopt_output_logger(msg)
+            elif 'error' in msg:
                 log = LOG.error
-                if not check_for_ipopt_errors(msg):
-                    log = LOG.info
             elif 'warn' in msg:
                 log = LOG.warning
             else:
