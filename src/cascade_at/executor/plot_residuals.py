@@ -18,7 +18,7 @@ def parse_args():
                         help="Location ids to plot, default = all")
     parser.add_argument("-i", "--integrands", type = str, nargs='+', default = None,
                         help = f"Integrands to plot, default = all")
-    parser.add_argument("-d", "--disease", type = str, help="Disease name (for plot title)")
+    parser.add_argument("-d", "--disease", type = str, default = '', help="Disease name (for plot title)")
     args = parser.parse_args()
     return args
 
