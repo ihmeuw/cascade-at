@@ -949,7 +949,7 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
         LOG.info(cmd); os.system(cmd)
     except: raise
     finally:
-        db.save_database(db.path.parent / ('dismod_ODE_init' + db.path.suffix))
+        db.save_database(db.path.parent / f'{db.path.stem}_ODE_init{db.path.suffix}')
         db.data = db.input_data
     return db
 
