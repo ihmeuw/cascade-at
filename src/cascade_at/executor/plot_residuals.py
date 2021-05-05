@@ -39,9 +39,9 @@ def plot(residuals, path, mvid, integrands = None, disease = ''):
             fig = plt.figure(i)
             ax = plt.gca()
             plt.title(f"{disease} {n.capitalize()} MVID {mvid} \n({m} of {l} total locations have data)")
-            plt.xlabel('Weighted Residual')
-            plt.ylabel('Count')
             r = integrand.weighted_residual
+            plt.xlabel(f'Weighted Residual (range = [{np.round(r.min(), 1)}, {np.round(r.max(),1)}])')
+            plt.ylabel('Count')
             n_bins = max(100, int(len(r)/100))
             ax.hist(r, bins=n_bins)
             pdf.savefig( fig )
