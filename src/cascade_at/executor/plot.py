@@ -11,6 +11,8 @@ from pathlib import Path
 from matplotlib import pyplot as plt
 import matplotlib.backends.backend_pdf
 
+_test_plot_prior_ = not False
+
 interactive = not sys.argv[0]
 plt.interactive(interactive)
 
@@ -34,9 +36,30 @@ def case_study_title(db, version = None, disease = 'TBD', which_fit = 'TBD') :
     location = db.node.loc[db.node.node_id ==
                            int(db.option.loc[db.option.option_name == 'parent_node_id', 'option_value']),
                            'node_name'].squeeze()
-    return [location, f'{which_fit}, {disease}, {sex}, version={version}']
+    return f"{location}\n{which_fit}, {disease}, {sex}, version={version}"
 
-def plot_rate(db, rate_name, which_fit) :
+def get_prior(db, rate_name, age = None, time = None, sex = None, option = 'value'):
+    assert not (age and time), "Specify one of age and time."
+    rate = db.rate[db.rate.rate_name == rate_name]
+    prior = (db.prior
+             .merge(db.smooth_grid
+                    .merge(rate, how = 'right', left_on = 'smooth_id', right_on = 'parent_smooth_id'),
+                    left_on = 'prior_id', right_on = f'{option}_prior_id')
+             .merge(db.age, how='left')
+             .merge(db.time, how='left'))
+    if age is None and time is None:
+        return prior
+    else:
+        if age is not None:
+            k = 'time'
+            p = prior[prior.age == age].sort_values(by = k)
+        if time is not None:
+            k = 'age'
+            p = prior[prior.time == time].sort_values(by = k)
+        x,y = p[[k, 'mean']].values.T
+        return x,y
+
+def plot_rate(db, rate_name, title = 'TBD') :
     color_style_list = [
         ('blue',       'dashed'),  ('lightblue',  'solid'),
         ('red',        'dashed'),  ('pink',       'solid'),
@@ -115,7 +138,7 @@ def plot_rate(db, rate_name, which_fit) :
         #
         # axis for subplot and title for figure
         axis   = plt.subplot(n_subplot, 1, 1)
-        axis.set_title( '\n'.join(case_study_title(db, which_fit)) )
+        axis.set_title(title)
         #
         start  = i_fig * n_per_fig
         if i_fig > 0 :
@@ -135,11 +158,16 @@ def plot_rate(db, rate_name, which_fit) :
             # label used by legend
             label = str( time[0,j] )
             #
-            plt.plot(x, y, label=label, color=color, linestyle=style)
+            plt.plot(x, y, label=label, color=color, linestyle='solid')
+            if rate_name != 'omega':
+                px, py = get_prior(db, rate_name, time = time[0,j])
+                plt.plot(px, py, label = 'prior', color=color, linestyle='dotted')
             #
             # axis labels
             plt.xlabel('age')
-            plt.ylabel(rate_name)
+            dage_mean_std = get_prior(db, rate_name, option = 'dage')['std'].mean()
+            dtime_mean_std = get_prior(db, rate_name, option = 'dtime')['std'].mean()
+            plt.ylabel(f"{rate_name} (mean std -- dAge: {dage_mean_std:2g}, dTime: {dtime_mean_std:.2g})")
             plt.yscale('log')
             plt.ylim(rate_min, rate_max)
         for i in range(n_age) :
@@ -180,7 +208,10 @@ def plot_rate(db, rate_name, which_fit) :
                 # label used by legend
                 label = str( time[0,j] )
                 #
-                plt.plot(x, y, label=label, color=color, linestyle=style)
+                plt.plot(x, y, label=label, color=color, linestyle='solid')
+                if rate_name != 'omega':
+                    px, py = get_prior(db, rate_name, time = time[0,j])
+                    plt.plot(px, py, label = 'prior', color=color, linestyle='dotted')
                 #
                 # axis labels
                 plt.xlabel('age')
@@ -217,7 +248,7 @@ def plot_rate(db, rate_name, which_fit) :
         #
         # axis for subplot and title for figure
         axis   = plt.subplot(n_subplot, 1 ,1)
-        axis.set_title( '\n'.join(case_study_title(db, which_fit)) )
+        axis.set_title( title )
         #
         start  = i_fig * n_per_fig
         if i_fig > 0 :
@@ -236,11 +267,16 @@ def plot_rate(db, rate_name, which_fit) :
             y     = [y[0]]     + y.tolist() + [y[-1]]
             # label used by legend
             label = str( age[i,0] )
-            plt.plot(x, y, label=label, color=color, linestyle=style)
+            plt.plot(x, y, label=label, color=color, linestyle='solid')
+            if rate_name != 'omega':
+                px, py = get_prior(db, rate_name, age = age[i,0])
+                plt.plot(px, py, label = 'prior', color=color, linestyle='dotted')
             #
             # axis labels
             plt.xlabel('time')
-            plt.ylabel(rate_name)
+            dage_mean_std = get_prior(db, rate_name, option = 'dage')['std'].mean()
+            dtime_mean_std = get_prior(db, rate_name, option = 'dtime')['std'].mean()
+            plt.ylabel(f"{rate_name} (mean std -- dAge: {dage_mean_std:2g}, dTime: {dtime_mean_std:.2g})")
             plt.yscale('log')
             plt.ylim(rate_min, rate_max)
         for j in range(n_time) :
@@ -280,7 +316,10 @@ def plot_rate(db, rate_name, which_fit) :
                 y     = [y[0]]     + y.tolist() + [y[-1]]
                 # label used by legend
                 label = str( age[i,0] )
-                plt.plot(x, y, label=label, color=color, linestyle=style)
+                plt.plot(x, y, label=label, color=color, linestyle='solid')
+                if rate_name != 'omega':
+                    px, py = get_prior(db, rate_name, age = age[i,0])
+                    plt.plot(px, py, label = 'prior', color=color, linestyle='dotted')
                 #
                 # axis labels
                 plt.xlabel('time')
@@ -302,13 +341,14 @@ def plot_rate(db, rate_name, which_fit) :
     pdf.close()
 # ----------------------------------------------------------------------------
 
-def plot_integrand(db, data, integrand_name, which_fit) :
+def plot_integrand(db, data, integrand_name, title='TBD') :
     # Plot the data, model, and residual values for a specified integrand.
     # Covariate values used for each model point are determined by
     # correspondign data point.
     fit_var = db.fit_var
 
     this_integrand_id = int(db.integrand.loc[db.integrand.integrand_name == integrand_name, 'integrand_id'])
+    data = data[data.integrand_id == this_integrand_id]
     parent_node_id = int(db.option.loc[db.option.option_name == 'parent_node_id', 'option_value'])
     parent_node_name = db.node.loc[db.node.node_id == parent_node_id, 'node_name'].values
 
@@ -380,7 +420,7 @@ def plot_integrand(db, data, integrand_name, which_fit) :
         if np.isfinite(y_limit).all():
             plt.ylim(y_limit[0], y_limit[1])
         #
-        plt.title( '\n'.join(case_study_title(db, which_fit)) )
+        plt.title( title )
         #
         sp = plt.subplot(3, 1, 2)
         sp.set_xticklabels( [] )
@@ -410,6 +450,16 @@ def plot_integrand(db, data, integrand_name, which_fit) :
         pdf.savefig( fig )
         plt.close( fig )
     #
+    fig = plt.figure()
+    ax = plt.gca()
+    plt.title(title)
+    r = data['weighted_residual'].values
+    plt.xlabel(f'Weighted Residual (range = [{np.round(r.min(), 1)}, {np.round(r.max(),1)}])')
+    plt.ylabel(f'{integrand_name.capitalize()} Count')
+    n_bins = max(100, int(len(r)/100))
+    ax.hist(r, bins=n_bins)
+    pdf.savefig( fig )
+    plt.close( fig )
     pdf.close()
 
 @lru_cache
@@ -419,7 +469,7 @@ def get_fitted_data(db):
             .merge(db.integrand, how='left'))
     return data
 
-def plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit) :
+def plot_predict(db, covariate_integrand_list, predict_integrand_list, title='TBD') :
     # Plot the model predictions for each integrand in the predict integrand
     # list. The is one such plot for each integrand in the covariate integrand
     # list (which determines the covariate values used for the predictions).
@@ -481,7 +531,8 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit
             plt.ylabel( integrand_name )
         plt.xlabel('age')
         covariate_name = db.integrand.loc[db.integrand.integrand_id == covariate_integrand_id, 'integrand_name'].squeeze()
-        plt.suptitle(f'Covariate Integrand = {covariate_name}\n{case_study_title(db, "")[-1]}' )
+        ############## plt.suptitle(f'Covariate Integrand = {covariate_name}\n{case_study_title(db, "")[-1]}' )
+        plt.suptitle(f'Covariate Integrand = {covariate_name}\n{title}' )
         #
         pdf.savefig( fig )
         plt.close( fig )
@@ -508,6 +559,7 @@ def main():
     args = parse_args()
     path = Path(args.filename).expanduser()
     assert path.is_file(), f"The database path {path} does not exist."
+    global db
     db = DismodIO(path)
 
     title = case_study_title(db, version = args.model_version_id, disease = args.disease, which_fit = args.fit_type)
@@ -525,12 +577,14 @@ def main():
     integrand = db.integrand
     rate_names = rate.loc[~rate.parent_smooth_id.isna(), 'rate_name'].tolist()
     for rate_name in rate_names:
-        plot_rate(db, rate_name, which_fit = args.fit_type)
+        plot_rate(db, rate_name, title = title)
     for integrand_name in all_integrands:
-        plot_integrand(db, data, integrand_name, which_fit = args.fit_type)
-    plot_predict(db, covariate_integrand_list, predict_integrand_list, which_fit = args.fit_type)
+        plot_integrand(db, data, integrand_name, title = title)
+    plot_predict(db, covariate_integrand_list, predict_integrand_list, title = title)
 
 
 if __name__ == '__main__':
+    if _test_plot_prior_:
+        sys.argv = 'plot /Users/gma/ihme/epi/at_cascade/data/475588/dbs/1/3/dismod.db -d t1-diabetes -f ODE-fit -v 475588'.split()
     main()
 
