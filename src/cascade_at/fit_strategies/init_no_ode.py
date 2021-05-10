@@ -949,7 +949,16 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
         LOG.info(cmd); os.system(cmd)
     except: raise
     finally:
-        db.save_database(db.path.parent / f'{db.path.stem}_ODE_init{db.path.suffix}')
+        if init and not students:
+            type = 'init'
+        elif not init and not students:
+            type = 'fit'
+        elif not init and students:
+            type = 'students'
+        else:
+            raise Exception('The init = True and students = True combination is invalid.')
+        db.save_database(db.path.parent / f'{db.path.stem}_ODE_{type}{db.path.suffix}')
+        LOG.info("Restoring the rows subsampled and/or subset from data table.")
         db.data = db.input_data
     return db
 
