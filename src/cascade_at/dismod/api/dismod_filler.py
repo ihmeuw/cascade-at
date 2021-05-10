@@ -156,6 +156,7 @@ class DismodFiller(DismodIO):
         self.fill_grid_tables()
         self.fill_data_tables()
         self.option = self.construct_option_table(**options)
+        LOG.info(f"Wrote {self.path.absolute()}")
 
     def node_id_from_location_id(self, location_id: int) -> int:
         """
