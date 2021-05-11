@@ -94,6 +94,7 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             drill_sex=settings.model.drill_sex,
             n_sim=n_sim,
             n_pool=n_pool,
+            skip_configure=skip_configure,
         )
     elif settings.model.drill == 'cascade':
 

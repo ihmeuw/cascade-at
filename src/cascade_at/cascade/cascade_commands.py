@@ -65,7 +65,8 @@ class _CascadeCommand:
 class Drill(_CascadeCommand):
     def __init__(self, model_version_id: int,
                  drill_parent_location_id: int, drill_sex: int,
-                 n_sim: int, n_pool: int = 10):
+                 n_sim: int, n_pool: int = 10,
+                 skip_configure: bool = False):
         """
         A cascade command that runs a drill model, meaning
         that it runs one Dismod-AT model with a parent
