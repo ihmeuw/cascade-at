@@ -91,19 +91,18 @@ class DismodExtractor(DismodIO):
             if missing_locations:
                 raise DismodExtractorError("The following locations you asked for were missing: "
                                            f"{missing_locations}.")
-        if sexes is not None:
-            df = df.loc[df.c_sex_id.isin(sexes)].copy()
-            if set(df.c_sex_id.values) != set(sexes):
-                missing_sexes = set(df.c_sex_id.values) - set(sexes)
-                raise DismodExtractorError(f"The following sexes you asked for were missing: {missing_sexes}.")
-
         df.rename(
             columns={'c_' + x: x for x in DEMOGRAPHIC_ID_COLS}, inplace=True
         )
+        if sexes is not None:
+            df = df.loc[df.sex_id.isin(sexes)].copy()
+            if set(df.sex_id.values) != set(sexes):
+                missing_sexes = set(df.sex_id.values) - set(sexes)
+                raise DismodExtractorError(f"The following sexes you asked for were missing: {missing_sexes}.")
         DEMOGRAPHIC_COLS = copy(ExtractorCols.REQUIRED_DEMOGRAPHIC_COLS)
         for col in ExtractorCols.REQUIRED_DEMOGRAPHIC_COLS:
             if col not in df.columns:
-                raise DismodExtractorError(f"Cannot find required col {col} in the"
+                raise DismodExtractorError(f"Cannot find required col {col} in the "
                                            "predictions columns: {predictions.columns}.")
         for col in ExtractorCols.OPTIONAL_DEMOGRAPHIC_COLS:
             if col in df.columns:
