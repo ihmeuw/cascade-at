@@ -19,7 +19,7 @@ def test_drill():
     assert isinstance(
         cascade_command.task_dict[
             'dismod_db --model-version-id 0 --parent-location-id 1 --sex-id 1 --fill '
-            '--dm-commands init fit-both predict-fit_var '
+            '--dm-commands ODE-init ODE-fit predict-fit_var '
             '--save-fit'
         ],
         CASCADE_OPERATIONS['dismod_db']
