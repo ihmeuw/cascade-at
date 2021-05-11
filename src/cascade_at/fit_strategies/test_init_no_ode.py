@@ -11,19 +11,18 @@ LOG = get_loggers(__name__)
 logging.basicConfig(level=LEVELS['info'])
 
 db = None
-_CASCADE_DATA_PATH_ = Path(os.path.expanduser('~/ihme/epi/at_cascade'))
 
 def test_cases(case, specific_name = 'fitODE'):
-    crohns = _CASCADE_DATA_PATH_ / 'data/475533/dbs/1/2/dismod.db'
-    # dialysis = _CASCADE_DATA_PATH_ / 'data/475527/dbs/96/2/dismod.db' # S Latin America
-    dialysis = _CASCADE_DATA_PATH_ / 'data/475527/dbs/1/2/dismod.db'  # Global
-    kidney = _CASCADE_DATA_PATH_ / 'data/475718/dbs/70/1/dismod.db'
-    osteo_hip =  _CASCADE_DATA_PATH_ / 'data/475526/dbs/1/2/dismod.db'
-    osteo_hip_world = _CASCADE_DATA_PATH_ / 'data/475745/dbs/1/2/dismod.db'
-    osteo_knee = _CASCADE_DATA_PATH_ / 'data/475746/dbs/64/2/dismod.db'
-    # t1_diabetes = _CASCADE_DATA_PATH_ / 'data/475882/dbs/1/2/dismod.db' # world
-    t1_diabetes = _CASCADE_DATA_PATH_ / 'data/475882/dbs/100/2/dismod.db' # HI N America female
-    t1_diabetes = _CASCADE_DATA_PATH_ / 'data/475588/dbs/100/3/dismod.db' # HI N America both
+    crohns = '/Users/gma/ihme/epi/at_cascade/data/475533/dbs/1/2/dismod.db'
+    # dialysis = '/Users/gma/ihme/epi/at_cascade/data/475527/dbs/96/2/dismod.db' # S Latin America
+    dialysis = '/Users/gma/ihme/epi/at_cascade/data/475527/dbs/1/2/dismod.db'  # Global
+    kidney = '/Users/gma/ihme/epi/at_cascade/data/475718/dbs/70/1/dismod.db'
+    osteo_hip =  '/Users/gma/ihme/epi/at_cascade/data/475526/dbs/1/2/dismod.db'
+    osteo_hip_world = '/Users/gma/ihme/epi/at_cascade/data/475745/dbs/1/2/dismod.db'
+    osteo_knee = '/Users/gma/ihme/epi/at_cascade/data/475746/dbs/64/2/dismod.db'
+    t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/100/2/dismod.db' # HI N America female
+    t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db' # HI N America both
+    t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/1/2/dismod.db' # world
 
     if case == 't1_diabetes':
         file_in = t1_diabetes
@@ -349,15 +348,16 @@ if __name__ == '__main__':
 
     cases_with_json_smoothings_set_to_brads_values = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
-    # cases = ['osteo_hip']
-    # cases = ['osteo_knee']
-    # cases = ['kidney']
-    # cases = ['crohns']
-    # cases = ['dialysis']
+    cases = ['osteo_hip']
+    cases = ['osteo_knee']
+    cases = ['kidney']
+    cases = ['crohns']
+    cases = ['t1_diabetes']
+    cases = ['dialysis']
     cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
     cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
-    cases = ['t1_diabetes']
+    cases = ['crohns']
 
     steps = ['no_ode', 'yes_ode', 'students']
 
@@ -365,6 +365,11 @@ if __name__ == '__main__':
     test_funs = True
     test_cmds = True
     test_sh = True
+    if 0:
+        test_funs = False
+        test_cmds = False
+        test_sh = False
+
 
     for case in cases:
         fit_ihme_path, ref_dbs = reference_dbs(case)
@@ -437,7 +442,6 @@ if __name__ == '__main__':
                     assert (np.allclose(db2.fit_var.fit_var_value, reference_db.fit_var.fit_var_value, **tol))
 
 
-LOG.info ()
 LOG.info (f'Tested:    {cases}')
 LOG.info (f'  options: {ode_option}')
 LOG.info (f'  steps:   {steps}')
