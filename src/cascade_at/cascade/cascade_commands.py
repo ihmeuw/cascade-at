@@ -97,7 +97,8 @@ class Drill(_CascadeCommand):
             location_id=drill_parent_location_id,
             sex_id=drill_sex,
             n_sim=n_sim,
-            n_pool=n_pool)
+            n_pool=n_pool,
+            skip_configure=skip_configure)
         for t in tasks:
             self.add_task(t)
 
