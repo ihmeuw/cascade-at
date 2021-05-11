@@ -34,7 +34,7 @@ def test_drill():
     assert isinstance(
         cascade_command.task_dict[
             'predict --model-version-id 0 --parent-location-id 1 --sex-id 1 '
-            '--save-final --sample'
+            '--save-final'
         ],
         CASCADE_OPERATIONS['predict']
     )
