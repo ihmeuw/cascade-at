@@ -67,8 +67,8 @@ def dmdismod(cmd):
                             help = "Integrands to hold out during the ODE fit") 
         parser.add_argument("-s", "--random-seed", nargs='?', type=int, default = None,
                             help = "Random seed for the random_subsampling") 
-        parser.add_argument("-f", "--subset", nargs='?', type=str2bool, default = False, const = False,
-                            help = "Filter out all hold out and covariate out-of-range data prior to fit.")
+        parser.add_argument("-f", "--subset", nargs='?', type=str2bool, default = False, const = True,
+                            help = "Hold out non-ode integrands in the ODE init step.")
         parser.add_argument("-d", "--random-subsample", nargs='?', type=int, default = 1000, const = None,
                             help = "Number of random subsamples to fit.")
         parser.add_argument("-p", "--save-to-path", nargs='?', type=str, default = None, const = None,
@@ -106,6 +106,7 @@ def dmdismod(cmd):
             LOG.info(f"The subsampling random_seed not set.")
 
     if p_args.option == "init":
+        breakpoint()
         db = init_ode_command([_dismod_] + args[1:], 
                               max_covariate_effect = p_args.max_covariate_effect,
                               mulcov_values = p_args.mulcov_values,
@@ -204,6 +205,10 @@ if __name__ == '__main__':
                 dmdismod(cmd)
 
 if __name__ == '__main__':
+    if 1:
+        # Temporary test
+        cmd = 'dmdismod /Users/gma/ihme/epi/at_cascade/data/475746_dismod.db ODE init --subset'
+        dmdismod(cmd)
     if sys.argv[0]:
         cmd = ' '.join(sys.argv)
         print (cmd)
