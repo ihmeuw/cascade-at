@@ -921,13 +921,18 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
             db.setup_ode_fit(max_covariate_effect = max_covariate_effect,
                              mulcov_values = mulcov_values,
                              ode_hold_out_list = ode_hold_out_list)
-            integrands = db.yes_ode_integrands
+            hold_out_integrands = db.yes_ode_integrands
         else:
-            integrands = db.ode_hold_out_list
+            hold_out_integrands = db.ode_hold_out_list
+
+        # Remove integrands appropriate to fit type
+        db.hold_out_data(integrand_names = hold_out_integrands, hold_out=1)
 
         # Fit only a subset
         if subset:
-            db.hold_out_data(integrand_names = integrands, hold_out=1)
+            data = db.data[db.data.hold_out==0].reset_index(drop=True)
+            data['data_id'] = data.index
+            db.data = data
 
         if init:
             system(f'{db.dismod} {db.path} init')

@@ -67,8 +67,8 @@ def dmdismod(cmd):
                             help = "Integrands to hold out during the ODE fit") 
         parser.add_argument("-s", "--random-seed", nargs='?', type=int, default = None,
                             help = "Random seed for the random_subsampling") 
-        parser.add_argument("-f", "--subset", nargs='?', type=str2bool, default = True, const = False,
-                            help = "Hold out non-ode integrands in the ODE init step (default = True).")
+        parser.add_argument("-f", "--subset", nargs='?', type=str2bool, default = False, const = True,
+                            help = "Remove hold out data prior to fit.")
         parser.add_argument("-d", "--random-subsample", nargs='?', type=int, default = 1000, const = None,
                             help = "Number of random subsamples to fit.")
         parser.add_argument("-p", "--save-to-path", nargs='?', type=str, default = None, const = None,
