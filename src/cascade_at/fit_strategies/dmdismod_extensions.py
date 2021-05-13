@@ -106,7 +106,6 @@ def dmdismod(cmd):
             LOG.info(f"The subsampling random_seed not set.")
 
     if p_args.option == "init":
-        breakpoint()
         db = init_ode_command([_dismod_] + args[1:], 
                               max_covariate_effect = p_args.max_covariate_effect,
                               mulcov_values = p_args.mulcov_values,
@@ -205,10 +204,6 @@ if __name__ == '__main__':
                 dmdismod(cmd)
 
 if __name__ == '__main__':
-    if 1:
-        # Temporary test
-        cmd = 'dmdismod /Users/gma/ihme/epi/at_cascade/data/475746_dismod.db ODE init --subset'
-        dmdismod(cmd)
     if sys.argv[0]:
         cmd = ' '.join(sys.argv)
         print (cmd)
