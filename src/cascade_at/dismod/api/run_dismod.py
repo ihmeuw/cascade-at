@@ -18,6 +18,46 @@ def run_dismod(dm_file: str, command: str):
     command
         a command to run
     """
+    def check_last_command(dm_file: str, command: str):
+        from cascade_at.dismod.api.dismod_io import DismodIO
+        db = DismodIO(dm_file)
+        log = db.log
+        last_begin = [l for i,l in log.iterrows()
+                      if l.message_type == 'command'
+                      and l.message.startswith('begin ')]
+        rtn = True
+        if not last_begin:
+            LOG.error(f"ERROR: Failed to find a 'begin' command.")
+            rtn = False
+        else:
+            last_begin = last_begin[-1]
+        if rtn:
+            start_cmd = [l for i,l in log[last_begin.log_id:].iterrows()
+                         if l.message_type == 'command'
+                         and l.message.startswith(f'begin {command}')]
+            if not start_cmd:
+                LOG.error(f"ERROR: Expected 'begin {command}' but found '{last_begin.message}'.")
+                rtn = False
+            else:
+                start_cmd = start_cmd[-1]
+        if rtn:
+            end_cmd = [l for i,l in log[start_cmd.log_id:].iterrows()
+                       if l.message_type == 'command'
+                       and l.message.startswith(f'end {command}')]
+            if not end_cmd:
+                LOG.error(f"ERROR: Did not find end for this '{start_cmd.message}' command")
+                rtn = False
+            for i,l in log[start_cmd.log_id:].iterrows():
+                if l.message_type in ['error', 'warning']:
+                    LOG.info (f"DISMOD {l.message_type}: {l.message.rstrip()}")
+                    rtn = False
+        if rtn:
+            LOG.info (f"{command} OK")
+        else:
+            LOG.error (f"ERROR: {command} had errors, warnings, or failed to complete.")
+        return rtn
+
+    dismod_command = command.split()[0]
     command = ["dmdismod", str(dm_file), command]
     command = ' '.join(command)
     LOG.info(f"Running {command}")
@@ -28,6 +68,8 @@ def run_dismod(dm_file: str, command: str):
     info.exit_status = process.returncode
     info.stdout = process.stdout.decode()
     info.stderr = process.stderr.decode()
+    
+    check_dismod = check_last_command(dm_file, dismod_command)
 
     return info
 
