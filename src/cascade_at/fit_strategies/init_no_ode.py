@@ -178,59 +178,31 @@ class FitNoODE(DismodIO):
     # =============================================================================
     # Routines that Only Change Data Table
     # =============================================================================
-
-    def subset_data (db) :
-        # remove data that are held out or have out of bound covariates
-        msg  = '\nsubset_data\n'
-        msg += 'removing hold out and covariate out of bounds data'
-        LOG.info(msg)
-
-        data = db.data
-        data = data[data.hold_out == 0]
-        for i,cov in db.covariate.iterrows():
-            if np.isfinite(cov.max_difference):
-                difference = abs(data[cov.covariate_name] - cov.reference)
-                data = data[difference <= cov.max_difference]
-        data = data.reset_index(drop=True)
-        data['data_id'] = data.index
-        db.data = data
-
-        # subsetting the data can remove some integrands, so get integrands after
-        db.set_integrand_lists()
-        msg = '\nintegrands   = ' + str( db.integrands )
-        LOG.info(msg)
-
-
     def random_subsample_data(db, integrand_name, max_sample) :
         # for a specified integrand, sample at most max_sample entries.
-        # This does random sampling that can be seeded by calling random.seed.
-        # The origianl order of the data is preserved (in index plots)
-        # by sorting the subsample.
+        # This does random sampling using hold_out that can be seeded by calling random.seed.
         #
-        # This code may seem a little obtuse, but for comparison, it matches Brad's sampling method
+        # This code may seem a little obtuse, but it matches Brad's sampling method so they can be compared
         #
-        data_in = db.data.merge(db.integrand, how='left')
-        integrand = data_in[data_in.integrand_name == integrand_name]
+        data = db.data.merge(db.integrand, how='left')
+        integrand = data[data.integrand_name == integrand_name]
 
         n_sample_in = len(integrand)
         n_sample_out = min(max_sample, len(integrand))
         LOG.info (f'random_subsample_data')
         LOG.info (f'number of {integrand_name} samples: in = {n_sample_in} out = {n_sample_out}')
 
-        # Dataframe indices of integrands other than the one being sampled
-        non_integrand_indices = data_in.index[data_in.integrand_name != integrand_name].tolist()
+        # Note: A preferred, direct random sampling (e.g., integrand.sample(n_sample_out)) didn't match Brad's sampling
 
-        # Note: A preferred, direct integrand sampling (e.g., integrand.sample(n_sample_out)) didn't match Brad's sampling
         # Sample the integrand dataframe row index
-        row_index = list(range(len(integrand)))
         if n_sample_out < n_sample_in :
-            row_index = sorted(random.sample(range(len(integrand)),  n_sample_out))
-        # Sample the dataframe by row index, and return the dataframe index
-        integrand_indices = integrand.iloc[row_index].index.tolist()
-        
-        # Sample the database data by filtering on dataframe index
-        data = data_in.loc[sorted(integrand_indices + non_integrand_indices)].reset_index(drop=True)
-        data['data_id'] = data.index
+            index = list(range(len(integrand)))
+            holdout_index = sorted(set(index) - set(random.sample(index,  n_sample_out)))
+
+            # Get the data table indices corresponding to the holdouts
+            data_indices = integrand.iloc[holdout_index].index.tolist()
+            data.loc[data_indices, 'hold_out'] = 1
+
         db.data = data[db.data.columns]
 
     def hold_out_data (db, integrand_names=(), node_names=(), hold_out=False) :
@@ -269,7 +241,7 @@ class FitNoODE(DismodIO):
         if factor_eta is None :
             eta = None
         else :
-            median = data.meas_value[mask].median()
+            median = data[data.hold_out == 0].meas_value[mask].median()
             eta = factor_eta * median
             data.loc[mask, 'density_id'] = density_id
             data.loc[mask, 'eta'] = eta
@@ -285,7 +257,8 @@ class FitNoODE(DismodIO):
         factor_eta     = 1e-2
         nu             = 5
         for integrand_name in integrand_list :
-            db.set_data_likelihood(integrand_name, density_name, factor_eta, nu)
+            if integrand_name not in ['mtall']:
+                db.set_data_likelihood(integrand_name, density_name, factor_eta, nu)
 
     def compress_age_time_intervals(db, age_size = 10.0, time_size = 10.0):
         data = db.data
@@ -422,7 +395,7 @@ class FitNoODE(DismodIO):
         # is 'mean' or 'median'
         #
         # covariate_value
-        data = db.data
+        data = db.data[db.data.hold_out == 0]
         covariate = db.covariate
         covariate_name = covariate.loc[covariate_id, 'covariate_name']
         covariate_value = data[covariate_name].tolist()
@@ -449,7 +422,7 @@ class FitNoODE(DismodIO):
         # The bounds for an integerand are set to zero if the covariate
         # is identically equalt the reference for that integrand.
         assert max_covariate_effect >= 0.0, 'disease specific max_covariate_effect is negative'
-        data = db.data
+        data = db.data[db.data.hold_out == 0]
         covariate = db.covariate
         mulcov = db.mulcov
         #
@@ -571,7 +544,7 @@ class FitNoODE(DismodIO):
         # ramdom effect (so the subgroup id is null in the mulcov table).
 
         integrand = db.integrand
-        data = db.data.merge(integrand, how='left')
+        data = db.data[db.data.hold_out == 0].merge(integrand, how='left')
         subgroup = db.subgroup
         covariate = db.covariate
         mulcov = db.mulcov
@@ -734,20 +707,20 @@ class FitNoODE(DismodIO):
             avgint['avgint_id'] = avgint.index
         db.avgint = avgint
 
-    def simplify_data(db, subset=False, random_seed = None, random_subsample=None):
-        # seed used to randomly subsample data
-        if random_seed in [0, None]:
-            random_seed = int( time.time() )
-        random.seed(random_seed)
-        msg = '\nrandom_seed  = ' + str( random_seed )
-        LOG.info(msg)
-        if subset:
-            db.subset_data() 
-        if random_subsample is not None:
-            for integrand in db.integrands:
-                db.random_subsample_data(integrand, max_sample = random_subsample)
-        db.compress_age_time_intervals()
- 
+    # def simplify_data(db, subset=False, random_seed = None, random_subsample=None):
+    #     # seed used to randomly subsample data
+    #     if random_seed in [0, None]:
+    #         random_seed = int( time.time() )
+    #     random.seed(random_seed)
+    #     msg = '\nrandom_seed  = ' + str( random_seed )
+    #     LOG.info(msg)
+    #     if subset:
+    #         db.subset_data() 
+    #     if random_subsample is not None:
+    #         for integrand in db.integrands:
+    #             db.random_subsample_data(integrand, max_sample = random_subsample)
+    #     db.compress_age_time_intervals()
+
     def setup_ode_fit(db, max_covariate_effect = 2,
                          ode_hold_out_list = [], mulcov_values = []):
 
@@ -779,9 +752,9 @@ class FitNoODE(DismodIO):
         # set bounds for all the covariates
         for covariate_id in db.covariate.covariate_id.values:
             db.set_mulcov_bound(covariate_id, max_covariate_effect = max_covariate_effect)
-	#
-	# Covariate multipliers that we are setting a specific value for
-	# (this must be done after set_mulcov_bound).
+        #
+        # Covariate multipliers that we are setting a specific value for
+        # (this must be done after set_mulcov_bound).
         for [covariate_name, rate_or_integrand_name, mulcov_value] in mulcov_values :
             db.set_mulcov_value(covariate_name, rate_or_integrand_name, mulcov_value)
         db.set_avgint(db.integrands)
@@ -895,10 +868,9 @@ def setup_db(path, dismod = _dismod_cmd_, ode_hold_out_list = ()):
     LOG.info(f'Initializing FitNoODE database {db.path}')
     return db
 
-def _ode_command(args, init = True, subset = True, random_subsample = None,
+def _ode_command(args, type = '', subset = True, random_subsample = None,
                  ode_hold_out_list = [], random_seed = None, save_to_path = None, reference_db = None,
-                 max_covariate_effect = 2, mulcov_values = [],
-                 students = False, nu = 5):
+                 max_covariate_effect = 2, mulcov_values = [], nu = 5):
     """
     1) Initialize the database for the non-ODE/ODE fitting strategy
     2) Hold out the ODE integrands
@@ -915,31 +887,36 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
         if reference_db and isinstance(reference_db, str):
             reference_db = DismodIO(reference_db)
 
-        db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
+        # Seed used to randomly subsample data
+        if random_seed in [0, None]:
+            random_seed = int( time.time() )
+        random.seed(random_seed)
+        msg = '\nrandom_seed  = ' + str( random_seed )
+        LOG.info(msg)
 
-        if init:
+        # Subsample the data
+        for integrand in db.integrands:
+            db.random_subsample_data(integrand, max_sample = random_subsample)
+
+        db.compress_age_time_intervals()
+
+        if type == 'no_ode':
             db.setup_ode_fit(max_covariate_effect = max_covariate_effect,
                              mulcov_values = mulcov_values,
                              ode_hold_out_list = ode_hold_out_list)
             hold_out_integrands = db.yes_ode_integrands
-        else:
+        elif type in ('yes_ode', 'students'):
             hold_out_integrands = db.ode_hold_out_list
 
         # Remove integrands appropriate to fit type
         db.hold_out_data(integrand_names = hold_out_integrands, hold_out=1)
 
-        # Fit only a subset
-        if subset:
-            data = db.data[db.data.hold_out==0].reset_index(drop=True)
-            data['data_id'] = data.index
-            db.data = data
-
-        if init:
+        if type == 'no_ode':
             system(f'{db.dismod} {db.path} init')
-        else:
+        elif type in ('yes_ode', 'students'):
             system(f'{db.dismod} {db.path} set start_var fit_var')
 
-        if students:
+        if type == 'students':
             db.set_student_likelihoods(factor_eta = 1e-2, nu = nu)
 
         if reference_db:
@@ -954,14 +931,6 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
         LOG.info(cmd); os.system(cmd)
     except: raise
     finally:
-        if init and not students:
-            type = 'init'
-        elif not init and not students:
-            type = 'fit'
-        elif not init and students:
-            type = 'students'
-        else:
-            raise Exception('The init = True and students = True combination is invalid.')
         db.save_database(db.path.parent / f'{db.path.stem}_ODE_{type}{db.path.suffix}')
         LOG.info("Restoring the rows subsampled and/or subset from data table.")
         db.data = db.input_data
@@ -969,16 +938,14 @@ def _ode_command(args, init = True, subset = True, random_subsample = None,
 
 
 def init_ode_command(*args, **kwds):
-    kwds.update({'init': True})
+    kwds['type'] = 'no_ode'
     _ode_command(*args, **kwds)
 
 def fit_ode_command(*args, **kwds):
-    kwds.update({'init': False})
-    kwds.update({'students': False})
+    kwds['type'] = 'yes_ode'
     _ode_command(*args, **kwds)
 
 def fit_students_command(*args, **kwds):
-    kwds.update({'init': False})
-    kwds.update({'students': True})
+    kwds['type'] = 'students'
     _ode_command(*args, **kwds)
 
