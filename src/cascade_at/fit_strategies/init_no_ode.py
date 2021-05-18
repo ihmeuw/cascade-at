@@ -707,20 +707,6 @@ class FitNoODE(DismodIO):
             avgint['avgint_id'] = avgint.index
         db.avgint = avgint
 
-    # def simplify_data(db, subset=False, random_seed = None, random_subsample=None):
-    #     # seed used to randomly subsample data
-    #     if random_seed in [0, None]:
-    #         random_seed = int( time.time() )
-    #     random.seed(random_seed)
-    #     msg = '\nrandom_seed  = ' + str( random_seed )
-    #     LOG.info(msg)
-    #     if subset:
-    #         db.subset_data() 
-    #     if random_subsample is not None:
-    #         for integrand in db.integrands:
-    #             db.random_subsample_data(integrand, max_sample = random_subsample)
-    #     db.compress_age_time_intervals()
-
     def setup_ode_fit(db, max_covariate_effect = 2,
                          ode_hold_out_list = [], mulcov_values = []):
 
@@ -868,14 +854,15 @@ def setup_db(path, dismod = _dismod_cmd_, ode_hold_out_list = ()):
     LOG.info(f'Initializing FitNoODE database {db.path}')
     return db
 
-def _ode_command(args, type = '', subset = True, random_subsample = None,
+def _ode_command(args, type = '', random_subsample = None,
                  ode_hold_out_list = [], random_seed = None, save_to_path = None, reference_db = None,
                  max_covariate_effect = 2, mulcov_values = [], nu = 5):
     """
     1) Initialize the database for the non-ODE/ODE fitting strategy
-    2) Hold out the ODE integrands
-    3) Fit both on a subset of the integrands corresponding directly to the rates
-       (e.g. Sincidence, chi and rho). Omega is always constrained.
+    2) Hold out the ODE strategy related integrands
+    3) Fit both on a subset of the integrands. Init step fits those corresponding directly 
+       to the rates (e.g. Sincidence, chi and rho). Omega is assumed to be constrained.
+       Fit and students setps fit all but the ode_hold_out_list.
     4) Restore the data table to it's original state
     """
 
@@ -932,7 +919,7 @@ def _ode_command(args, type = '', subset = True, random_subsample = None,
     except: raise
     finally:
         db.save_database(db.path.parent / f'{db.path.stem}_ODE_{type}{db.path.suffix}')
-        LOG.info("Restoring the rows subsampled and/or subset from data table.")
+        LOG.info("Restoring the data table to its original state.")
         db.data = db.input_data
     return db
 

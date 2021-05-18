@@ -5,11 +5,11 @@ Example shell command sequence:
 
 cp /Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db /tmp/t1_diabetes.db
 
-./dmdismod_extensions.py /tmp/t1_diabetes.db ODE init  --random-seed 1234 --subset True --random-subsample 1000 --save-to-path /tmp/t1_diabetes_no_ode.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db
+./dmdismod_extensions.py /tmp/t1_diabetes.db ODE init  --random-seed 1234 --random-subsample 1000 --save-to-path /tmp/t1_diabetes_no_ode.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db
 
-./dmdismod_extensions.py /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess  --random-seed 1234 --subset True --random-subsample 1000 --save-to-path /tmp/t1_diabetes_yes_ode.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/yes_ode/yes_ode.db
+./dmdismod_extensions.py /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess  --random-seed 1234 --random-subsample 1000 --save-to-path /tmp/t1_diabetes_yes_ode.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/yes_ode/yes_ode.db
 
-./dmdismod_extensions.py /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess  --random-seed 1234 --subset True --random-subsample 1000 --save-to-path /tmp/t1_diabetes_students.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/students/students.db
+./dmdismod_extensions.py /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess  --random-seed 1234 --random-subsample 1000 --save-to-path /tmp/t1_diabetes_students.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/students/students.db
 
 """
 
@@ -67,8 +67,6 @@ def dmdismod(cmd):
                             help = "Integrands to hold out during the ODE fit") 
         parser.add_argument("-s", "--random-seed", nargs='?', type=int, default = None,
                             help = "Random seed for the random_subsampling") 
-        parser.add_argument("-f", "--subset", nargs='?', type=str2bool, default = False, const = True,
-                            help = "Remove hold out data prior to fit.")
         parser.add_argument("-d", "--random-subsample", nargs='?', type=int, default = 1000, const = None,
                             help = "Number of random subsamples to fit.")
         parser.add_argument("-p", "--save-to-path", nargs='?', type=str, default = None, const = None,
@@ -112,7 +110,6 @@ def dmdismod(cmd):
                               ode_hold_out_list = p_args.ode_hold_out_list,
                               # random_seed = p_args.random_seed,
                               random_seed = random_seed,
-                              subset = p_args.subset,
                               random_subsample = p_args.random_subsample,
                               save_to_path = p_args.save_to_path,
                               reference_db = p_args.reference_db)
@@ -121,14 +118,12 @@ def dmdismod(cmd):
                              ode_hold_out_list = p_args.ode_hold_out_list,
                              # random_seed = p_args.random_seed,
                              random_seed = random_seed,
-                             subset = p_args.subset,
                              random_subsample = p_args.random_subsample,
                              save_to_path = p_args.save_to_path,
                              reference_db = p_args.reference_db)
     elif p_args.option == "students":
         fit_students_command([_dismod_] + args[1:],
                              ode_hold_out_list = p_args.ode_hold_out_list,
-                             subset = p_args.subset,
                              # random_seed = p_args.random_seed,
                              random_seed = random_seed,
                              random_subsample = p_args.random_subsample,
@@ -148,7 +143,7 @@ if __name__ == '__main__':
             path = cmd.split()[1]
             type = dispatch[cmd.split()[3]]
             save_path = path.replace('.db', f'_{type}.db')
-            arg_str = (f" --random-seed {_random_seed_} --subset True --random-subsample 1000"
+            arg_str = (f" --random-seed {_random_seed_} --random-subsample 1000"
                        f" --save-to-path {save_path}"
                        f" --reference /Users/gma/ihme/epi/at_cascade/{disease}/{type}/{type}.db")
             return arg_str

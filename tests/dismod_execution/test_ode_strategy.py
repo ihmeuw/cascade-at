@@ -63,7 +63,7 @@ def test_help(dismod, assert_correct=True):
         assert rtn == expect, "dmdismod without arguments return was not correct."
 
         expect = ("/opt/local/bin/dmdismod --help\n"
-                  "usage: dmdismod [-h] [-m [MAX_COVARIATE_EFFECT]] [-c MULCOV_VALUES [MULCOV_VALUES ...]] [-o [ODE_HOLD_OUT_LIST]] [-s [RANDOM_SEED]] [-f [SUBSET]] [-d [RANDOM_SUBSAMPLE]] [-p [SAVE_TO_PATH]]\n"
+                  "usage: dmdismod [-h] [-m [MAX_COVARIATE_EFFECT]] [-c MULCOV_VALUES [MULCOV_VALUES ...]] [-o [ODE_HOLD_OUT_LIST]] [-s [RANDOM_SEED]] [-d [RANDOM_SUBSAMPLE]] [-p [SAVE_TO_PATH]]\n"
                   "[-t [REFERENCE_DB]]\n"
                   "path dispatch option\n"
                   "\n"
@@ -83,8 +83,6 @@ def test_help(dismod, assert_correct=True):
                   "Integrands to hold out during the ODE fit\n"
                   "-s [RANDOM_SEED], --random-seed [RANDOM_SEED]\n"
                   "Random seed for the random_subsampling\n"
-                  "-f [SUBSET], --subset [SUBSET]\n"
-                  "Filter out all hold out and covariate out-of-range data prior to fit.\n"
                   "-d [RANDOM_SUBSAMPLE], --random-subsample [RANDOM_SUBSAMPLE]\n"
                   "Number of random subsamples to fit.\n"
                   "-p [SAVE_TO_PATH], --save-to-path [SAVE_TO_PATH]\n"

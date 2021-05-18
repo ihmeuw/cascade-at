@@ -12,6 +12,8 @@ logging.basicConfig(level=LEVELS['info'])
 
 db = None
 
+_CASCADE_DATA_PATH_ = Path('/Users/gma/ihme/epi/at_cascade')
+
 def test_cases(case, specific_name = 'fitODE'):
     crohns = '/Users/gma/ihme/epi/at_cascade/data/475533/dbs/1/2/dismod.db'
     # dialysis = '/Users/gma/ihme/epi/at_cascade/data/475527/dbs/96/2/dismod.db' # S Latin America
@@ -70,7 +72,7 @@ def test_cases(case, specific_name = 'fitODE'):
     return db_path, max_covariate_effect, ode_hold_out_list, mulcov_values
 
 def test_commands(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulcov_values=[],
-                  subset=True, random_seed=None, random_subsample=None, reference_db = None):
+                  random_seed=None, random_subsample=None, reference_db = None):
 
     global path_ode_cmds, path_students_cmds
     fit_ihme_path = _CASCADE_DATA_PATH_ / case
@@ -88,24 +90,24 @@ def test_commands(case, step, db_path, max_covariate_effect=2, ode_hold_out_list
         db = init_ode_command(args, max_covariate_effect = max_covariate_effect,
                               mulcov_values = mulcov_values,
                               ode_hold_out_list = ode_hold_out_list,
-                              subset = subset, random_seed = random_seed, random_subsample = random_subsample,
+                              random_seed = random_seed, random_subsample = random_subsample,
                               save_to_path = path_no_ode_cmds, reference_db = reference_db)
 
     if step == 'yes_ode':
         fit_ode_command(args, ode_hold_out_list = ode_hold_out_list,
-                        subset = subset, random_seed = random_seed, random_subsample = random_subsample,
+                        random_seed = random_seed, random_subsample = random_subsample,
                         save_to_path = path_yes_ode_cmds, reference_db = reference_db)
 
     if step == 'students':
         cmd = f'{_dismod_cmd_} {db_path} fit students'
         args = cmd.split()
         fit_students_command(args, ode_hold_out_list = ode_hold_out_list, 
-                             subset = subset, random_seed = random_seed, random_subsample = random_subsample,
+                             random_seed = random_seed, random_subsample = random_subsample,
                              save_to_path = path_students_cmds, reference_db = reference_db)
     return db
 
 def test(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulcov_values=[],
-         subset=True, random_seed=None, random_subsample=None, reference_db = None): 
+         random_seed=None, random_subsample=None, reference_db = None): 
 
     def fix_data_table(db, dm, bypass_hold_out = False):
         # For some reason, the fit_ihme.py data table is sometimes slightly different than the original
@@ -151,7 +153,7 @@ def test(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulc
         try:
             # -- no_ode portion --
             system(f'{db.dismod} {db.path} init')
-            db.simplify_data(subset = True, random_seed = random_seed, random_subsample = random_subsample)
+            db.simplify_data(random_seed = random_seed, random_subsample = random_subsample)
             db.setup_ode_fit(max_covariate_effect, **kwds)
             db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
@@ -171,7 +173,7 @@ def test(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulc
 
             # -- yes_ode portion --
             db.data = db.input_data
-            db.simplify_data(subset = True, random_seed = random_seed, random_subsample = random_subsample)
+            db.simplify_data(random_seed = random_seed, random_subsample = random_subsample)
             db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
             if reference_db and case == 'crohns':
@@ -196,7 +198,7 @@ def test(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulc
         db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
 
         try:
-            db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
+            db.simplify_data(random_seed = random_seed, random_subsample = random_subsample)
             db.setup_ode_fit(max_covariate_effect, **kwds)
             db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
@@ -225,7 +227,7 @@ def test(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulc
         db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
 
         try:
-            db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
+            db.simplify_data(random_seed = random_seed, random_subsample = random_subsample)
             db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
 
             if reference_db and case == 'crohns':
@@ -254,7 +256,7 @@ def test(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulc
         db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
 
         try:
-            db.simplify_data(subset = subset, random_seed = random_seed, random_subsample = random_subsample)
+            db.simplify_data(random_seed = random_seed, random_subsample = random_subsample)
             db.hold_out_data(integrand_names = db.ode_hold_out_list, hold_out=1)
             db.set_student_likelihoods(factor_eta = 1e-2, nu = 5)
 
@@ -344,7 +346,7 @@ if __name__ == '__main__':
         # This option runs dismod init, then no_ode and yes_ode fits in a single step
         ode_option = dict(no_yes_ode = True, no_ode = False, yes_ode = False, students = True)
 
-    common_kwds = dict(subset = True, random_seed = 1234, random_subsample = 1000)
+    common_kwds = dict(random_seed = 1234, random_subsample = 1000)
 
     cases_with_json_smoothings_set_to_brads_values = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
@@ -356,8 +358,6 @@ if __name__ == '__main__':
     cases = ['dialysis']
     cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
     cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
-
-    cases = ['crohns']
 
     steps = ['no_ode', 'yes_ode', 'students']
 
@@ -415,7 +415,6 @@ if __name__ == '__main__':
                 print ('-'*100)
                 LOG.info (f"Running test shell scripts for {case} {step} on {db2_path}")
                 kwd_str = (f"--random-seed {common_kwds['random_seed']} "
-                           f"--subset {common_kwds['subset']} "
                            f"--random-subsample {common_kwds['random_subsample']} "
                            f"--ode-hold-out-list {' '.join(ode_hold_out_list)} "
                            f"--max-covariate-effect {max_covariate_effect}")
