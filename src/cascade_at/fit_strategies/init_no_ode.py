@@ -901,7 +901,16 @@ def _ode_command(args, type = '', random_subsample = None,
         if type == 'no_ode':
             system(f'{db.dismod} {db.path} init')
         elif type in ('yes_ode', 'students'):
-            system(f'{db.dismod} {db.path} set start_var fit_var')
+            try: 
+                fit_var = db.fit_var
+                if fit_var.empty:
+                    fit_var = None
+            except ValueError:
+                fit_var = None
+            if fit_var is not None:
+                system(f'{db.dismod} {db.path} set start_var fit_var')
+            else:
+                system(f'{db.dismod} {db.path} set start_var prior_mean')
 
         if type == 'students':
             db.set_student_likelihoods(factor_eta = 1e-2, nu = nu)
