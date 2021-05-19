@@ -100,14 +100,16 @@ def plot_rate(db, rate_name, title = 'TBD') :
     age = fit.age.values.reshape(shape)
     time = fit.time.values.reshape(shape)
     rate = fit.fit_var_value.values.reshape(shape)
+    prior = get_prior(db, rate_name)['mean']
     if not sample.empty:
         std = fit.var_std.values.reshape(shape)
     else:
         std = None
     #
-    rate_max  = np.max(rate) * 1.05
-    rate_min  = np.min(rate) * 0.95
+    rate_max  = max(prior.max(), np.max(rate)) * 1.05
+    rate_min  = min(prior.min(), np.min(rate)) * 0.95
     rate_min  = max(rate_min , rate_max * 1e-6)
+    ylim = (rate_min, rate_max)
     n_subplot = 1
     if std is not None:
         std_max   = np.max(std) * 1.05
@@ -169,7 +171,7 @@ def plot_rate(db, rate_name, title = 'TBD') :
             dtime_mean_std = get_prior(db, rate_name, option = 'dtime')['std'].mean()
             plt.ylabel(f"{rate_name} (mean std -- dAge: {dage_mean_std:2g}, dTime: {dtime_mean_std:.2g})")
             plt.yscale('log')
-            plt.ylim(rate_min, rate_max)
+            plt.ylim(*ylim)
         for i in range(n_age) :
             x = age[i, 0]
             plt.axvline(x, color='black', linestyle='dotted', alpha=0.3)
@@ -278,7 +280,7 @@ def plot_rate(db, rate_name, title = 'TBD') :
             dtime_mean_std = get_prior(db, rate_name, option = 'dtime')['std'].mean()
             plt.ylabel(f"{rate_name} (mean std -- dAge: {dage_mean_std:2g}, dTime: {dtime_mean_std:.2g})")
             plt.yscale('log')
-            plt.ylim(rate_min, rate_max)
+            plt.ylim(*ylim)
         for j in range(n_time) :
             x = time[0, j]
             plt.axvline(x, color='black', linestyle='dotted', alpha=0.3)
