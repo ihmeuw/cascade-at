@@ -19,6 +19,8 @@ def run_dismod(dm_file: str, command: str):
         a command to run
     """
     def check_last_command(dm_file: str, command: str):
+        LOG.warning("FIXME -- GMA -- I need an entirely new way to wrap dmdismod with a preprocessor to handle the ODE strategy.")
+        LOG.warning("FIXME -- GMA -- Check_last_command needs to wrap the call to dmdismod, not the ODE preprocessor.")
         from cascade_at.dismod.api.dismod_io import DismodIO
         db = DismodIO(dm_file)
         log = db.log
@@ -57,7 +59,6 @@ def run_dismod(dm_file: str, command: str):
             LOG.error (f"ERROR: {command} had errors, warnings, or failed to complete.")
         return rtn
 
-    dismod_command = command.split()[0]
     command = ["dmdismod", str(dm_file), command]
     command = ' '.join(command)
     LOG.info(f"Running {command}")
@@ -69,6 +70,8 @@ def run_dismod(dm_file: str, command: str):
     info.stdout = process.stdout.decode()
     info.stderr = process.stderr.decode()
     
+    # Remove the ODE overloading
+    dismod_command = command.replace(' ODE ', ' ').split()[0]
     check_dismod = check_last_command(dm_file, dismod_command)
 
     return info
