@@ -286,7 +286,8 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         prior_sex=prior_sex,
         save_fit=True,
         save_prior=True,
-        upstream_commands=upstream_commands
+        upstream_commands=upstream_commands,
+        ode_fit_strategy=ode_fit_strategy
     )
     t2 = Predict(
         model_version_id=model_version_id,
