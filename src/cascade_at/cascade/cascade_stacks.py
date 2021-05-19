@@ -191,6 +191,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
+        ode_init=True,
         both=True,
         predict=True,
         upstream_commands=upstream,
@@ -242,7 +243,8 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
                prior_parent: int, prior_sex: int,
                child_locations: List[int], child_sexes: List[int],
                upstream_commands: List[str] = None,
-               n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
+               n_sim: int = _n_sim, n_pool: int = _n_pool,
+               ode_fit_strategy: bool = False) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a cascade fit (mid-level).
     Does a fit fixed, then fit both, predicts on the prior rate grid to create posteriors
@@ -301,7 +303,8 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
 def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
              prior_parent: int, prior_sex: int,
              n_sim: int = _n_sim, n_pool: int = _n_pool,
-             upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+             upstream_commands: List[str] = None,
+             ode_fit_strategy: bool = False) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a for a leaf-node fit, no children.
     Does a fit fixed then sample simulate to create posteriors. Saves its fit to be uploaded.
@@ -341,7 +344,8 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         prior_sex=prior_sex,
         save_fit=False,
         save_prior=True,
-        upstream_commands=upstream_commands
+        upstream_commands=upstream_commands,
+        ode_fit_strategy=ode_fit_strategy
     )
     t2 = Sample(
         model_version_id=model_version_id,

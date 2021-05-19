@@ -21,7 +21,8 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
             prior_parent=parent_location, prior_sex=parent_sex,
             child_locations=dag.children(location_id), child_sexes=[sex],
             n_sim=n_sim, n_pool=n_pool,
-            upstream_commands=upstream
+            upstream_commands=upstream,
+            ode_fit_strategy=True
         )
         tasks += branch
         for location in dag.children(location_id):
@@ -36,7 +37,8 @@ def branch_or_leaf(dag: LocationDAG, location_id: int, sex: int, model_version_i
             prior_parent=parent_location,
             prior_sex=parent_sex,
             n_sim=n_sim, n_pool=n_pool,
-            upstream_commands=upstream
+            upstream_commands=upstream,
+            ode_fit_strategy=True
         )
         tasks += leaf
 

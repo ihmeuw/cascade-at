@@ -284,7 +284,7 @@ class Fit(_DismodDB):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
                  predict: bool = True, fill: bool = True, both: bool = False,
                  save_fit: bool = False, save_prior: bool = False,
-                 ode_fit_strategy = False, **kwargs):
+                 ode_fit_strategy = False, ode_init: bool = False, **kwargs):
         """
         Perform a fit on the dismod database for this model version ID,
         parent location, and sex ID. (See undocumented arguments
@@ -307,7 +307,8 @@ class Fit(_DismodDB):
         """
 
         if ode_fit_strategy:
-            dm_commands = ['ODE init', 'ODE fit']
+            dm_commands = ['ODE init' if ode_init else 'init',
+                           'ODE fit']
         else:
             # dm_commands = ['init', 'fit fixed']
             # if both:
