@@ -54,6 +54,7 @@ setup(
         'run_cascade=cascade_at.executor.run:main',
         'run_dmdismod=cascade_at.executor.run_dmdismod:main',
         'plot=cascade_at.executor.plot:main',
-        'plot_residuals=cascade_at.executor.plot_residuals:main'
+        'plot_residuals=cascade_at.executor.plot_residuals:main',
+        'dmdismod_script=cascade_at.fit_strategies.dismod_at_script:main'
     ]}
 )

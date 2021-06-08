@@ -19,7 +19,6 @@ def run_dismod(dm_file: str, command: str):
         a command to run
     """
     def check_last_command(dm_file: str, command: str):
-        LOG.warning("FIXME -- GMA -- I need an entirely new way to wrap dmdismod with a preprocessor to handle the ODE strategy.")
         LOG.warning("FIXME -- GMA -- Check_last_command needs to wrap the call to dmdismod, not the ODE preprocessor.")
         from cascade_at.dismod.api.dismod_io import DismodIO
         db = DismodIO(dm_file)
