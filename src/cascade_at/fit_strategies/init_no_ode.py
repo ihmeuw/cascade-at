@@ -8,6 +8,7 @@ import pandas as pd
 import random
 import time
 import tempfile
+import re
 from pathlib import Path
 from cascade_at.core.log import logging, get_loggers, LEVELS
 
@@ -18,8 +19,8 @@ Check convergence
 Check prediction
 """
 
-# _dismod_cmd_ = 'dismod_at'
-_dismod_cmd_ = 'dmdismod'
+_dismod_cmd_ = 'dismod_at'
+# _dismod_cmd_ = 'dmdismod'
 _fit_ihme_py_ = 'fit_ihme.py'
 _max_iters_ = 500
 
@@ -40,11 +41,17 @@ def system (command) :
     sys.stdout.flush()
     LOG.info(command)
     if isinstance(command, str):
-        command = command.split()
-    run = subprocess.run(command)
+        kwds = dict(shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    else:
+        kwds = dict(stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    run = subprocess.run(command, **kwds)
     if run.returncode != 0 :
         raise Exception(f'"{command}" failed.')
-
+    if run.stderr:
+        print(run.stderr.decode())
+    if run.stdout:
+        print(run.stdout.decode())
+    
 def compare_dataframes(df0, df1):
     # FIXME -- poor design, should probably return the error between the dataframes instead 
     # of raising an exeption or returning a string
@@ -724,6 +731,7 @@ class FitNoODE(DismodIO):
         db.set_option('bound_random', '3')
         db.set_option('meas_noise_effect', 'add_var_scale_none')
         db.set_option('rate_case', rate_case)
+        db.set_option('print_level_fixed', 5)
 
         reference_name  = 'median'
         for covariate_id in range( len(db.covariate) ) :
