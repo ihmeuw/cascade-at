@@ -33,6 +33,7 @@ def main():
     else:
         if '-h' in sys.argv or '--help' in sys.argv or sys.argv[2].upper() == 'ODE':
             from cascade_at.fit_strategies.dmdismod_extensions import dmdismod
+            sys.argv[0] = sys.argv[0].replace('_script', '')
             cmd_str = ' '.join(sys.argv)
             print (cmd_str)
             dmdismod(cmd_str)
