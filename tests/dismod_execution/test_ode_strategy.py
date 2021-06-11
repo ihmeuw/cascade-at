@@ -62,7 +62,9 @@ def test_help(dismod, assert_correct=True):
         rtn = subprocess.check_output('dmdismod').decode().replace(' ', '').replace('\n','')
         assert rtn == expect, "dmdismod without arguments return was not correct."
 
-        expect = ("/opt/local/bin/dmdismod --help\n"
+        import subprocess
+        dmdismod = subprocess.check_output('which dmdismod', shell=True).decode().strip()
+        expect = (f"{dmdismod} --help\n"
                   "usage: dmdismod [-h] [-m [MAX_COVARIATE_EFFECT]] [-c MULCOV_VALUES [MULCOV_VALUES ...]] [-o [ODE_HOLD_OUT_LIST]] [-s [RANDOM_SEED]] [-d [RANDOM_SUBSAMPLE]] [-p [SAVE_TO_PATH]]\n"
                   "[-t [REFERENCE_DB]]\n"
                   "path dispatch option\n"
@@ -137,6 +139,7 @@ def test_ode_students(dismod, assert_correct=True):
 
 if __name__ == '__main__':
     test_setup_covariate_names(dismod, assert_correct=True)
+    breakpoint()
     test_help(dismod, assert_correct=True)
     test_ode_init(dismod, assert_correct=True)
     test_ode_fit(dismod, assert_correct=True)
