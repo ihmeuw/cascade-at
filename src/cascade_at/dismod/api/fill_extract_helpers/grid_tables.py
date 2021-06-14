@@ -169,6 +169,21 @@ def construct_model_tables(model: Model,
     A dictionary of data frames for each table name, includes:
         rate, prior, smooth, smooth_grid, mulcov, nslist, nslist_pair, and subgroup tables
     """
+
+    def compress_priors(rate_name, grid, prior, prior_id):
+        # Remove identical priors from the prior table, and remap the prior ids
+        cols = list(set(prior.columns) - set(['prior_id', 'prior_name']))
+        grps = sorted(prior.fillna(-999).groupby(cols), key=lambda x: x[1].prior_id.min())
+        pid = [(prior_id + i, g.prior_id.min(), g.prior_id.unique()) for i,(k,g) in enumerate(grps)]
+        pmap = {v:k for k,v,ids in pid}
+        prior = prior.loc[prior.prior_id.isin(list(zip(*pid))[1])]
+        prior['prior_id'] = prior['prior_id'].replace(pmap)
+        prior['prior_name'] = [f'{rate_name}_{pid}' for pid in prior.prior_id]
+        for k,v,ids in pid:
+            for col in ['value_prior_id', 'dage_prior_id', 'dtime_prior_id']:
+                grid.loc[grid[col].isin(ids), col] = k
+        return grid, prior
+
     nslist = {}
     smooth_table = pd.DataFrame()
     prior_table = pd.DataFrame()
@@ -196,6 +211,9 @@ def construct_model_tables(model: Model,
                 num_existing_grids=len(grid_table),
                 age_df=age_df, time_df=time_df
             )
+
+            if not 'omega' in rate_name:
+                grid, prior = compress_priors(rate_name, grid, prior, len(prior_table))
 
             smooth_id = len(smooth_table)
             smooth['smooth_id'] = smooth_id
