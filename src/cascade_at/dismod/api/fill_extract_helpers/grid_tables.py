@@ -172,7 +172,11 @@ def construct_model_tables(model: Model,
 
     def compress_priors(rate_name, grid, prior, prior_id):
         # Remove identical priors from the prior table, and remap the prior ids
-        cols = list(set(prior.columns) - set(['prior_id', 'prior_name']))
+        prior_cols = ['value_prior_id', 'dage_prior_id', 'dtime_prior_id']
+        for col in prior_cols:
+            pids = grid[col].unique()
+            prior.loc[prior.prior_id.isin(pids), col] = True
+        cols = list(set(prior.columns) - set(['prior_id', 'prior_name'])) + prior_cols
         grps = sorted(prior.fillna(-999).groupby(cols), key=lambda x: x[1].prior_id.min())
         pid = [(prior_id + i, g.prior_id.min(), g.prior_id.unique()) for i,(k,g) in enumerate(grps)]
         pmap = {v:k for k,v,ids in pid}
@@ -180,8 +184,9 @@ def construct_model_tables(model: Model,
         prior['prior_id'] = prior['prior_id'].replace(pmap)
         prior['prior_name'] = [f'{rate_name}_{pid}' for pid in prior.prior_id]
         for k,v,ids in pid:
-            for col in ['value_prior_id', 'dage_prior_id', 'dtime_prior_id']:
+            for col in prior_cols:
                 grid.loc[grid[col].isin(ids), col] = k
+        prior.drop(columns = prior_cols, inplace=True)
         return grid, prior
 
     nslist = {}
