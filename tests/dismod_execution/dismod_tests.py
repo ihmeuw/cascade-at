@@ -92,7 +92,7 @@ def get_truth(test_config, truth_in):
 
 def run_test(file_name, test_config, truth_in,
              start_from_truth = False, test_asymptotic = False):
-    program = 'dismod_at'
+    from cascade_at.dismod.constants import _dismod_cmd_
     #
 
     gradient_error = False
@@ -104,13 +104,13 @@ def run_test(file_name, test_config, truth_in,
 
         truth = get_truth(test_config, truth_in)
 
-        system([ program, file_name, 'init' ])
+        system([ _dismod_cmd_, file_name, 'init' ])
 
         # Initialize the truth_var table to the correct answer
         if True:
             # Need to create the truth_var table before setting it.
             # Can't seem to get db.create_tables to work, so use dismod_at to do it
-            system([ program, file_name, 'set', 'truth_var', 'prior_mean'])
+            system([ _dismod_cmd_, file_name, 'set', 'truth_var', 'prior_mean'])
         truth_var = db.truth_var
         truth_var['truth_var_value'] = truth
         db.truth_var = truth_var
@@ -120,17 +120,17 @@ def run_test(file_name, test_config, truth_in,
                 # Check dismod gradients
                 gradient_error = None
                 option = db.option
-                system([ program, file_name, 'set', 'option', 'derivative_test_fixed', 'adaptive'])
-                system([ program, file_name, 'set', 'option', 'derivative_test_random', 'second-order'])
-                system([ program, file_name, 'set', 'option', 'max_num_iter_fixed', '-1'])
-                system([ program, file_name, 'set', 'option', 'max_num_iter_random', '100'])
+                system([ _dismod_cmd_, file_name, 'set', 'option', 'derivative_test_fixed', 'adaptive'])
+                system([ _dismod_cmd_, file_name, 'set', 'option', 'derivative_test_random', 'second-order'])
+                system([ _dismod_cmd_, file_name, 'set', 'option', 'max_num_iter_fixed', '-1'])
+                system([ _dismod_cmd_, file_name, 'set', 'option', 'max_num_iter_random', '100'])
                 # Start from the truth
                 if 0:
-                    system([ program, file_name, 'set', 'start_var', 'truth_var'])
-                    system([ program, file_name, 'set', 'scale_var', 'truth_var'])
-                system([ program, file_name, 'fit', 'fixed'])
-                system([ program, file_name, 'set', 'start_var', 'fit_var'])
-                system([ program, file_name, 'fit', 'both'])
+                    system([ _dismod_cmd_, file_name, 'set', 'start_var', 'truth_var'])
+                    system([ _dismod_cmd_, file_name, 'set', 'scale_var', 'truth_var'])
+                system([ _dismod_cmd_, file_name, 'fit', 'fixed'])
+                system([ _dismod_cmd_, file_name, 'set', 'start_var', 'fit_var'])
+                system([ _dismod_cmd_, file_name, 'fit', 'both'])
             except Exception as ex:
                 print (ex)
                 gradient_error = ex
@@ -139,27 +139,27 @@ def run_test(file_name, test_config, truth_in,
                 db.option = option
 
         if start_from_truth:
-            system([ program, file_name, 'set', 'start_var', 'truth_var'])
-            system([ program, file_name, 'set', 'scale_var', 'truth_var'])
+            system([ _dismod_cmd_, file_name, 'set', 'start_var', 'truth_var'])
+            system([ _dismod_cmd_, file_name, 'set', 'scale_var', 'truth_var'])
 
         # Check that prediction matches the measured data
         cols = db.avgint.columns.tolist()
         db.avgint = db.data.rename(columns={'data_id':'avgint_id'})[cols]
-        system([ program, file_name, 'predict', 'truth_var'])
+        system([ _dismod_cmd_, file_name, 'predict', 'truth_var'])
         check = np.allclose(db.data.meas_value, db.predict.avg_integrand, atol=1e-10, rtol=1e-10)
         assert check, 'ERROR: Predict from truth does not match the data'
 
         #
         # Fit fixed effects
-        system([ program, file_name, 'fit', 'fixed'])
+        system([ _dismod_cmd_, file_name, 'fit', 'fixed'])
         if test_asymptotic:
-            system([ program, file_name, 'sample', 'asymptotic', 'fixed', '10'])
+            system([ _dismod_cmd_, file_name, 'sample', 'asymptotic', 'fixed', '10'])
         #
         # Fit both fixed and random effects
-        system([ program, file_name, 'set', 'start_var', 'fit_var'])
-        system([ program, file_name, 'set', 'scale_var', 'fit_var'])
+        system([ _dismod_cmd_, file_name, 'set', 'start_var', 'fit_var'])
+        system([ _dismod_cmd_, file_name, 'set', 'scale_var', 'fit_var'])
         if (test_config['group_effects'] or test_config['node_effects']):
-            system([ program, file_name, 'fit', 'both'])
+            system([ _dismod_cmd_, file_name, 'fit', 'both'])
         else:
             print ('Skipping fit both because there are no random effects.')
 
@@ -170,7 +170,7 @@ def run_test(file_name, test_config, truth_in,
         print ('Tests OK -- fit both fit_data_subset and measured_data agree.')
 
         if test_asymptotic:
-            system([ program, file_name, 'sample', 'asymptotic', 'both', '10'])
+            system([ _dismod_cmd_, file_name, 'sample', 'asymptotic', 'both', '10'])
 
         # -----------------------------------------------------------------------
 

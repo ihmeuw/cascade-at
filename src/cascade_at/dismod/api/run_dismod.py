@@ -3,6 +3,7 @@ import sys
 from types import SimpleNamespace
 from typing import List
 from cascade_at.core.log import get_loggers
+from cascade_at.dismod.constants import _dismod_cmd_
 
 LOG = get_loggers(__name__)
 
@@ -58,7 +59,7 @@ def run_dismod(dm_file: str, command: str):
             LOG.error (f"ERROR: {command} had errors, warnings, or failed to complete.")
         return rtn
 
-    command = ["dmdismod", str(dm_file), command]
+    command = [_dismod_cmd_, str(dm_file), command]
     command = ' '.join(command)
     LOG.info(f"Running {command}")
 

@@ -19,8 +19,7 @@ Check convergence
 Check prediction
 """
 
-_dismod_cmd_ = 'dismod_at'
-# _dismod_cmd_ = 'dmdismod'
+from cascade_at.dismod.constants import _dismod_cmd_
 _fit_ihme_py_ = 'fit_ihme.py'
 _max_iters_ = 500
 

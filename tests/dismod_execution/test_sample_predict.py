@@ -43,11 +43,11 @@ def test_1(dismod, assert_correct=False):
     db.data = data
     db.avgint = db.data.rename(columns={'data_id': 'avgint_id'})[db.avgint.columns]
 
-    program = 'dismod_at'
-    dismod_tests.system([program, db.path, 'init'])
-    dismod_tests.system([program, db.path, 'fit', 'fixed'])
-    dismod_tests.system([program, db.path, 'sample', 'asymptotic', 'fixed', '10000'])
-    dismod_tests.system([program, db.path, 'predict', 'sample'])
+    from cascade_at.dismod.constants import _dismod_cmd_
+    dismod_tests.system([_dismod_cmd_, db.path, 'init'])
+    dismod_tests.system([_dismod_cmd_, db.path, 'fit', 'fixed'])
+    dismod_tests.system([_dismod_cmd_, db.path, 'sample', 'asymptotic', 'fixed', '10000'])
+    dismod_tests.system([_dismod_cmd_, db.path, 'predict', 'sample'])
     grps = db.predict.groupby('avgint_id')
     mean = grps.avg_integrand.mean()
     std =  grps.avg_integrand.std(ddof=1)

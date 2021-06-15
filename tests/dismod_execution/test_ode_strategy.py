@@ -9,6 +9,7 @@ if __name__ == '__main__':
 else:
     from . import example_db
     from . import dismod_tests
+from cascade_at.dismod.constants import _dismod_cmd_
 
 print('Case 1: New fitting strategy -- first fit the non-ODE integrands, use that solution to initialize the ODE integrand fit.')
 
@@ -55,17 +56,17 @@ def test_help(dismod, assert_correct=True):
     try:
         # Make sure dismod works
         import subprocess
-        expect = ("usage:    dmdismod [-h | --help]                      # Print detailed help.\n"
-                  "usage:    dmdismod database [ODE] command [arguments] # Run dmdismod commands.\n"
+        expect = (f"usage:    {_dismod_cmd_} [-h | --help]                      # Print detailed help.\n"
+                  f"usage:    {_dismod_cmd_} database [ODE] command [arguments] # Run dmdismod commands.\n"
                   "Omitting 'ODE' calls the standard dismod_at executable.\n"
                   "Specifying 'ODE' dispatches to the ODE fitting strategy code.\n").replace(' ', '').replace('\n','')
-        rtn = subprocess.check_output('dmdismod').decode().replace(' ', '').replace('\n','')
-        assert rtn == expect, "dmdismod without arguments return was not correct."
+        rtn = subprocess.check_output(_dismod_cmd_).decode().replace(' ', '').replace('\n','')
+        assert rtn == expect, f"{_dismod_cmd_} without arguments return was not correct."
 
         import subprocess
-        dmdismod = subprocess.check_output('which dmdismod', shell=True).decode().strip()
+        dmdismod = subprocess.check_output(f'which {_dismod_cmd_}', shell=True).decode().strip()
         expect = (f"{dmdismod} --help\n"
-                  "usage: dmdismod [-h] [-m [MAX_COVARIATE_EFFECT]] [-c MULCOV_VALUES [MULCOV_VALUES ...]] [-o [ODE_HOLD_OUT_LIST]] [-s [RANDOM_SEED]] [-d [RANDOM_SUBSAMPLE]] [-p [SAVE_TO_PATH]]\n"
+                  f"usage: {_dismod_cmd_} [-h] [-m [MAX_COVARIATE_EFFECT]] [-c MULCOV_VALUES [MULCOV_VALUES ...]] [-o [ODE_HOLD_OUT_LIST]] [-s [RANDOM_SEED]] [-d [RANDOM_SUBSAMPLE]] [-p [SAVE_TO_PATH]]\n"
                   "[-t [REFERENCE_DB]]\n"
                   "path dispatch option\n"
                   "\n"
@@ -91,7 +92,7 @@ def test_help(dismod, assert_correct=True):
                   "Path to directory where to store the results\n"
                   "-t [REFERENCE_DB], --reference_db [REFERENCE_DB]\n"
                   "Path to the reference databases. Fit results are compared to these databases for testing purposes.\n").replace(' ', '').replace('\n','')
-        rtn = subprocess.check_output(['dmdismod', '--help']).decode().replace(' ', '').replace('\n','')
+        rtn = subprocess.check_output([_dismod_cmd_, '--help']).decode().replace(' ', '').replace('\n','')
         assert rtn == expect, "Help return was not correct."
         success = True
     except:
@@ -101,7 +102,7 @@ def test_help(dismod, assert_correct=True):
 
 def test_ode_init(dismod, assert_correct=True):
     try:
-        os.system(f'dmdismod {db.path} ODE init --random-seed 123')
+        os.system(f'{_dismod_cmd_} {db.path} ODE init --random-seed 123')
 
         # Remove the meas_noise the ODE fitting strategy adds and check the fit value
         fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')
@@ -114,7 +115,7 @@ def test_ode_init(dismod, assert_correct=True):
 
 def test_ode_fit(dismod, assert_correct=True):
     try:
-        os.system(f'dmdismod {db.path} ODE fit')
+        os.system(f'{_dismod_cmd_} {db.path} ODE fit')
 
         # Remove the meas_noise the ODE fitting strategy adds
         fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')
@@ -127,7 +128,7 @@ def test_ode_fit(dismod, assert_correct=True):
 
 def test_ode_students(dismod, assert_correct=True):
     try:
-        os.system(f'dmdismod {db.path} ODE students')
+        os.system(f'{_dismod_cmd_} {db.path} ODE students')
         # Remove the meas_noise the ODE fitting strategy adds
         fit_var = db.var.merge(db.fit_var, left_on = 'var_id', right_on = 'fit_var_id')
         fit = fit_var.loc[fit_var.var_type != 'mulcov_meas_noise', 'fit_var_value'].values
@@ -139,7 +140,6 @@ def test_ode_students(dismod, assert_correct=True):
 
 if __name__ == '__main__':
     test_setup_covariate_names(dismod, assert_correct=True)
-    breakpoint()
     test_help(dismod, assert_correct=True)
     test_ode_init(dismod, assert_correct=True)
     test_ode_fit(dismod, assert_correct=True)

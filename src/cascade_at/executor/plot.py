@@ -10,6 +10,7 @@ from pathlib import Path
 
 from matplotlib import pyplot as plt
 import matplotlib.backends.backend_pdf
+from cascade_at.dismod.constants import _dismod_cmd_
 
 _test_plot_prior_ = not False
 
@@ -501,7 +502,7 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, title='TB
     db.avgint = avgint
 
     # Predict for this avgint table
-    system(f'dismod_at {db.path} predict fit_var')
+    system(f'{_dismod_cmd_} {db.path} predict fit_var')
     #
     predict = avgint.merge(db.predict)
     # ------------------------------------------------------------------------
@@ -545,7 +546,7 @@ def parse_args():
     from distutils.util import strtobool as str2bool
     parser = argparse.ArgumentParser()
     name_string = "-filename" if sys.argv[0] == '' else "filename"
-    parser.add_argument(name_string, type=str, help="Dismod_AT sqlite database filename")
+    parser.add_argument(name_string, type=str, help=f"{_dismod_cmd_} sqlite database filename")
     parser.add_argument("-d", "--disease", type = str, help="Disease name (for plot title)")
     parser.add_argument("-f", "--fit_type", type = str, help="Type of the fit (for plot title)")
     parser.add_argument("-v", "--model_version_id", type = int, default = None,

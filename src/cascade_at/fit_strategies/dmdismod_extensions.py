@@ -28,17 +28,14 @@ from cascade_at.core.log import logging, get_loggers, LEVELS
 LOG = get_loggers(__name__)
 logging.basicConfig(level=LEVELS['info'])
 
-
-# _dismod_ = 'dismod_at'
-_dismod_ = 'dmdismod'
-
+from cascade_at.dismod.constants import _dismod_cmd_
 def dmdismod(cmd):
     """
     Example calling sequence:
     os.system('cp /Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db /tmp/t1_diabetes.db')
-    dmdismod('dismod_at /tmp/t1_diabetes.db ODE init')
-    dmdismod('dismod_at /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess')
-    dmdismod('dismod_at /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess')
+    dmdismod(f'{_dismod_cmd_} /tmp/t1_diabetes.db ODE init')
+    dmdismod(f'{_dismod_cmd_} /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess')
+    dmdismod(f'{_dismod_cmd_} /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess')
     """
 
     help=("An extended dmdismod command, to handle Brad's strategy of:\n"
@@ -104,7 +101,7 @@ def dmdismod(cmd):
             LOG.info(f"The subsampling random_seed not set.")
 
     if p_args.option == "init":
-        db = init_ode_command([_dismod_] + args[1:], 
+        db = init_ode_command([_dismod_cmd_] + args[1:], 
                               max_covariate_effect = p_args.max_covariate_effect,
                               mulcov_values = p_args.mulcov_values,
                               ode_hold_out_list = p_args.ode_hold_out_list,
@@ -114,7 +111,7 @@ def dmdismod(cmd):
                               save_to_path = p_args.save_to_path,
                               reference_db = p_args.reference_db)
     elif p_args.option == "fit":
-        db = fit_ode_command([_dismod_] + args[1:],
+        db = fit_ode_command([_dismod_cmd_] + args[1:],
                              ode_hold_out_list = p_args.ode_hold_out_list,
                              # random_seed = p_args.random_seed,
                              random_seed = random_seed,
@@ -122,7 +119,7 @@ def dmdismod(cmd):
                              save_to_path = p_args.save_to_path,
                              reference_db = p_args.reference_db)
     elif p_args.option == "students":
-        fit_students_command([_dismod_] + args[1:],
+        fit_students_command([_dismod_cmd_] + args[1:],
                              ode_hold_out_list = p_args.ode_hold_out_list,
                              # random_seed = p_args.random_seed,
                              random_seed = random_seed,
@@ -160,24 +157,24 @@ if __name__ == '__main__':
                       t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db', # HI N America both
                       )
 
-        cmds = OrderedDict(t1_diabetes = ['dismod_at /tmp/t1_diabetes.db ODE init',
-                                          'dismod_at /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess',
-                                          'dismod_at /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess'],
-                           dialysis = ['dismod_at /tmp/dialysis.db ODE init --max-covariate-effect 4',
-                                       'dismod_at /tmp/dialysis.db ODE fit --max-covariate-effect 4',
-                                       'dismod_at /tmp/dialysis.db ODE students --max-covariate-effect 4'],
-                           kidney = ['dismod_at /tmp/kidney.db ODE init',
-                                     'dismod_at /tmp/kidney.db ODE fit',
-                                     'dismod_at /tmp/kidney.db ODE students'],
-                           osteo_hip = ['dismod_at /tmp/osteo_hip.db ODE init',
-                                        'dismod_at /tmp/osteo_hip.db ODE fit',
-                                        'dismod_at /tmp/osteo_hip.db ODE students'],
-                           osteo_knee = ['dismod_at /tmp/osteo_knee.db ODE init',
-                                         'dismod_at /tmp/osteo_knee.db ODE fit',
-                                         'dismod_at /tmp/osteo_knee.db ODE students'],
-                           crohns = ['dismod_at /tmp/crohns.db ODE init --mulcov-values x_0 iota 3.8661',
-                                     'dismod_at /tmp/crohns.db ODE fit --mulcov-values x_0 iota 3.8661',
-                                     'dismod_at /tmp/crohns.db ODE students --mulcov-values x_0 iota 3.8661'],
+        cmds = OrderedDict(t1_diabetes = [f'{_dismod_cmd_} /tmp/t1_diabetes.db ODE init',
+                                          f'{_dismod_cmd_} /tmp/t1_diabetes.db ODE fit --ode-hold-out-list mtexcess',
+                                          f'{_dismod_cmd_} /tmp/t1_diabetes.db ODE students --ode-hold-out-list mtexcess'],
+                           dialysis = [f'{_dismod_cmd_} /tmp/dialysis.db ODE init --max-covariate-effect 4',
+                                       f'{_dismod_cmd_} /tmp/dialysis.db ODE fit --max-covariate-effect 4',
+                                       f'{_dismod_cmd_} /tmp/dialysis.db ODE students --max-covariate-effect 4'],
+                           kidney = [f'{_dismod_cmd_} /tmp/kidney.db ODE init',
+                                     f'{_dismod_cmd_} /tmp/kidney.db ODE fit',
+                                     f'{_dismod_cmd_} /tmp/kidney.db ODE students'],
+                           osteo_hip = [f'{_dismod_cmd_} /tmp/osteo_hip.db ODE init',
+                                        f'{_dismod_cmd_} /tmp/osteo_hip.db ODE fit',
+                                        f'{_dismod_cmd_} /tmp/osteo_hip.db ODE students'],
+                           osteo_knee = [f'{_dismod_cmd_} /tmp/osteo_knee.db ODE init',
+                                         f'{_dismod_cmd_} /tmp/osteo_knee.db ODE fit',
+                                         f'{_dismod_cmd_} /tmp/osteo_knee.db ODE students'],
+                           crohns = [f'{_dismod_cmd_} /tmp/crohns.db ODE init --mulcov-values x_0 iota 3.8661',
+                                     f'{_dismod_cmd_} /tmp/crohns.db ODE fit --mulcov-values x_0 iota 3.8661',
+                                     f'{_dismod_cmd_} /tmp/crohns.db ODE students --mulcov-values x_0 iota 3.8661'],
                     )
 
         diseases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
