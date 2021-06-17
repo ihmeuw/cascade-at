@@ -67,10 +67,17 @@ if __name__ == '__main__':
         cmd = f'dismod_ihme_input --model-version-id {mvid} --configure {json_cmd}'
 
         mvid = 475527
+
+
         json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}_settings-SLatinAmerica.json'
         cmd = f'dismod_ihme_input --model-version-id {mvid} {json_cmd} --test-dir /tmp'
-
+        
         print (cmd)
         sys.argv = cmd.split()
+
+    cmd = f'dismod_ihme_input --model-version-id mvid'
+    print ('ERROR this command with no json and no test-dir is not working')
+    print (cmd)
+
 
     main()
