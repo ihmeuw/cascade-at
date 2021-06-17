@@ -139,8 +139,8 @@ def save_predictions(db_file: Union[str, Path],
                        add_summaries=True, model_version_id=model_version_id)
 
 
-def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
-              dm_commands: List[str], dm_options: Dict[str, Union[int, str, float]],
+def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int = None,
+              dm_commands: List[str] = [], dm_options: Dict[str, Union[int, str, float]] = {},
               prior_samples: bool = False,
               prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
               prior_mulcov_model_version_id: Optional[int] = None,
@@ -200,8 +200,10 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
     else:
         context = Context(model_version_id=model_version_id)
 
-    db_path = context.db_file(location_id=parent_location_id, sex_id=sex_id)
     inputs, alchemy, settings = context.read_inputs()
+    if sex_id is None:
+        sex_id = settings.model.drill_sex
+    db_path = context.db_file(location_id=parent_location_id, sex_id=sex_id)
 
     # If we want to override the rate priors with posteriors from a previous
     # database, pass them in here.

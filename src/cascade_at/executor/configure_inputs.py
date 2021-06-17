@@ -91,7 +91,7 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool,
         LOG.error(msg)
 
     context.write_inputs(inputs=inputs, settings=parameter_json)
-
+    return context, inputs
 
 def main():
 

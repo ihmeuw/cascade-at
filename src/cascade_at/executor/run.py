@@ -30,13 +30,17 @@ ARG_LIST = ArgumentList([
     BoolArg('--skip-configure', help='Disable building the inputs.p and settings.json files.'),
     StrArg('--json-file', help='for testing, pass a json file directly by filepath',
            required=False),
+    StrArg('--test-dir', help='if set, specifies where files directory is.',
+           required=False),
     LogLevel()
 ])
 
 
 def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10, n_pool: int=10,
         addl_workflow_args: Optional[str] = None, skip_configure: bool = False,
-        json_file:Optional[str] = None) -> None:
+        json_file:Optional[str] = None,
+        test_dir: Optional[str] = None, execute_dag: bool = True) -> None:
+
     """
     Runs the whole cascade or drill for a model version (whichever one is specified
     in the model version settings).
@@ -67,7 +71,8 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     context = Context(
         model_version_id=model_version_id,
         make=make,
-        configure_application=True
+        configure_application=not skip_configure,
+        root_directory=test_dir
     )
     context.update_status(status='Submitted')
 
@@ -122,6 +127,8 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     dag_cmds_path = (context.inputs_dir / 'dag_commands.txt')
     LOG.info(f"Writing cascade dag commands to {dag_cmds_path}.")
     dag_cmds_path.write_text('\n'.join(cascade_command.get_commands()))
+
+    if not execute_dag: return
 
     if jobmon:
         LOG.info("Configuring jobmon.")

@@ -41,11 +41,11 @@ class Context:
         self.odbc_file = None
 
         LOG.info(f"Configuring inputs for model version {model_version_id}.")
+        self.app = application_config()
+        self.odbc_file = self.app["Database"]["local-odbc"]
         if configure_application:
-            self.app = application_config()
             self.root_directory = self.app["DataLayout"]["root-directory"]
             self.cascade_dir = self.app["DataLayout"]["cascade-dir"]
-            self.odbc_file = self.app["Database"]["local-odbc"]
 
             self.data_connection = 'epi'
             self.model_connection = 'dismod-at-dev'
@@ -102,11 +102,12 @@ class Context:
         """
         if self.odbc_file is None:
             raise ContextError()
-        update_model_status(
-            model_version_id=self.model_version_id,
-            conn_def=self.model_connection,
-            status_id=MODEL_STATUS[status]
-        )
+        if self.model_connection:
+            update_model_status(
+                model_version_id=self.model_version_id,
+                conn_def=self.model_connection,
+                status_id=MODEL_STATUS[status]
+            )
 
     def db_folder(self, location_id: int, sex_id: int):
         os.makedirs(self.database_dir / str(location_id) / str(sex_id), exist_ok=True)
@@ -149,10 +150,12 @@ class Context:
         Write the inputs objects to disk.
         """
         if inputs:
+            os.makedirs(self.inputs_file.parent, exist_ok = True)
             with open(self.inputs_file, "wb") as f:
                 LOG.info(f"Writing input obj to {self.inputs_file}.")
                 dill.dump(inputs, f)
         if settings:
+            os.makedirs(self.inputs_file.parent, exist_ok = True)
             with open(self.settings_file, 'w') as f:
                 LOG.info(f"Writing settings obj to {self.settings_file}.")
                 json.dump(settings, f)
