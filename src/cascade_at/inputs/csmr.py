@@ -103,7 +103,7 @@ class CSMR(BaseInput):
             LOG.info(f"Getting CSMR from process version ID {self.process_version_id}")
             # location_ids = self.demographics.drill_locations
             location_ids = self.demographics.location_id
-            LOG.info(f"Location_id's: {location_ids}")
+            LOG.info(f"Location_id's: {sorted(location_ids)}")
             self.raw = db.get_outputs(
                 topic='cause',
                 cause_id=self.cause_id,

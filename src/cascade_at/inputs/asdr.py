@@ -40,7 +40,7 @@ class ASDR(BaseInput):
         LOG.info("Getting ASDR from get_envelope.")
         # location_ids = self.demographics.drill_locations
         location_ids = self.demographics.location_id
-        LOG.info(f"Location_id's: {location_ids}")
+        LOG.info(f"Location_id's: {sorted(location_ids)}")
         self.raw = db_queries.get_envelope(
             age_group_id=self.demographics.age_group_id,
             sex_id=self.demographics.sex_id,
@@ -79,5 +79,3 @@ class ASDR(BaseInput):
         df = self.keep_only_necessary_columns(df)
         df["hold_out"] = hold_out
         return df
-
-
