@@ -47,6 +47,7 @@ class CovariateReference:
                                 cov_name: handle_exception(loc_id = loc_id,sex_id = sex_id, age_lower=0, age_upper=100, time_lower = 1970, time_upper = 2020)}
                               for loc_id in sorted(cov_df.location_id.unique())
                               for sex_id in (1,2,3)])
+
         self.inputs.transform_country_covariates(cov_df)
         return cov_df
 
