@@ -103,7 +103,7 @@ def matching_knots(rate_grid: SmoothGrid, smoothing_prior: SmoothingPrior):
     """
     extents = dict()
     for extent in ["age", "time", "born"]:
-        extents[extent] = np.zeros(2, dtype=np.float)
+        extents[extent] = np.zeros(2, dtype=float)
         for side_idx, side, default_extent in [(0, "lower", -np.inf), (1, "upper", np.inf)]:
             name = f"{extent}_{side}"
             if smoothing_prior.is_field_unset(name):
@@ -134,16 +134,16 @@ def construct_grid_ages_times(default_age_time: Dict[str, np.ndarray],
     if ages is None:
         # hasattr because this may be a Smoothing form or a Covariate form.
         if hasattr(smooth, "rate") and smooth.rate == "pini":
-            ages = np.array([0], dtype=np.float)
+            ages = np.array([0], dtype=float)
         else:
             ages = default_age_time["age"]
     else:
-        ages = np.sort(np.array(ages, dtype=np.float))
+        ages = np.sort(np.array(ages, dtype=float))
     times = smooth.time_grid
     if times is None:
         times = default_age_time["time"]
     else:
-        times = np.sort(np.array(times, dtype=np.float))
+        times = np.sort(np.array(times, dtype=float))
     return ages, times
 
 

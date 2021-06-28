@@ -64,6 +64,7 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool,
         LOG.info(f"Reading settings from file: {json_file}")
         with open(json_file, 'r') as json_file:
             parameter_json = json.load(json_file)
+        LOG.info(f"Replacing {context.settings_file}")
     else:
         parameter_json = settings_json_from_model_version_id(
             model_version_id=model_version_id,
@@ -90,7 +91,7 @@ def configure_inputs(model_version_id: int, make: bool, configure: bool,
         LOG.error(msg)
 
     context.write_inputs(inputs=inputs, settings=parameter_json)
-
+    return context, inputs
 
 def main():
 

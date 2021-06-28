@@ -66,7 +66,7 @@ class Alchemy:
         for kind in ["age", "time"]:
             default_grid = getattr(self.settings.model, f"default_{kind}_grid")
             if default_grid is not None:
-                default_age_time[kind] = np.sort(np.array(default_grid, dtype=np.float))
+                default_age_time[kind] = np.sort(np.array(default_grid, dtype=float))
 
         return default_age_time
 

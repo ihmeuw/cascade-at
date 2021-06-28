@@ -182,7 +182,8 @@ class _CascadeOperation:
 
 
 class ConfigureInputs(_CascadeOperation):
-    def __init__(self, model_version_id: int, **kwargs):
+    def __init__(self, model_version_id: int,
+                 **kwargs):
         """
         Configure the inputs for a model version ID.
 
@@ -195,11 +196,10 @@ class ConfigureInputs(_CascadeOperation):
         self.name_components = [model_version_id]
         self.j_resource = True
 
-        self._configure(
-            model_version_id=model_version_id,
-            make=True,
-            configure=True
-        )
+        kwds = dict(model_version_id=model_version_id,
+                    make=True,
+                    configure=True)
+        self._configure(**kwds)
 
     @staticmethod
     def _script():
@@ -283,7 +283,8 @@ class _DismodDB(_CascadeOperation):
 class Fit(_DismodDB):
     def __init__(self, model_version_id: int, parent_location_id: int, sex_id: int,
                  predict: bool = True, fill: bool = True, both: bool = False,
-                 save_fit: bool = False, save_prior: bool = False, **kwargs):
+                 save_fit: bool = False, save_prior: bool = False,
+                 ode_fit_strategy = False, ode_init: bool = False, **kwargs):
         """
         Perform a fit on the dismod database for this model version ID,
         parent location, and sex ID. (See undocumented arguments
@@ -305,11 +306,19 @@ class Fit(_DismodDB):
         kwargs
         """
 
-        dm_commands = ['init', 'fit fixed']
-        if both:
-            dm_commands += [
-                'set start_var fit_var', 'set scale_var fit_var', 'fit both'
-            ]
+        if ode_fit_strategy:
+            dm_commands = ['ODE init' if ode_init else 'init',
+                           'ODE fit']
+        else:
+            # dm_commands = ['init', 'fit fixed']
+            # if both:
+            #     dm_commands += [
+            #         'set start_var fit_var', 'set scale_var fit_var', 'fit both'
+            #     ]
+            if both:
+                dm_commands = ['init', 'fit both']
+            else:
+                dm_commands = ['init', 'fit fixed']
         if predict:
             dm_commands.append('predict fit_var')
         if save_fit and not predict:

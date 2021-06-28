@@ -10,6 +10,7 @@ from cascade_at.dismod.api import DismodAPIError
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.dismod.integrand_mappings import PRIMARY_INTEGRANDS_TO_RATES, integrand_to_gbd_measures
 from cascade_at.inputs.utilities.gbd_ids import DEMOGRAPHIC_ID_COLS, format_age_time
+from cascade_at.inputs.utilities.gbd_ids import SEX_NAME_TO_ID, StudyCovConstants
 
 LOG = get_loggers(__name__)
 
@@ -64,6 +65,14 @@ class DismodExtractor(DismodIO):
         df['rate'] = df['integrand_name'].map(
             PRIMARY_INTEGRANDS_TO_RATES
         )
+        # FIXME When running the pytests, the avgint table has node and covariate information included,
+        # but when running the regular code, it does not.
+        if not [c for c in df.columns if 'location_id' in c]:
+            df = df.merge(self.node, on=['node_id'])
+        if not [c for c in df.columns if 'sex_id' in c]:
+            sex_cov = self.covariate.loc[self.covariate.c_covariate_name.isin(['sex', 's_sex']), 'covariate_name'].squeeze()
+            sex_id_map = {v:SEX_NAME_TO_ID[k] for k,v in StudyCovConstants.SEX_COV_VALUE_MAP.items()}
+            df['sex_id'] = df[sex_cov].replace(sex_id_map)
         return df
 
     def get_predictions(self, locations: Optional[List[int]] = None,
@@ -82,19 +91,18 @@ class DismodExtractor(DismodIO):
             if missing_locations:
                 raise DismodExtractorError("The following locations you asked for were missing: "
                                            f"{missing_locations}.")
-        if sexes is not None:
-            df = df.loc[df.c_sex_id.isin(sexes)].copy()
-            if set(df.c_sex_id.values) != set(sexes):
-                missing_sexes = set(df.c_sex_id.values) - set(sexes)
-                raise DismodExtractorError(f"The following sexes you asked for were missing: {missing_sexes}.")
-
         df.rename(
             columns={'c_' + x: x for x in DEMOGRAPHIC_ID_COLS}, inplace=True
         )
+        if sexes is not None:
+            df = df.loc[df.sex_id.isin(sexes)].copy()
+            if set(df.sex_id.values) != set(sexes):
+                missing_sexes = set(df.sex_id.values) - set(sexes)
+                raise DismodExtractorError(f"The following sexes you asked for were missing: {missing_sexes}.")
         DEMOGRAPHIC_COLS = copy(ExtractorCols.REQUIRED_DEMOGRAPHIC_COLS)
         for col in ExtractorCols.REQUIRED_DEMOGRAPHIC_COLS:
             if col not in df.columns:
-                raise DismodExtractorError(f"Cannot find required col {col} in the"
+                raise DismodExtractorError(f"Cannot find required col {col} in the "
                                            "predictions columns: {predictions.columns}.")
         for col in ExtractorCols.OPTIONAL_DEMOGRAPHIC_COLS:
             if col in df.columns:

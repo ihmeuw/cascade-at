@@ -156,6 +156,7 @@ class DismodFiller(DismodIO):
         self.fill_grid_tables()
         self.fill_data_tables()
         self.option = self.construct_option_table(**options)
+        LOG.info(f"Wrote {self.path.absolute()}")
 
     def node_id_from_location_id(self, location_id: int) -> int:
         """
@@ -255,7 +256,7 @@ class DismodFiller(DismodIO):
             'random_seed': self.settings.model.random_seed,
             'ode_step_size': self.settings.model.ode_step_size,
             'rate_case': self.settings.model.rate_case,
-            'meas_noise_effect': self.settings.policies.meas_std_effect
+            'meas_noise_effect': self.settings.policies.meas_noise_effect
         }
         for kind in ['fixed', 'random']:
             for opt in ['derivative_test', 'max_num_iter', 'print_level', 'accept_after_max_steps', 'tolerance']:

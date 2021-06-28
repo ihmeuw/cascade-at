@@ -25,5 +25,5 @@ def test_leaf_fit():
     )
     assert lf[1].command == (
         'sample --model-version-id 0 --parent-location-id 5 --sex-id 1 '
-        '--n-sim 100 --n-pool 100 --fit-type fixed --asymptotic'
+        '--n-sim 100 --n-pool 100 --fit-type both --asymptotic'
     )

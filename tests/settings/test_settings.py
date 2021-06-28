@@ -83,7 +83,7 @@ def test_policies(policies):
     assert policies.with_hiv == 1
     assert policies.age_group_set_id == 12
     assert policies.exclude_relative_risk == 1
-    assert policies.meas_std_effect == 'add_var_scale_log'
+    assert policies.meas_noise_effect == 'add_var_scale_log'
     assert policies.limited_memory_max_history_fixed == 30
     assert policies.gbd_round_id == 6
 

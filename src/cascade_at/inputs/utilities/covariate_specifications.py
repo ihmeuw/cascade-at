@@ -83,7 +83,7 @@ class EpiVizCovariateMultiplier:
     @property
     def group(self):
         """The name of the DismodGroups group, so it's alpha, beta, or gamma."""
-        group_name = dict(rate_value="alpha", meas_value="beta", meas_std="gamma")
+        group_name = dict(rate_value="alpha", meas_value="beta", meas_noise="gamma")
         return group_name[self.grid_spec.mulcov_type]
 
     @property

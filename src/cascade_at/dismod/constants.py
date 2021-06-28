@@ -2,13 +2,17 @@ from enum import Enum
 import pandas as pd
 import numpy as np
 
+if 1:
+    _dismod_cmd_ = 'dmdismod'
+else:
+    _dismod_cmd_ = 'dismod_at'
 
 def enum_to_dataframe(enum_name):
     """Given an enum, return a dataframe with two columns, name and value."""
     return pd.DataFrame.from_records(
         np.array(
             [(measure, enum_value.value) for (measure, enum_value) in enum_name.__members__.items()],
-            dtype=np.dtype([("name", object), ("value", np.int)]),
+            dtype=np.dtype([("name", object), ("value", int)]),
         )
     )
 

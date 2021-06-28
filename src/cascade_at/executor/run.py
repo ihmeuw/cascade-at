@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from typing import Optional
+import json
 
 import logging
 
@@ -12,6 +13,7 @@ from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, NSi
 from cascade_at.inputs.locations import LocationDAG
 from cascade_at.jobmon.workflow import jobmon_workflow_from_cascade_command
 from cascade_at.settings.settings import settings_from_model_version_id
+from cascade_at.settings.settings import load_settings
 
 LOG = get_loggers(__name__)
 
@@ -25,13 +27,20 @@ ARG_LIST = ArgumentList([
     NPool(),
     StrArg('--addl-workflow-args', help='additional info to append to workflow args, to re-do models',
            required=False),
-    BoolArg('--skip-configure'),
+    BoolArg('--skip-configure', help='Disable building the inputs.p and settings.json files.'),
+    StrArg('--json-file', help='for testing, pass a json file directly by filepath',
+           required=False),
+    StrArg('--test-dir', help='if set, specifies where files directory is.',
+           required=False),
     LogLevel()
 ])
 
 
 def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: int = 10, n_pool: int=10,
-        addl_workflow_args: Optional[str] = None, skip_configure: bool = False) -> None:
+        addl_workflow_args: Optional[str] = None, skip_configure: bool = False,
+        json_file:Optional[str] = None,
+        test_dir: Optional[str] = None, execute_dag: bool = True) -> None:
+
     """
     Runs the whole cascade or drill for a model version (whichever one is specified
     in the model version settings).
@@ -62,14 +71,24 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     context = Context(
         model_version_id=model_version_id,
         make=make,
-        configure_application=True
+        configure_application=not skip_configure,
+        root_directory=test_dir
     )
     context.update_status(status='Submitted')
 
-    settings = settings_from_model_version_id(
-        model_version_id=model_version_id,
-        conn_def=context.model_connection
-    )
+    if json_file:
+        with open(json_file) as fn:
+            LOG.info(f"Reading settings from {json_file}")
+            parameter_json = json.loads(fn.read())
+        settings = load_settings(parameter_json)
+        # Save the json file as it is used throughout the cascade
+        LOG.info(f"Replacing {context.settings_file}")
+        context.write_inputs(settings = parameter_json)
+    else:
+        settings = settings_from_model_version_id(
+            model_version_id=model_version_id,
+            conn_def=context.model_connection
+        )
     dag = LocationDAG(location_set_version_id=settings.location_set_version_id,
                       gbd_round_id=settings.gbd_round_id)
 
@@ -80,6 +99,7 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
             drill_sex=settings.model.drill_sex,
             n_sim=n_sim,
             n_pool=n_pool,
+            skip_configure=skip_configure,
         )
     elif settings.model.drill == 'cascade':
 
@@ -108,6 +128,8 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
     LOG.info(f"Writing cascade dag commands to {dag_cmds_path}.")
     dag_cmds_path.write_text('\n'.join(cascade_command.get_commands()))
 
+    if not execute_dag: return
+
     if jobmon:
         LOG.info("Configuring jobmon.")
         wf = jobmon_workflow_from_cascade_command(cc=cascade_command, context=context,
@@ -130,6 +152,10 @@ def run(model_version_id: int, jobmon: bool = True, make: bool = True, n_sim: in
                 context.update_status(status='Failed')
                 raise RuntimeError(f"Command {c} failed with error"
                                    f"{process.stderr.decode()}")
+        if process.stderr:
+            print(process.stderr.decode())
+        if process.stdout:
+            print(process.stdout.decode())
 
     context.update_status(status='Complete')
 
@@ -147,6 +173,7 @@ def main():
         n_pool=args.n_pool,
         addl_workflow_args=args.addl_workflow_args,
         skip_configure=args.skip_configure,
+        json_file=args.json_file
     )
 
 

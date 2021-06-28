@@ -77,7 +77,7 @@ def get_mulcov_priors(model_version_id: int) -> Dict[Tuple[str, str, str], _Prio
     model_version_id
         The model version ID to pull covariate multiplier statistics from
     """
-    convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_std': 'gamma'}
+    convert_type = {'rate_value': 'alpha', 'meas_value': 'beta', 'meas_noise': 'gamma'}
     mulcov_prior = {}
     ctx = Context(model_version_id=model_version_id)
     path = os.path.join(ctx.outputs_dir, 'mulcov_stats.csv')
@@ -87,11 +87,11 @@ def get_mulcov_priors(model_version_id: int) -> Dict[Tuple[str, str, str], _Prio
     if mulcov_stats_df.empty:
         return {}
     for _,  row in mulcov_stats_df.iterrows():
-        if row['rate_name'] is not None:
+        if row['rate_name'] != 'none':
             mulcov_prior[
                 (convert_type[row['mulcov_type']], row['c_covariate_name'], row['rate_name'])
             ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
-        if row['integrand_name'] is not None:
+        if row['integrand_name'] != 'none':
             mulcov_prior[
                 (convert_type[row['mulcov_type']], row['c_covariate_name'], row['integrand_name'])
             ] = Gaussian(mean=row['mean'], standard_deviation=row['std'])
@@ -139,8 +139,8 @@ def save_predictions(db_file: Union[str, Path],
                        add_summaries=True, model_version_id=model_version_id)
 
 
-def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
-              dm_commands: List[str], dm_options: Dict[str, Union[int, str, float]],
+def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int = None,
+              dm_commands: List[str] = [], dm_options: Dict[str, Union[int, str, float]] = {},
               prior_samples: bool = False,
               prior_parent: Optional[int] = None, prior_sex: Optional[int] = None,
               prior_mulcov_model_version_id: Optional[int] = None,
@@ -200,8 +200,10 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int,
     else:
         context = Context(model_version_id=model_version_id)
 
-    db_path = context.db_file(location_id=parent_location_id, sex_id=sex_id)
     inputs, alchemy, settings = context.read_inputs()
+    if sex_id is None:
+        sex_id = settings.model.drill_sex
+    db_path = context.db_file(location_id=parent_location_id, sex_id=sex_id)
 
     # If we want to override the rate priors with posteriors from a previous
     # database, pass them in here.

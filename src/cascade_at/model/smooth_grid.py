@@ -82,8 +82,8 @@ class SmoothGrid:
             ages:
             times:
         """
-        self.ages = np.sort(np.array(ages, dtype=np.float))
-        self.times = np.sort(np.array(times, dtype=np.float))
+        self.ages = np.sort(np.array(ages, dtype=float))
+        self.times = np.sort(np.array(times, dtype=float))
         self._view = dict()
         for create_view in PriorKindEnum:
             self._view[create_view.name] = _PriorGrid(create_view.name, self.ages, self.times)

@@ -282,7 +282,7 @@ def covariate():
     return pd.DataFrame.from_dict(
         {'covariate_id': {0: 0, 1: 1, 2: 2}, 'covariate_name': {0: 'x_0', 1: 'x_1', 2: 'x_2'},
          'reference': {0: 0.96, 1: 0.0, 2: -0.5},
-         'max_difference': {0: 1e-10, 1: nan, 2: 0.5000000001},
+         'max_difference': {0: nan, 1: nan, 2: 0.5000000001},
          'c_covariate_name': {0: 'c_diabetes_fpg', 1: 's_one', 2: 's_sex'}}
     )
 

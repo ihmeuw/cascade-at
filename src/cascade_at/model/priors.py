@@ -59,7 +59,7 @@ class _Prior:
         -------
         np.ndarray: Of size=size with floats.
         """
-        vals = np.empty((0,), dtype=np.float)
+        vals = np.empty((0,), dtype=float)
         while vals.shape[0] < size:
             redraw_cnt = size - vals.shape[0] + 10
             random_draws = self.make_draws(size=size, random_state=random_state)
@@ -180,7 +180,7 @@ class Constant(_Prior):
         return copy(self)
 
     def make_draws(self, size: int, random_state: Optional[np.random.RandomState] = None):
-        return np.full((size,), self.mean, dtype=np.float)
+        return np.full((size,), self.mean, dtype=float)
 
     def _parameters(self):
         return {"lower": self.mean, "upper": self.mean, "mean": self.mean}

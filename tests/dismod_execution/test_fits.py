@@ -44,14 +44,14 @@ def test_1(dismod, assert_correct = True):
     var_truth = [-.1, +.1, .01, .2]
 
     # Baseline fit
-    program = 'dismod_at'
-    dismod_tests.system([program, db.path, 'init'])
-    dismod_tests.system([program, db.path, 'fit', 'both'])
+    from cascade_at.dismod.constants import _dismod_cmd_
+    dismod_tests.system([_dismod_cmd_, db.path, 'init'])
+    dismod_tests.system([_dismod_cmd_, db.path, 'fit', 'both'])
     success &= np.allclose(db.fit_var.fit_var_value, var_truth)
 
     # Use simulate to do the fit, with the data_sim table = data table
-    dismod_tests.system([program, db.path, 'set', 'truth_var', 'fit_var'])
-    dismod_tests.system([program, db.path, 'simulate', '1'])
+    dismod_tests.system([_dismod_cmd_, db.path, 'set', 'truth_var', 'fit_var'])
+    dismod_tests.system([_dismod_cmd_, db.path, 'simulate', '1'])
     sim = db.data_sim
     sim['data_sim_value'] = db.data['meas_value']
     sim['data_sim_stdcv'] = db.data['meas_std']
@@ -63,7 +63,7 @@ def test_1(dismod, assert_correct = True):
                                    ('data_sim_stdcv', 'real'),
                                    ('data_sim_delta', 'real')])
     to_sql(db.path, sim, 'data_sim', data_sim_dtypes)
-    dismod_tests.system([program, db.path, 'sample', 'simulate', 'both', '1'])
+    dismod_tests.system([_dismod_cmd_, db.path, 'sample', 'simulate', 'both', '1'])
     success &= np.allclose(db.sample.var_value, var_truth)
 
     # Use Gaussian priors so asymptotic sample works, then compare the variable sampling results
@@ -71,7 +71,7 @@ def test_1(dismod, assert_correct = True):
     prior['density_id'] = 1
     prior['std'] = 1            # Std must not be too large, or the sample variability becomes too large.
     db.prior = prior
-    dismod_tests.system([program, db.path, 'sample', 'asymptotic', 'both', '10000'])
+    dismod_tests.system([_dismod_cmd_, db.path, 'sample', 'asymptotic', 'both', '10000'])
     sample = db.sample.groupby('var_id', as_index = False)
     sample_mean = sample.var_value.mean()
     print (sample_mean)

@@ -100,7 +100,7 @@ class Model(DismodGroups):
         """
         Gets an array of ages used across grids in the model.
         """
-        ages = np.empty((0,), dtype=np.float)
+        ages = np.empty((0,), dtype=float)
         for group in self.values():
             for grid in group.values():
                 ages = np.append(ages, grid.ages)
@@ -110,7 +110,7 @@ class Model(DismodGroups):
         """
         Gets an array of times used across grids in the model.
         """
-        times = np.empty((0,), dtype=np.float)
+        times = np.empty((0,), dtype=float)
         for group in self.values():
             for grid in group.values():
                 times = np.append(times, grid.times)

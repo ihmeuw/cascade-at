@@ -52,6 +52,10 @@ setup(
         'upload=cascade_at.executor.upload:main',
         'cleanup=cascade_at.executor.cleanup:main',
         'run_cascade=cascade_at.executor.run:main',
-        'run_dmdismod=cascade_at.executor.run_dmdismod:main'
+        'run_dmdismod=cascade_at.executor.run_dmdismod:main',
+        'plot=cascade_at.executor.plot:main',
+        'plot_residuals=cascade_at.executor.plot_residuals:main',
+        'dmdismod_script=cascade_at.fit_strategies.dismod_at_script:main',
+        'dismod_ihme_input=cascade_at.executor.dismod_ihme_input:main'
     ]}
 )

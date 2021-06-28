@@ -67,7 +67,9 @@ def single_fit(model_version_id: int,
 
 def single_fit_with_uncertainty(model_version_id: int,
                                 location_id: int, sex_id: int,
-                                n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
+                                n_sim: int = _n_sim, n_pool: int = _n_pool,
+                                skip_configure: bool = False,
+                                ode_fit_strategy: bool=True) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a single fit both model. Configures
     inputs, does a fit fixed, then fit both, then predict and uploads the result.
@@ -89,18 +91,26 @@ def single_fit_with_uncertainty(model_version_id: int,
     -------
     List of CascadeOperations.
     """
-    t1 = ConfigureInputs(
-        model_version_id=model_version_id
-    )
+    tasks = []
+    if not skip_configure:
+        t1 = ConfigureInputs(
+            model_version_id=model_version_id,
+        )
+        upstream = [t1.command]
+        tasks.append(t1)
+    else:
+        upstream = None
     t2 = Fit(
         model_version_id=model_version_id,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
         predict=True,
+        ode_init=True,
         both=True,
         save_fit=True,
-        upstream_commands=[t1.command]
+        upstream_commands=upstream,
+        ode_fit_strategy=ode_fit_strategy
     )
     t3 = Sample(
         model_version_id=model_version_id,
@@ -121,7 +131,7 @@ def single_fit_with_uncertainty(model_version_id: int,
         sex_id=sex_id,
         save_final=True,
         prior_grid=False,
-        sample=True,
+        sample=False,
         upstream_commands=[t3.command]
     )
     t5 = Upload(
@@ -130,14 +140,16 @@ def single_fit_with_uncertainty(model_version_id: int,
         final=True,
         upstream_commands=[t4.command]
     )
-    return [t1, t2, t3, t4, t5]
+    tasks += [t2, t3, t4, t5]
+    return tasks
 
 
 def root_fit(model_version_id: int, location_id: int, sex_id: int,
              child_locations: List[int], child_sexes: List[int],
              skip_configure: bool = False,
              mulcov_stats: bool = True,
-             n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
+             n_sim: int = _n_sim, n_pool: int = _n_pool,
+             ode_fit_strategy: bool = True) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a top-level prior fit.
     Does a fit fixed, then fit both, then creates posteriors
@@ -157,6 +169,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         The sexes to predict for.
     skip_configure
         Don't run a task to configure the inputs. Only do this if it has already happened.
+        This disables building the inputs.p and setting.json files.
     mulcov_stats
         Compute mulcov statistics at this level
     n_sim
@@ -168,7 +181,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
     tasks = []
     if not skip_configure:
         t1 = ConfigureInputs(
-            model_version_id=model_version_id
+            model_version_id=model_version_id,
         )
         upstream = [t1.command]
         tasks.append(t1)
@@ -179,11 +192,13 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
-        both=False,
+        ode_init=True,
+        both=True,
         predict=True,
         upstream_commands=upstream,
         save_fit=True,
-        save_prior=True
+        save_prior=True,
+        ode_fit_strategy=ode_fit_strategy
     )
     tasks.append(t2)
     t3 = Predict(
@@ -203,7 +218,7 @@ def root_fit(model_version_id: int, location_id: int, sex_id: int,
             sex_id=sex_id,
             n_sim=n_sim,
             n_pool=n_pool,
-            fit_type='fixed',
+            fit_type='both',
             asymptotic=True,
             upstream_commands=[t3.command],
             executor_parameters={
@@ -229,7 +244,8 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
                prior_parent: int, prior_sex: int,
                child_locations: List[int], child_sexes: List[int],
                upstream_commands: List[str] = None,
-               n_sim: int = _n_sim, n_pool: int = _n_pool) -> List[_CascadeOperation]:
+               n_sim: int = _n_sim, n_pool: int = _n_pool,
+               ode_fit_strategy: bool = False) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a cascade fit (mid-level).
     Does a fit fixed, then fit both, predicts on the prior rate grid to create posteriors
@@ -263,7 +279,7 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
-        both=False,
+        both=True,
         predict=True,
         prior_mulcov=model_version_id,
         prior_samples=False,
@@ -271,7 +287,8 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
         prior_sex=prior_sex,
         save_fit=True,
         save_prior=True,
-        upstream_commands=upstream_commands
+        upstream_commands=upstream_commands,
+        ode_fit_strategy=ode_fit_strategy
     )
     t2 = Predict(
         model_version_id=model_version_id,
@@ -288,7 +305,8 @@ def branch_fit(model_version_id: int, location_id: int, sex_id: int,
 def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
              prior_parent: int, prior_sex: int,
              n_sim: int = _n_sim, n_pool: int = _n_pool,
-             upstream_commands: List[str] = None) -> List[_CascadeOperation]:
+             upstream_commands: List[str] = None,
+             ode_fit_strategy: bool = False) -> List[_CascadeOperation]:
     """
     Create a sequence of tasks to do a for a leaf-node fit, no children.
     Does a fit fixed then sample simulate to create posteriors. Saves its fit to be uploaded.
@@ -321,14 +339,15 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         parent_location_id=location_id,
         sex_id=sex_id,
         fill=True,
-        both=False,
+        both=True,
         prior_mulcov=model_version_id,
         prior_samples=False,
         prior_parent=prior_parent,
         prior_sex=prior_sex,
         save_fit=False,
         save_prior=True,
-        upstream_commands=upstream_commands
+        upstream_commands=upstream_commands,
+        ode_fit_strategy=ode_fit_strategy
     )
     t2 = Sample(
         model_version_id=model_version_id,
@@ -336,7 +355,7 @@ def leaf_fit(model_version_id: int, location_id: int, sex_id: int,
         sex_id=sex_id,
         n_sim=n_sim,
         n_pool=n_pool,
-        fit_type='fixed',
+        fit_type='both',
         asymptotic=True,
         upstream_commands=[t1.command],
         executor_parameters={

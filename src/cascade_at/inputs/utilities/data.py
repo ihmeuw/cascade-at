@@ -42,17 +42,17 @@ def calculate_omega(asdr: pd.DataFrame, csmr: pd.DataFrame) -> pd.DataFrame:
 
 def midpoint_age_time(df: pd.DataFrame, measure: str):
     indices = df["measure"] == measure
-    df.loc[indices, "age_lower"] = (df.age_lower.astype(np.float) + df.age_upper.astype(np.float)) / 2
-    df.loc[indices, "age_upper"] = df.age_lower.astype(np.float)
-    df.loc[indices, "time_lower"] = (df.time_lower.astype(np.float) + df.time_upper.astype(np.float)) / 2
-    df.loc[indices, "time_upper"] = df.time_lower.astype(np.float)
+    df.loc[indices, "age_lower"] = (df.age_lower.astype(float) + df.age_upper.astype(float)) / 2
+    df.loc[indices, "age_upper"] = df.age_lower.astype(float)
+    df.loc[indices, "time_lower"] = (df.time_lower.astype(float) + df.time_upper.astype(float)) / 2
+    df.loc[indices, "time_upper"] = df.time_lower.astype(float)
     return df
 
 
 def format_age_time(df: pd.DataFrame, measure: str):
     indices = df["measure"] == measure
-    df.loc[indices, "age_lower"] = df.age_lower.astype(np.float)
-    df.loc[indices, "age_upper"] = df.age_upper.astype(np.float)
-    df.loc[indices, "time_lower"] = df.time_lower.astype(np.float)
-    df.loc[indices, "time_upper"] = df.time_upper.astype(np.float)
+    df.loc[indices, "age_lower"] = df.age_lower.astype(float)
+    df.loc[indices, "age_upper"] = df.age_upper.astype(float)
+    df.loc[indices, "time_lower"] = df.time_lower.astype(float)
+    df.loc[indices, "time_upper"] = df.time_upper.astype(float)
     return df
