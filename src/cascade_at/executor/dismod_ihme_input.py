@@ -90,7 +90,7 @@ def all_locations(inputs, settings):
 
     return inputs2
 
-def just_get_data():
+def just_get_data(settings):
     # This works
 
     global context, inputs
@@ -122,12 +122,18 @@ def just_get_data():
     asdr = inputs.add_covariates_to_data(asdr)
     csmr = inputs.add_covariates_to_data(csmr)
 
+    data1 = inputs.dismod_data[~inputs.dismod_data.measure.isin(['mtall', 'mtspecific'])]
+    asdr1 = inputs.dismod_data[inputs.dismod_data.measure == 'mtall']
+    csmr1 = inputs.dismod_data[inputs.dismod_data.measure == 'mtspecific']
+
 
     if __debug__:
         asdr_grps = asdr.groupby(['sex_id', 'location_id'])
         csmr_grps = csmr.groupby(['sex_id', 'location_id'])
         import numpy as np
         assert np.all(asdr_grps.count() == csmr_grps.count())
+
+    return context, inputs
 
     
 
@@ -146,12 +152,13 @@ if __name__ == '__main__':
         cmd = f'dismod_ihme_input --model-version-id {mvid} --configure {json_cmd} --test-dir /tmp'
 
         mvid = 475588
-        json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}_settings-world.json'
-        cmd = f'dismod_ihme_input --model-version-id {mvid} --configure {json_cmd} --test-dir /tmp'
-
-        mvid = 475588
         json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}_settings-Alabama.json'
         cmd = f'dismod_ihme_input --model-version-id {mvid} --configure {json_cmd} --test-dir /tmp'
+
+        if 0:
+            mvid = 475588
+            json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}_settings-world.json'
+            cmd = f'dismod_ihme_input --model-version-id {mvid} --configure {json_cmd} --test-dir /tmp'
 
         print (cmd)
         sys.argv = cmd.split()
@@ -171,17 +178,9 @@ def main():
         settings_json = json.load(f)
     settings = load_settings(settings_json=settings_json)
 
-    if 1:
-        from cascade_at.executor.configure_inputs import configure_inputs
-        global context, inputs
-        context, inputs = configure_inputs(
-            model_version_id = args.model_version_id,
-            make = False,
-            configure = False,
-            test_dir=args.test_dir,
-            json_file=args.json_file,
-        )
+    context, inputs = just_get_data(settings)
 
+    if 1:
         if 1:
             with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'wb') as stream:
                 dill.dump(inputs, stream)
@@ -227,6 +226,6 @@ def main():
 
 
 
-just_get_data()
+# just_get_data()
  
-# main(args)
+main()
