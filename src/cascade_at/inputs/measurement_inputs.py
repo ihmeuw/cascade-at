@@ -340,7 +340,7 @@ class MeasurementInputs:
             for k,v in cov_dict_for_interpolation.items():
                 v = (v.rename(columns = {'mean_value': k, 'year_id': 'time_lower'})
                      .drop(columns = ['age_lower', 'age_upper']))
-                merge_df = (merge_df.merge(v))
+                merge_df = (merge_df.merge(v, how='left'))
         if not df.empty:
             df = self.interpolate_country_covariate_values(
                 df=df, cov_dict=cov_dict_for_interpolation)
