@@ -1,10 +1,35 @@
 #!/usr/bin/env python
+
+"""
+Brad's documentation at https://github.com/bradbell/at_cascade
+
+Other Database
+
+In addition to the dismod_at database, a database with the following information will also be needed:
+
+    The mtall data for every node on the omega_grid. The same table could be used to hold this information for all diseases.
+    The mtspecific data for every node on the omega_grid. Note that mtspecific is different for each disease. 
+      For each node and grid point, the omega constraints are computed using omega = mtall - mtspecific.
+    Covariate reference for every covariate in the start_node database and every node that we are predicting for. 
+      If this includes all covariates, the same table could be used for all diseases.
+    An option table that applies to the cascade, but not individual fits.
+        The start_node.
+        The end_node_set.
+        The sex_level. If the start_node corresponds to one sex, sex_level would be zero; i.e., there is no sex split.
+        Run in parallel. If this is true, nodes at the same level are fit in parallel. Here fitting a node includes fitting its 
+          child nodes that are required by the end_node_set. If parallel is false, the fitting will be done sequentially. 
+          This should be easier to debug and should give the same results.
+        The min_interval. Compress to a single point all age and time intervals in data table that are less than or equal this value.
+"""
+
 import json
 import logging
 import sys
 import pandas as pd
 import numpy as np
 from functools import reduce
+import shutil
+import dill
 
 # from typing import Optional
 
@@ -24,7 +49,6 @@ ARG_LIST = ArgumentList([
     StrArg('--test-dir', help='if set, will save files to the directory specified.'
                               'Invalidated if --configure is set.')
 ])
-
 
 class CovariateReference:
     def __init__(self, inputs):
@@ -48,12 +72,9 @@ class CovariateReference:
                               for loc_id in sorted(cov_df.location_id.unique())
                               for sex_id in (1,2,3)])
 
-        self.inputs.transform_country_covariates(cov_df)
         return cov_df
 
 def all_locations(inputs, settings):
-    import json
-    import dill
     from cascade_at.inputs.measurement_inputs import MeasurementInputs
     covariate_id = [i.country_covariate_id for i in settings.country_covariate]
     inputs2 = MeasurementInputs(model_version_id=settings.model.model_version_id,
@@ -70,90 +91,6 @@ def all_locations(inputs, settings):
     return inputs2
 
     
-
-def main():
-
-    args = ARG_LIST.parse_args(sys.argv[1:])
-    logging.basicConfig(level=LEVELS[args.log_level])
-
-    from cascade_at.settings.settings import load_settings
-
-    with open(args.json_file) as f:
-        settings_json = json.load(f)
-    settings = load_settings(settings_json=settings_json)
-
-    if 0:
-        from cascade_at.executor.configure_inputs import configure_inputs
-        global context, inputs
-        context, inputs = configure_inputs(
-            model_version_id = args.model_version_id,
-            make = False,
-            configure = False,
-            test_dir=args.test_dir,
-            json_file=args.json_file,
-        )
-
-        inputs2 = all_locations(inputs, settings)
-
-        for d in inputs, inputs2:
-            print()
-            for integrand in sorted(d.dismod_data.measure.unique()):
-                print (integrand, len(d.dismod_data[d.dismod_data.measure == integrand]), 'locations', len(d.dismod_data.loc[d.dismod_data.measure == integrand].location_id.unique()))
-
-        if 1:
-            import shutil
-            import dill
-            with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'wb') as stream:
-                dill.dump(inputs, stream)
-            with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', 'wb') as stream:
-                dill.dump(inputs2, stream)
-            shutil.copy2(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p')
-
-        from cascade_at.executor.dismod_db import dismod_db
-        # It seems that dismod_db gets mtall/mtspecific from inputs.p for just the parent and the parents children
-        # And it seems that the entire set of locations is in inputs.p for mtall and mtspecific.
-        dismod_db(model_version_id = args.model_version_id,
-                  parent_location_id=inputs.drill_location_start,
-                  fill=True,
-                  test_dir=args.test_dir,
-                  save_fit = False,
-                  save_prior = False)
-
-
-        from cascade_at.executor.run import run
-        run(model_version_id = args.model_version_id,
-            jobmon = False,
-            make = False,
-            skip_configure = True,
-            json_file = args.json_file,
-            test_dir = args.test_dir,
-            execute_dag = False)
-
-    else:
-            
-        import dill
-
-        with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'rb') as stream:
-            inputs = dill.load(stream)
-        global covariate_reference, data, asdr, csmr
-
-        cov_ref = CovariateReference(inputs)
-        covariate_reference = reduce(lambda x, y: pd.merge(x, y),
-                                     [cov_ref.configure_for_dismod(c) for c in inputs.covariate_data])
-
-        data = inputs.data.configure_for_dismod(relabel_incidence=settings.model.relabel_incidence)
-        data = inputs.add_covariates_to_data(data)
-
-        asdr = inputs.asdr.configure_for_dismod()
-        csmr = inputs.csmr.configure_for_dismod()
-        
-        if __debug__:
-            asdr_grps = asdr.groupby(['sex_id', 'location_id'])
-            csmr_grps = csmr.groupby(['sex_id', 'location_id'])
-            import numpy as np
-            assert np.all(asdr_grps.count() == csmr_grps.count())
-
-
 
 if __name__ == '__main__':
     if not sys.argv[0]:
@@ -184,5 +121,100 @@ if __name__ == '__main__':
     print ('ERROR this command with no json and no test-dir is not working')
     print (cmd)
 
+# def main():
 
-    main()
+    args = ARG_LIST.parse_args(sys.argv[1:])
+    logging.basicConfig(level=LEVELS[args.log_level])
+
+    from cascade_at.settings.settings import load_settings
+
+    # with open(args.json_file) as f:
+    #     settings_json = json.load(f)
+    # settings = load_settings(settings_json=settings_json)
+
+    # if 1:
+    #     from cascade_at.executor.configure_inputs import configure_inputs
+    #     global context, inputs
+    #     context, inputs = configure_inputs(
+    #         model_version_id = args.model_version_id,
+    #         make = False,
+    #         configure = False,
+    #         test_dir=args.test_dir,
+    #         json_file=args.json_file,
+    #     )
+
+    #     if 1:
+    #         with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'wb') as stream:
+    #             dill.dump(inputs, stream)
+        
+    #     if 0:
+    #         inputs2 = all_locations(inputs, settings)
+    #         with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', 'wb') as stream:
+    #             dill.dump(inputs2, stream)
+    #         shutil.copy2(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p')
+    #         for d in inputs, inputs2:
+    #             print()
+    #             for integrand in sorted(d.dismod_data.measure.unique()):
+    #                 print (integrand, len(d.dismod_data[d.dismod_data.measure == integrand]), 'locations', len(d.dismod_data.loc[d.dismod_data.measure == integrand].location_id.unique()))
+
+
+    #     from cascade_at.executor.dismod_db import dismod_db
+    #     # It seems that dismod_db gets mtall/mtspecific from inputs.p for just the parent and the parents children
+    #     # And it seems that the entire set of locations is in inputs.p for mtall and mtspecific.
+    #     dismod_db(model_version_id = args.model_version_id,
+    #               parent_location_id=inputs.drill_location_start,
+    #               sex_id = 2,
+    #               fill=True,
+    #               test_dir=args.test_dir,
+    #               save_fit = False,
+    #               save_prior = False)
+
+    #     from cascade_at.executor.run import run
+    #     run(model_version_id = args.model_version_id,
+    #         jobmon = False,
+    #         make = False,
+    #         skip_configure = True,
+    #         json_file = args.json_file,
+    #         test_dir = args.test_dir,
+    #         execute_dag = False)
+
+    # else:
+
+    #     print (f'Copying {args.json_file} to /tmp/cascade_dir/data/{args.model_version_id}/inputs/settings.json')
+    #     shutil.copy2(args.json_file, f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/settings.json')
+    #     with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'rb') as stream:
+    #         inputs = dill.load(stream)
+
+    global context, inputs
+    from cascade_at.executor.configure_inputs import configure_inputs
+    context, inputs = configure_inputs(
+        model_version_id = args.model_version_id,
+        make = False,
+        configure = False,
+        test_dir=args.test_dir,
+        json_file=args.json_file,
+    )
+
+    global covariate_reference, data, asdr, csmr
+
+    cov_ref = CovariateReference(inputs)
+    covariate_reference = reduce(lambda x, y: pd.merge(x, y),
+                                 [cov_ref.configure_for_dismod(c) for c in inputs.covariate_data])
+    covariate_reference = inputs.transform_country_covariates(covariate_reference)
+
+    data = inputs.data.configure_for_dismod(relabel_incidence=settings.model.relabel_incidence)
+    data = inputs.add_covariates_to_data(data)
+
+    asdr = inputs.asdr.configure_for_dismod()
+    csmr = inputs.csmr.configure_for_dismod()
+
+    if __debug__:
+        asdr_grps = asdr.groupby(['sex_id', 'location_id'])
+        csmr_grps = csmr.groupby(['sex_id', 'location_id'])
+        import numpy as np
+        assert np.all(asdr_grps.count() == csmr_grps.count())
+
+
+
+
+#    main()
