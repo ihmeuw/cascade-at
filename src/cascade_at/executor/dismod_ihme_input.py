@@ -90,6 +90,45 @@ def all_locations(inputs, settings):
 
     return inputs2
 
+def just_get_data():
+    # This works
+
+    global context, inputs
+    from cascade_at.executor.configure_inputs import configure_inputs
+
+    args = ARG_LIST.parse_args(sys.argv[1:])
+    logging.basicConfig(level=LEVELS[args.log_level])
+
+    context, inputs = configure_inputs(
+        model_version_id = args.model_version_id,
+        make = False,
+        configure = False,
+        test_dir=args.test_dir,
+        json_file=args.json_file,
+    )
+
+    global covariate_reference, data, asdr, csmr
+
+    cov_ref = CovariateReference(inputs)
+    covariate_reference = reduce(lambda x, y: pd.merge(x, y),
+                                 [cov_ref.configure_for_dismod(c) for c in inputs.covariate_data])
+    covariate_reference = inputs.transform_country_covariates(covariate_reference)
+
+    data = inputs.data.configure_for_dismod(relabel_incidence=settings.model.relabel_incidence)
+    asdr = inputs.asdr.configure_for_dismod()
+    csmr = inputs.csmr.configure_for_dismod()
+
+    data = inputs.add_covariates_to_data(data)
+    asdr = inputs.add_covariates_to_data(asdr)
+    csmr = inputs.add_covariates_to_data(csmr)
+
+
+    if __debug__:
+        asdr_grps = asdr.groupby(['sex_id', 'location_id'])
+        csmr_grps = csmr.groupby(['sex_id', 'location_id'])
+        import numpy as np
+        assert np.all(asdr_grps.count() == csmr_grps.count())
+
     
 
 if __name__ == '__main__':
@@ -121,100 +160,73 @@ if __name__ == '__main__':
     print ('ERROR this command with no json and no test-dir is not working')
     print (cmd)
 
-# def main():
+def main():
 
     args = ARG_LIST.parse_args(sys.argv[1:])
     logging.basicConfig(level=LEVELS[args.log_level])
 
     from cascade_at.settings.settings import load_settings
 
-    # with open(args.json_file) as f:
-    #     settings_json = json.load(f)
-    # settings = load_settings(settings_json=settings_json)
+    with open(args.json_file) as f:
+        settings_json = json.load(f)
+    settings = load_settings(settings_json=settings_json)
 
-    # if 1:
-    #     from cascade_at.executor.configure_inputs import configure_inputs
-    #     global context, inputs
-    #     context, inputs = configure_inputs(
-    #         model_version_id = args.model_version_id,
-    #         make = False,
-    #         configure = False,
-    #         test_dir=args.test_dir,
-    #         json_file=args.json_file,
-    #     )
+    if 1:
+        from cascade_at.executor.configure_inputs import configure_inputs
+        global context, inputs
+        context, inputs = configure_inputs(
+            model_version_id = args.model_version_id,
+            make = False,
+            configure = False,
+            test_dir=args.test_dir,
+            json_file=args.json_file,
+        )
 
-    #     if 1:
-    #         with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'wb') as stream:
-    #             dill.dump(inputs, stream)
-        
-    #     if 0:
-    #         inputs2 = all_locations(inputs, settings)
-    #         with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', 'wb') as stream:
-    #             dill.dump(inputs2, stream)
-    #         shutil.copy2(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p')
-    #         for d in inputs, inputs2:
-    #             print()
-    #             for integrand in sorted(d.dismod_data.measure.unique()):
-    #                 print (integrand, len(d.dismod_data[d.dismod_data.measure == integrand]), 'locations', len(d.dismod_data.loc[d.dismod_data.measure == integrand].location_id.unique()))
+        if 1:
+            with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'wb') as stream:
+                dill.dump(inputs, stream)
+      
+        if 0:
+            inputs2 = all_locations(inputs, settings)
+            with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', 'wb') as stream:
+                dill.dump(inputs2, stream)
+            shutil.copy2(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p')
+            for d in inputs, inputs2:
+                print()
+                for integrand in sorted(d.dismod_data.measure.unique()):
+                    print (integrand, len(d.dismod_data[d.dismod_data.measure == integrand]), 'locations', len(d.dismod_data.loc[d.dismod_data.measure == integrand].location_id.unique()))
 
 
-    #     from cascade_at.executor.dismod_db import dismod_db
-    #     # It seems that dismod_db gets mtall/mtspecific from inputs.p for just the parent and the parents children
-    #     # And it seems that the entire set of locations is in inputs.p for mtall and mtspecific.
-    #     dismod_db(model_version_id = args.model_version_id,
-    #               parent_location_id=inputs.drill_location_start,
-    #               sex_id = 2,
-    #               fill=True,
-    #               test_dir=args.test_dir,
-    #               save_fit = False,
-    #               save_prior = False)
+        from cascade_at.executor.dismod_db import dismod_db
+        # It seems that dismod_db gets mtall/mtspecific from inputs.p for just the parent and the parents children
+        # And it seems that the entire set of locations is in inputs.p for mtall and mtspecific.
+        dismod_db(model_version_id = args.model_version_id,
+                  parent_location_id=inputs.drill_location_start,
+                  sex_id = 2,
+                  fill=True,
+                  test_dir=args.test_dir,
+                  save_fit = False,
+                  save_prior = False)
 
-    #     from cascade_at.executor.run import run
-    #     run(model_version_id = args.model_version_id,
-    #         jobmon = False,
-    #         make = False,
-    #         skip_configure = True,
-    #         json_file = args.json_file,
-    #         test_dir = args.test_dir,
-    #         execute_dag = False)
+        from cascade_at.executor.run import run
+        run(model_version_id = args.model_version_id,
+            jobmon = False,
+            make = False,
+            skip_configure = True,
+            json_file = args.json_file,
+            test_dir = args.test_dir,
+            execute_dag = False)
 
-    # else:
+    else:
 
-    #     print (f'Copying {args.json_file} to /tmp/cascade_dir/data/{args.model_version_id}/inputs/settings.json')
-    #     shutil.copy2(args.json_file, f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/settings.json')
-    #     with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'rb') as stream:
-    #         inputs = dill.load(stream)
-
-    global context, inputs
-    from cascade_at.executor.configure_inputs import configure_inputs
-    context, inputs = configure_inputs(
-        model_version_id = args.model_version_id,
-        make = False,
-        configure = False,
-        test_dir=args.test_dir,
-        json_file=args.json_file,
-    )
-
-    global covariate_reference, data, asdr, csmr
-
-    cov_ref = CovariateReference(inputs)
-    covariate_reference = reduce(lambda x, y: pd.merge(x, y),
-                                 [cov_ref.configure_for_dismod(c) for c in inputs.covariate_data])
-    covariate_reference = inputs.transform_country_covariates(covariate_reference)
-
-    data = inputs.data.configure_for_dismod(relabel_incidence=settings.model.relabel_incidence)
-    data = inputs.add_covariates_to_data(data)
-
-    asdr = inputs.asdr.configure_for_dismod()
-    csmr = inputs.csmr.configure_for_dismod()
-
-    if __debug__:
-        asdr_grps = asdr.groupby(['sex_id', 'location_id'])
-        csmr_grps = csmr.groupby(['sex_id', 'location_id'])
-        import numpy as np
-        assert np.all(asdr_grps.count() == csmr_grps.count())
+        print (f'Copying {args.json_file} to /tmp/cascade_dir/data/{args.model_version_id}/inputs/settings.json')
+        shutil.copy2(args.json_file, f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/settings.json')
+        with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'rb') as stream:
+            inputs = dill.load(stream)
 
 
 
 
-#    main()
+just_get_data()
+ 
+# main(args)
