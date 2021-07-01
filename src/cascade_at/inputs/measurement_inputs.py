@@ -265,13 +265,6 @@ class MeasurementInputs:
             hold_out=settings.model.constrain_omega)
         csmr = self.csmr.configure_for_dismod(hold_out=0)
 
-        # ASDR and CMSR need to have covariates added when their time_lower is at 
-        # its original value (e.g. not averaged with time_upper)
-        # That is why these are seperated
-        data = self.add_covariates_to_data(df=data)
-        asdr = self.add_covariates_to_data(df=asdr)
-        csmr = self.add_covariates_to_data(df=csmr)
-        
         if settings.model.constrain_omega:
             self.omega = calculate_omega(asdr=asdr, csmr=csmr)
         else:
@@ -284,6 +277,13 @@ class MeasurementInputs:
             asdr = decimate_years(
                 data=asdr, num_years=mortality_year_reduction)
 
+        # ASDR and CMSR need to have covariates added when their time_lower is at 
+        # its original value (e.g. not averaged with time_upper)
+        # That is why these are seperated
+        data = self.add_covariates_to_data(df=data)
+        asdr = self.add_covariates_to_data(df=asdr)
+        csmr = self.add_covariates_to_data(df=csmr)
+        
         self.dismod_data = pd.concat([data, asdr, csmr], axis=0, sort=True)
         self.dismod_data.reset_index(drop=True, inplace=True)
 
