@@ -43,7 +43,7 @@ def test_to_gbd_avgint(mi):
     # Two locations * 23 age groups
     assert len(df) == 46
     np.testing.assert_array_equal(np.array(df.location_id.unique()), np.array([70, 72]))
-    assert all(df.columns == [
+    assert set(df.columns) == set([
         'sex_id', 'location_id', 'year_id', 'age_group_id',
         'time_lower', 'time_upper', 'age_lower', 'age_upper',
         'c_diabetes_fpg', 's_sex', 's_one'
