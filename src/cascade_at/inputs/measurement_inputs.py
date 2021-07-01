@@ -243,6 +243,17 @@ class MeasurementInputs:
         self.measures_to_exclude = measures_to_exclude_from_settings(settings)
         self.measures_midpoint = midpoint_list_from_settings(settings)
 
+        # This makes the specs not just for the country covariate but adds on
+        # the sex and one covariates.
+        self.covariate_specs = CovariateSpecs(
+            country_covariates=settings.country_covariate,
+            study_covariates=settings.study_covariate
+        )
+        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod(
+            pop_df=self.population.configure_for_dismod(),
+            loc_df=self.location_dag.df
+        ) for c in self.covariate_data}
+
         # If we are constraining omega, then we want to hold out the data
         # from the DisMod fit for ASDR (but never CSMR -- always want to fit
         # CSMR).
@@ -254,6 +265,13 @@ class MeasurementInputs:
             hold_out=settings.model.constrain_omega)
         csmr = self.csmr.configure_for_dismod(hold_out=0)
 
+        # ASDR and CMSR need to have covariates added when their time_lower is at 
+        # its original value (e.g. not averaged with time_upper)
+        # That is why these are seperated
+        data = self.add_covariates_to_data(df=data)
+        asdr = self.add_covariates_to_data(df=asdr)
+        csmr = self.add_covariates_to_data(df=csmr)
+        
         if settings.model.constrain_omega:
             self.omega = calculate_omega(asdr=asdr, csmr=csmr)
         else:
@@ -282,18 +300,6 @@ class MeasurementInputs:
             else:
                 format_age_time(df=self.dismod_data, measure=measure)
 
-        # This makes the specs not just for the country covariate but adds on
-        # the sex and one covariates.
-        self.covariate_specs = CovariateSpecs(
-            country_covariates=settings.country_covariate,
-            study_covariates=settings.study_covariate
-        )
-        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod(
-            pop_df=self.population.configure_for_dismod(),
-            loc_df=self.location_dag.df
-        ) for c in self.covariate_data}
-
-        self.dismod_data = self.add_covariates_to_data(df=self.dismod_data)
         self.dismod_data.loc[
             self.dismod_data.hold_out.isnull(), 'hold_out'] = 0.
         self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
@@ -326,9 +332,19 @@ class MeasurementInputs:
             for c in self.covariate_specs.covariate_specs
             if c.study_country == 'country'
         }
-
-        df = self.interpolate_country_covariate_values(
-            df=df, cov_dict=cov_dict_for_interpolation)
+        merge_df = pd.DataFrame()
+        if 'age_group_id' in df:
+            merge = ~df.age_group_id.isna()
+            merge_df = df[merge]
+            df = df[~merge]
+            for k,v in cov_dict_for_interpolation.items():
+                v = (v.rename(columns = {'mean_value': k, 'year_id': 'time_lower'})
+                     .drop(columns = ['age_lower', 'age_upper']))
+                merge_df = (merge_df.merge(v))
+        if not df.empty:
+            df = self.interpolate_country_covariate_values(
+                df=df, cov_dict=cov_dict_for_interpolation)
+        df = df.append(merge_df, sort=True)
         df = self.transform_country_covariates(df=df)
 
         df['s_sex'] = df.sex_id.map(
@@ -385,7 +401,7 @@ class MeasurementInputs:
         for c in self.covariate_specs.covariate_specs:
             if c.study_country == 'country':
                 LOG.info(f"Transforming the data for country covariate "
-                         f"{c.covariate_id}.")
+                         f"{c.name}, id {c.covariate_id}.")
                 df[c.name] = df[c.name].apply(
                     lambda x: COVARIATE_TRANSFORMS[c.transformation_id](x)
                 )
