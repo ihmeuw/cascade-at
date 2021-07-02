@@ -270,13 +270,6 @@ class MeasurementInputs:
         else:
             self.omega = None
 
-        if not csmr.empty:
-            csmr = decimate_years(
-                data=csmr, num_years=mortality_year_reduction)
-        if not asdr.empty:
-            asdr = decimate_years(
-                data=asdr, num_years=mortality_year_reduction)
-
         # ASDR and CMSR need to have covariates added when their time_lower is at 
         # its original value (e.g. not averaged with time_upper)
         # That is why these are seperated
@@ -284,6 +277,13 @@ class MeasurementInputs:
         asdr = self.add_covariates_to_data(df=asdr)
         csmr = self.add_covariates_to_data(df=csmr)
         
+        if not csmr.empty:
+            csmr = decimate_years(
+                data=csmr, num_years=mortality_year_reduction)
+        if not asdr.empty:
+            asdr = decimate_years(
+                data=asdr, num_years=mortality_year_reduction)
+
         self.dismod_data = pd.concat([data, asdr, csmr], axis=0, sort=True)
         self.dismod_data.reset_index(drop=True, inplace=True)
 
