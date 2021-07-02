@@ -270,19 +270,19 @@ class MeasurementInputs:
         else:
             self.omega = None
 
-        if not csmr.empty:
-            csmr = decimate_years(
-                data=csmr, num_years=mortality_year_reduction)
-        if not asdr.empty:
-            asdr = decimate_years(
-                data=asdr, num_years=mortality_year_reduction)
-
         # ASDR and CMSR need to have covariates added when their time_lower is at 
         # its original value (e.g. not averaged with time_upper)
         # That is why these are seperated
         data = self.add_covariates_to_data(df=data)
         asdr = self.add_covariates_to_data(df=asdr)
         csmr = self.add_covariates_to_data(df=csmr)
+
+        if not csmr.empty:
+            csmr = decimate_years(
+                data=csmr, num_years=mortality_year_reduction)
+        if not asdr.empty:
+            asdr = decimate_years(
+                data=asdr, num_years=mortality_year_reduction)
         
         self.dismod_data = pd.concat([data, asdr, csmr], axis=0, sort=True)
         self.dismod_data.reset_index(drop=True, inplace=True)
@@ -338,6 +338,7 @@ class MeasurementInputs:
             merge_df = df[merge]
             df = df[~merge]
             for k,v in cov_dict_for_interpolation.items():
+                v = v.astype({'year_id' :float})
                 v = (v.rename(columns = {'mean_value': k, 'year_id': 'time_lower'})
                      .drop(columns = ['age_lower', 'age_upper']))
                 merge_df = (merge_df.merge(v, how='left'))

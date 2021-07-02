@@ -20,6 +20,8 @@ In addition to the dismod_at database, a database with the following information
           child nodes that are required by the end_node_set. If parallel is false, the fitting will be done sequentially. 
           This should be easier to debug and should give the same results.
         The min_interval. Compress to a single point all age and time intervals in data table that are less than or equal this value.
+    DO NOT attach covariates to the CSMR and ASDR data
+
 """
 
 import json
@@ -119,8 +121,8 @@ def just_get_data(settings):
     csmr = inputs.csmr.configure_for_dismod()
 
     data = inputs.add_covariates_to_data(data)
-    asdr = inputs.add_covariates_to_data(asdr)
-    csmr = inputs.add_covariates_to_data(csmr)
+    # asdr = inputs.add_covariates_to_data(asdr)
+    # csmr = inputs.add_covariates_to_data(csmr)
 
     data1 = inputs.dismod_data[~inputs.dismod_data.measure.isin(['mtall', 'mtspecific'])]
     asdr1 = inputs.dismod_data[inputs.dismod_data.measure == 'mtall']
