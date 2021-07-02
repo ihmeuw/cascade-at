@@ -467,7 +467,7 @@ def plot_integrand(db, data, integrand_name, title='TBD') :
 
 @lru_cache
 def get_fitted_data(db):
-    data = (db.data_subset.merge(db.data, how='left')
+    data = (db.data.merge(db.data_subset, how='left')
             .merge(db.fit_data_subset, how='left', left_on= 'data_subset_id', right_on = 'fit_data_subset_id')
             .merge(db.integrand, how='left'))
     return data
