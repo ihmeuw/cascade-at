@@ -6,6 +6,8 @@ from cascade_at.fit_strategies.init_no_ode import _dismod_cmd_, _fit_ihme_py_, _
 from cascade_at.dismod.api.dismod_io import DismodIO
 from pathlib import Path
 from cascade_at.core.log import logging, get_loggers, LEVELS
+from cascade_at.dismod.constants import _dismod_cmd_
+
 
 LOG = get_loggers(__name__)
 logging.basicConfig(level=LEVELS['info'])
@@ -24,8 +26,7 @@ def test_cases(case, specific_name = 'fitODE'):
     osteo_knee = '/Users/gma/ihme/epi/at_cascade/data/475746/dbs/64/2/dismod.db'
     t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/100/2/dismod.db' # HI N America female
     t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/100/3/dismod.db' # HI N America both
-    t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475882/dbs/1/2/dismod.db' # world
-
+    t1_diabetes = '/Users/gma/ihme/epi/at_cascade/data/475588/dbs/1/3/dismod.db' # world
     if case == 't1_diabetes':
         file_in = t1_diabetes
         max_covariate_effect = 2
@@ -198,7 +199,6 @@ def test(case, step, db_path, max_covariate_effect=2, ode_hold_out_list=[], mulc
         db = setup_db(db_path, ode_hold_out_list = ode_hold_out_list)
 
         try:
-            db.simplify_data(random_seed = random_seed, random_subsample = random_subsample)
             db.setup_ode_fit(max_covariate_effect, **kwds)
             db.hold_out_data(integrand_names = db.yes_ode_integrands, hold_out=1)
 
@@ -359,20 +359,30 @@ if __name__ == '__main__':
     cases = ['dialysis', 't1_diabetes', 'crohns', 'osteo_hip'] # These cover the range of test options
     cases = ['osteo_hip','osteo_knee', 'dialysis', 'kidney', 't1_diabetes', 'crohns']
 
+    cases = ['t1_diabetes']
     steps = ['no_ode', 'yes_ode', 'students']
 
     make_reference = True
     test_funs = True
     test_cmds = True
     test_sh = True
-    if 0:
+    if 1:
         test_funs = False
         test_cmds = False
         test_sh = False
-
+        steps = ['no_ode', 'yes_ode']
+        test_sh = True # works
 
     for case in cases:
         fit_ihme_path, ref_dbs = reference_dbs(case)
+        if make_reference:
+            ref_db_path = Path(test_cases(case, '')[0]).parent
+            parts = (ref_db_path).parts
+            mvid, location_id, sex_id = map(int, [parts[-4],parts[-2],parts[-1]])
+            cmd = f'dismod_db --model-version-id {mvid} --parent-location-id {location_id} --sex-id {sex_id} --fill'
+            LOG.info (f"Importing the reference database using '{cmd}'")
+            os.system(cmd)
+
         for step in steps:
             print ()
             print ('='*100)
@@ -384,6 +394,10 @@ if __name__ == '__main__':
                         disease_smoothings = disable_disease_smoothings(case)
                         disease_smoothings.disable()
                         _fit_ihme(case, step, common_kwds['random_seed'])
+                        if 00000000000:
+                            # FIXME What a damn mess
+                            print (f"Copied reference db {fit_ihme_path/'temp.db'} to {ref_db_path/'dismod.db'}")
+                            shutil.copy2(fit_ihme_path/'temp.db', ref_db_path/'dismod.db')
                 except:
                     raise
                 finally:
@@ -426,17 +440,17 @@ if __name__ == '__main__':
                 db2 = FitNoODE(db2_path)
         
                 if step == 'no_ode':
-                    cmd = f'dmdismod {db2.path} ODE init {kwd_str}'
+                    cmd = f'{_dismod_cmd_} {db2.path} ODE init {kwd_str}'
                     system(cmd)
                     assert (np.allclose(db2.fit_var.fit_var_value, reference_db.fit_var.fit_var_value, **tol))
 
                 if step == 'yes_ode':
-                    cmd = f'dmdismod {db2.path} ODE fit {kwd_str}'
+                    cmd = f'{_dismod_cmd_} {db2.path} ODE fit {kwd_str}'
                     system(cmd)
                     assert (np.allclose(db2.fit_var.fit_var_value, reference_db.fit_var.fit_var_value, **tol))
 
                 if step == 'students':
-                    cmd = f'dmdismod {db2.path} ODE students {kwd_str}'
+                    cmd = f'{_dismod_cmd_} {db2.path} ODE students {kwd_str}'
                     system(cmd)
                     assert (np.allclose(db2.fit_var.fit_var_value, reference_db.fit_var.fit_var_value, **tol))
 
