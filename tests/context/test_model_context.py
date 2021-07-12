@@ -9,6 +9,13 @@ def context(tmp_path):
                 root_directory=tmp_path)
     return c
 
+def test_context_exists():
+    try:
+        import cascade.local_config
+    except:
+        raise Exception('\nCould not import cascade.local_config. Verify that '
+                        'https://stash.ihme.washington.edu/projects/DIS/repos/cascade_config is installed.')
+
 
 def test_context_files(context):
     assert str(context.inputs_dir).endswith('cascade_dir/data/0/inputs')
