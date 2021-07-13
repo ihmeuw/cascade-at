@@ -55,7 +55,7 @@ setup(
         'run_dmdismod=cascade_at.executor.run_dmdismod:main',
         'plot=cascade_at.executor.plot:main',
         'plot_residuals=cascade_at.executor.plot_residuals:main',
-        # 'dmdismod_script=cascade_at.fit_strategies.dismod_at_script:main',
+        'dmdismod_script=cascade_at.fit_strategies.dismod_at_script:main',
         'dmdismod=cascade_at.fit_strategies.dismod_at_script:main',
         'dismod_ihme_input=cascade_at.executor.dismod_ihme_input:main',
         'db2csv=cascade_at.executor.db2csv:main'
