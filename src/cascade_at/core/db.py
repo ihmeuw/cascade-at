@@ -89,8 +89,14 @@ if 'darwin' in sys.platform:    # gma Add logic to skip jobmon imports if jobmon
     task_template = None
     sge = None
 else:
+    print ('importing jobmon stuff...')
+    print ('swarm')
     swarm = ModuleProxy("jobmon.client.swarm")
+    print ('api')
     api = ModuleProxy("jobmon.client.api")
+    print ('tast')
     task = ModuleProxy("jobmon.client.task")
+    print ('tast_template')
     task_template = ModuleProxy("jobmon.client.task_template")
+    print ('... done.')
     sge = ModuleProxy("jobmon.client.execution.strategies.sge")
