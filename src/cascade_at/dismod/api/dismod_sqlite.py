@@ -151,7 +151,7 @@ class DismodSQLite:
 
         try:
             table = table.set_index(id_column)
-            table.index = table.index.astype(np.int64)
+            table.index = table.index.astype(int)
         except ValueError as ve:
             raise ValueError(f"Cannot convert {table_name}.{table_name}_id to index") from ve
         try:
