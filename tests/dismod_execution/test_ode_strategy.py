@@ -58,7 +58,16 @@ else:
         if assert_correct:
             assert success
 
+
     def test_help(dismod, assert_correct=True):
+        def del_libname(rtn):
+            if 'LD_LIBRARY_PATH' in rtn:
+                try:
+                    start = rtn.index('DYLD_LIBRARY_PATH')
+                except:
+                    start = rtn.index('LD_LIBRARY_PATH')
+                end = rtn.index(' dismod_at', start)
+                return rtn[:start]
         try:
             # Make sure dismod works
             import subprocess
@@ -66,7 +75,8 @@ else:
                       f"usage:    {_dismod_cmd_} database [ODE] command [arguments] # Run dmdismod commands.\n"
                       "Omitting 'ODE' calls the standard dismod_at executable.\n"
                       "Specifying 'ODE' dispatches to the ODE fitting strategy code.\n").replace(' ', '').replace('\n','')
-            rtn = subprocess.check_output(_dismod_cmd_).decode().replace(' ', '').replace('\n','')
+            rtn = subprocess.check_output(_dismod_cmd_).decode()
+            rtn = del_libname(rtn).replace(' ', '').replace('\n','')
             assert rtn == expect, f"{_dismod_cmd_} without arguments return was not correct."
 
             import subprocess
