@@ -43,12 +43,12 @@ class Context:
         LOG.info(f"Configuring inputs for model version {model_version_id}.")
         self.app = application_config()
         self.odbc_file = self.app["Database"]["local-odbc"]
+        self.data_connection = 'epi'
+        self.model_connection = 'dismod-at-dev'
+
         if configure_application:
             self.root_directory = self.app["DataLayout"]["root-directory"]
             self.cascade_dir = self.app["DataLayout"]["cascade-dir"]
-
-            self.data_connection = 'epi'
-            self.model_connection = 'dismod-at-dev'
 
             # Configure the odbc.ini for db-tools
             db_tools.config.DBConfig(
