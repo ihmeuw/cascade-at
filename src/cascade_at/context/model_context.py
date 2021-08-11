@@ -43,6 +43,7 @@ class Context:
         LOG.info(f"Configuring inputs for model version {model_version_id}.")
         self.app = application_config()
         self.odbc_file = self.app["Database"]["local-odbc"]
+        assert ('~' not in self.odbc_file), f'The odbc file path "{self.odbc_file}" cannot start with "~".'
 
         if configure_application:
             self.root_directory = self.app["DataLayout"]["root-directory"]
