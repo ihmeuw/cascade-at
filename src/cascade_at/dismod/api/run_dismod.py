@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import os
 from types import SimpleNamespace
 from typing import List
 from cascade_at.core.log import get_loggers
@@ -61,9 +62,12 @@ def run_dismod(dm_file: str, command: str):
 
     command = [_dismod_cmd_, str(dm_file), command]
     command = ' '.join(command)
-    LOG.info(f"Running {command}")
 
-    process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Apple Darwin does not forward library_path variables to subprocesses for security reasons
+    # so set it explicitly for the subprocess.
+    lib_path = 'LD_LIBRARY_PATH=' + os.getenv('DISMOD_LIBRARY_PATH', '').strip(':')
+    LOG.info(f"Running {lib_path} {command}")
+    process = subprocess.run(f'{lib_path} {command}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     info = SimpleNamespace()
     info.exit_status = process.returncode
@@ -71,7 +75,7 @@ def run_dismod(dm_file: str, command: str):
     info.stderr = process.stderr.decode()
     
     # Remove the ODE overloading
-    dismod_command = command.replace(' ODE ', ' ').split()[0]
+    dismod_command = command.replace(' ODE ', ' ').split()[-1]
     check_dismod = check_last_command(dm_file, dismod_command)
 
     return info

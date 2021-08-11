@@ -23,7 +23,11 @@ def system (command) :
     print (command)
     if isinstance(command, str):
         command = command.split()
-    run = subprocess.run(command)
+
+    # Apple Darwin does not forward library_path variables to subprocesses for security reasons
+    # so set it explicitly for the subprocess.
+    lib_path = 'LD_LIBRARY_PATH=' + os.getenv('DISMOD_LIBRARY_PATH', '').strip(':')
+    run = subprocess.run(f'{lib_path} {command}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if run.returncode != 0 :
         raise Exception(f'"{command}" failed.')
 
