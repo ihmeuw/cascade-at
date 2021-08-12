@@ -59,36 +59,34 @@ else:
             assert success
 
 
-    # def test_help1(dismod, assert_correct=True):
-    #     try:
-    #         # Make sure dismod works
-    #         import subprocess
-    #         def del_libname(rtn):
-    #             if 'LD_LIBRARY_PATH' in rtn:
-    #                 try:
-    #                     start = rtn.index('DYLD_LIBRARY_PATH')
-    #                 except:
-    #                     start = rtn.index('LD_LIBRARY_PATH')
-    #                 return rtn[:start]
-    #         expect = (f"usage:    {_dismod_cmd_} [-h | --help]                      # Print detailed help.\n"
-    #                   f"usage:    {_dismod_cmd_} database [ODE] command [arguments] # Run dmdismod commands.\n"
-    #                   "Omitting 'ODE' calls the standard dismod_at executable.\n"
-    #                   "Specifying 'ODE' dispatches to the ODE fitting strategy code.\n").replace(' ', '').replace('\n','')
-    #         rtn = subprocess.check_output(_dismod_cmd_).decode()
-    #         rtn = del_libname(rtn).replace(' ', '').replace('\n','')
-    #         assert rtn == expect, f"{_dismod_cmd_} without arguments return was not correct."
-    #         success = True
-    #     except:
-    #         success = False
-    #     if assert_correct:
-    #         assert success
+    def test_help1(dismod, assert_correct=True):
+        try:
+            # Make sure dismod works
+            import subprocess
+            def del_libname(rtn):
+                if 'LD_LIBRARY_PATH' in rtn:
+                    try:
+                        start = rtn.index('DYLD_LIBRARY_PATH')
+                    except:
+                        start = rtn.index('LD_LIBRARY_PATH')
+                    return rtn[:start]
+            expect = (f"usage:    {_dismod_cmd_} [-h | --help]                      # Print detailed help.\n"
+                      f"usage:    {_dismod_cmd_} database [ODE] command [arguments] # Run dmdismod commands.\n"
+                      "Omitting 'ODE' calls the standard dismod_at executable.\n"
+                      "Specifying 'ODE' dispatches to the ODE fitting strategy code.\n").replace(' ', '').replace('\n','')
+            rtn = ''.join(subprocess.check_output(_dismod_cmd_).decode().split())
+            assert rtn == expect, f"{_dismod_cmd_} without arguments return was not correct."
+            success = True
+        except:
+            success = False
+        if assert_correct:
+            assert success
 
     def test_help2(dismod, assert_correct=True):
         try:
             import subprocess
-            dmdismod = subprocess.check_output(f'which {_dismod_cmd_}', shell=True).decode().strip()
-            expect = (f"{dmdismod} --help\n"
-                      f"usage: {_dismod_cmd_} [-h] [-m [MAX_COVARIATE_EFFECT]] [-c MULCOV_VALUES [MULCOV_VALUES ...]] [-o [ODE_HOLD_OUT_LIST]] [-s [RANDOM_SEED]] [-d [RANDOM_SUBSAMPLE]] [-p [SAVE_TO_PATH]]\n"
+            dmdismod = subprocess.check_output(f'which dmdismod', shell=True).decode().strip()
+            expect = (f"usage: dmdismod [-h] [-m [MAX_COVARIATE_EFFECT]] [-c MULCOV_VALUES [MULCOV_VALUES ...]] [-o [ODE_HOLD_OUT_LIST]] [-s [RANDOM_SEED]] [-d [RANDOM_SUBSAMPLE]] [-p [SAVE_TO_PATH]]\n"
                       "[-t [REFERENCE_DB]]\n"
                       "path dispatch option\n"
                       "\n"
@@ -114,7 +112,7 @@ else:
                       "Path to directory where to store the results\n"
                       "-t [REFERENCE_DB], --reference_db [REFERENCE_DB]\n"
                       "Path to the reference databases. Fit results are compared to these databases for testing purposes.\n").replace(' ', '').replace('\n','')
-            rtn = subprocess.check_output([_dismod_cmd_, '--help']).decode().replace(' ', '').replace('\n','')
+            rtn = ''.join(subprocess.check_output([_dismod_cmd_, '--help']).decode().split())
             assert rtn == expect, "Help return was not correct."
             success = True
         except:
@@ -162,7 +160,7 @@ else:
 
     if __name__ == '__main__':
         test_setup_covariate_names(dismod, assert_correct=True)
-        test_help1(dismod, assert_correct=True)
+        # test_help1(dismod, assert_correct=True)
         test_help2(dismod, assert_correct=True)
         test_ode_init(dismod, assert_correct=True)
         test_ode_fit(dismod, assert_correct=True)

@@ -33,16 +33,17 @@ def main():
         print ('usage:    dmdismod database [ODE] command [arguments] # Run dmdismod commands.')
         print ("          Omitting 'ODE' calls the standard dismod_at executable.")
         print ("          Specifying 'ODE' dispatches to the ODE fitting strategy code.")
+        print (f"Running1: {lib_path} dismod_at {cmd_str}")
         os.system (f"{lib_path} dismod_at {cmd_str}")
     else:
         if '-h' in sys.argv or '--help' in sys.argv or sys.argv[2].upper() == 'ODE':
             from cascade_at.fit_strategies.dmdismod_extensions import dmdismod
             sys.argv[0] = sys.argv[0].replace('_script', '')
             cmd_str = ' '.join(sys.argv)
-            print (cmd_str)
             dmdismod(cmd_str)
         else:
             cmd_str = ' '.join([k if  ' ' not in k else f"'{k}'" for k in sys.argv[1:]])
+            print (f"Running3: {lib_path} dismod_at {cmd_str}")
             os.system (f"{lib_path} dismod_at {cmd_str}")
 
 if __name__ == '__main__':
