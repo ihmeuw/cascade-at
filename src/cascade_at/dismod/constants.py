@@ -2,10 +2,10 @@ from enum import Enum
 import pandas as pd
 import numpy as np
 
-if 1:
-    _dismod_cmd_ = 'dmdismod'
-else:
-    _dismod_cmd_ = 'dismod_at'
+
+_dismod_cmd_ = 'dismod_at'
+_dismod_cmd_ = 'dmdismod'
+_dismod_cmd_ = 'dmdismod_script'
 
 def enum_to_dataframe(enum_name):
     """Given an enum, return a dataframe with two columns, name and value."""
