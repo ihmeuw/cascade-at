@@ -1,6 +1,10 @@
 import pytest
-from . import example_db
-from . import dismod_tests
+if __name__ == '__main__':
+    import example_db
+    import dismod_tests
+else:
+    from . import example_db
+    from . import dismod_tests
 
 print ('Case 2: Group fixed and random effects.')
 
