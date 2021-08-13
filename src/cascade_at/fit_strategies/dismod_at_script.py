@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 import os
+from cascade_at.dismod.constants import _dismod_cmd_
 
 """
 # An example for debugging this script
@@ -29,8 +30,8 @@ def main():
     lib_path = 'LD_LIBRARY_PATH=' + os.getenv('DISMOD_LIBRARY_PATH', '').strip(':')
 
     if len(sys.argv) == 1:
-        print ('usage:    dmdismod [-h | --help]                      # Print detailed help.')
-        print ('usage:    dmdismod database [ODE] command [arguments] # Run dmdismod commands.')
+        print (f'usage:    {_dismod_cmd_} [-h | --help]                      # Print detailed help.')
+        print (f'usage:    {_dismod_cmd_} database [ODE] command [arguments] # Run dmdismod commands.')
         print ("          Omitting 'ODE' calls the standard dismod_at executable.")
         print ("          Specifying 'ODE' dispatches to the ODE fitting strategy code.")
         os.system (f"{lib_path} dismod_at {cmd_str}")
