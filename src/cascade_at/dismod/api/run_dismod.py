@@ -73,10 +73,16 @@ def run_dismod(dm_file: str, command: str):
     info.exit_status = process.returncode
     info.stdout = process.stdout.decode()
     info.stderr = process.stderr.decode()
-    
-    # Remove the ODE overloading
-    dismod_command = command.replace(' ODE ', ' ').split()[-1]
-    check_dismod = check_last_command(dm_file, dismod_command)
+
+    if 0:
+        # Remove the ODE overloading
+        dismod_command = command.replace(' ODE ', ' ').split()[-1]
+        check_dismod = check_last_command(dm_file, dismod_command)
+    else:
+        LOG.info("FIXME -- need to move check_last_command closer to the call to dmdismod")
+        LOG.info(f"Running {lib_path} {command}")
+
+        dismod_command = 'db2csv' if 'ODE' in command else command
 
     return info
 
