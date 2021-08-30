@@ -21,14 +21,8 @@ def system (command) :
     # flush python's pending standard output in case this command generates more standard output
     sys.stdout.flush()
     print (command)
-    if isinstance(command, str):
-        command = command.split()
-
-    # Apple Darwin does not forward library_path variables to subprocesses for security reasons
-    # so set it explicitly for the subprocess.
-    lib_path = 'LD_LIBRARY_PATH=' + os.getenv('DISMOD_LIBRARY_PATH', '').strip(':')
-    run = subprocess.run(f'{lib_path} {command}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if run.returncode != 0 :
+    rtn = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if rtn.returncode != 0 :
         raise Exception(f'"{command}" failed.')
 
 def case_study_title(db, version = None, disease = 'TBD', which_fit = 'TBD') :
@@ -572,7 +566,7 @@ def main():
     title = case_study_title(db, version = args.model_version_id, disease = args.disease, which_fit = args.fit_type)
 
     data = get_fitted_data(db)
-    data_integrands = sorted(set(data.integrand_name.unique()) - set(['mtall', 'mtother']))
+    data_integrands = sorted(set(data.integrand_name[~data.integrand_name.isna()].unique()) - set(['mtall', 'mtother']))
     no_ode_integrands = sorted(set(['Sincidence', 'mtexcess', 'mtother', 'remission']).intersection(data_integrands))
     yes_ode_integrands = sorted((set(data_integrands) - set(no_ode_integrands)).intersection(data_integrands))
     all_integrands = no_ode_integrands + yes_ode_integrands
