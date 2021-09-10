@@ -13,6 +13,9 @@ from cascade_at.dismod.api.dismod_sqlite import get_engine
 
 from cascade_at.core.db import decomp_step as ds
 
+from cascade_at.dismod.api.dismod_io import DismodIO
+from pathlib import Path
+
 from cascade_at.settings.settings import SettingsConfig
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.base_input import BaseInput
@@ -49,8 +52,8 @@ import db_tools
 LOG = get_loggers(__name__)
 
 
-__quick_test__ = not True
-
+__quick_test__ = False
+__to_do__ = True
 
 class Inputs:
     def __init__(self, demographics, population, covariate_specs):
@@ -82,7 +85,7 @@ class AllNodeDatabase:
         return index
 
     def get_asdr(self, demographics=None, gbd_round_id=None, decomp_step=None):
-        print ('*** Get ASDR. ***')
+        print ('*** Get ASDR ...', end=' ')
         from cascade_at.inputs.asdr import ASDR
         asdr = ASDR(demographics = demographics,
                     gbd_round_id = gbd_round_id,
@@ -93,11 +96,11 @@ class AllNodeDatabase:
         asdr['time'] = asdr[['time_lower', 'time_upper']].mean(axis=1)
         asdr = asdr.sort_values(by = ['location_id', 'age', 'time'])
 
-        print (f"Got {len(asdr)} rows.")
+        print (f"{len(asdr)} rows. ***")
         return asdr
 
     def get_csmr(self, demographics=None, gbd_round_id=None, decomp_step=None, cause_id=None):
-        print ('*** Get CSMR. ***')
+        print ('*** Get CSMR ...', end=' ')
         from cascade_at.inputs.csmr import CSMR
         csmr = CSMR(cause_id = cause_id,
                     demographics = demographics,
@@ -109,14 +112,8 @@ class AllNodeDatabase:
         csmr['time'] = csmr[['time_lower', 'time_upper']].mean(axis=1)
         csmr = csmr.sort_values(by = ['location_id', 'age', 'time'])
 
-        print (f"Got {len(csmr)} rows.")
+        print (f"{len(csmr)} rows. ***")
         return csmr
-
-    def get_root_node_db(self, filename = None):
-        from cascade_at.dismod.api.dismod_io import DismodIO
-        from pathlib import Path
-        root_db_database = DismodIO(Path(filename))
-        return root_db_database
 
     def update_root_node_time_age(self, time_df, omega_time_grid, age_df, omega_age_grid):
         add_time = sorted(set(omega_time_grid) - set(time_df.time))
@@ -148,44 +145,55 @@ class AllNodeDatabase:
         weighted_avg.drop(columns = ['population'], inplace=True)
         return weighted_avg
 
+    def save_to_sql(self):
+        print (f"*** Writing {self.all_node_db} ***")
+        conn = sqlite3.connect(self.all_node_db)
+
+        self.option.to_sql('option', conn, if_exists="replace")
+
+        cols = ['fit_goal_id', 'node_id']
+        self.fit_goal[cols].to_sql('fit_goal', conn, if_exists="replace")
+
+        cols = ['all_cov_reference_id', 'node_id', 'covariate_id', 'reference']
+        self.covariate[cols].to_sql('all_covariate_reference', conn, if_exists="replace")
+
+        cols = ['omega_age_grid_id', 'age_id']
+        self.omega_age_grid[cols].to_sql('omega_age_grid', conn, if_exists="replace")
+
+        cols = ['omega_time_grid_id', 'time_id']
+        self.omega_time_grid[cols].to_sql('omega_time_grid', conn, if_exists="replace")
+
+        self.mtall_index.to_sql('mtall_index', conn, if_exists="replace")
+        cols = ['all_mtall_id', 'all_mtall_value']
+        self.all_mtall[cols].to_sql('all_mtall', conn, if_exists="replace")
+
+        self.mtspecific_index.to_sql('mtspecific_index', conn, if_exists="replace")
+        cols = ['all_mtspecific_id', 'all_mtspecific_value']
+        self.all_mtspecific[cols].to_sql('all_mtspecific', conn, if_exists="replace")
+
     def __init__(self,
-                 mvid = 475871,
+
+                 mvid = None,
                  conn_def = 'dismod-at-dev',
                  location_set_version_id = None,
                  gbd_round_id = 6,
                  decomp_step = 'step4',
-                 root_node_path = '/Users/gma/ihme/epi/at_cascade/data/{mvid}/dbs/{location_id}/{sex_id}/dismod.db'
+                 root_node_path = '/Users/gma/ihme/epi/at_cascade/data/{mvid}/dbs/{location_id}/{sex_id}/dismod.db',
+                 in_parallel = False
                  ):
-        if __quick_test__:
-             mvid = 475871
-             conn_def = 'dismod-at-dev'
-             gbd_round_id = 6
-             decomp_step = 'step4'
-             root_node_path = '/Users/gma/ihme/epi/at_cascade/data/{mvid}/dbs/{location_id}/{sex_id}/dismod.db'
 
+        self.in_parallel = in_parallel
         self.mvid = mvid
-        
-        self.parent_location_id = 100
-        self.sex_id = 2
         
         self.decomp_step = decomp_step
 
         self.gbd_round_id = gbd_round_id
         gbd_round = ds.gbd_round_from_gbd_round_id(gbd_round_id)
         self.conn_def = conn_def
-        _age_group_set_id_ = 12
-        _year_id_ = [2000]
-        _cause_id_ = 975
-
-        global obj
-        obj=self
-
-        root_node_db = self.get_root_node_db(root_node_path.format(mvid=self.mvid, location_id=self.parent_location_id, sex_id=self.sex_id))
-        self.root_node_db = root_node_db
-        self.age = root_node_db.age
-        self.time = root_node_db.time
-        self.node = root_node_db.node
-
+        if __to_do__:
+            _cause_id_ = 975
+            _age_group_set_id_ = 12
+            
         print ('*** Get parameter json and load_settings. ***')
         from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
         parameter_json = settings_json_from_model_version_id(
@@ -198,6 +206,26 @@ class AllNodeDatabase:
         else:
             self.location_set_version_id = get_location_set_version_id(gbd_round_id = self.gbd_round_id)
 
+        self.parent_location_id = getattr(settings.model, 'drill_location_start', 0)
+        self.sex_id = getattr(settings.model, 'drill_sex', 3)
+
+        root_node_path = Path(root_node_path.format(mvid=self.mvid, location_id=self.parent_location_id, sex_id=self.sex_id))
+        self.root_node_db = DismodIO(root_node_path)
+
+        all_node_path = root_node_path.parts[:2 + root_node_path.parts.index(str(self.mvid))]
+        self.all_node_db = Path(os.path.join(*all_node_path)) / 'all_node.db'
+
+        self.age = self.root_node_db.age
+        self.time = self.root_node_db.time
+        self.node = self.root_node_db.node
+
+        print ('*** Get options. ***')
+        root_node_name = self.root_node_db.node.loc[self.root_node_db.node.c_location_id == self.parent_location_id, 'node_name'].squeeze()
+        self.option = pd.DataFrame([('sex_level', settings.model.split_sex),
+                                    ('in_parallel', self.in_parallel),
+                                    ('root_node_name', root_node_name)],
+                                   columns = ['option_name', 'option_value'])
+                       
         print ('*** Get demographics. ***')
         demographics = Demographics(gbd_round_id=self.gbd_round_id)
 
@@ -227,11 +255,6 @@ class AllNodeDatabase:
             self.drill_location_start = None
             self.drill_location_end = None
 
-        if 1:
-            self.drill_location_start = 64
-            self.drill_location_end = 102
-
-
         # Need to subset the locations to only those needed for
         # the drill. drill_locations_all is the set of locations
         # to pull data for, including all descendants. drill_locations
@@ -247,22 +270,36 @@ class AllNodeDatabase:
         self.demographics = demographics
 
         print ("*** Drill information. ***")
-        print (demographics.drill_locations)
-        print (demographics.location_id)
+        print (f"    Drill locations: {demographics.drill_locations}")
+        print (f"    All locations: {demographics.location_id}")
 
+        self.fit_goal = pd.DataFrame(demographics.location_id, columns = ['c_location_id']).merge(self.root_node_db.node, how='left')
+        self.fit_goal['fit_goal_id'] = self.fit_goal.index
 
         asdr = self.get_asdr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step)
         csmr = self.get_csmr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step, cause_id = _cause_id_)
 
-        omega_age_grid = sorted(set(asdr.age.unique()) & set(csmr.age.unique()))
-        self.omega_age_grid = pd.DataFrame(omega_age_grid, columns = ['age_id'])
-        self.omega_age_grid['omega_age_grid_index'] = self.omega_age_grid.index
+        if __debug__:
+            missing_asdr = set(demographics.location_id) - set(asdr.location_id)
+            assert not missing_asdr, f"ASDR data is missing for locations: {missing_asdr}"
+            missing_csmr = set(demographics.location_id) - set(csmr.location_id)
+            assert not missing_csmr, f"CSMR data is missing for locations: {missing_csmr}"
 
+        print ("*** Omega age and time grids. ***")
+        omega_age_grid = sorted(set(asdr.age.unique()) & set(csmr.age.unique()))
+        self.omega_age_grid = pd.DataFrame(omega_age_grid, columns = ['age'])
+        self.omega_age_grid['omega_age_grid_id'] = self.omega_age_grid.index
+        
         omega_time_grid = sorted(set(asdr.time.unique()) & set(csmr.time.unique()))
-        self.omega_time_grid = pd.DataFrame(omega_time_grid, columns = ['time_id'])
-        self.omega_time_grid['omega_time_grid_index'] = self.omega_time_grid.index
+        self.omega_time_grid = pd.DataFrame(omega_time_grid, columns = ['time'])
+        self.omega_time_grid['omega_time_grid_id'] = self.omega_time_grid.index
 
         self.root_node_db.time, self.root_node_db.age = self.update_root_node_time_age(self.root_node_db.time, omega_time_grid, self.root_node_db.age, omega_age_grid)
+
+        self.omega_age_grid = self.omega_age_grid.merge(self.root_node_db.age, how='left')
+        print (f"    Age_ids: {self.omega_age_grid.age_id.tolist()}")
+        self.omega_time_grid = self.omega_time_grid.merge(self.root_node_db.time, how='left')
+        print (f"    Time_ids: {self.omega_time_grid.time_id.tolist()}")
 
         self.asdr = (asdr
                      .merge(self.root_node_db.node, how='left', left_on = 'location_id', right_on = 'c_location_id')
@@ -335,623 +372,32 @@ class AllNodeDatabase:
         node['parent_id'] = node.parent
 
         cov_df = self.cov_weighted_average(inputs, node)
-        self.covariate = inputs.transform_country_covariates(cov_df)
-
-        # This the lookup that interpolates ages and times
-
-        self.location_id = sorted(inputs.location_dag.dag.nodes)
-
-        # node = pd.DataFrame(self.location_id, columns=['c_location_id'])
+        cov_df = inputs.transform_country_covariates(cov_df)
+        cov_names = [c.name for c in inputs.covariate_specs.covariate_specs if c.study_country == 'country']
+        cols = list(set(cov_df.columns) - set(cov_names))
         
+        covariate = pd.DataFrame()
+        for name in cov_names:
+            covariate_id = int(self.root_node_db.covariate.loc[self.root_node_db.covariate.c_covariate_name == name, 'covariate_id'])
+            c = cov_df[cols + [name]].rename(columns={name: 'reference'})
+            c['covariate_id'] = covariate_id
+            covariate = covariate.append(c)
+        covariate = self.root_node_db.node.merge(covariate, how='left', left_on = 'c_location_id', right_on='location_id')
+        covariate['node_id'] = covariate['node_id'].astype(int)
+        covariate['all_cov_reference_id'] = covariate.reset_index(drop=True).index
+        self.covariate = covariate
+
         print ('*** Get age metadata. ***')
         import cascade_at.core.db
         self.age_groups = cascade_at.core.db.db_queries.get_age_metadata(age_group_set_id=_age_group_set_id_, gbd_round_id=self.gbd_round_id)
 
 
+def main(mvid = None):
+
+    global self
+    self = AllNodeDatabase(mvid = mvid)
+    self.save_to_sql()
+
 if __name__ == '__main__':
 
-    self = AllNodeDatabase()
-    
-    fn = '/tmp/all_node_datatabase.db'
-    shutil.rmtree(fn, ignore_errors=True)
-    conn = sqlite3.connect(fn)
-    self.node.to_sql('node', conn, if_exists="replace")
-    self.covariate.to_sql('covariate', conn, if_exists="replace")
-    self.asdr.to_sql('all_mtall', conn, if_exists="replace")
-    self.csmr.to_sql('all_mtspecific', conn, if_exists="replace")
-
-    self.omega_age_grid.to_sql('omega_age_grid', conn, if_exists="replace")
-    self.omega_time_grid.to_sql('omega_time_grid', conn, if_exists="replace")
-
-    self.all_mtall[['all_mtall_id', 'all_mtall_value']].to_sql('all_mtall', conn, if_exists="replace")
-    self.mtall_index.to_sql('mtall_index', conn, if_exists="replace")
-
-    self.all_mtspecific[['all_mtspecific_id', 'all_mtspecific_value']].to_sql('all_mtspecific', conn, if_exists="replace")
-    self.mtspecific_index.to_sql('mtspecific_index', conn, if_exists="replace")
-
-
-
-
-
-
-
-
-if 0:
-
-    from cascade_at.core.db import elmo
-    try:
-        elmo.get_crosswalk_version(crosswalk_version_id=31907)
-    except:
-        print ("Did you apply the elmo patch -- see ~/Projects/IHME/SHARED_FUNCTION-patches/")
-
-    print ('*** Check an ezfuncs query for run_id. ***')
-    run_query = f"""
-            SELECT MAX(co.output_version_id) AS version
-            FROM cod.output_version co
-            JOIN shared.decomp_step ds USING (decomp_step_id)
-            WHERE co.is_best = 1
-            AND co.best_end IS NULL
-            AND ds.gbd_round_id = {self.gbd_round_id}
-            """
-    run_id = db_tools.ezfuncs.query(run_query, conn_def='cod').version.astype(int).squeeze()
-
-
-
-
-    if sys.platform.lower() != 'darwin':
-        # Permissions are wrong on the Mac to do this
-        run_query = '''LOAD DATA INFILE
-        "/Users/gma/ihme/epi/at_cascade/data/475869/outputs/fits/100/100_2.0_summary.csv"
-        REPLACE INTO TABLE
-        epi.model_estimate_fit
-        FIELDS
-        TERMINATED BY ","
-        OPTIONALLY ENCLOSED BY '"'
-        LINES
-        TERMINATED BY "\n"
-        IGNORE 1 LINES
-        (@dummy,measure_id,year_id,age_group_id,location_id,sex_id,model_version_id,mean,lower,upper)
-        '''
-        conn_def='epi-uploader'
-        conn_def='dismod-at-dev'
-        run_id = db_tools.ezfuncs.query(run_query, conn_def=conn_def).version.astype(int).squeeze()
-
-
-
-
-    print ('*** Check COD. ***')
-    from cascade_at.inputs.csmr import get_best_cod_correct
-    cod = get_best_cod_correct(gbd_round_id = self.gbd_round_id)
-
-    print ('OK')
-
-
-
-
-
-'''
-
-class AllNodeDatabase:
-    def __init__(self, model_version_id: int,
-                 gbd_round_id: int, decomp_step_id: int,
-                 conn_def: str,
-                 country_covariate_id: List[int],
-                 csmr_cause_id: int, crosswalk_version_id: int,
-                 location_set_version_id: Optional[int] = None,
-                 drill_location_start: Optional[int] = None,
-                 drill_location_end: Optional[List[int]] = None):
-    
-    def get_raw_inputs(self):
-        """
-        Get the raw inputs that need to be used
-        in the modeling.
-        """
-        LOG.info("Getting all raw inputs.")
-        LOG.warning("FIXME -- gma -- asdr.py and csmr.py were getting different locations -- not sure if they should use location_ids or drill_locations.")
-        LOG.warning("FIXME -- gma -- suspect it should be drill_locations, but it seems Drill leaf node handling is not implemented properly.")
-        self.asdr = ASDR(
-            demographics=self.demographics,
-            decomp_step=self.decomp_step,
-            gbd_round_id=self.gbd_round_id
-        ).get_raw()
-        self.csmr = CSMR(
-            cause_id=self.csmr_cause_id,
-            demographics=self.demographics,
-            decomp_step=self.decomp_step,
-            gbd_round_id=self.gbd_round_id,
-        ).get_raw()
-        self.data = CrosswalkVersion(
-            crosswalk_version_id=self.crosswalk_version_id,
-            exclude_outliers=self.exclude_outliers,
-            demographics=self.demographics,
-            conn_def=self.conn_def,
-            gbd_round_id=self.gbd_round_id
-        ).get_raw()
-        self.covariate_data = [CovariateData(
-            covariate_id=c,
-            demographics=self.demographics,
-            decomp_step=self.decomp_step,
-            gbd_round_id=self.gbd_round_id
-        ).get_raw() for c in self.country_covariate_id]
-        self.population = Population(
-            demographics=self.demographics,
-            decomp_step=self.decomp_step,
-            gbd_round_id=self.gbd_round_id
-        ).get_population()
-
-
-class MeasurementInputs:
-
-    def __init__(self, model_version_id: int,
-                 gbd_round_id: int, decomp_step_id: int,
-                 conn_def: str,
-                 country_covariate_id: List[int],
-                 csmr_cause_id: int, crosswalk_version_id: int,
-                 location_set_version_id: Optional[int] = None,
-                 drill_location_start: Optional[int] = None,
-                 drill_location_end: Optional[List[int]] = None):
-        """
-        The class that constructs all of the measurement inputs. Pulls ASDR,
-        CSMR, crosswalk versions, and country covariates, and puts them into
-        one data frame that then formats itself for the dismod database.
-        Performs covariate value interpolation if age and year ranges
-        don't match up with GBD age and year ranges.
-
-        Parameters
-        ----------
-        model_version_id
-            the model version ID
-        gbd_round_id
-            the GBD round ID
-        decomp_step_id
-            the decomp step ID
-        csmr_cause_id: (int) cause to pull CSMR from
-        crosswalk_version_id
-            crosswalk version to use
-        country_covariate_id
-            list of covariate IDs
-        conn_def
-            connection definition from .odbc file (e.g. 'epi') to connect to the IHME databases
-        location_set_version_id
-            can be None, if it's none, get the best location_set_version_id for estimation hierarchy of this GBD round
-        drill_location_start
-            which location ID to drill from as the parent
-        drill_location_end
-            which immediate children of the drill_location_start parent to include in the drill
-
-        Attributes
-        ----------
-        self.decomp_step : str
-            the decomp step in string form
-        self.demographics : cascade_at.inputs.demographics.Demographics
-            a demographics object that specifies the age group, sex,
-            location, and year IDs to grab
-        self.integrand_map : Dict[int, int]
-            dictionary mapping from GBD measure IDs to DisMod IDs
-        self.asdr : cascade_at.inputs.asdr.ASDR
-            all-cause mortality input object
-        self.csmr : cascade_at.inputs.csmr.CSMR
-            cause-specific mortality input object from cause csmr_cause_id
-        self.data : cascade_at.inputs.data.CrosswalkVersion
-            crosswalk version data from IHME database
-        self.covariate_data : List[cascade_at.inputs.covariate_data.CovariateData]
-            list of covariate data objects that contains the raw covariate data mapped to IDs
-        self.location_dag : cascade_at.inputs.locations.LocationDAG
-            DAG of locations to be used
-        self.population: (cascade_at.inputs.population.Population)
-            population object that is used for covariate weighting
-        self.data_eta: (Dict[str, float]): dictionary of eta value to be
-            applied to each measure
-        self.density: (Dict[str, str]): dictionary of density to be
-            applied to each measure
-        self.nu: (Dict[str, float]): dictionary of nu value to be applied
-            to each measure
-        self.dismod_data: (pd.DataFrame) resulting dismod data formatted
-            to be used in the dismod database
-
-        Examples
-        --------
-        >>> from cascade_at.settings.base_case import BASE_CASE
-        >>> from cascade_at.settings.settings import load_settings
-        >>>
-        >>> settings = load_settings(BASE_CASE)
-        >>> covariate_id = [i.country_covariate_id for i in settings.country_covariate]
-        >>>
-        >>> i = MeasurementInputs(
-        >>>    model_version_id=settings.model.model_version_id,
-        >>>    gbd_round_id=settings.gbd_round_id,
-        >>>    decomp_step_id=settings.model.decomp_step_id,
-        >>>    csmr_cause_id = settings.model.add_csmr_cause,
-        >>>    crosswalk_version_id=settings.model.crosswalk_version_id,
-        >>>    country_covariate_id=covariate_id,
-        >>>    conn_def='epi',
-        >>>    location_set_version_id=settings.location_set_version_id
-        >>> )
-        >>> i.get_raw_inputs()
-        >>> i.configure_inputs_for_dismod(settings)
-        """
-        LOG.info(f"Initializing input object for model version ID {model_version_id}.")
-        LOG.info(f"GBD Round ID {gbd_round_id}.")
-        LOG.info(f"Pulling from connection {conn_def}.")
-
-        self.model_version_id = model_version_id
-        self.gbd_round_id = gbd_round_id
-        self.decomp_step_id = decomp_step_id
-        self.csmr_cause_id = csmr_cause_id
-        self.crosswalk_version_id = crosswalk_version_id
-        self.country_covariate_id = country_covariate_id
-        self.conn_def = conn_def
-        self.drill_location_start = drill_location_start
-        self.drill_location_end = drill_location_end
-        self.decomp_step = ds.decomp_step_from_decomp_step_id(self.decomp_step_id)
-        if location_set_version_id is None:
-            self.location_set_version_id = get_location_set_version_id(gbd_round_id=self.gbd_round_id)
-        else:
-            self.location_set_version_id = location_set_version_id
-
-        self.demographics = Demographics(
-            gbd_round_id=self.gbd_round_id,
-            location_set_version_id=self.location_set_version_id)
-        self.location_dag = LocationDAG(
-            location_set_version_id=self.location_set_version_id,
-            gbd_round_id=self.gbd_round_id
-        )
-        # Need to subset the locations to only those needed for
-        # the drill. drill_locations_all is the set of locations
-        # to pull data for, including all descendants. drill_locations
-        # is the set of locations just parent-children in the drill.
-        drill_locations_all, drill_locations = locations_by_drill(
-            drill_location_start=self.drill_location_start,
-            drill_location_end=self.drill_location_end,
-            dag=self.location_dag
-        )
-        if drill_locations_all:
-            self.demographics.location_id = drill_locations_all
-            self.demographics.drill_locations = drill_locations
-
-        self.exclude_outliers = True
-        self.asdr = None
-        self.csmr = None
-        self.population = None
-        self.data = None
-        self.covariates = None
-        self.age_groups = None
-
-        self.data_eta = None
-        self.density = None
-        self.nu = None
-        self.measures_to_exclude: Optional[List[str]] = None
-        self.measures_midpoint: Optional[List[str]] = None
-
-        self.dismod_data = None
-        self.covariate_data = None
-        self.country_covariate_data = None
-        self.covariate_specs = None
-        self.omega = None
-
-    def get_raw_inputs(self):
-        """
-        Get the raw inputs that need to be used
-        in the modeling.
-        """
-        LOG.info("Getting all raw inputs.")
-        LOG.warning("FIXME -- gma -- asdr.py and csmr.py were getting different locations -- not sure if they should use location_ids or drill_locations.")
-        LOG.warning("FIXME -- gma -- suspect it should be drill_locations, but it seems Drill leaf node handling is not implemented properly.")
-        self.asdr = ASDR(
-            demographics=self.demographics,
-            decomp_step=self.decomp_step,
-            gbd_round_id=self.gbd_round_id
-        ).get_raw()
-        self.csmr = CSMR(
-            cause_id=self.csmr_cause_id,
-            demographics=self.demographics,
-            decomp_step=self.decomp_step,
-            gbd_round_id=self.gbd_round_id,
-        ).get_raw()
-        self.data = CrosswalkVersion(
-            crosswalk_version_id=self.crosswalk_version_id,
-            exclude_outliers=self.exclude_outliers,
-            demographics=self.demographics,
-            conn_def=self.conn_def,
-            gbd_round_id=self.gbd_round_id
-        ).get_raw()
-        self.covariate_data = [CovariateData(
-            covariate_id=c,
-            demographics=self.demographics,
-            decomp_step=self.decomp_step,
-            gbd_round_id=self.gbd_round_id
-        ).get_raw() for c in self.country_covariate_id]
-        self.population = Population(
-            demographics=self.demographics,
-            decomp_step=self.decomp_step,
-            gbd_round_id=self.gbd_round_id
-        ).get_population()
-
-    def configure_inputs_for_dismod(self, settings: SettingsConfig,
-                                    mortality_year_reduction: int = 5):
-        """
-        Modifies the inputs for DisMod based on model-specific settings.
-
-        Arguments
-        ---------
-        settings
-            Settings for the model
-        mortality_year_reduction
-            number of years to decimate csmr and asdr
-        """
-        self.data_eta = data_eta_from_settings(settings)
-        self.density = density_from_settings(settings)
-        self.nu = nu_from_settings(settings)
-        self.measures_to_exclude = measures_to_exclude_from_settings(settings)
-        self.measures_midpoint = midpoint_list_from_settings(settings)
-
-        # If we are constraining omega, then we want to hold out the data
-        # from the DisMod fit for ASDR (but never CSMR -- always want to fit
-        # CSMR).
-        data = self.data.configure_for_dismod(
-            measures_to_exclude=self.measures_to_exclude,
-            relabel_incidence=settings.model.relabel_incidence
-        )
-        asdr = self.asdr.configure_for_dismod(
-            hold_out=settings.model.constrain_omega)
-        csmr = self.csmr.configure_for_dismod(hold_out=0)
-
-        if settings.model.constrain_omega:
-            self.omega = calculate_omega(asdr=asdr, csmr=csmr)
-        else:
-            self.omega = None
-
-        if not csmr.empty:
-            csmr = decimate_years(
-                data=csmr, num_years=mortality_year_reduction)
-        if not asdr.empty:
-            asdr = decimate_years(
-                data=asdr, num_years=mortality_year_reduction)
-
-        self.dismod_data = pd.concat([data, asdr, csmr], axis=0, sort=True)
-        self.dismod_data.reset_index(drop=True, inplace=True)
-
-        self.dismod_data["density"] = self.dismod_data.measure.apply(
-            self.density.__getitem__)
-        self.dismod_data["eta"] = self.dismod_data.measure.apply(
-            self.data_eta.__getitem__)
-        self.dismod_data["nu"] = self.dismod_data.measure.apply(
-            self.nu.__getitem__)
-
-        for measure in self.dismod_data.measure.unique():
-            if measure in self.measures_midpoint:
-                midpoint_age_time(df=self.dismod_data, measure=measure)
-            else:
-                format_age_time(df=self.dismod_data, measure=measure)
-
-        # This makes the specs not just for the country covariate but adds on
-        # the sex and one covariates.
-        self.covariate_specs = CovariateSpecs(
-            country_covariates=settings.country_covariate,
-            study_covariates=settings.study_covariate
-        )
-        self.country_covariate_data = {c.covariate_id: c.configure_for_dismod(
-            pop_df=self.population.configure_for_dismod(),
-            loc_df=self.location_dag.df
-        ) for c in self.covariate_data}
-
-        self.dismod_data = self.add_covariates_to_data(df=self.dismod_data)
-        self.dismod_data.loc[
-            self.dismod_data.hold_out.isnull(), 'hold_out'] = 0.
-        self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
-
-        return self
-
-    def prune_mortality_data(self, parent_location_id: int) -> pd.DataFrame:
-        """
-        Remove mortality data for descendants that are not children of parent_location_id
-        from the configured dismod data before it gets filled into the dismod database.
-        """
-        df = self.dismod_data.copy()
-        direct_children = self.location_dag.parent_children(parent_location_id)
-        direct_children = df.location_id.isin(direct_children)
-        mortality_measures = df.measure.isin([
-            IntegrandEnum.mtall.name, IntegrandEnum.mtspecific.name
-        ])
-        remove_rows = ~direct_children & mortality_measures
-        df = df.loc[~remove_rows].copy()
-        return df
-
-    def add_covariates_to_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Add on covariates to a data frame that has age_group_id, year_id
-        or time-age upper / lower, and location_id and sex_id. Adds both
-        country-level and study-level covariates.
-        """
-        cov_dict_for_interpolation = {
-            c.name: self.country_covariate_data[c.covariate_id]
-            for c in self.covariate_specs.covariate_specs
-            if c.study_country == 'country'
-        }
-
-        df = self.interpolate_country_covariate_values(
-            df=df, cov_dict=cov_dict_for_interpolation)
-        df = self.transform_country_covariates(df=df)
-
-        df['s_sex'] = df.sex_id.map(
-            SEX_ID_TO_NAME).map(StudyCovConstants.SEX_COV_VALUE_MAP)
-        df['s_one'] = StudyCovConstants.ONE_COV_VALUE
-
-        return df
-
-    def to_gbd_avgint(self, parent_location_id: int, sex_id: int) -> pd.DataFrame:
-        """
-        Converts the demographics of the model to the avgint table.
-        """
-        LOG.info(f"Getting grid for the avgint table "
-                 f"for parent location ID {parent_location_id} "
-                 f"and sex_id {sex_id}.")
-        if self.drill_location_start is not None:
-            locations = self.demographics.drill_locations
-        else:
-            locations = self.location_dag.parent_children(parent_location_id)
-        grid = expand_grid({
-            'sex_id': [sex_id],
-            'location_id': locations,
-            'year_id': self.demographics.year_id,
-            'age_group_id': self.demographics.age_group_id
-        })
-        grid['time_lower'] = grid['year_id'].astype(int)
-        grid['time_upper'] = grid['year_id'] + 1.
-        grid = BaseInput(
-            gbd_round_id=self.gbd_round_id).convert_to_age_lower_upper(df=grid)
-        LOG.info("Adding covariates to avgint grid.")
-        grid = self.add_covariates_to_data(df=grid)
-        return grid
-
-    def interpolate_country_covariate_values(self, df: pd.DataFrame, cov_dict: Dict[Union[float, str], pd.DataFrame]):
-        """
-        Interpolates the covariate values onto the data
-        so that the non-standard ages and years match up to meaningful
-        covariate values.
-        """
-        LOG.info(f"Interpolating and merging the country covariates.")
-        interp_df = get_interpolated_covariate_values(
-            data_df=df,
-            covariate_dict=cov_dict,
-            population_df=self.population.configure_for_dismod()
-        )
-        return interp_df
-
-    def transform_country_covariates(self, df):
-        """
-        Transforms the covariate data with the transformation ID.
-        :param df: (pd.DataFrame)
-        :return: self
-        """
-        for c in self.covariate_specs.covariate_specs:
-            if c.study_country == 'country':
-                LOG.info(f"Transforming the data for country covariate "
-                         f"{c.covariate_id}.")
-                df[c.name] = df[c.name].apply(
-                    lambda x: COVARIATE_TRANSFORMS[c.transformation_id](x)
-                )
-        return df
-
-    def calculate_country_covariate_reference_values(
-            self, parent_location_id: int, sex_id: int) -> CovariateSpecs:
-        """
-        Gets the country covariate reference value for a covariate ID and a
-        parent location ID. Also gets the maximum difference between the
-        reference value and covariate values observed.
-
-        Run this when you're going to make a DisMod AT database for a specific
-        parent location and sex ID.
-
-        :param: (int)
-        :param parent_location_id: (int)
-        :param sex_id: (int)
-        :return: List[CovariateSpec] list of the covariate specs with the
-            correct reference values and max diff.
-        """
-        covariate_specs = copy(self.covariate_specs)
-
-        age_min = self.dismod_data.age_lower.min()
-        age_max = self.dismod_data.age_upper.max()
-        time_min = self.dismod_data.time_lower.min()
-        time_max = self.dismod_data.time_upper.max()
-
-        children = self.location_dag.children(parent_location_id)
-
-        for c in covariate_specs.covariate_specs:
-            transform = COVARIATE_TRANSFORMS[c.transformation_id]
-            if c.study_country == 'study':
-                if c.name == 's_sex':
-                    c.reference = StudyCovConstants.SEX_COV_VALUE_MAP[
-                        SEX_ID_TO_NAME[sex_id]]
-                    c.max_difference = StudyCovConstants.MAX_DIFFERENCE_SEX_COV
-                elif c.name == 's_one':
-                    c.reference = StudyCovConstants.ONE_COV_REFERENCE
-                    c.max_difference = StudyCovConstants.MAX_DIFFERENCE_ONE_COV
-                else:
-                    raise ValueError(f"The only two study covariates allowed are sex and one, you tried {c.name}.")
-            elif c.study_country == 'country':
-                LOG.info(f"Calculating the {transform.__name__} transformed reference and max difference for country covariate {c.covariate_id}.")
-
-                cov_df = self.country_covariate_data[c.covariate_id]
-                cov_df.loc[:, 'mean_value'] = transform(cov_df.loc[:, 'mean_value'])
-
-                parent_df = (
-                    cov_df.loc[cov_df.location_id == parent_location_id].copy()
-                )
-                child_df = cov_df.loc[cov_df.location_id.isin(children)].copy()
-                all_loc_df = pd.concat([child_df, parent_df], axis=0)
-
-                # if there is no data for the parent location at all (which
-                # there should be provided by Central Comp)
-                # then we are going to set the reference value to 0.
-                if cov_df.empty:
-                    reference_value = 0
-                    max_difference = np.nan
-                else:
-                    pop_df = self.population.configure_for_dismod()
-                    pop_df = (
-                        pop_df.loc[pop_df.location_id == parent_location_id].copy()
-                    )
-
-                    df_to_interp = pd.DataFrame({
-                        'location_id': parent_location_id,
-                        'sex_id': [sex_id],
-                        'age_lower': [age_min], 'age_upper': [age_max],
-                        'time_lower': [time_min], 'time_upper': [time_max]
-                    })
-                    reference_value = get_interpolated_covariate_values(
-                        data_df=df_to_interp,
-                        covariate_dict={c.name: parent_df},
-                        population_df=pop_df
-                    )[c.name].iloc[0]
-                    LOG.info(f"Setting covariate {c.name} max_difference = nan to disable data hold_out due to covariate value.")
-                    max_difference = np.nan
-                c.reference = reference_value
-                c.max_difference = max_difference
-        covariate_specs.create_covariate_list()
-        return covariate_specs
-
-    def reset_index(self, drop, inplace):
-        pass
-
-
-class MeasurementInputsFromSettings(MeasurementInputs):
-    def __init__(self, settings: SettingsConfig):
-        """
-        Wrapper for MeasurementInputs that takes a settings object rather
-        than the individual arguments. For convenience.
-
-        Examples
-        --------
-        >>> from cascade_at.settings.base_case import BASE_CASE
-        >>> from cascade_at.settings.settings import load_settings
-
-        >>> settings = load_settings(BASE_CASE)
-        >>> i = MeasurementInputs(settings)
-        >>> i.get_raw_inputs()
-        >>> i.configure_inputs_for_dismod()
-        """
-        covariate_ids = [i.country_covariate_id for i in
-                         settings.country_covariate]
-
-        if settings.model.drill:
-            drill_location_start = settings.model.drill_location_start
-            drill_location_end = settings.model.drill_location_end
-        else:
-            drill_location_start = None
-            drill_location_end = None
-
-        super().__init__(
-            model_version_id=settings.model.model_version_id,
-            gbd_round_id=settings.gbd_round_id,
-            decomp_step_id=settings.model.decomp_step_id,
-            csmr_cause_id=settings.model.add_csmr_cause,
-            crosswalk_version_id=settings.model.crosswalk_version_id,
-            country_covariate_id=covariate_ids,
-            conn_def='epi',
-            location_set_version_id=settings.location_set_version_id,
-            drill_location_start=drill_location_start,
-            drill_location_end=drill_location_end
-        )
-'''
+    main(mvid = 475871)
