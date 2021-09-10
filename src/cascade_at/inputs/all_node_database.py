@@ -1,14 +1,3 @@
-if 1:
-    if 1:
-        _gbd_round_id_ = 6
-        _decomp_step_ = 'step4'
-        _conn_def_ = 'dismod-at-dev'
-        _age_group_set_id_ = 12
-        _year_id_ = [2000]
-        _cause_id_ = 975
-        mvid = 475871
-
-
 import sys
 
 from functools import reduce
@@ -54,140 +43,43 @@ from cascade_at.settings.convert import (
     midpoint_list_from_settings
 )
 
+import sqlalchemy as sql
+import db_tools
+
 LOG = get_loggers(__name__)
 
 
-import sqlalchemy as sql
-import db_tools
-# from db_tools import ezfuncs
-
-# from cascade_at.executor.dismod_ihme_input import CovariateReference
-class CovariateReference:
-    def __init__(self, inputs):
-        self.inputs = inputs
-        self.cov_ids = {c.covariate_id: c.name
-                        for c in inputs.covariate_specs.covariate_specs
-                        if c.study_country == 'country'}
-        self.loc_df = inputs.location_dag.df
-        self.pop_df = inputs.population.configure_for_dismod()
-    def configure_for_dismod(self, covariate_data):
-        from cascade_at.inputs.utilities.covariate_weighting import CovariateInterpolator
-        def handle_exception(**kwds):
-            try: return cov.interpolate(**kwds)
-            except: return None
-
-        cols = ['location_id', 'year_id', 'age_group_id', 'sex_id']
-        cov_df = [v.configure_for_dismod(self.pop_df, self.loc_df)[cols + ['mean_value']].rename(columns={'mean_value': k}) for k,v in covariate_data.items()]
-        cov_df = reduce(lambda x, y: pd.merge(x, y, how='inner', on = cols ), cov_df)
-
-        self.inputs.transform_country_covariates(cov_df)
-        return cov_df
+__quick_test__ = not True
 
 
-# class CovariateReference:
-#     def __init__(self, inputs):
-#         self.inputs = inputs
-#         self.cov_ids = {c.covariate_id: c.name
-#                         for c in inputs.covariate_specs.covariate_specs
-#                         if c.study_country == 'country'}
-#         self.loc_df = inputs.location_dag.df
-#         self.pop_df = inputs.population.configure_for_dismod()
-#     def configure_for_dismod(self, covariate_data):
-#         from cascade_at.inputs.utilities.covariate_weighting import CovariateInterpolator
-#         def handle_exception(**kwds):
-#             try: return cov.interpolate(**kwds)
-#             except: return None
-#         cov_df = covariate_data.configure_for_dismod(self.pop_df, self.loc_df)
-#         cov = CovariateInterpolator(cov_df, self.pop_df)
-#         cov_id = covariate_data.covariate_id
-#         cov_name = self.cov_ids[cov_id]
-#         cov_df = pd.DataFrame([{'location_id': loc_id, 'sex_id': sex_id,
-#                                 cov_name: handle_exception(loc_id = loc_id,sex_id = sex_id, age_lower=0, age_upper=100, time_lower = 1970, time_upper = 2020)}
-#                               for loc_id in sorted(cov_df.location_id.unique())
-#                               for sex_id in (1,2,3)])
-#         self.inputs.transform_country_covariates(cov_df)
-#         return cov_df
-
-
-# class foo:
-#     def __init__(self): pass
-
-#     def interpolate_country_covariate_values(self, df: pd.DataFrame, cov_dict: Dict[Union[float, str], pd.DataFrame]):
-#         """
-#         Interpolates the covariate values onto the data
-#         so that the non-standard ages and years match up to meaningful
-#         covariate values.
-#         """
-#         LOG.info(f"Interpolating and merging the country covariates.")
-#         interp_df = get_interpolated_covariate_values(
-#             data_df=df,
-#             covariate_dict=cov_dict,
-#             population_df=self.population.configure_for_dismod()
-#         )
-#         return interp_df
-
-#     def add_covariates_to_data(self, df: pd.DataFrame) -> pd.DataFrame:
-#         """
-#         Add on covariates to a data frame that has age_group_id, year_id
-#         or time-age upper / lower, and location_id and sex_id. Adds both
-#         country-level and study-level covariates.
-#         """
-#         cov_dict_for_interpolation = {
-#             c.name: self.country_covariate_data[c.covariate_id]
-#             for c in self.covariate_specs.covariate_specs
-#             if c.study_country == 'country'
-#         }
-
-#         df = self.interpolate_country_covariate_values(
-#             df=df, cov_dict=cov_dict_for_interpolation)
-#         df = self.transform_country_covariates(df=df)
-
-#         df['s_sex'] = df.sex_id.map(
-#             SEX_ID_TO_NAME).map(StudyCovConstants.SEX_COV_VALUE_MAP)
-#         df['s_one'] = StudyCovConstants.ONE_COV_VALUE
-
-#         return df
-
-#     def transform_country_covariates(self, df):
-#         """
-#         Transforms the covariate data with the transformation ID.
-#         :param df: (pd.DataFrame)
-#         :return: self
-#         """
-#         for c in self.covariate_specs.covariate_specs:
-#             if c.study_country == 'country':
-#                 LOG.info(f"Transforming the data for country covariate "
-#                          f"{c.covariate_id}.")
-#                 df[c.name] = df[c.name].apply(
-#                     lambda x: COVARIATE_TRANSFORMS[c.transformation_id](x)
-#                 )
-#         return df
-
-
-
-
-
-def cov_weighted_average(inputs, node):
-    cov_dict_for_interpolation = { c.name: inputs.covariate_data[c.covariate_id] for c in inputs.covariate_specs.covariate_specs if c.study_country == 'country' }
-
-    cols = ['location_id', 'sex_id', 'year_id', 'age_group_id']
-    covs = [c.configure_for_dismod(pop_df = inputs.population.raw, loc_df = node)[cols + ['mean_value']].rename(columns = {'mean_value': n})
-            for n,c in cov_dict_for_interpolation.items()]
-    cov_names = list(cov_dict_for_interpolation.keys())
-    outer = reduce(lambda x, y: pd.merge(x, y, how='outer', on = cols ), covs)
-    covs = outer.merge(inputs.population.raw)
-    for name in cov_names:
-        covs[name] = covs[name] * covs.population
-    grps = covs.groupby(['location_id', 'sex_id'], as_index=False)
-    weighted_avg = grps[['population'] + cov_names].sum(min_count=1)
-    for name in cov_names:
-        weighted_avg[name] /= weighted_avg.population
-    weighted_avg.drop(columns = ['population'], inplace=True)
-    return weighted_avg
-
-
+class Inputs:
+    def __init__(self, demographics, population, covariate_specs):
+        self.demographics = demographics
+        self.population = population
+        self.covariate_specs = covariate_specs
+    def transform_country_covariates(self, df):
+        """
+        Transforms the covariate data with the transformation ID.
+        :param df: (pd.DataFrame)
+        :return: self
+        """
+        for c in self.covariate_specs.covariate_specs:
+            if c.study_country == 'country':
+                LOG.info(f"Transforming the data for country covariate "
+                         f"{c.covariate_id}.")
+                df[c.name] = df[c.name].apply(
+                    lambda x: COVARIATE_TRANSFORMS[c.transformation_id](x)
+                )
+        return df
 
 class AllNodeDatabase:
+    def dataframe_compression_index(self, name = '', df = None):
+        index = df[(df.index == 0) | (df.node_id.diff() > 0)]
+        index[f'all_{name}_id'] = index.index
+        index.reset_index(inplace=True, drop=True)
+        index[f'{name}_index_id'] = index.index
+        index = index[[f'{name}_index_id', 'node_id', f'all_{name}_id']]
+        return index
 
     def get_asdr(self, demographics=None, gbd_round_id=None, decomp_step=None):
         print ('*** Get ASDR. ***')
@@ -238,187 +130,106 @@ class AllNodeDatabase:
         age.loc[mask,'age_id'] = age[mask].index
         return time, age
 
-    def __init__(self, location_set_version_id = None):
-        location_set_version_id = None
-        _gbd_round_id_ = 6
-        self.gbd_round_id = _gbd_round_id_
-        gbd_round = ds.gbd_round_from_gbd_round_id(_gbd_round_id_)
-        _decomp_step_ = 'step4'
-        _conn_def_ = 'dismod-at-dev'
+    def cov_weighted_average(self, inputs, node):
+        cols = ['location_id', 'sex_id', 'year_id', 'age_group_id']
+
+        cov_dict = { c.name: inputs.covariate_data[c.covariate_id] for c in inputs.covariate_specs.covariate_specs if c.study_country == 'country' }
+        covs = [c.configure_for_dismod(pop_df = inputs.population.raw, loc_df = node)[cols + ['mean_value']].rename(columns = {'mean_value': n})
+                for n,c in cov_dict.items()]
+        cov_names = list(cov_dict.keys())
+        outer = reduce(lambda x, y: pd.merge(x, y, how='outer', on = cols ), covs)
+        covs = outer.merge(inputs.population.raw)
+        for name in cov_dict.keys():
+            covs[name] = covs[name] * covs.population
+        grps = covs.groupby(['location_id', 'sex_id'], as_index=False)
+        weighted_avg = grps[['population'] + cov_names].sum(min_count=1)
+        for name in cov_names:
+            weighted_avg[name] /= weighted_avg.population
+        weighted_avg.drop(columns = ['population'], inplace=True)
+        return weighted_avg
+
+    def __init__(self,
+                 mvid = 475871,
+                 conn_def = 'dismod-at-dev',
+                 location_set_version_id = None,
+                 gbd_round_id = 6,
+                 decomp_step = 'step4',
+                 root_node_path = '/Users/gma/ihme/epi/at_cascade/data/{mvid}/dbs/{location_id}/{sex_id}/dismod.db'
+                 ):
+        if __quick_test__:
+             mvid = 475871
+             conn_def = 'dismod-at-dev'
+             gbd_round_id = 6
+             decomp_step = 'step4'
+             root_node_path = '/Users/gma/ihme/epi/at_cascade/data/{mvid}/dbs/{location_id}/{sex_id}/dismod.db'
+
+        self.mvid = mvid
+        
+        self.parent_location_id = 100
+        self.sex_id = 2
+        
+        self.decomp_step = decomp_step
+
+        self.gbd_round_id = gbd_round_id
+        gbd_round = ds.gbd_round_from_gbd_round_id(gbd_round_id)
+        self.conn_def = conn_def
         _age_group_set_id_ = 12
         _year_id_ = [2000]
         _cause_id_ = 975
-        mvid = 475871
-        
+
         global obj
         obj=self
 
-        root_node_db = self.get_root_node_db('~/ihme/epi/at_cascade/data/475871/dbs/100/2/dismod.db')
-        self.db = root_node_db
+        root_node_db = self.get_root_node_db(root_node_path.format(mvid=self.mvid, location_id=self.parent_location_id, sex_id=self.sex_id))
+        self.root_node_db = root_node_db
         self.age = root_node_db.age
         self.time = root_node_db.time
         self.node = root_node_db.node
 
-        print ('*** Get demographics. ***')
-        demographics = Demographics(gbd_round_id=_gbd_round_id_)
-        # demographics.location_id = [1]
-        # demographics.drill_locations = [1]
-        if 1:
-            demographics.location_id = [1, 4, 31, 64, 103, 137, 158, 166]
+        print ('*** Get parameter json and load_settings. ***')
+        from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
+        parameter_json = settings_json_from_model_version_id(
+            model_version_id = self.mvid,
+            conn_def = self.conn_def)
+        settings = load_settings(settings_json=parameter_json)
+
+        if settings.location_set_version_id:
+            self.location_set_version_id = settings.location_set_version_id
         else:
-            demographics.location_id = sorted(self.node.c_location_id.values)
+            self.location_set_version_id = get_location_set_version_id(gbd_round_id = self.gbd_round_id)
 
+        print ('*** Get demographics. ***')
+        demographics = Demographics(gbd_round_id=self.gbd_round_id)
 
-        demographics.year_id = list(range(min(demographics.year_id), max(demographics.year_id)+2, 5))
+        # Subsample demographic years
+        demographics.year_id = list(range(min(demographics.year_id), max(demographics.year_id)+5, 5))
 
         print ('*** Get population. ***')
-        population = Population( demographics=demographics,
-                                 decomp_step=_decomp_step_,
-                                 gbd_round_id=_gbd_round_id_).get_population()
+        population = Population( demographics = demographics, # 
+                                 decomp_step = self.decomp_step,
+                                 gbd_round_id=self.gbd_round_id).get_population()
             
-        if 0:
-            asdr = self.get_asdr(demographics=demographics, gbd_round_id=_gbd_round_id_, decomp_step=_decomp_step_)
-            csmr = self.get_csmr(demographics=demographics, gbd_round_id=_gbd_round_id_, decomp_step=_decomp_step_, cause_id = _cause_id_)
 
-            omega_age_grid = sorted(set(asdr.age.unique()) & set(csmr.age.unique()))
-            self.omega_age_grid = pd.DataFrame(omega_age_grid, columns = ['age_id'])
-            self.omega_age_grid['omega_age_grid_index'] = self.omega_age_grid.index
+        covariate_specs = CovariateSpecs(
+            country_covariates=settings.country_covariate,
+            study_covariates=settings.study_covariate
+        )
 
-            omega_time_grid = sorted(set(asdr.time.unique()) & set(csmr.time.unique()))
-            self.omega_time_grid = pd.DataFrame(omega_time_grid, columns = ['time_id'])
-            self.omega_time_grid['omega_time_grid_index'] = self.omega_time_grid.index
+        inputs = Inputs(demographics, population, covariate_specs)
 
-            self.db.time, self.db.age = self.update_root_node_time_age(self.db.time, omega_time_grid, self.db.age, omega_age_grid)
-
-            self.asdr = (asdr
-                         .merge(self.db.node, left_on = 'location_id', right_on = 'c_location_id')
-                         .merge(self.db.time, how='left')
-                         .merge(self.db.age, how='left'))
-
-            self.csmr = (csmr
-                         .merge(self.db.node, left_on = 'location_id', right_on = 'c_location_id')
-                         .merge(self.db.time, how='left')
-                         .merge(self.db.age, how='left'))
-
-        def dataframe_compression_index(name = '', df = None):
-            index = df[(df.index == 0) | (df.node_id.diff() > 0)]
-            index[f'all_{name}_id'] = index.index
-            index.reset_index(inplace=True, drop=True)
-            index[f'{name}_index_id'] = index.index
-            index = index[[f'{name}_index_id', 'node_id', f'all_{name}_id']]
-            return index
-
-            all_mtall = self.asdr[['node_id', 'time_id', 'age_id', 'meas_value']].rename(columns={'meas_value': 'all_mtall_value'}).reset_index(drop=True)
-            all_mtall['all_mtall_id'] = all_mtall.index
-            self.all_mtall = all_mtall
-            self.mtall_index = dataframe_compression_index('mtall', self.all_mtall)
-
-            all_mtspecific = self.asdr[['node_id', 'time_id', 'age_id', 'meas_value']].rename(columns={'meas_value': 'all_mtspecific_value'}).reset_index(drop=True)
-            all_mtspecific['all_mtspecific_id'] = all_mtspecific.index
-            self.all_mtspecific = all_mtspecific
-            self.mtspecific_index = dataframe_compression_index('mtspecific', self.all_mtspecific)
-
-
-        print ('*** Check the new Dismod-AT development database host. ***')
-        HOST = 'epiat-unmanaged-db-p01.db.ihme.washington.edu'
-        USER = 'dbview'
-        PASSWORD = 'E3QNSLvQTRJm'
-        s = (f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:3306'
-             '/information_schema?use_unicode=1&charset=utf8mb4')
-        try:
-            engine = sql.create_engine(s)
-            conn = engine.connect()
-            print (conn.engine)
-            conn.close()
-        except:
-            print ("ERROR -- make sure you are connected to the VPN")
-            exit()
-
-
-        class Inputs:
-            def __init__(self, demographics, population, covariate_specs):
-                self.demographics = demographics
-                self.population = population
-                self.covariate_specs = covariate_specs
-            def transform_country_covariates(self, df):
-                """
-                Transforms the covariate data with the transformation ID.
-                :param df: (pd.DataFrame)
-                :return: self
-                """
-                for c in self.covariate_specs.covariate_specs:
-                    if c.study_country == 'country':
-                        LOG.info(f"Transforming the data for country covariate "
-                                 f"{c.covariate_id}.")
-                        df[c.name] = df[c.name].apply(
-                            lambda x: COVARIATE_TRANSFORMS[c.transformation_id](x)
-                        )
-                return df
-
-        self.age_group_id = demographics.age_group_id
-        self.year_id = demographics.year_id
-        self.sex_id = demographics.sex_id
-        self.drill_locations = demographics.drill_locations
-
-        if location_set_version_id is None:
-            self.location_set_version_id = get_location_set_version_id(gbd_round_id = _gbd_round_id_)
-        else:
-            self.location_set_version_id = location_set_version_id
-
-        if 1:
-            print ('*** Get parameter json and load_settings. ***')
-            from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
-            parameter_json = settings_json_from_model_version_id(
-                model_version_id=mvid,
-                conn_def = _conn_def_)
-            settings = load_settings(settings_json=parameter_json)
-
-            covariate_specs = CovariateSpecs(
-                country_covariates=settings.country_covariate,
-                study_covariates=settings.study_covariate
-            )
-
-
-
-            global inputs
-            inputs = Inputs(demographics, population, covariate_specs)
-            print ('*** Get locations. ***')
-            from cascade_at.inputs.locations import LocationDAG, locations_by_drill
-            inputs.location_dag = LocationDAG(location_set_version_id = self.location_set_version_id,
-                                       gbd_round_id = _gbd_round_id_)
-
-            covariate_data = {cov.name : CovariateData(
-                covariate_id = cov.covariate_id,
-                demographics = inputs.demographics,
-                decomp_step = _decomp_step_,
-                gbd_round_id = _gbd_round_id_
-            ).get_raw()
-                              for cov in inputs.covariate_specs.covariate_specs
-                              if cov.study_country == 'country'}
-
-            ref = CovariateReference(inputs)
-
-            COV_REF = ref.configure_for_dismod(covariate_data)
-
-
+        print ('*** Get locations. ***')
+        inputs.location_dag = LocationDAG(location_set_version_id = self.location_set_version_id,
+                                   gbd_round_id = self.gbd_round_id)
         if settings.model.drill:
             self.drill_location_start = settings.model.drill_location_start
             self.drill_location_end = settings.model.drill_location_end
         else:
             self.drill_location_start = None
             self.drill_location_end = None
-        self.country_covariate_ids = list(covariate_specs.country_covariate_ids)
 
-
-        from cascade_at.dismod.api.fill_extract_helpers import reference_tables
-
-        self.age = reference_tables.construct_age_time_table(
-            variable_name='age', variable=demographics.age_group_id,
-            data_min=0, data_max=100)
-
-        self.time = reference_tables.construct_age_time_table(
-            variable_name='time', variable=demographics.year_id,
-            data_min=0, data_max=2020)
+        if 1:
+            self.drill_location_start = 64
+            self.drill_location_end = 102
 
 
         # Need to subset the locations to only those needed for
@@ -435,14 +246,87 @@ class AllNodeDatabase:
             demographics.drill_locations = drill_locations
         self.demographics = demographics
 
+        print ("*** Drill information. ***")
+        print (demographics.drill_locations)
+        print (demographics.location_id)
+
+
+        asdr = self.get_asdr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step)
+        csmr = self.get_csmr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step, cause_id = _cause_id_)
+
+        omega_age_grid = sorted(set(asdr.age.unique()) & set(csmr.age.unique()))
+        self.omega_age_grid = pd.DataFrame(omega_age_grid, columns = ['age_id'])
+        self.omega_age_grid['omega_age_grid_index'] = self.omega_age_grid.index
+
+        omega_time_grid = sorted(set(asdr.time.unique()) & set(csmr.time.unique()))
+        self.omega_time_grid = pd.DataFrame(omega_time_grid, columns = ['time_id'])
+        self.omega_time_grid['omega_time_grid_index'] = self.omega_time_grid.index
+
+        self.root_node_db.time, self.root_node_db.age = self.update_root_node_time_age(self.root_node_db.time, omega_time_grid, self.root_node_db.age, omega_age_grid)
+
+        self.asdr = (asdr
+                     .merge(self.root_node_db.node, how='left', left_on = 'location_id', right_on = 'c_location_id')
+                     .merge(self.root_node_db.time, how='left')
+                     .merge(self.root_node_db.age, how='left'))
+
+        self.csmr = (csmr
+                     .merge(self.root_node_db.node, how='left', left_on = 'location_id', right_on = 'c_location_id')
+                     .merge(self.root_node_db.time, how='left')
+                     .merge(self.root_node_db.age, how='left'))
+
+        all_mtall = self.asdr[['node_id', 'time_id', 'age_id', 'sex_id', 'meas_value']].rename(columns={'meas_value': 'all_mtall_value'}).reset_index(drop=True)
+        all_mtall['all_mtall_id'] = all_mtall.index
+        self.all_mtall = all_mtall
+        self.mtall_index = self.dataframe_compression_index('mtall', self.all_mtall)
+
+        all_mtspecific = self.asdr[['node_id', 'time_id', 'age_id', 'sex_id', 'meas_value']].rename(columns={'meas_value': 'all_mtspecific_value'}).reset_index(drop=True)
+        all_mtspecific['all_mtspecific_id'] = all_mtspecific.index
+        self.all_mtspecific = all_mtspecific
+        self.mtspecific_index = self.dataframe_compression_index('mtspecific', self.all_mtspecific)
+
+        if 0:
+            print ('*** Check the new Dismod-AT development database host. ***')
+            HOST = 'epiat-unmanaged-db-p01.db.ihme.washington.edu'
+            USER = 'dbview'
+            PASSWORD = 'E3QNSLvQTRJm'
+            s = (f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:3306'
+                 '/information_schema?use_unicode=1&charset=utf8mb4')
+            try:
+                engine = sql.create_engine(s)
+                conn = engine.connect()
+                print (conn.engine)
+                conn.close()
+            except:
+                print ("ERROR -- make sure you are connected to the VPN")
+                exit()
+
+
+        self.age_group_id = demographics.age_group_id
+        self.sex_id = demographics.sex_id
+        self.drill_locations = demographics.drill_locations
+
+
+        self.country_covariate_ids = list(covariate_specs.country_covariate_ids)
+
+
+        from cascade_at.dismod.api.fill_extract_helpers import reference_tables
+
+        self.age = reference_tables.construct_age_time_table(
+            variable_name='age', variable=demographics.age_group_id,
+            data_min=0, data_max=100)
+
+        self.time = reference_tables.construct_age_time_table(
+            variable_name='time', variable=demographics.year_id,
+            data_min=0, data_max=2020)
+
+
         print ('*** Get covariate_reference. ***')
-        covariate_ids = [57, 68]
         inputs.covariate_data = {c: CovariateData(
             covariate_id=c,
             demographics=self.demographics,
-            decomp_step=_decomp_step_,
-            gbd_round_id=_gbd_round_id_
-        ).get_raw() for c in covariate_ids}
+            decomp_step=self.decomp_step,
+            gbd_round_id=self.gbd_round_id
+        ).get_raw() for c in self.country_covariate_ids}
 
         from cascade_at.dismod.api.fill_extract_helpers.reference_tables import construct_node_table
         node = construct_node_table(inputs.location_dag).rename(columns = {'c_location_id': 'location_id'})
@@ -450,7 +334,8 @@ class AllNodeDatabase:
         node['level'] = level
         node['parent_id'] = node.parent
 
-        covariate_reference = cov_weighted_average(inputs, node)
+        cov_df = self.cov_weighted_average(inputs, node)
+        self.covariate = inputs.transform_country_covariates(cov_df)
 
         # This the lookup that interpolates ages and times
 
@@ -460,40 +345,7 @@ class AllNodeDatabase:
         
         print ('*** Get age metadata. ***')
         import cascade_at.core.db
-        self.age_groups = cascade_at.core.db.db_queries.get_age_metadata(age_group_set_id=_age_group_set_id_, gbd_round_id=_gbd_round_id_)
-
-
-        
-        
-        print ('*** Get covariate_reference. ***')
-        covariate_ids = [57, 68]
-        def get_covariate_reference(covariate_ids):
-            cols = ['covariate_id', 'location_id', 'year_id', 'age_group_id', 'sex_id', 'mean_value']
-            covariates = pd.DataFrame()
-            names = None
-            for cov_id in covariate_ids:
-                cov = CovariateData(
-                    covariate_id=cov_id,
-                    demographics=self.demographics,
-                    decomp_step=_decomp_step_,
-                    gbd_round_id=_gbd_round_id_
-                ).get_raw()
-                cov_df = cov.configure_for_dismod(pop_df = inputs.population.raw, loc_df = node)
-                if not cov_df.empty:
-                    cov_name = cov.raw.covariate_name_short[0]
-                    cov_df['covariate_id'] = cov_id
-                    cov_df['covariate_name'] = cov_name
-                    covariates = covariates.append(cov_df)
-                covariate = covariates.groupby(['covariate_id', 'location_id', 'sex_id'], as_index=False).median()
-            covariate.reset_index(inplace=True, drop=True)
-            covariate['all_covariate_reference_id'] = covariate.index
-            covariate = covariate.merge(self.db.node, left_on = 'location_id', right_on = 'c_location_id')
-            covariate.rename(columns={'mean_value': 'reference'}, inplace=True)
-            return covariate[['all_covariate_reference_id', 'covariate_id', 'node_id', 'sex_id', 'reference']]
-
-        # covariate = get_covariate_reference(covariate_ids)
-
-        # self.covariate = covariate
+        self.age_groups = cascade_at.core.db.db_queries.get_age_metadata(age_group_set_id=_age_group_set_id_, gbd_round_id=self.gbd_round_id)
 
 
 if __name__ == '__main__':
@@ -505,8 +357,8 @@ if __name__ == '__main__':
     conn = sqlite3.connect(fn)
     self.node.to_sql('node', conn, if_exists="replace")
     self.covariate.to_sql('covariate', conn, if_exists="replace")
-    # self.asdr.to_sql('all_mtall', conn, if_exists="replace")
-    # self.csmr.to_sql('all_mtspecific', conn, if_exists="replace")
+    self.asdr.to_sql('all_mtall', conn, if_exists="replace")
+    self.csmr.to_sql('all_mtspecific', conn, if_exists="replace")
 
     self.omega_age_grid.to_sql('omega_age_grid', conn, if_exists="replace")
     self.omega_time_grid.to_sql('omega_time_grid', conn, if_exists="replace")
@@ -516,6 +368,11 @@ if __name__ == '__main__':
 
     self.all_mtspecific[['all_mtspecific_id', 'all_mtspecific_value']].to_sql('all_mtspecific', conn, if_exists="replace")
     self.mtspecific_index.to_sql('mtspecific_index', conn, if_exists="replace")
+
+
+
+
+
 
 
 
@@ -534,7 +391,7 @@ if 0:
             JOIN shared.decomp_step ds USING (decomp_step_id)
             WHERE co.is_best = 1
             AND co.best_end IS NULL
-            AND ds.gbd_round_id = {_gbd_round_id_}
+            AND ds.gbd_round_id = {self.gbd_round_id}
             """
     run_id = db_tools.ezfuncs.query(run_query, conn_def='cod').version.astype(int).squeeze()
 
@@ -564,7 +421,7 @@ if 0:
 
     print ('*** Check COD. ***')
     from cascade_at.inputs.csmr import get_best_cod_correct
-    cod = get_best_cod_correct(gbd_round_id = _gbd_round_id_)
+    cod = get_best_cod_correct(gbd_round_id = self.gbd_round_id)
 
     print ('OK')
 
