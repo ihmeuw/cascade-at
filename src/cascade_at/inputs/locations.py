@@ -73,6 +73,7 @@ class LocationDAG:
                 self.df.location_id != root].itertuples()
         ])
         self.dag.graph["root"] = root
+        self.rdag = self.dag.reverse()
 
     def depth(self, location_id: int) -> int:
         """
@@ -87,6 +88,18 @@ class LocationDAG:
         :return:
         """
         return nx.algorithms.dag.descendants(G=self.dag, source=location_id)
+
+    def parent(self, location_id: int) -> int:
+        """
+        Gets the parent location ID.
+        """
+        return list(self.dag.predecessors(location_id))[0]
+
+    def ancestors(self, location_id: int) -> List[int]:
+        """
+        Gets all the ancestors (not just the direct parent) for a location ID.
+        """
+        return nx.algorithms.dag.descendants(G=self.rdag, source=location_id)
 
     def children(self, location_id: int) -> List[int]:
         """
@@ -151,8 +164,9 @@ def locations_by_drill(drill_location_start: int, drill_location_end: List[int],
     elif drill_location_start and drill_location_end:
         LOG.info(
             f"This is a DRILL model, so only data for "
-            f"{drill_location_start} (the parent) and descendents "
-            f"of {drill_location_end} (the children) will be pulled."
+            f"{drill_location_start} (the parent), descendents "
+            f"of {drill_location_end} (the children), and "
+            f"the ancestors of child back to the parent and be pulled."
         )
         drill_locations_all = [drill_location_start]
         for child in drill_location_end:
