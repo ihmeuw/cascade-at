@@ -119,7 +119,7 @@ class ResultsHandler:
         add_summaries
             Save an additional file with summaries to upload
         """
-        LOG.info(f"Saving results to {directory.absolute()}")
+        LOG.info(f"Saving draw file results to {directory.absolute()}")
 
         df['model_version_id'] = model_version_id
         self._validate_results(df=df)
@@ -153,7 +153,7 @@ class ResultsHandler:
         directory
             Path to save the files to
         """
-        LOG.info(f"Saving results to {directory.absolute()}")
+        LOG.info(f"Saving summary file results to {directory.absolute()}")
 
         df['model_version_id'] = model_version_id
         self._validate_results(df=df)
