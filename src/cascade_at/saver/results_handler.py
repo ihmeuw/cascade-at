@@ -119,18 +119,19 @@ class ResultsHandler:
         add_summaries
             Save an additional file with summaries to upload
         """
-        LOG.info(f"Saving draw file results to {directory.absolute()}")
-
         df['model_version_id'] = model_version_id
         self._validate_results(df=df)
 
         for loc in df.location_id.unique().tolist():
             os.makedirs(str(directory / str(loc)), exist_ok=True)
             for sex in df.sex_id.unique().tolist():
+                loc = int(loc)
+                sex = int(sex)
                 subset = df.loc[
                     (df.location_id == loc) &
                     (df.sex_id == sex)
-                ].copy()
+                ]
+                LOG.info(f"Saving draw file results to {directory.absolute()}/{loc}_{sex}.csv")
                 subset.to_csv(directory / str(loc) / f'{loc}_{sex}.csv')
                 if add_summaries:
                     summary = self.summarize_results(df=subset)
@@ -153,7 +154,6 @@ class ResultsHandler:
         directory
             Path to save the files to
         """
-        LOG.info(f"Saving summary file results to {directory.absolute()}")
 
         df['model_version_id'] = model_version_id
         self._validate_results(df=df)
@@ -162,10 +162,13 @@ class ResultsHandler:
         for loc in df.location_id.unique().tolist():
             os.makedirs(str(directory / str(loc)), exist_ok=True)
             for sex in df.sex_id.unique().tolist():
+                loc = int(loc)
+                sex = int(sex)
                 subset = df.loc[
                     (df.location_id == loc) &
                     (df.sex_id == sex)
-                    ].copy()
+                    ]
+                LOG.info(f"Saving summary file results to {directory.absolute()}/{loc}_{sex}_summary.csv")
                 subset.to_csv(directory / str(loc) / f'{loc}_{sex}_summary.csv')
 
     @staticmethod
