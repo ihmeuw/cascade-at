@@ -122,7 +122,7 @@ class ResultsHandler:
         df['model_version_id'] = model_version_id
         self._validate_results(df=df)
 
-        for loc in df.location_id.unique().tolist():
+        for loc in sorted(df.location_id.unique().tolist()):
             os.makedirs(str(directory / str(loc)), exist_ok=True)
             for sex in df.sex_id.unique().tolist():
                 loc = int(loc)
