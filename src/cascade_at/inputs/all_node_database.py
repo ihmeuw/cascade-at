@@ -1,4 +1,7 @@
+#!/usr/bin/env python
+
 import sys
+import os
 
 from functools import reduce
 import numpy as np
@@ -145,31 +148,34 @@ class AllNodeDatabase:
         weighted_avg.drop(columns = ['population'], inplace=True)
         return weighted_avg
 
+    def write_table_sql(self, table_name, dtypes):
+        df = getattr(self, table_name)
+        id_column = f"{table_name}_id"
+        if id_column not in df:
+            df[id_column] = df.reset_index(drop=True).index
+        keys = ', '.join([f'{k} {v}' for k,v in dtypes.items() if k != id_column])
+        self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+        self.conn.execute(f"CREATE TABLE {table_name} ({id_column} integer primary key, {keys})")
+        cols = [k for k in dtypes if k != id_column]
+        df[cols].to_sql(table_name, self.conn, index_label = id_column, if_exists="append")
+
     def save_to_sql(self):
         print (f"*** Writing {self.all_node_db} ***")
-        conn = sqlite3.connect(self.all_node_db)
+        self.conn = sqlite3.connect(self.all_node_db)
 
-        self.option.to_sql('option', conn, if_exists="replace")
+        self.all_covariate_reference = self.covariate
+ 
+        self.write_table_sql('all_option', {'all_option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
+        self.write_table_sql('fit_goal', {'fit_goal_id': 'integer', 'node_id': 'integer'})
+        self.write_table_sql('all_covariate_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'covariate_id':'integer', 'reference': 'real'})
+        self.write_table_sql('omega_age_grid', {'omega_age_grid_id': 'integer', 'age_id': 'integer'})
+        self.write_table_sql('omega_time_grid', {'omega_time_grid_id': 'integer', 'time_id': 'integer'})
+        
+        self.write_table_sql('mtall_index', {'mtall_index_id': 'integer', 'node_id': 'integer', 'all_mtall_id': 'integer'})
+        self.write_table_sql('all_mtall', {'all_mtall_id': 'integer', 'all_mtall_value': 'real'})
+        self.write_table_sql('mtspecific_index', {'mtspecific_index_id': 'integer', 'node_id': 'integer', 'all_mtspecific_id': 'integer'})
+        self.write_table_sql('all_mtspecific', {'all_mtspecific_id': 'integer', 'all_mtspecific_value': 'integer'})
 
-        cols = ['fit_goal_id', 'node_id']
-        self.fit_goal[cols].to_sql('fit_goal', conn, if_exists="replace")
-
-        cols = ['all_cov_reference_id', 'node_id', 'covariate_id', 'reference']
-        self.covariate[cols].to_sql('all_covariate_reference', conn, if_exists="replace")
-
-        cols = ['omega_age_grid_id', 'age_id']
-        self.omega_age_grid[cols].to_sql('omega_age_grid', conn, if_exists="replace")
-
-        cols = ['omega_time_grid_id', 'time_id']
-        self.omega_time_grid[cols].to_sql('omega_time_grid', conn, if_exists="replace")
-
-        self.mtall_index.to_sql('mtall_index', conn, if_exists="replace")
-        cols = ['all_mtall_id', 'all_mtall_value']
-        self.all_mtall[cols].to_sql('all_mtall', conn, if_exists="replace")
-
-        self.mtspecific_index.to_sql('mtspecific_index', conn, if_exists="replace")
-        cols = ['all_mtspecific_id', 'all_mtspecific_value']
-        self.all_mtspecific[cols].to_sql('all_mtspecific', conn, if_exists="replace")
 
     def __init__(self,
 
@@ -179,7 +185,9 @@ class AllNodeDatabase:
                  gbd_round_id = 6,
                  decomp_step = 'step4',
                  root_node_path = '/Users/gma/ihme/epi/at_cascade/data/{mvid}/dbs/{location_id}/{sex_id}/dismod.db',
-                 in_parallel = False
+                 in_parallel = False,
+                 age_group_set_id = None,
+                 cause_id = None,
                  ):
 
         self.in_parallel = in_parallel
@@ -190,9 +198,6 @@ class AllNodeDatabase:
         self.gbd_round_id = gbd_round_id
         gbd_round = ds.gbd_round_from_gbd_round_id(gbd_round_id)
         self.conn_def = conn_def
-        if __to_do__:
-            _cause_id_ = 975
-            _age_group_set_id_ = 12
             
         print ('*** Get parameter json and load_settings. ***')
         from cascade_at.settings.settings import settings_json_from_model_version_id, load_settings
@@ -221,10 +226,11 @@ class AllNodeDatabase:
 
         print ('*** Get options. ***')
         root_node_name = self.root_node_db.node.loc[self.root_node_db.node.c_location_id == self.parent_location_id, 'node_name'].squeeze()
-        self.option = pd.DataFrame([('sex_level', settings.model.split_sex),
+        self.all_option = pd.DataFrame([('sex_level', settings.model.split_sex),
                                     ('in_parallel', self.in_parallel),
                                     ('root_node_name', root_node_name)],
                                    columns = ['option_name', 'option_value'])
+        self.all_option['option_id'] = self.all_option.index
                        
         print ('*** Get demographics. ***')
         demographics = Demographics(gbd_round_id=self.gbd_round_id)
@@ -277,7 +283,7 @@ class AllNodeDatabase:
         self.fit_goal['fit_goal_id'] = self.fit_goal.index
 
         asdr = self.get_asdr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step)
-        csmr = self.get_csmr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step, cause_id = _cause_id_)
+        csmr = self.get_csmr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step, cause_id = cause_id)
 
         if __debug__:
             missing_asdr = set(demographics.location_id) - set(asdr.location_id)
@@ -389,15 +395,37 @@ class AllNodeDatabase:
 
         print ('*** Get age metadata. ***')
         import cascade_at.core.db
-        self.age_groups = cascade_at.core.db.db_queries.get_age_metadata(age_group_set_id=_age_group_set_id_, gbd_round_id=self.gbd_round_id)
+        self.age_groups = cascade_at.core.db.db_queries.get_age_metadata(age_group_set_id=age_group_set_id, gbd_round_id=self.gbd_round_id)
 
 
-def main(mvid = None):
+def main(mvid = None, cause_id = None, age_group_set_id = None):
 
     global self
-    self = AllNodeDatabase(mvid = mvid)
+    self = AllNodeDatabase(mvid = mvid, cause_id = cause_id, age_group_set_id = age_group_set_id)
     self.save_to_sql()
 
 if __name__ == '__main__':
 
-    main(mvid = 475871)
+    def parse_args(mvid=None, cause_id=None, age_group_set_id = None):
+        import argparse
+        from distutils.util import strtobool as str2bool
+        parser = argparse.ArgumentParser()
+        name_string = "-filename" if sys.argv[0] == '' else "filename"
+        parser.add_argument("-v", "--model_version_id", type = int, default = mvid,
+                            help = f"Model Version ID -- default = {mvid}")
+        parser.add_argument("-c", "--cause_id", type = int, default = cause_id,
+                            help = f"Cause ID -- default = {cause_id}")
+        parser.add_argument("-a", "--age_group_set_id", type = int, default = age_group_set_id,
+                            help = "Age Group Set ID -- default {age_group_set_id}")
+        args = parser.parse_args()
+        return args
+
+    defaults = {}
+    if (len(sys.argv) == 1 and sys.argv[0] == ''):
+        _mvid_ = 475876
+        _cause_id_ = 975        # diabetes mellitus type 1
+        _cause_id_ = 587        # diabetes mellitus
+        _age_group_set_id_ = 12
+        defaults = dict(mvid = _mvid_, cause_id = _cause_id_, age_group_set_id = _age_group_set_id_)
+    args = parse_args(**defaults)
+    main(mvid = args.model_version_id, cause_id = args.cause_id, age_group_set_id = args.age_group_set_id)
