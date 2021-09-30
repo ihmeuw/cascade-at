@@ -233,6 +233,11 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int = None
             child_prior=child_prior, options=dm_options,
             mulcov_prior=mulcov_priors,
         )
+        if __debug__:
+            tmp = filler.data.merge(filler.node, how='left')
+            LOG.info(f"filler.data has {len(tmp)} rows in node id's {sorted(tmp.c_location_id.unique())}.")
+            tmp = filler.avgint.merge(filler.node, how='left')
+            LOG.info(f"filler.avgint: {len(tmp)} rows, node id's: {sorted(tmp.c_location_id.unique())}, integrand id's: {sorted(tmp.integrand_id.unique())}.")
         if save_prior:
             priors_to_save = format_rate_grid_for_ihme(
                 rates=filler.parent_child_model['rate'],

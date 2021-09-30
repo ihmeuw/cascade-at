@@ -293,7 +293,13 @@ class MeasurementInputs:
             loc_df=self.location_dag.df
         ) for c in self.covariate_data}
 
-        self.dismod_data = self.add_covariates_to_data(df=self.dismod_data)
+        # Country covariate values for asdr and csmr should always be the reference (e.g., None)
+        omega_measures = [m.get('measure', [None])[0] for m in [csmr, asdr] if (isinstance(m, pd.DataFrame) and not m.empty)]
+        omega_mask = self.dismod_data.measure.isin(omega_measures)
+
+        self.dismod_data = pd.concat([self.add_covariates_to_data(df=self.dismod_data[~omega_mask]),
+                                      self.add_covariates_to_data(df=self.dismod_data[omega_mask], null_country_covariates = True)],
+                                     axis=0, sort=True)
         self.dismod_data.loc[
             self.dismod_data.hold_out.isnull(), 'hold_out'] = 0.
         self.dismod_data.drop(['age_group_id'], inplace=True, axis=1)
@@ -315,7 +321,7 @@ class MeasurementInputs:
         df = df.loc[~remove_rows].copy()
         return df
 
-    def add_covariates_to_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def add_covariates_to_data(self, df: pd.DataFrame, null_country_covariates: bool = False) -> pd.DataFrame:
         """
         Add on covariates to a data frame that has age_group_id, year_id
         or time-age upper / lower, and location_id and sex_id. Adds both
@@ -327,9 +333,12 @@ class MeasurementInputs:
             if c.study_country == 'country'
         }
 
-        df = self.interpolate_country_covariate_values(
-            df=df, cov_dict=cov_dict_for_interpolation)
-        df = self.transform_country_covariates(df=df)
+        if null_country_covariates:
+            df[list(cov_dict_for_interpolation.keys())] = None
+        else:
+            df = self.interpolate_country_covariate_values(
+                df=df, cov_dict=cov_dict_for_interpolation)
+            df = self.transform_country_covariates(df=df)
 
         df['s_sex'] = df.sex_id.map(
             SEX_ID_TO_NAME).map(StudyCovConstants.SEX_COV_VALUE_MAP)

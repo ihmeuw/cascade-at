@@ -202,6 +202,7 @@ class DismodFiller(DismodIO):
             parent_location_id=self.parent_location_id,
             sex_id=self.sex_id
         )
+        LOG.info(f'Avgint dataframe has {len(avgint_df)} rows.')
         self.avgint = data_tables.construct_gbd_avgint_table(
             df=avgint_df,
             node_df=self.node,
@@ -210,6 +211,7 @@ class DismodFiller(DismodIO):
             ages=self.parent_child_model.get_age_array(),
             times=self.parent_child_model.get_time_array()
         )
+        LOG.info(f'self.avgint has {len(self.avgint)} rows.')
         return self
 
     def fill_grid_tables(self):

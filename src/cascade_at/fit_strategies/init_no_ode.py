@@ -334,6 +334,7 @@ class FitNoODE(DismodIO):
         # bounds.The prior, smooth and smooth_grid tables are modified but
         # they are not written out. The lower and upper bounds can be None.
 
+        breakpoint()
         def mean_from_limits(lower, upper):
             if lower is None and upper is None :
                 mean = 0.0
