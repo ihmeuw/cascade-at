@@ -322,7 +322,7 @@ class AllNodeDatabase:
         self.all_mtall = all_mtall
         self.mtall_index = self.dataframe_compression_index('mtall', self.all_mtall)
 
-        all_mtspecific = self.asdr[['node_id', 'time_id', 'age_id', 'sex_id', 'meas_value']].rename(columns={'meas_value': 'all_mtspecific_value'}).reset_index(drop=True)
+        all_mtspecific = self.csmr[['node_id', 'time_id', 'age_id', 'sex_id', 'meas_value']].rename(columns={'meas_value': 'all_mtspecific_value'}).reset_index(drop=True)
         all_mtspecific['all_mtspecific_id'] = all_mtspecific.index
         self.all_mtspecific = all_mtspecific
         self.mtspecific_index = self.dataframe_compression_index('mtspecific', self.all_mtspecific)
