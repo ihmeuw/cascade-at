@@ -163,11 +163,11 @@ class AllNodeDatabase:
         print (f"*** Writing {self.all_node_db} ***")
         self.conn = sqlite3.connect(self.all_node_db)
 
-        self.all_covariate_reference = self.covariate
+        self.all_cov_reference = self.covariate
  
         self.write_table_sql('all_option', {'all_option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
         self.write_table_sql('fit_goal', {'fit_goal_id': 'integer', 'node_id': 'integer'})
-        self.write_table_sql('all_covariate_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'covariate_id':'integer', 'reference': 'real'})
+        self.write_table_sql('all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'covariate_id':'integer', 'reference': 'real'})
         self.write_table_sql('omega_age_grid', {'omega_age_grid_id': 'integer', 'age_id': 'integer'})
         self.write_table_sql('omega_time_grid', {'omega_time_grid_id': 'integer', 'time_id': 'integer'})
         
