@@ -285,11 +285,15 @@ class AllNodeDatabase:
         asdr = self.get_asdr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step)
         csmr = self.get_csmr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step, cause_id = cause_id)
 
+        # Clear the nulls
+        asdr = asdr[~asdr.meas_value.isnull()].reset_index(drop=True)
+        csmr = csmr[~csmr.meas_value.isnull()].reset_index(drop=True)
+
         if __debug__:
             missing_asdr = set(demographics.location_id) - set(asdr.location_id)
-            assert not missing_asdr, f"ASDR data is missing for locations: {missing_asdr}"
+            if missing_asdr: print(f"Warning -- ASDR data is missing for locations: {sorted(missing_asdr)}")
             missing_csmr = set(demographics.location_id) - set(csmr.location_id)
-            assert not missing_csmr, f"CSMR data is missing for locations: {missing_csmr}"
+            if missing_csmr: print(f"Warning -- CSMR data is missing for locations: {sorted(missing_csmr)}")
 
         print ("*** Omega age and time grids. ***")
         omega_age_grid = sorted(set(asdr.age.unique()) & set(csmr.age.unique()))
@@ -306,6 +310,8 @@ class AllNodeDatabase:
         print (f"    Age_ids: {self.omega_age_grid.age_id.tolist()}")
         self.omega_time_grid = self.omega_time_grid.merge(self.root_node_db.time, how='left')
         print (f"    Time_ids: {self.omega_time_grid.time_id.tolist()}")
+
+        breakpoint()
 
         self.asdr = (asdr
                      .merge(self.root_node_db.node, how='left', left_on = 'location_id', right_on = 'c_location_id')
