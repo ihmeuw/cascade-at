@@ -16,19 +16,22 @@ import pandas as pd; pd.set_option('expand_frame_repr', False)
 
 from db_queries.get_envelope import get_envelope
 from db_queries.get_population import get_population
+from asymptotic_statistics import asymptotic_statistics
+from utilities import sex_id2sex_dict, ihme_id2sex_dict, ihme_id2sex_id, sex2ihme_id
+from execute_select import execute_select
+if 0:
+    from cascade_at_gma.drill_no_csv.importer2sqlite import asymptotic_statistics
 
-from cascade_at_gma.drill_no_csv.importer2sqlite import asymptotic_statistics
+    from cascade_ode.importer import settings, execute_select, get_model_version
 
-from cascade_ode.importer import settings, execute_select, get_model_version
-
-from cascade_at_gma.lib.dismod_db_api import DismodDbAPI 
-from cascade_at_gma.lib.dismod_db_functions import get_density_id, get_integrand_id, get_rate_smooth_names, get_node_id, node_id2location_id, get_rate_name, node_id2name, copyDB_dest, db_info, cleanup_prior
-from cascade_at_gma.lib.dismod_db_functions import set_node_info, set_max_iters, set_tolerance_fixed, set_cov_reference, tempfile_DB
-from cascade_at_gma.lib.run_dismod_commands import run_dismod_commands as run_AT_commands
-from cascade_at_gma.lib.table_description import TableDescriptions
-from cascade_at_gma.lib.utilities import sex_id2sex_dict, ihme_id2sex_dict, ihme_id2sex_id, sex2ihme_id
-from cascade_at_gma.lib.constants import _time_window_for_fit_, sex_name2covariate
-from cascade_at_gma.lib.get_covariate_estimates import get_covariate_estimates
+    from cascade_at_gma.lib.dismod_db_api import DismodDbAPI 
+    from cascade_at_gma.lib.dismod_db_functions import get_density_id, get_integrand_id, get_rate_smooth_names, get_node_id, node_id2location_id, get_rate_name, node_id2name, copyDB_dest, db_info, cleanup_prior
+    from cascade_at_gma.lib.dismod_db_functions import set_node_info, set_max_iters, set_tolerance_fixed, set_cov_reference, tempfile_DB
+    from cascade_at_gma.lib.run_dismod_commands import run_dismod_commands as run_AT_commands
+    from cascade_at_gma.lib.table_description import TableDescriptions
+    from cascade_at_gma.lib.utilities import sex_id2sex_dict, ihme_id2sex_dict, ihme_id2sex_id, sex2ihme_id
+    from cascade_at_gma.lib.constants import _time_window_for_fit_, sex_name2covariate
+    from cascade_at_gma.lib.get_covariate_estimates import get_covariate_estimates
 
 
 import logging

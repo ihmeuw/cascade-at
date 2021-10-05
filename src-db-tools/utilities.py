@@ -4,13 +4,15 @@
 """
 from utilities import constrain_iota, constrain_rho, call
 """
-from cascade_at_gma.drill_no_csv import paths
+if 0:
+    from cascade_at_gma.drill_no_csv import paths
+    from cascade_at_gma.lib.constants import sex_name2covariate
+
 import sys
 import os
 import fcntl
 import tempfile
 import collections
-from cascade_at_gma.lib.constants import sex_name2covariate
 
 def df_combinations(df, slice_vars, sort_vars=None):
     "Produces a generator of slices of a dataframe that have common values for the dependant variables and x_covs"
@@ -182,7 +184,7 @@ def system(cmd, print_p=True, break_on_error=False):
             rtn = 'Command %s returned non-zero exit status %s, and the following error message:\n\t"""\n\t%s"""'% (cmd, status, '\n\t'.join(child_err.split('\n')))
             if break_on_error:
                 print (rtn)
-                import pdb; pdb.set_trace()
+                breakpoint()
             raise CalledProcessErrors(rtn)
     # sys.stdout.write(" done.\n"); sys.stdout.flush()
     return status, rtn

@@ -11,6 +11,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('plot_fit_metrics')
 del logging
 
+_dismod_ = 'dmdismod'
+
 _eps_ = 1e-10
 _Z_95_ = 1.96                   # Z value for 95% gaussian confidence interval
 
@@ -84,17 +86,27 @@ pd.set_option('expand_frame_repr', False)
 
 from pdb import set_trace
 
-from cascade_at_gma.lib import utilities
-from cascade_at_gma.lib.cached_property import cached_property
-from cascade_at_gma.lib.constants import rate2integrand
-from cascade_at_gma.lib.dataframe_extensions import DataFrame
-from cascade_at_gma.lib.dismod_db_api import DismodDbAPI
-from cascade_at_gma.lib.utilities import startswith_filter, df_combinations
-from cascade_at_gma.lib.utilities import sex2sex_name
-sys.modules.pop('cascade_at_gma.lib.weighted_residuals', None)
-from cascade_at_gma.lib.weighted_residuals import model_surface_avgint, adjust_measurements
+from functools import lru_cache as cached_property
+from dismod_db_api import DismodDbAPI
 
-import cascade_at_gma.drill_no_csv.DB_import
+import utilities
+from utilities import startswith_filter, df_combinations
+from utilities import sex2sex_name
+from cached_property import cached_property
+from weighted_residuals import model_surface_avgint, adjust_measurements
+
+if 0:
+    from cascade_at_gma.lib import utilities
+    from cascade_at_gma.lib.cached_property import cached_property
+    from cascade_at_gma.lib.constants import rate2integrand
+    from cascade_at_gma.lib.dataframe_extensions import DataFrame
+    from cascade_at_gma.lib.dismod_db_api import DismodDbAPI
+    from cascade_at_gma.lib.utilities import startswith_filter, df_combinations
+    from cascade_at_gma.lib.utilities import sex2sex_name
+    sys.modules.pop('cascade_at_gma.lib.weighted_residuals', None)
+    from cascade_at_gma.lib.weighted_residuals import model_surface_avgint, adjust_measurements
+
+    import cascade_at_gma.drill_no_csv.DB_import
 
 NaN = float('nan')
 _framealpha_ = 0.2              # Legend transparency
@@ -511,7 +523,7 @@ def plot_model_vs_data(DB,
             avgint = a.append(b).reset_index(drop=True)
             avgint['avgint_id'] = avgint.index.tolist()
             DB.avgint = avgint
-            os.system(f"dismod_at {DB.filename} predict fit_var")
+            os.system(f"{dismod} {DB.filename} predict fit_var")
             pred = DB.avgint.merge(DB.predict)
             mask = pred.x_0.isna()
             plt.plot(*pred.loc[mask, ['age_lower', 'avg_integrand']].values.T, '+--')
@@ -520,7 +532,7 @@ def plot_model_vs_data(DB,
             avgint.loc[mask, 'x_0'] = x_0
             avgint.loc[:, 'time_upper'] = 2011
             DB.avgint = avgint
-            os.system(f"dismod_at {DB.filename} predict fit_var")
+            os.system(f"{dismod} {DB.filename} predict fit_var")
             pred = DB.avgint.merge(DB.predict)
             plt.plot(*pred.loc[mask, ['age_lower', 'avg_integrand']].values.T, '*--')
             plt.plot(*pred.loc[~mask, ['age_lower', 'avg_integrand']].values.T, '*--')
@@ -619,7 +631,7 @@ class TestAndPlot(object):
     def __init__(self, sqlite_filename,
                  surface_time = None, surface_age = None,
                  plot_data_extent = True,
-                 dismod_AT = "dismod_at",
+                 dismod_AT = _dismod_,
                  time_window_for_plots = _time_window_for_plots_,
                  predict_using_COD_covariate_values = True,
                  model_version_id = None,
@@ -910,14 +922,13 @@ class TestAndPlot(object):
 
         ode_step_size = float(DB.options.ode_step_size)
         sys.modules.pop('cascade_at_gma.tests.test_omega.test_omega', None)
-        from cascade_at_gma.tests.test_omega.test_omega import use_age_intervals
-        if not use_age_intervals:
-            surface_ages = self.surface_ages or sorted(set(data.loc[:, self.age_cols].mean(axis=1)))
-            if np.diff(surface_ages).min() < ode_step_size:
-                # surface_ages = np.arange(0, data.age_upper.max(), ode_step_size).tolist() + [data.age_upper.max()]
-                # logger.info("The model is linear between integration steps -- setting surface age increment to the ode_step_size.")
-                logger.info("The model is linear between integration steps, and some of the modeling age increments are smaller the ode stepsize.")
-        else:
+        try:
+            logger.info('Using the mtall age grid for plotting.')
+            mtall = DB.data[DB.data.integrand_id.isin(DB.integrand.loc[DB.integrand.integrand_name == 'mtall', 'integrand_id'])]
+            surface_ages = sorted(set(map(tuple, mtall[['age_lower', 'age_upper']].values)))
+        except Exception as ex:
+            logger.error(ex)
+            logger.warn('FIXME -- Probably should get the plotting age grid from the database.')
             surface_ages = [(0.0, 0.01918), 
                             (0.01918, 0.07671),
                             (0.07671, 1.0),
@@ -938,9 +949,9 @@ class TestAndPlot(object):
                             (70.0, 75.0),
                             (75.0, 80.0),
                             (80.0, 100.0)]
-
+        surface_ages = sorted(set(np.asarray(surface_ages).flat))
         surface_times = self.surface_times or sorted(set(data.loc[:, self.time_cols].mean(axis=1)))
-        # surface_times = [2010]
+
         def rounder(x): return '%g' % x
         logger.info("Predicting surfaces at times: %s, ages: %s" % (', '.join(map(rounder, surface_times)), ', '.join(map(rounder, surface_ages))))
 
@@ -1015,7 +1026,7 @@ if 0:
     DB.avgint = avgint
     c_xcovs = ['x_%s' % r.covariate_id for r in DB.covariate.itertuples() if r.covariate_name.startswith('x_c_')]
     assert len(avgint.dropna(subset = c_xcovs, how='any')) == len(avgint), "Every avgint entry should have country covariates -- some were null."
-    utilities.system('dismod_at %s predict fit_var' % DB.filename)
+    utilities.system(f'{dismod} %s predict fit_var' % DB.filename)
     pred = DB.avgint.merge(DB.predict, how='left').merge(DB.integrand, how='left')
     adj = adjust_measurements(DB)
     assert np.alltrue(np.abs(adj.meas_value * adj.adjustment - adj.adj_value).fillna(0) < _eps_)
@@ -1166,7 +1177,7 @@ if 0:
 if 0: #def demonstrate_plotting_age_points_vs_intervals(DB):
     from cascade_at_gma.lib.weighted_residuals import data_mean, adj_std
 
-    dismod_AT = "dismod_at"
+    dismod_AT = _dismod_
     data = DB.data.merge(DB.data_subset).merge(DB.fit_data_subset)
     integrand_id = 5        # mtspecific
 
@@ -1253,7 +1264,7 @@ if 0 and sqlite_filename == '/Users/gma/Projects/IHME/cascade_at_gma.data-tmp/10
     mask_data.data_id = list(mask_data.index)
     avgint_save = DB.avgint
     DB.avgint = mask_data
-    utilities.system("dismod_at %s predict fit_var" % DB.filename)
+    utilities.system("{_dismod_} %s predict fit_var" % DB.filename)
     assert np.max(np.abs(mask_data.avg_integrand - DB.predict.avg_integrand)) < 1e-8
     DB.avgint = avgint_save
     print (mask_data.T)
@@ -1284,6 +1295,7 @@ if 0:
     execute_select(query, 'cov')
 
     def execute_select(query, db='epi'):
+        import mysql_server
         conn_string = mysql_server[db]
         print ("Executing %s query to %s ..." % (db, conn_string), end='', flush = True)
         print (query, flush = True)

@@ -1,5 +1,4 @@
 import sys, os
-from cascade_at_gma.drill_no_csv.paths import *
 import numpy as np
 import pandas as pd
 import json
@@ -7,8 +6,12 @@ from functools import lru_cache
 
 import db_queries
 
-from cascade_at_gma.lib import utilities
-from cascade_at_gma.lib.dismod_db_api import DismodDbAPI
+import utilities
+from dismod_db_api import DismodDbAPI
+
+if 0:
+    from cascade_at_gma.lib import utilities
+    from cascade_at_gma.lib.dismod_db_api import DismodDbAPI
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -35,12 +38,16 @@ def ihme_location_hierarchy(model_version_id):
     from hierarchies.dbtrees import loctree as lt
     # gma 7/9/2020 from cascade_ode.importer import get_model_version
     def get_model_version (model_version_id):
-        from cascade_ode.importer import execute_select # This import must be inside this function otherwise argparse help is incorrect
+        if 0: from cascade_ode.importer import execute_select # This import must be inside this function otherwise argparse help is incorrect
+        from execute_select import execute_select # This import must be inside this function otherwise argparse help is incorrect
+        import db_tools
         query = """
         SELECT * FROM epi.model_version
         WHERE model_version_id=%s """ % (int(model_version_id))
-        df = execute_select(query)
+        
+        df = execute_select(query, conn_def = 'epi')
         return df
+
     model_df = get_model_version(model_version_id)
     lsvid = int(model_df.location_set_version_id)
     gbd_round_id = int(model_df.gbd_round_id)
@@ -57,7 +64,9 @@ def ihme_location_hierarchy(model_version_id):
 
 @lru_cache(maxsize = 1)
 def query_model_parameters(model_version_id):
-    from cascade_ode.importer import execute_select # This import must be inside this function otherwise argparse help is incorrect
+    if 0: from cascade_ode.importer import execute_select # This import must be inside this function otherwise argparse help is incorrect
+    from execute_select import execute_select # This import must be inside this function otherwise argparse help is incorrect
+
     # gma 7/9/2020
     # query = """
     #     SELECT * FROM at_model_parameter
@@ -70,26 +79,34 @@ def query_model_parameters(model_version_id):
     # df['mean'] = df['mean'].fillna((df.upper+df.lower)/2.0)
     # df['std'] = df['std'].fillna(inf)
 
-    query = """
-    SELECT * FROM model_version_at
-    WHERE model_version_id=%s """ % (int(model_version_id))
+    query = ('SELECT * FROM model_version_at '
+             f'WHERE model_version_id={model_version_id}')
     df = execute_select(query)
     df.drop(['date_inserted', 'inserted_by', 'last_updated', 'last_updated_by', 'last_updated_action'], axis=1, inplace=True)
     return df
 
 @lru_cache(maxsize = 10)
 def query_covariates(covariate_names_short):
-    from cascade_ode.importer import execute_select # This import must be inside this function otherwise argparse help is incorrect
-    covariate_names_short = utilities.force_tuple(covariate_names_short)
+    if 0: from cascade_ode.importer import execute_select # This import must be inside this function otherwise argparse help is incorrect
+    from execute_select import execute_select # This import must be inside this function otherwise argparse help is incorrect
+
     covs = pd.DataFrame([], columns=['covariate_id', 'covariate_name_short'])
-    if covariate_names_short:
-        ccov_str = ','.join(['"%s"' % name for name in list(covariate_names_short)])
-        covs = execute_select('SELECT covariate_id, covariate_name_short FROM shared.covariate where covariate_name_short in (%s)' % ccov_str)
+    all_cov_names = execute_select('SELECT covariate_id, covariate_name_short FROM shared.covariate')
+    for cov_name in covariate_names_short:
+        df = all_cov_names[[cov_name.startswith(n) for n in all_cov_names.covariate_name_short]]
+        if df.empty:
+            raise Exception(f"Failed to find covariate name '{cov_name}'")
+        elif len(df) > 1:
+            raise Exception(f"Found too many covariates {df.covariate_name_short.tolist()} matching name '{cov_name}'")
+        else:
+            covs = covs.append(df)
     return covs
 
 @lru_cache(50)
 def importer_style_query_covariate_estimates(covariate_id, covariate_name_short, location_id):
-    from cascade_ode.importer import execute_select # This import must be inside this function otherwise argparse help is incorrect
+    if 0: from cascade_ode.importer import execute_select # This import must be inside this function otherwise argparse help is incorrect
+    from execute_select import execute_select # This import must be inside this function otherwise argparse help is incorrect
+
     logging.warn("Getting country covariate {} via an importer.py-like query.".format(covariate_name_short))
     dataq = """
     SELECT location_id, year_id, age_group_id, sex_id, mean_value, model_version_id
@@ -159,7 +176,6 @@ def _get_covariate_estimates_internal(covariate_name_short, location_id = 'all',
 
     lh = ihme_location_hierarchy(model_version_id)
     covariates_df = query_covariates(covariate_name_short)
-
     group_by = ['location_id', 'year_id', 'age_group_id']
     merge = group_by + ['sex_id']
     cols = merge + ['mean_value']
@@ -174,7 +190,7 @@ def _get_covariate_estimates_internal(covariate_name_short, location_id = 'all',
                         decomp_step = 'iterative',
                         sex_id = 'all')
             if gbd_round_id is None: kwds.pop('gbd_round_id')
-            df = db_queries.get_covariate_estimates.get_covariate_estimates(cov_id, **kwds)
+            df = db_queries.get_covariate_estimates(cov_id, **kwds)
         else:
             df = importer_style_query_covariate_estimates(cov_id, short_name, utilities.force_tuple(location_id))
             if year_id != 'all':
@@ -241,7 +257,8 @@ def get_covariate_estimates(covariate_names_short, location_id = None, year_id =
             logger.info('Found %s country covariate value(s) for location(s): %s' % (covariate_names_short, str(sorted(df.location_id.unique()))))
             cov_source = location_id
         else:
-            logger.error('db_queries.get_covariate_estimates is returning no values for %s at location(s): %s' % (covariate_names_short, () if df.empty else str(sorted(df.location_id.unique()))))
+            if df.empty:
+                logger.warning(f'db_queries.get_covariate_estimates is returning no values for {covariate_names_short} at location(s): {sorted(location_id)}')
             # If the parent node returns no covariate values, search for them in the node descendanta
             lh = ihme_location_hierarchy(model_version_id)
             nodes = [lh.get_node_by_id(lid) for lid in location_id]

@@ -8,10 +8,11 @@ import tempfile
 import shutil
 from pdb import set_trace
 
-from cascade_at_gma.lib.dismod_db_api import DismodDbAPI
+from dismod_db_api import DismodDbAPI
 
-sys.path.append('/opt/prefix/dismod_at/lib/python3.9/site-packages')
-from dismod_at.db2csv_command import db2csv_command
+if 0:
+    sys.path.append('/opt/prefix/dismod_at/lib/python3.9/site-packages')
+    from dismod_at.db2csv_command import db2csv_command
 
 import logging
 logging.basicConfig(level=logging.INFO)

@@ -12,15 +12,26 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('weighted_residuals')
 del logging
 
-from cascade_at_gma.drill_no_csv.priors import get_age_ranges, sex_id2sex_dict
-from cascade_at_gma.lib import utilities
-from cascade_at_gma.lib.cached_property import cached_property
-from cascade_at_gma.lib.dismod_db_api import DismodDbAPI
-from cascade_at_gma.lib.dismod_db_functions import node_id2location_id
-from cascade_at_gma.lib.get_covariate_estimates import get_covariate_estimates
-from cascade_at_gma.lib.table_description import TableDescriptions
-from cascade_at_gma.lib.constants import sex_name2covariate, mortality_integrands
-from cascade_at_gma.lib.utilities import int_or_float
+import utilities
+from utilities import int_or_float
+from cached_property import cached_property
+from dismod_db_api import DismodDbAPI
+from dismod_db_functions import node_id2location_id
+from get_covariate_estimates import get_covariate_estimates
+from priors import get_age_ranges, sex_id2sex_dict
+from constants import sex_name2covariate, mortality_integrands
+
+
+if 0:
+    from cascade_at_gma.drill_no_csv.priors import get_age_ranges, sex_id2sex_dict
+    from cascade_at_gma.lib import utilities
+    from cascade_at_gma.lib.cached_property import cached_property
+    from cascade_at_gma.lib.dismod_db_api import DismodDbAPI
+    from cascade_at_gma.lib.dismod_db_functions import node_id2location_id
+    from cascade_at_gma.lib.get_covariate_estimates import get_covariate_estimates
+    from cascade_at_gma.lib.table_description import TableDescriptions
+    from cascade_at_gma.lib.constants import sex_name2covariate, mortality_integrands
+    from cascade_at_gma.lib.utilities import int_or_float
 
 def get_x_sex(DB):
     if not DB.sex_covariate.empty:
@@ -85,6 +96,12 @@ class CovariateInterpolator(object):
 
             ccov_vals[x_sex] = ccov_vals.sex_id.apply(lambda x: sex_id2sex_dict[x])
             ccov_dict = dict(DB.country_covariates[['covariate_name_short', 'xcov_name']].values)
+            add_dict = {}
+            for k,v in ccov_dict.items():
+                for ccov_name in ccov_vals.columns:
+                    if k.startswith(ccov_name): # and ccov_name not in ccov_dict:
+                        add_dict[ccov_name] = v
+            ccov_dict.update(add_dict)
             ccov_vals.rename(columns = ccov_dict, inplace=True)
             ccov_vals.rename(columns = {'year_id': 'time'}, inplace=True)
             ccov_vals['time_lower'] = ccov_vals['time_upper'] = ccov_vals['time']
@@ -99,6 +116,8 @@ class CovariateInterpolator(object):
             self.ccov_vals = ccov_vals
 
     def __call__(self, sex, time_lower, time_upper):
+        if not np.isfinite([sex, time_lower, time_upper]).any():
+            return np.nan
         rtn = self.ccov_vals[(self.ccov_vals[self.x_sex] == sex) &
                              (self.ccov_vals.time_lower == time_lower) &
                              (self.ccov_vals.time_upper == time_upper)]
@@ -131,7 +150,7 @@ class AdjustMeasurements(object):
             b) all of the covariates satisfy the max_difference criteria
           The fit_data_subset is the data fit at data_subset
     """
-    def __init__(self, DB, dismod_at = 'dismod_at'):
+    def __init__(self, DB, dismod_at = 'dmdismod'):
         if DB.data_subset.merge(DB.data, how='left').empty:
             self.adjusted_data = pd.DataFrame([], columns=DB.data_subset.merge(DB.data, how='left').columns)
         else:
@@ -166,6 +185,12 @@ class AdjustMeasurements(object):
         # Predict for only the data rows identified in the data_subset table
         avgint = self.DB.data_subset.merge(self.DB.data, how='left')
         avgint['avgint_id'] = avgint['data_subset_id']
+        # Remove the rows with null covariates
+        cov = self.DB.covariate
+        cov_keys = cov[[any([k in c for k in ['one', 'sex']]) for c in cov.c_covariate_name]].covariate_name.to_list()
+        mask = ~np.any(avgint[cov_keys].isna().values, axis=1)
+        avgint = avgint.loc[mask].reset_index(drop=True)
+        avgint['avgint_id'] = avgint.index
         return avgint
         
     @cached_property
@@ -207,6 +232,7 @@ class AdjustMeasurements(object):
         def model_at_adjusted_covs(self): # Part B) in the comments
             "Compute model predictions at the reference study covariates and the parent node id country covariates"
 
+            global interp_keys, ci
             avgint = self.avgint.copy()
             ci = CovariateInterpolator(self.DB, node_id = self.parent_node_id) # Call syntax: ci(sex, time_lower, time_upper)
             if ci.interp:
@@ -251,8 +277,8 @@ class AdjustMeasurements(object):
         adjusted.drop('avgint_id', axis=1)
         return adjusted
 
-def adjust_measurements(DB, dismod_at = 'dismod_at'):
-    am = AdjustMeasurements(DB, dismod_at)
+def adjust_measurements(DB):
+    am = AdjustMeasurements(DB)
     return am.adjusted_data
 
 def reference_covariates(DB, node_id = None, sex = [-.5,0,+.5], times = None, method='nearest'):
@@ -331,29 +357,16 @@ def model_surface_avgint(DB, node_id = None, integrand_ids = None,
 
     avgint_list = []
     sys.modules.pop('cascade_at_gma.tests.test_omega.test_omega', None)
-    from cascade_at_gma.tests.test_omega.test_omega import use_age_intervals
-    if use_age_intervals:
-        for integrand_id in integrand_ids:
-            for t in times:
-                for (al, au) in ages:
-                    dct = {'integrand_id' : integrand_id,
-                           'node_id' : node_id,
-                           'weight_id' : 0,
-                           'age_lower' : al, 'age_upper' : au,
-                           'time_lower' : t-dtime, 'time' : t, 'time_upper' : t+dtime,
-                           'density_id' : uniform_id, 'data_name' : '(%g,%g)' % (al,t)}
-                    avgint_list.append(dct)
-    else:
-        for integrand_id in integrand_ids:
-            for t in times:
-                for a in ages:
-                    dct = {'integrand_id' : integrand_id,
-                           'node_id' : node_id,
-                           'weight_id' : 0,
-                           'age_lower' : a-dage, 'age_upper' : a+dage,
-                           'time_lower' : t-dtime, 'time' : t, 'time_upper' : t+dtime,
-                           'density_id' : uniform_id, 'data_name' : '(%g,%g)' % (a,t)}
-                    avgint_list.append(dct)
+    for integrand_id in integrand_ids:
+        for t in times:
+            for (al, au) in zip(ages, ages[1:]):
+                dct = {'integrand_id' : integrand_id,
+                       'node_id' : node_id,
+                       'weight_id' : 0,
+                       'age_lower' : al, 'age_upper' : au,
+                       'time_lower' : t-dtime, 'time' : t, 'time_upper' : t+dtime,
+                       'density_id' : uniform_id, 'data_name' : '(%g,%g)' % (al,t)}
+                avgint_list.append(dct)
         
     df = pd.DataFrame(avgint_list)
     if not covs.empty:
@@ -432,7 +445,7 @@ if (__name__ == '__main__'):
         sqlite_filename = '/Users/gma/Projects/IHME/cascade_at_gma.data-tmp/100667/full/1/both/1990_1995_2000_2005_2010_2015/fit/100667.db'
         sqlite_filename = '/Users/gma/Projects/IHME/cascade_at_gma.data-tmp/100667/full/100/female/1990_1995_2000_2005_2010_2015/fit/100667.db'
 
-    dismod_at = 'dismod_at'
+    dismod_at = 'dmdismod'
     test_db = '/tmp/test_weighted_residuals.db'
     shutil.copy2(sqlite_filename, test_db)
 

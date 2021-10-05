@@ -1,19 +1,31 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('/Users/gma/Projects/IHME/GIT')
-from cascade_at_gma.drill_no_csv.paths import *
+sys.path.append('/Users/gma/Projects/IHME/GIT/DB_tools')
 
-import pdb; from pdb import set_trace
-
-from cascade_at_gma.lib.dismod_db_api import DismodDbAPI
-from cascade_at_gma.lib.plot_fit_metrics import TestAndPlot
-from cascade_at_gma.lib.utilities import int_or_float
+from dismod_db_api import DismodDbAPI
 import pandas as pd
+from plot_fit_metrics import TestAndPlot
+
+import matplotlib
 
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('plot_DB.py')
+
+def int_or_float(_str):
+    """
+    int_or_float(2) # => 2
+    int_or_float('2') # => 2
+    int_or_float('2.0') # => 2
+    int_or_float(2.0) # => 2
+    int_or_float(2.1) # => 2.1
+    int_or_float('2.1') # => 2.1
+    """
+    _str = float(_str)
+    if _str % 1 == 0:
+        return int(_str)
+    return _str
 
 def plot_DB(sqlite_filename, pdf_p = True, logscale = True, plot_extent = None, plot3D = True, plot_integrands = None, ages = None, times = None,
             model_version_id = None, model_name='', gbd_round_id = None):
@@ -50,7 +62,7 @@ def plot_DB(sqlite_filename, pdf_p = True, logscale = True, plot_extent = None, 
                           plot_data_extent = plot_extent, time_window_for_plots = 2.51,
                           model_version_id = model_version_id, model_name = model_name)
     plotter(pdf_p = pdf_p, adjust_data = True, logscale = logscale, plot3D = plot3D, plot_integrands = plot_integrands, plot_years = times)
-    os.system ("dismodat.py %s db2csv" % sqlite_filename)
+    # os.system ("dismodat.py %s db2csv" % sqlite_filename)
     return plotter
 
 if (__name__ == '__main__'):
@@ -106,7 +118,7 @@ if (__name__ == '__main__'):
         mvid = 474019; sqlite_filename = '/Users/gma/Projects/IHME/DISMOD_AT/asymptotic_mean_error/473953/474019.db'
         mvid = 474101; sqlite_filename = '/Users/gma/Projects/IHME/DISMOD_AT/asymptotic_mean_error/473953/474101.db'
         mvid = 475648; sqlite_filename = '/Users/gma/ihme/ihme_db/temp.db'
-        mvid = 475877; sqlite_filename = '/Users/ihme/epi/cascade_at/475877/dbs/1/2/dismod.db'
+        mvid = 475877; sqlite_filename = '/Users/gma/ihme/epi/at_cascade/data/475877/dbs/1/2/dismod.db'
 
         pdf_p = True
         logscale = True
