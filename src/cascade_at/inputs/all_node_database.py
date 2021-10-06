@@ -394,6 +394,8 @@ class AllNodeDatabase:
             covariate = covariate.append(c)
         covariate = self.root_node_db.node.merge(covariate, how='left', left_on = 'c_location_id', right_on='location_id')
         covariate['node_id'] = covariate['node_id'].astype(int)
+        mask = ~covariate.reference.isna()
+        covariate = covariate[mask]
         covariate['all_cov_reference_id'] = covariate.reset_index(drop=True).index
         self.covariate = covariate
 
