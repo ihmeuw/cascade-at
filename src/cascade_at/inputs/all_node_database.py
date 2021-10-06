@@ -311,8 +311,6 @@ class AllNodeDatabase:
         self.omega_time_grid = self.omega_time_grid.merge(self.root_node_db.time, how='left')
         print (f"    Time_ids: {self.omega_time_grid.time_id.tolist()}")
 
-        breakpoint()
-
         self.asdr = (asdr
                      .merge(self.root_node_db.node, how='left', left_on = 'location_id', right_on = 'c_location_id')
                      .merge(self.root_node_db.time, how='left')
