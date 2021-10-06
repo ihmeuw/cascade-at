@@ -650,9 +650,9 @@ class TestAndPlot(object):
 
         tempfile_name = tempfile.NamedTemporaryFile(mode='w', prefix='dismod_tempfile_', suffix='.db', delete=False).name
         logger.info("Plot working from database: %s" % tempfile_name)
-
         shutil.copy2(self.sqlite_filename, tempfile_name)
         self.DB = DB = DismodDbAPI(tempfile_name)
+        self.allDB = allDB = DismodDbAPI(os.path.join(os.path.dirname(os.path.dirname(self.sqlite_filename)), 'all_node.db'))
 
         try:
             self.sex_ref = DB.covariate.loc[DB.covariate.covariate_id == DB.sex_covariate.covariate_id.squeeze(), 'reference'].squeeze()

@@ -10,10 +10,6 @@ from pdb import set_trace
 
 from dismod_db_api import DismodDbAPI
 
-if 0:
-    sys.path.append('/opt/prefix/dismod_at/lib/python3.9/site-packages')
-    from dismod_at.db2csv_command import db2csv_command
-
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('dismod_db_functions.py')
@@ -34,30 +30,6 @@ def copyDB_dest(DB, dest, verbose = False):
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     shutil.copy2(DB.filename, dest)
     return DismodDbAPI(dest)
-
-def db2csv(fn, dirname = ''):
-    if not os.path.exists(dirname):
-        os.makedirs(dirname)
-    files = []
-    db2csv_command(fn)
-    for name in ['option', 'log', 'data', 'variable', 'predict']:
-        file = name+'.csv'
-        if os.path.isfile(os.path.join(dirname, file)):
-            new_file = os.path.join(dirname, subdir, file)
-            os.rename(os.path.join(dirname, file), os.path.join(dirname, new_file))
-            files.append(os.path.split(new_file)[-1])
-    logger.info('Files produced by db2csv: %s.' % files)
-
-def archive_DB(DB, dirname, db2csv = True):
-    if not os.path.exists(dirname):
-        os.makedirs(dirname)
-    fn_out = os.path.join(dirname, os.path.basename(DB.filename))
-    logger.info ("Saving the Dismod_AT database to %s." % fn_out)
-    if os.path.isfile(fn_out): os.unlink(fn_out)
-    shutil.copy2(DB.filename, fn_out)
-    if db2csv:
-        logger.info("Writing db2csv files.")
-        db2csv_command(fn_out)
 
 def db_info(DB):
     data = DB.data.merge(DB.integrand, how='left')
