@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('/Users/gma/Projects/IHME/GIT/DB_tools')
+import os
 
 from dismod_db_api import DismodDbAPI
+from constants import sex_name2dismod_id
 import pandas as pd
 from plot_fit_metrics import TestAndPlot
 
@@ -28,7 +29,7 @@ def int_or_float(_str):
     return _str
 
 def plot_DB(sqlite_filename, pdf_p = True, logscale = True, plot_extent = None, plot3D = True, plot_integrands = None, ages = None, times = None,
-            model_version_id = None, model_name='', gbd_round_id = None):
+            sex = 'female', model_version_id = None, model_name='', gbd_round_id = None):
     DB = DismodDbAPI(sqlite_filename)
     if 'cascade_option' in DB.tables and 'time_grid' in DB.cascade_option.cascade_option_name.values:
         surf_time = times if times is not None else tuple(map(int_or_float, DB.cascade_options.time_grid.split()))
@@ -58,7 +59,7 @@ def plot_DB(sqlite_filename, pdf_p = True, logscale = True, plot_extent = None, 
     assert DB.cascade_options.model_version_id is not None, 'Model version id must be specified'
 
     plot_extent = plot_extent
-    plotter = TestAndPlot(sqlite_filename, surface_time = surf_time, surface_age = surf_age,
+    plotter = TestAndPlot(sqlite_filename, surface_time = surf_time, surface_age = surf_age, sex = sex, 
                           plot_data_extent = plot_extent, time_window_for_plots = 2.51,
                           model_version_id = model_version_id, model_name = model_name)
     plotter(pdf_p = pdf_p, adjust_data = True, logscale = logscale, plot3D = plot3D, plot_integrands = plot_integrands, plot_years = times)
@@ -66,7 +67,7 @@ def plot_DB(sqlite_filename, pdf_p = True, logscale = True, plot_extent = None, 
     return plotter
 
 if (__name__ == '__main__'):
-    def parse_args(fn=None, pdf = False, logscale = True, plot_integrands = None, model_name = "Heading TBD"):
+    def parse_args(fn=None, pdf = False, logscale = True, plot_integrands = None, model_name = "Heading TBD", sex = 'female'):
         import argparse
         from distutils.util import strtobool as str2bool
         parser = argparse.ArgumentParser()
@@ -76,6 +77,8 @@ if (__name__ == '__main__'):
                             help = "Ages to plot -- default %s" % None)
         parser.add_argument("-m", "--model_name", type = str, nargs='+', default = model_name,
                             help = f"Model name -- default = {model_name}")
+        parser.add_argument("-s", "--sex_name", type = str, default = sex,
+                            help = f"Sex to plot -- one of male, female or both, default = {sex}")
         parser.add_argument("-v", "--model_version_id", type = int, default = None,
                             help = f"Model version id -- default = None")
         parser.add_argument("-g", "--gbd_round_id", type = int, default = 5,
@@ -101,24 +104,10 @@ if (__name__ == '__main__'):
     sqlite_filename = None
     mvid = None
     if sys.argv[0] == '':
-        sqlite_filename = '/Users/gma/Projects/IHME/cascade_at.data-tmp/100667/full/102/female/1990_1995_2000_2005_2010_2015/100667.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/cascade_at.data-tmp/100667/full/64/female/1990_1995_2000_2005_2010_2015/100667.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/cascade_at.data-tmp/100667-2018.01.08-drill/full/523/female/1990_1995_2000_2005_2010_2015/100667.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/cascade_at.data-tmp/100667/full/102/both/1990_1995_2000_2005_2010_2015/100667.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/cascade_at.data-tmp/100667/full/102/female/1990_1995_2000_2005_2010_2015/100667.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/cascade_at.data-tmp/100667/full/100/both/1990_1995_2000_2005_2010_2015/fit/100667.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/cascade_at.data-tmp/327650/full/1/both/1990_1995_2000_2005_2010_2015/327650.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/cascade_at.data-tmp/343691/full/102/both/1990_1995_2000_2005_2010_2015/343691.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/modelers/10427/10427.db'
-        mvid = 266798; sqlite_filename = '/Users/gma/Projects/IHME/modelers/1976-katie/VIS-run-2010.db'
-        sqlite_filename = '/Users/gma/Projects/IHME/GIT/cascade_at.git/cascade_at/dmcascade/simulation/test.db'
-        mvid = 268544; sqlite_filename = '/Users/gma/cluster/fit.db'
-        mvid = 473171; sqlite_filename = '/Users/gma/Projects/IHME/marlena/473171-end-stage-renal-disease-after-transplant/fit_both.db'
-        mvid = 472346; sqlite_filename = '/Users/gma/tmp/dismod_at_472346.db'
-        mvid = 474019; sqlite_filename = '/Users/gma/Projects/IHME/DISMOD_AT/asymptotic_mean_error/473953/474019.db'
-        mvid = 474101; sqlite_filename = '/Users/gma/Projects/IHME/DISMOD_AT/asymptotic_mean_error/473953/474101.db'
-        mvid = 475648; sqlite_filename = '/Users/gma/ihme/ihme_db/temp.db'
-        mvid = 475877; sqlite_filename = '/Users/gma/ihme/epi/at_cascade/data/475877/dbs/1/2/dismod.db'
+        parent_location_id = 1
+        sex = 'female'
+        sex_id = sex_name2dismod_id[sex]
+        mvid = 475876; sqlite_filename = f'/Users/gma/ihme/epi/at_cascade/data/{mvid}/dbs/{parent_location_id}/{sex_id}/dismod.db'
 
         pdf_p = True
         logscale = True
@@ -128,12 +117,12 @@ if (__name__ == '__main__'):
         data['x_0'] = None
         DB.data = data
 
-    args = parse_args(sqlite_filename, pdf=pdf_p, logscale=logscale)
+    args = parse_args(sqlite_filename, pdf=pdf_p, logscale=logscale, sex = sex)
     if mvid and args.model_version_id is None:
         args.model_version_id = mvid
     args_in = [args.filename]
     kwds_in = dict(pdf_p = args.pdf, logscale = args.logscale, plot_extent = args.extent, plot3D = args.plot3D, plot_integrands = args.plot_integrands, ages = args.ages, times = args.times,
-                   model_name = args.model_name, model_version_id = args.model_version_id, gbd_round_id = args.gbd_round_id)
+                   model_name = args.model_name, model_version_id = args.model_version_id, gbd_round_id = args.gbd_round_id, sex = args.sex_name)
     
     # plot_integrands = ['Sincidence', 'remission', 'mtexcess', 'mtother', 'mtwith', 'susceptible', 'withC', 'prevalence', 'Tincidence', 'mtspecific', 'mtall', 'mtstandard', 'relrisk']
     # plot_integrands = ['Sincidence', 'remission', 'mtexcess', 'mtother', 'mtwith', 'susceptible', 'withC', 'prevalence', 'Tincidence', 'mtspecific', 'mtall', 'mtstandard']

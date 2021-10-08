@@ -174,7 +174,7 @@ class AllNodeDatabase:
         self.write_table_sql('mtall_index', {'mtall_index_id': 'integer', 'node_id': 'integer', 'all_mtall_id': 'integer'})
         self.write_table_sql('all_mtall', {'all_mtall_id': 'integer', 'all_mtall_value': 'real'})
         self.write_table_sql('mtspecific_index', {'mtspecific_index_id': 'integer', 'node_id': 'integer', 'all_mtspecific_id': 'integer'})
-        self.write_table_sql('all_mtspecific', {'all_mtspecific_id': 'integer', 'all_mtspecific_value': 'integer'})
+        self.write_table_sql('all_mtspecific', {'all_mtspecific_id': 'integer', 'all_mtspecific_value': 'real'})
 
 
     def __init__(self,
@@ -227,9 +227,9 @@ class AllNodeDatabase:
         print ('*** Get options. ***')
         root_node_name = self.root_node_db.node.loc[self.root_node_db.node.c_location_id == self.parent_location_id, 'node_name'].squeeze()
         self.all_option = pd.DataFrame([('sex_level', settings.model.split_sex),
-                                    ('in_parallel', self.in_parallel),
-                                    ('root_node_name', root_node_name)],
-                                   columns = ['option_name', 'option_value'])
+                                        ('in_parallel', self.in_parallel),
+                                        ('root_node_name', root_node_name)],
+                                       columns = ['option_name', 'option_value'])
         self.all_option['option_id'] = self.all_option.index
                        
         print ('*** Get demographics. ***')

@@ -5,6 +5,10 @@
 # Static information
 
 sex_name2covariate = dict(female = -0.5, both = 0.0, male = +0.5)
+sex_name2dismod_id = dict(male = 1, female = 2, both = 3)
+sex_dismod_id2_name = {v:k for k,v in sex_name2dismod_id.items()}
+sex_name2ihme_id = dict(both = 0, male = 1, female = 2)
+sex_ihme_id2_name = {v:k for k,v in sex_name2ihme_id.items()}
 
 rates = ('pini', 'iota', 'rho', 'chi', 'omega')
 

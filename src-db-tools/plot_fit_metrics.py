@@ -5,6 +5,7 @@ import tempfile
 import shutil
 import warnings
 from pdb import set_trace
+from constants import sex_name2dismod_id
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -15,6 +16,8 @@ _dismod_ = 'dmdismod'
 
 _eps_ = 1e-10
 _Z_95_ = 1.96                   # Z value for 95% gaussian confidence interval
+
+__all_node_db__ = True
 
 """
 Note: matplotlib pdf plotting seems to require the following to be installed on the Mac:
@@ -629,6 +632,7 @@ def plot_model_vs_data(DB,
 
 class TestAndPlot(object):
     def __init__(self, sqlite_filename,
+                 sex = None,
                  surface_time = None, surface_age = None,
                  plot_data_extent = True,
                  dismod_AT = _dismod_,
@@ -652,12 +656,59 @@ class TestAndPlot(object):
         logger.info("Plot working from database: %s" % tempfile_name)
         shutil.copy2(self.sqlite_filename, tempfile_name)
         self.DB = DB = DismodDbAPI(tempfile_name)
-        self.allDB = allDB = DismodDbAPI(os.path.join(os.path.dirname(os.path.dirname(self.sqlite_filename)), 'all_node.db'))
-
-        try:
+        if __all_node_db__:
+            from utilities import sex2ihme_id
             self.sex_ref = DB.covariate.loc[DB.covariate.covariate_id == DB.sex_covariate.covariate_id.squeeze(), 'reference'].squeeze()
-        except:
-            set_trace()
+            self.sex_id = sex2ihme_id(self.sex_ref)
+            path = [os.path.sep] + self.sqlite_filename.split(os.path.sep)[:-3]
+            self.globalDB_path = os.path.join(*path + ['1', str(self.sex_id), 'dismod.db'])
+            self.allDB_path = os.path.join(*([os.path.sep] + path + ['all_node.db']))
+            self.globalDB = globalDB = DismodDbAPI((os.path.join(*path + ['1', str(self.sex_id), 'dismod.db'])))
+            import sqlalchemy
+
+            def dataframe_decompress_index(integrand, index):
+                for i in index: pass
+
+                index[f'all_{name}_id'] = index.index
+                index.reset_index(inplace=True, drop=True)
+                index[f'{name}_index_id'] = index.index
+                index = index[[f'{name}_index_id', 'node_id', f'all_{name}_id']]
+                return index
+
+
+
+            with sqlalchemy.create_engine(f"sqlite:///{self.allDB_path}").connect() as conn:
+                self.n_sex = 3
+                self.omega_age = pd.read_sql_table('omega_age_grid', conn).merge(globalDB.age, how='left')
+                self.omega_time = pd.read_sql_table('omega_time_grid', conn).merge(globalDB.time, how='left')
+                self.all_option = pd.read_sql_table('all_option', conn)
+                self.all_cov_reference = pd.read_sql_table('all_cov_reference', conn)
+                self.fit_goal = pd.read_sql_table('fit_goal', conn)
+                self.all_mtall = pd.read_sql_table('all_mtall', conn)
+                self.mtall_index = pd.read_sql_table('mtall_index', conn)
+                self.all_mtspecific = pd.read_sql_table('all_mtspecific', conn)
+                self.mtspecific_index = pd.read_sql_table('mtspecific_index', conn)
+                assert len(all_mtall) == len(all_mtspecific), "Mtall and mtspecific are not the same length."
+                runLength = len(self.omega_age)*len(self.omega_time)*self.n_sex
+                diff = set(np.diff(self.mtall_index.all_mtall_id))
+                assert len(diff) == 1 and runLength == diff.pop()
+                assert runLength * len(self.fit_goal) == len(self.all_mtall)
+                index_cols = [[age, time, sex] for age in self.omega_age.age for time in self.omega_time.time for sex in (1,2,3)]
+
+                mtall = self.all_mtall.copy()
+                cols = ['node_id', 'age', 'time', 'sex_id']
+                mtall[cols] = None
+                for i, row in self.mtall_index.iterrows():
+                    mtall.loc[row.all_mtall_id:row.all_mtall_id+len(index_cols)-1, ['age', 'time', 'sex_id']] = index_cols
+                    mtall.loc[row.all_mtall_id:row.all_mtall_id+len(index_cols)-1, 'node_id'] = row.node_id
+
+                mtspecific = self.all_mtspecific.copy()
+                cols = ['node_id', 'age', 'time', 'sex_id']
+                mtspecific[cols] = None
+                for i, row in self.mtspecific_index.iterrows():
+                    mtspecific.loc[row.all_mtspecific_id:row.all_mtspecific_id+len(index_cols)-1, ['age', 'time', 'sex_id']] = index_cols
+                    mtspecific.loc[row.all_mtspecific_id:row.all_mtspecific_id+len(index_cols)-1, 'node_id'] = row.node_id
+
         try:
             self.sex = sex2sex_name(self.sex_ref)
             if 'c_covariate_name' in DB.covariate:

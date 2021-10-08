@@ -7,6 +7,7 @@ from utilities import constrain_iota, constrain_rho, call
 if 0:
     from cascade_at_gma.drill_no_csv import paths
     from cascade_at_gma.lib.constants import sex_name2covariate
+from constants import sex_name2covariate
 
 import sys
 import os
