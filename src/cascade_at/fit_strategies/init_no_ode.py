@@ -334,7 +334,6 @@ class FitNoODE(DismodIO):
         # bounds.The prior, smooth and smooth_grid tables are modified but
         # they are not written out. The lower and upper bounds can be None.
 
-        breakpoint()
         def mean_from_limits(lower, upper):
             if lower is None and upper is None :
                 mean = 0.0
@@ -405,7 +404,8 @@ class FitNoODE(DismodIO):
         data = db.data[db.data.hold_out == 0]
         covariate = db.covariate
         covariate_name = covariate.loc[covariate_id, 'covariate_name']
-        covariate_value = data[covariate_name].tolist()
+        mask = ~ data[covariate_name].isna()
+        covariate_value = data.loc[mask, covariate_name].tolist()
         old_reference  = float(covariate.loc[covariate_id, 'reference'])
         new_reference = getattr(np, reference_name)(covariate_value)
         #
@@ -907,7 +907,8 @@ def _ode_command(args, type = '', random_subsample = None,
         db.hold_out_data(integrand_names = hold_out_integrands, hold_out=1)
 
         if type == 'no_ode':
-            system(f'{db.dismod} {db.path} init')
+            cmd = f'{db.dismod} {db.path} init'
+            LOG.info(cmd); system(cmd)
         elif type in ('yes_ode', 'students'):
             try: 
                 fit_var = db.fit_var
@@ -916,9 +917,11 @@ def _ode_command(args, type = '', random_subsample = None,
             except ValueError:
                 fit_var = None
             if fit_var is not None:
-                system(f'{db.dismod} {db.path} set start_var fit_var')
+                cmd = f'{db.dismod} {db.path} set start_var fit_var'
+                LOG.info(cmd); system(cmd)
             else:
-                system(f'{db.dismod} {db.path} set start_var prior_mean')
+                cmd = f'{db.dismod} {db.path} set start_var prior_mean'
+                LOG.info(cmd); system(cmd)
 
         if type == 'students':
             db.set_student_likelihoods(factor_eta = 1e-2, nu = nu)
