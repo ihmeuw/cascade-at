@@ -428,6 +428,7 @@ class FitNoODE(DismodIO):
         # Noise covariate multipliers are not included.
         # The bounds for an integerand are set to zero if the covariate
         # is identically equalt the reference for that integrand.
+
         assert max_covariate_effect >= 0.0, 'disease specific max_covariate_effect is negative'
         data = db.data[db.data.hold_out == 0]
         covariate = db.covariate
@@ -438,7 +439,7 @@ class FitNoODE(DismodIO):
         reference = float(covariate.loc[covariate_id, 'reference'])
         difference_dict = {integrand_id:
                            (data.loc[(data.integrand_id == integrand_id) &
-                                     ~data[covariate_name].isna(), covariate_name]
+                                     ~data.loc[data.integrand_id == integrand_id, covariate_name].isna(), covariate_name]
                             - reference).values
                            for integrand_id in data.integrand_id.unique()}
         if data[covariate_name].notna().any():
@@ -450,6 +451,8 @@ class FitNoODE(DismodIO):
         for integrand_id in difference_dict :
             #
             # maximum and minimum difference
+            if not len(difference_dict[integrand_id]):
+                continue
             min_difference = min(difference_dict[integrand_id])
             max_difference = max(difference_dict[integrand_id])
             #
