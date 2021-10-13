@@ -1076,7 +1076,6 @@ class DismodDbAPI(DismodDbAPI_core, CascadeOption):
         if 1:
             # Fix Brad's bullshit
             df.loc[df.covariate_name == 'ones', 'c_covariate_name'] = 's_ones'
-        print(df)
         cov_name = 'c_covariate_name' if 'x_0' in df.covariate_name.tolist() else 'covariate_name'
         cov_df = pd.DataFrame([dict(covariate_id = row.covariate_id,
                                     xcov_name = 'x_%d' % row.covariate_id,
