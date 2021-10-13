@@ -160,6 +160,9 @@ class AllNodeDatabase:
         df[cols].to_sql(table_name, self.conn, index_label = id_column, if_exists="append")
 
     def save_to_sql(self):
+        print (f"*** Updating {self.root_node_db.path} time and age tables with omega values. ***")
+        self.root_node_db.time, self.root_node_db.age = self.update_root_node_time_age(self.root_node_db.time, self.omega_time, self.root_node_db.age, self.omega_age)
+
         print (f"*** Writing {self.all_node_db} ***")
         self.conn = sqlite3.connect(self.all_node_db)
 
@@ -167,7 +170,7 @@ class AllNodeDatabase:
  
         self.write_table_sql('all_option', {'all_option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
         self.write_table_sql('fit_goal', {'fit_goal_id': 'integer', 'node_id': 'integer'})
-        self.write_table_sql('all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'covariate_id':'integer', 'reference': 'real'})
+        self.write_table_sql('all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'sex_id':'integer', 'covariate_id':'integer', 'reference': 'real'})
         self.write_table_sql('omega_age_grid', {'omega_age_grid_id': 'integer', 'age_id': 'integer'})
         self.write_table_sql('omega_time_grid', {'omega_time_grid_id': 'integer', 'time_id': 'integer'})
         
@@ -211,14 +214,14 @@ class AllNodeDatabase:
         else:
             self.location_set_version_id = get_location_set_version_id(gbd_round_id = self.gbd_round_id)
 
-        self.parent_location_id = getattr(settings.model, 'drill_location_start', 0)
-        self.sex_id = getattr(settings.model, 'drill_sex', 3)
+        self.parent_location_id = settings.model.drill_location_start
+        self.sex_id = settings.model.drill_sex if settings.model.drill_sex else 3
 
         root_node_path = Path(root_node_path.format(mvid=self.mvid, location_id=self.parent_location_id, sex_id=self.sex_id))
         self.root_node_db = DismodIO(root_node_path)
 
-        all_node_path = root_node_path.parts[:2 + root_node_path.parts.index(str(self.mvid))]
-        self.all_node_db = Path(os.path.join(*all_node_path)) / 'all_node.db'
+        all_node_path = Path(os.path.join(*root_node_path.parts[:2 + root_node_path.parts.index(str(self.mvid))]))
+        self.all_node_db = all_node_path / 'all_node.db'
 
         self.age = self.root_node_db.age
         self.time = self.root_node_db.time
@@ -296,15 +299,13 @@ class AllNodeDatabase:
             if missing_csmr: print(f"Warning -- CSMR data is missing for locations: {sorted(missing_csmr)}")
 
         print ("*** Omega age and time grids. ***")
-        omega_age_grid = sorted(set(asdr.age.unique()) & set(csmr.age.unique()))
-        self.omega_age_grid = pd.DataFrame(omega_age_grid, columns = ['age'])
+        self.omega_age = sorted(set(asdr.age.unique()) & set(csmr.age.unique()))
+        self.omega_age_grid = pd.DataFrame(self.omega_age, columns = ['age'])
         self.omega_age_grid['omega_age_grid_id'] = self.omega_age_grid.index
         
-        omega_time_grid = sorted(set(asdr.time.unique()) & set(csmr.time.unique()))
-        self.omega_time_grid = pd.DataFrame(omega_time_grid, columns = ['time'])
+        self.omega_time = sorted(set(asdr.time.unique()) & set(csmr.time.unique()))
+        self.omega_time_grid = pd.DataFrame(self.omega_time, columns = ['time'])
         self.omega_time_grid['omega_time_grid_id'] = self.omega_time_grid.index
-
-        self.root_node_db.time, self.root_node_db.age = self.update_root_node_time_age(self.root_node_db.time, omega_time_grid, self.root_node_db.age, omega_age_grid)
 
         self.omega_age_grid = self.omega_age_grid.merge(self.root_node_db.age, how='left')
         print (f"    Age_ids: {self.omega_age_grid.age_id.tolist()}")
@@ -403,10 +404,8 @@ class AllNodeDatabase:
         import cascade_at.core.db
         self.age_groups = cascade_at.core.db.db_queries.get_age_metadata(age_group_set_id=age_group_set_id, gbd_round_id=self.gbd_round_id)
 
-
 def main(mvid = None, cause_id = None, age_group_set_id = None):
 
-    global self
     self = AllNodeDatabase(mvid = mvid, cause_id = cause_id, age_group_set_id = age_group_set_id)
     self.save_to_sql()
 
@@ -428,7 +427,7 @@ if __name__ == '__main__':
 
     defaults = {}
     if (len(sys.argv) == 1 and sys.argv[0] == ''):
-        _mvid_ = 475876
+        _mvid_ = 475877
         _cause_id_ = 975        # diabetes mellitus type 1
         _cause_id_ = 587        # diabetes mellitus
         _age_group_set_id_ = 12
