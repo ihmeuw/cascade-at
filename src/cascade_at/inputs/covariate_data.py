@@ -67,8 +67,13 @@ class CovariateData(BaseInput):
         ]]
         df = self._complete_covariate_ages(cov_df=df)
         df = self._complete_covariate_sex(cov_df=df, pop_df=pop_df)
-        df = self._complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df,
-                                                locations=self.demographics.location_id)
+
+        if 1:
+            LOG.warning(f"GMA removed the call to _complete_covariate_locations because it was computing erroneous BMI values.")
+        else:
+            df = self._complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df,
+                                                    locations=self.demographics.location_id)
+
         df = self.convert_to_age_lower_upper(df)
         return df
     
