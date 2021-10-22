@@ -666,17 +666,16 @@ class TestAndPlot(object):
             self.globalDB = globalDB = DismodDbAPI((os.path.join(*path + ['1', str(self.sex_id), 'dismod.db'])))
             import sqlalchemy
 
-            def dataframe_decompress_index(integrand, index):
-                for i in index: pass
-
-                index[f'all_{name}_id'] = index.index
-                index.reset_index(inplace=True, drop=True)
-                index[f'{name}_index_id'] = index.index
-                index = index[[f'{name}_index_id', 'node_id', f'all_{name}_id']]
-                return index
-
-
-
+            def dataframe_decompress_index(df, df_index, index_cols):
+                cols = ['age', 'time', 'sex_id']
+                df[['node_id'] + cols] = None
+                index_name = [n for n in df.columns if n.startswith('all_') and n.endswith('_id')][0]
+                for i, row in df_index.iterrows():
+                    start = getattr(row, index_name)
+                    end = start + len(index_cols) - 1
+                    df.loc[start:end, cols] = index_cols
+                    df.loc[start:end, 'node_id'] = row.node_id
+                    
             with sqlalchemy.create_engine(f"sqlite:///{self.allDB_path}").connect() as conn:
                 self.n_sex = 3
                 self.omega_age = pd.read_sql_table('omega_age_grid', conn).merge(globalDB.age, how='left')
@@ -688,26 +687,15 @@ class TestAndPlot(object):
                 self.mtall_index = pd.read_sql_table('mtall_index', conn)
                 self.all_mtspecific = pd.read_sql_table('all_mtspecific', conn)
                 self.mtspecific_index = pd.read_sql_table('mtspecific_index', conn)
-                assert len(all_mtall) == len(all_mtspecific), "Mtall and mtspecific are not the same length."
+                assert len(self.all_mtall) == len(self.all_mtspecific), "Mtall and mtspecific are not the same length."
                 runLength = len(self.omega_age)*len(self.omega_time)*self.n_sex
                 diff = set(np.diff(self.mtall_index.all_mtall_id))
                 assert len(diff) == 1 and runLength == diff.pop()
                 assert runLength * len(self.fit_goal) == len(self.all_mtall)
-                index_cols = [[age, time, sex] for age in self.omega_age.age for time in self.omega_time.time for sex in (1,2,3)]
 
-                mtall = self.all_mtall.copy()
-                cols = ['node_id', 'age', 'time', 'sex_id']
-                mtall[cols] = None
-                for i, row in self.mtall_index.iterrows():
-                    mtall.loc[row.all_mtall_id:row.all_mtall_id+len(index_cols)-1, ['age', 'time', 'sex_id']] = index_cols
-                    mtall.loc[row.all_mtall_id:row.all_mtall_id+len(index_cols)-1, 'node_id'] = row.node_id
-
-                mtspecific = self.all_mtspecific.copy()
-                cols = ['node_id', 'age', 'time', 'sex_id']
-                mtspecific[cols] = None
-                for i, row in self.mtspecific_index.iterrows():
-                    mtspecific.loc[row.all_mtspecific_id:row.all_mtspecific_id+len(index_cols)-1, ['age', 'time', 'sex_id']] = index_cols
-                    mtspecific.loc[row.all_mtspecific_id:row.all_mtspecific_id+len(index_cols)-1, 'node_id'] = row.node_id
+                col_values = [[age, time, sex] for age in self.omega_age.age for time in self.omega_time.time for sex in (1,2,3)]
+                dataframe_decompress_index(self.all_mtall, self.mtall_index, col_values)
+                dataframe_decompress_index(self.all_mtspecific, self.mtspecific_index, col_values)
 
         try:
             self.sex = sex2sex_name(self.sex_ref)
