@@ -451,9 +451,10 @@ class MeasurementInputs:
 
                 # if there is no data for the parent location at all (which
                 # there should be provided by Central Comp)
-                # then we are going to set the reference value to 0.
-                if cov_df.empty:
-                    reference_value = 0
+                # then we are going to set the median of all the data.
+                if parent_df.empty:
+                    LOG.info(f"Covariate values are missing for location {parent_location_id} -- using the median of all locations non-null covariate values for the reference.")
+                    reference_value = cov_df[~cov_df.mean_value.isna()].mean_value.median()
                     max_difference = np.nan
                 else:
                     pop_df = self.population.configure_for_dismod()
@@ -472,6 +473,7 @@ class MeasurementInputs:
                         covariate_dict={c.name: parent_df},
                         population_df=pop_df
                     )[c.name].iloc[0]
+                    LOG.info(f"Setting covariate {c.name} reference value = {reference_value}.")
                     LOG.info(f"Setting covariate {c.name} max_difference = nan to disable data hold_out due to covariate value.")
                     max_difference = np.nan
                 c.reference = reference_value
