@@ -25,6 +25,24 @@ def system (command) :
     if rtn.returncode != 0 :
         raise Exception(f'"{command}" failed.')
 
+def get_parent_node_info(db):
+    parent_node_id = db.option.loc[db.option.option_name == 'parent_node_id', 'option_value'].squeeze()
+    parent_node_name = db.option.loc[db.option.option_name == 'parent_node_name', 'option_value'].squeeze()
+    breakpoint()
+    if parent_node_id is None or parent_node_id.empty:
+        parent_node_name = db.option.loc[db.option.option_name == 'parent_node_name', 'option_value'].squeeze()
+        parent_node_id = int(db.node.loc[db.node.node_name == parent_node_name, 'node_id'])
+    else:
+        parent_node_name = db.node.loc[db.node.node_id == int(parent_node_id), 'node_name'].squeeze()
+        parent_node_id = int(parent_node_id)
+    return parent_node_id, parent_node_name
+
+def get_parent_node_id(db):
+    return get_parent_node_info(db)[0]
+
+def get_parent_node_name(db):
+    return get_parent_node_info(db)[1]
+    
 def case_study_title(db, version = None, disease = 'TBD', which_fit = 'TBD') :
     # return the title for this study and fit
     covariate = db.covariate
@@ -32,10 +50,7 @@ def case_study_title(db, version = None, disease = 'TBD', which_fit = 'TBD') :
     if sex_ref < 0: sex = 'female'
     elif sex_ref > 0: sex = 'male'
     else: sex = 'both'
-    location = db.node.loc[db.node.node_id ==
-                           int(db.option.loc[db.option.option_name == 'parent_node_id', 'option_value']),
-                           'node_name'].squeeze()
-    return f"{location}\n{which_fit}, {disease}, {sex}, version={version}"
+    return f"{get_parent_node_name(db)}\n{which_fit}, {disease}, {sex}, version={version}"
 
 def get_prior(db, rate_name, age = None, time = None, sex = None, option = 'value'):
     assert not (age and time), "Specify one of age and time."
@@ -74,8 +89,8 @@ def plot_rate(db, rate_name, title = 'TBD') :
     #
     var = (db.var.merge(db.fit_var, how='left', left_on = 'var_id', right_on = 'fit_var_id')
            .merge(db.rate, how='left').merge(db.age, how='left').merge(db.time, how='left'))
-    parent_node_id = int(db.option.loc[db.option.option_name == 'parent_node_id', 'option_value'])
-    parent_node_name = db.node.loc[db.node.node_id == parent_node_id, 'node_name'].values
+    parent_node_id = get_parent_node_id(db)
+    parent_node_name = get_parent_node_name(db)
     rate_id = int(db.rate.loc[db.rate.rate_name == rate_name, 'rate_id'])
 
     age_min = db.age.age.min()
@@ -170,7 +185,8 @@ def plot_rate(db, rate_name, title = 'TBD') :
             dtime_mean_std = get_prior(db, rate_name, option = 'dtime')['std'].mean()
             plt.ylabel(f"{rate_name} (mean std -- dAge: {dage_mean_std:2g}, dTime: {dtime_mean_std:.2g})")
             plt.yscale('log')
-            plt.ylim(*ylim)
+            if (np.isfinite(ylim)).all():
+                plt.ylim(*ylim)
         for i in range(n_age) :
             x = age[i, 0]
             plt.axvline(x, color='black', linestyle='dotted', alpha=0.3)
@@ -279,7 +295,8 @@ def plot_rate(db, rate_name, title = 'TBD') :
             dtime_mean_std = get_prior(db, rate_name, option = 'dtime')['std'].mean()
             plt.ylabel(f"{rate_name} (mean std -- dAge: {dage_mean_std:2g}, dTime: {dtime_mean_std:.2g})")
             plt.yscale('log')
-            plt.ylim(*ylim)
+            if np.isfinite(ylim).all():
+                plt.ylim(*ylim)
         for j in range(n_time) :
             x = time[0, j]
             plt.axvline(x, color='black', linestyle='dotted', alpha=0.3)
@@ -350,8 +367,8 @@ def plot_integrand(db, data, integrand_name, title='TBD') :
 
     this_integrand_id = int(db.integrand.loc[db.integrand.integrand_name == integrand_name, 'integrand_id'])
     data = data[data.integrand_id == this_integrand_id]
-    parent_node_id = int(db.option.loc[db.option.option_name == 'parent_node_id', 'option_value'])
-    parent_node_name = db.node.loc[db.node.node_id == parent_node_id, 'node_name'].values
+    parent_node_id = get_parent_node_id(db)
+    parent_node_name = get_parent_node_name(db)
 
     #
     meas_value  = data['meas_value'].values
@@ -487,7 +504,8 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, title='TB
     covariate_id_list = db.integrand.loc[db.integrand.integrand_name.isin(covariate_integrand_list), 'integrand_id'].values
     predict_id_list = db.integrand.loc[db.integrand.integrand_name.isin(predict_integrand_list), 'integrand_id'].values
 
-    data = get_fitted_data(db)
+    cov_name_dict = {f'x_{c.covariate_id}':c.covariate_name for i,c in db.covariate.iterrows()}
+    data = get_fitted_data(db).rename(columns = cov_name_dict)
     db.avgint = avgint = pd.DataFrame()
     cols = db.avgint.columns.drop('avgint_id').tolist() + db.covariate.covariate_name.tolist()
     for cov_id in covariate_id_list:
@@ -497,6 +515,8 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, title='TB
             avgint = avgint.append(cov_data)
     avgint = avgint.reset_index(drop=True)
     avgint['avgint_id'] = avgint.index
+    avgint.rename(columns = {v:k for k,v in cov_name_dict.items()}, inplace=True)
+
     db.avgint = avgint
 
     # Predict for this avgint table
@@ -585,7 +605,7 @@ def main():
 
 
 if __name__ == '__main__':
-    if _test_plot_prior_:
-        sys.argv = 'plot /Users/gma/ihme/epi/at_cascade/data/475588/dbs/1/3/dismod.db -d t1-diabetes -f ODE-fit -v 475588'.split()
+    # if not sys.argv[0]:
+    #     sys.argv = 'plot /Users/gma/Projects/IHME/GIT/at_cascade.git/bin/ihme_db/475876/Global/dismod.db'.split()
     main()
 
