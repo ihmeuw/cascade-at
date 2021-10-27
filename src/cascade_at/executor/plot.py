@@ -28,7 +28,6 @@ def system (command) :
 def get_parent_node_info(db):
     parent_node_id = db.option.loc[db.option.option_name == 'parent_node_id', 'option_value'].squeeze()
     parent_node_name = db.option.loc[db.option.option_name == 'parent_node_name', 'option_value'].squeeze()
-    breakpoint()
     if parent_node_id is None or parent_node_id.empty:
         parent_node_name = db.option.loc[db.option.option_name == 'parent_node_name', 'option_value'].squeeze()
         parent_node_id = int(db.node.loc[db.node.node_name == parent_node_name, 'node_id'])
@@ -73,7 +72,7 @@ def get_prior(db, rate_name, age = None, time = None, sex = None, option = 'valu
         x,y = p[[k, 'mean']].values.T
         return x,y
 
-def plot_rate(db, rate_name, title = 'TBD') :
+def plot_rate(db, rate_name, title = 'TBD', pdf_backend = None) :
     color_style_list = [
         ('blue',       'dashed'),  ('lightblue',  'solid'),
         ('red',        'dashed'),  ('pink',       'solid'),
@@ -150,11 +149,11 @@ def plot_rate(db, rate_name, title = 'TBD') :
         save_color_index = color_index
         #
         fig    = plt.figure()
+        plt.title(f'{title} {rate_name}')
         fig.subplots_adjust( hspace = .01 )
         #
         # axis for subplot and title for figure
         axis   = plt.subplot(n_subplot, 1, 1)
-        axis.set_title(title)
         #
         start  = i_fig * n_per_fig
         if i_fig > 0 :
@@ -245,6 +244,7 @@ def plot_rate(db, rate_name, title = 'TBD') :
             ])
         # --------------------------------------------------------------------
         pdf.savefig( fig )
+        pdf_backend.savefig( fig )
         plt.close( fig )
     # ------------------------------------------------------------------------
     # for each age, plot rate as a function of time
@@ -261,11 +261,11 @@ def plot_rate(db, rate_name, title = 'TBD') :
         #
         # new figure
         fig    = plt.figure()
+        plt.title(f'{title} {rate_name}')
         fig.subplots_adjust( hspace = .01 )
         #
         # axis for subplot and title for figure
         axis   = plt.subplot(n_subplot, 1 ,1)
-        axis.set_title( title )
         #
         start  = i_fig * n_per_fig
         if i_fig > 0 :
@@ -354,12 +354,13 @@ def plot_rate(db, rate_name, title = 'TBD') :
             ])
         # --------------------------------------------------------------------
         pdf.savefig( fig )
+        pdf_backend.savefig( fig )
         plt.close( fig )
     #
     pdf.close()
 # ----------------------------------------------------------------------------
 
-def plot_integrand(db, data, integrand_name, title='TBD') :
+def plot_integrand(db, data, integrand_name, title='TBD', pdf_backend = None) :
     # Plot the data, model, and residual values for a specified integrand.
     # Covariate values used for each model point are determined by
     # correspondign data point.
@@ -438,7 +439,7 @@ def plot_integrand(db, data, integrand_name, title='TBD') :
         if np.isfinite(y_limit).all():
             plt.ylim(y_limit[0], y_limit[1])
         #
-        plt.title( title )
+        plt.title(f'{title} {integrand_name}')
         #
         sp = plt.subplot(3, 1, 2)
         sp.set_xticklabels( [] )
@@ -466,17 +467,19 @@ def plot_integrand(db, data, integrand_name, title='TBD') :
         plt.xlabel(x_name)
         #
         pdf.savefig( fig )
+        pdf_backend.savefig( fig )
         plt.close( fig )
     #
     fig = plt.figure()
-    ax = plt.gca()
     plt.title(title)
+    ax = plt.gca()
     r = data['weighted_residual'].values
     plt.xlabel(f'Weighted Residual (range = [{np.round(r.min(), 1)}, {np.round(r.max(),1)}])')
     plt.ylabel(f'{integrand_name.capitalize()} Count')
     n_bins = max(100, int(len(r)/100))
     ax.hist(r, bins=n_bins)
     pdf.savefig( fig )
+    pdf_backend.savefig( fig )
     plt.close( fig )
     pdf.close()
 
@@ -487,7 +490,7 @@ def get_fitted_data(db):
             .merge(db.integrand, how='left'))
     return data
 
-def plot_predict(db, covariate_integrand_list, predict_integrand_list, title='TBD') :
+def plot_predict(db, covariate_integrand_list, predict_integrand_list, title='TBD', pdf_backend = None) :
     # Plot the model predictions for each integrand in the predict integrand
     # list. The is one such plot for each integrand in the covariate integrand
     # list (which determines the covariate values used for the predictions).
@@ -538,6 +541,7 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, title='TB
         #
         plot_index = 0
         for integrand_name, integrand_id in zip(predict_integrand_list, predict_id_list) :
+            plt.title(f'{title} {integrand_name}')
             #
             # Last plot at the bottom of the figure has its x tick labels
             plot_index += 1
@@ -556,7 +560,8 @@ def plot_predict(db, covariate_integrand_list, predict_integrand_list, title='TB
         plt.suptitle(f'Covariate Integrand = {covariate_name}\n{title}' )
         #
         pdf.savefig( fig )
-        plt.close( fig )
+        pdf_backend.savefig( fig )
+    plt.close( fig )
     pdf.close()
 
 def parse_args():
@@ -597,15 +602,17 @@ def main():
     rate = db.rate
     integrand = db.integrand
     rate_names = rate.loc[~rate.parent_smooth_id.isna(), 'rate_name'].tolist()
+    all_pdf_file = db.path.parent / 'all_data.pdf'
+    pdf_backend = matplotlib.backends.backend_pdf.PdfPages(all_pdf_file)
     for rate_name in rate_names:
-        plot_rate(db, rate_name, title = title)
+        plot_rate(db, rate_name, title = title, pdf_backend = pdf_backend)
     for integrand_name in all_integrands:
-        plot_integrand(db, data, integrand_name, title = title)
-    plot_predict(db, covariate_integrand_list, predict_integrand_list, title = title)
-
+        plot_integrand(db, data, integrand_name, title = title, pdf_backend = pdf_backend)
+    plot_predict(db, covariate_integrand_list, predict_integrand_list, title = title, pdf_backend = pdf_backend)
+    pdf_backend.close()
 
 if __name__ == '__main__':
-    # if not sys.argv[0]:
-    #     sys.argv = 'plot /Users/gma/Projects/IHME/GIT/at_cascade.git/bin/ihme_db/475876/Global/dismod.db'.split()
+    if not sys.argv[0]:
+        sys.argv = 'plot /Users/gma/Projects/IHME/GIT/at_cascade.git/bin/ihme_db/475876/Global/High-income/dismod.db'.split()
     main()
 
