@@ -1,13 +1,13 @@
 import numpy as np
 import pandas as pd
 from typing import Dict
+from functools import lru_cache
 
 from cascade_at.core.log import get_loggers
 from cascade_at.inputs.utilities.gbd_ids import make_age_intervals, make_time_intervals
 from cascade_at.inputs import InputsError
 
 LOG = get_loggers(__name__)
-
 
 class CovariateInterpolationError(InputsError):
     """Raised when there is an issue with covariate interpolation."""
@@ -119,13 +119,18 @@ class CovariateInterpolator:
         wt = np.outer(time_wts, age_wts)
         return age_group_ids, year_ids, wt
 
+    @lru_cache
+    def warn_missing_cov(self, loc_id, sex_id):
+        LOG.warning('There must be a better way to prevent logger repeated warnings -- using a cached function.')
+        LOG.warning(f"Covariate is missing for location_id {loc_id},"
+                    f"sex_id {sex_id} -- setting the value to None.")
+
     def interpolate(self, loc_id, sex_id, age_lower, age_upper, time_lower, time_upper):
         """
         Main interpolation function.
         """
         if loc_id not in self.location_ids:
-            LOG.warning(f"Covariate is missing for location_id {loc_id},"
-                        f"sex_id {sex_id} -- setting the value to None.")
+            self.warn_missing_cov(loc_id, sex_id)
             cov_value = None
         else:
             age_group_ids, year_ids, epoch_weights = self._weighting(

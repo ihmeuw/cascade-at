@@ -1,6 +1,5 @@
 import logging
 
-
 LEVELS = {
     'debug': logging.DEBUG,
     'info': logging.INFO,

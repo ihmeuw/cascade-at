@@ -80,6 +80,7 @@ def format_upload(model_version_id: int, final: bool = False, fit: bool = False,
                   prior: bool = False) -> None:
 
     context = Context(model_version_id=model_version_id)
+    print (f'Saving to connection {context.model_connection}')
     rh = ResultsHandler()
 
     if final:

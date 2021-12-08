@@ -6,6 +6,7 @@ from typing import Union, List, Dict, Any, Optional, Tuple
 import os
 import numpy as np
 import pandas as pd
+import shutil
 
 from cascade_at.core import CascadeATError
 from cascade_at.context.model_context import Context
@@ -251,6 +252,11 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int = None
                 model_version_id=model_version_id
             )
 
+    
+    save_path = db_path.parent / db_path.name.replace('.db', '_ODE_import.db')
+    LOG.info(f'Saving imported file to {save_path}')
+    shutil.copy2(db_path, save_path)
+
     if dm_commands:
         run_dismod_commands(dm_file=str(db_path), commands=dm_commands)
 
@@ -287,4 +293,7 @@ def main():
 
 
 if __name__ == '__main__':
+    if not sys.argv[0]:
+        sys.argv = "dismod_db --model-version-id 475879 --parent-location-id 1 --sex-id 2 --fill".split()
+        sys.argv = "dismod_db --model-version-id 475879 --parent-location-id 1 --sex-id 2 --fill --dm-commands ODE-init ODE-fit predict-fit_var --save-prior --save-fit".split()
     main()

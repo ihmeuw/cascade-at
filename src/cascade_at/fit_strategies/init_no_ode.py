@@ -851,7 +851,7 @@ class FitNoODE(DismodIO):
         LOG.info(f'+++ dm.path {dm.path}')
         try:
             dmv = pd.read_csv(dm.path.parent / 'variable.csv')
-            system(f'dismodat.py {db.path} db2csv')
+            system(f'db2csv {db.path}')
             dbv = pd.read_csv(db.path.parent / 'variable.csv')
             LOG.info(f'variable.csv {compare_dataframes(dmv, dbv)}')
             LOG.info('Check output tables OK')
@@ -937,7 +937,7 @@ def _ode_command(args, type = '', random_subsample = None,
         db.save_database(save_to_path)
         if reference_db:
             db.check_output_tables(reference_db)
-        cmd = f"dismodat.py {db.path} db2csv"
+        cmd = f"db2csv {db.path}"
         LOG.info(cmd); os.system(cmd)
     except: raise
     finally:

@@ -48,4 +48,7 @@ def main():
             os.system (f"{lib_path} dmdismod {cmd_str}")
 
 if __name__ == '__main__':
+    if not sys.argv[0]:
+        sys.argv = ('dmdismod /tmp/t1_diabetes.db ODE init  --random-seed 1234 --random-subsample 1000 '
+                    '--save-to-path /tmp/t1_diabetes_no_ode.db --reference /Users/gma/ihme/epi/at_cascade/t1_diabetes/no_ode/no_ode.db').split()
     main()

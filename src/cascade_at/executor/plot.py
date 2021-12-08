@@ -28,12 +28,13 @@ def system (command) :
 def get_parent_node_info(db):
     parent_node_id = db.option.loc[db.option.option_name == 'parent_node_id', 'option_value'].squeeze()
     parent_node_name = db.option.loc[db.option.option_name == 'parent_node_name', 'option_value'].squeeze()
-    if parent_node_id is None or parent_node_id.empty:
+    try:
+        parent_node_id = db.node.loc[db.node.node_name == parent_node_name, 'node_id']
         parent_node_name = db.option.loc[db.option.option_name == 'parent_node_name', 'option_value'].squeeze()
-        parent_node_id = int(db.node.loc[db.node.node_name == parent_node_name, 'node_id'])
-    else:
+    except:
         parent_node_name = db.node.loc[db.node.node_id == int(parent_node_id), 'node_name'].squeeze()
-        parent_node_id = int(parent_node_id)
+        parent_node_id = db.node.loc[db.node.node_name == parent_node_name, 'node_id']
+    parent_node_id = int(parent_node_id)
     return parent_node_id, parent_node_name
 
 def get_parent_node_id(db):

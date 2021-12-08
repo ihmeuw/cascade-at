@@ -527,6 +527,7 @@ if __name__ == '__main__':
     if (len(sys.argv) == 1 and sys.argv[0] == ''):
         _mvid_ = 475877
         _mvid_ = 475876
+        _mvid_ = 475879
         _cause_id_ = 975        # diabetes mellitus type 1
         _cause_id_ = 587        # diabetes mellitus
         _age_group_set_id_ = 12
