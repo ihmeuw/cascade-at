@@ -9,6 +9,7 @@ import pandas as pd
 from copy import copy
 import sqlite3
 import shutil
+import multiprocessing
 
 from typing import List, Optional, Dict, Union
 
@@ -241,12 +242,14 @@ class AllNodeDatabase:
         self.all_cov_reference = self.covariate
  
         self.write_table_sql('all_option', {'all_option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
-        self.write_table_sql('fit_goal', {'fit_goal_id': 'integer', 'node_id': 'integer'})
+        # self.write_table_sql('fit_goal', {'fit_goal_id': 'integer', 'node_id': 'integer'})
         # self.write_table_sql('all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'sex_id':'integer', 'covariate_id':'integer', 'reference': 'real'})
         self.write_table_sql('all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'split_reference_id':'integer', 'covariate_id':'integer', 'reference': 'real'})
         self.write_table_sql('omega_age_grid', {'omega_age_grid_id': 'integer', 'age_id': 'integer'})
         self.write_table_sql('omega_time_grid', {'omega_time_grid_id': 'integer', 'time_id': 'integer'})
         
+        self.write_table_sql('node_split', {'node_split_id': 'integer', 'node_id': 'integer'})
+
         # Brad insists on calling sex_id split_reference_id
         brads_name_for_sex_id = 'split_reference_id'
 
@@ -258,6 +261,10 @@ class AllNodeDatabase:
         self.write_table_sql('mtspecific_index', {'mtspecific_index_id': 'integer', 'node_id': 'integer', brads_name_for_sex_id: 'integer', 'all_mtspecific_id': 'integer'})
         self.write_table_sql('all_mtspecific', {'all_mtspecific_id': 'integer', 'all_mtspecific_value': 'real'})
 
+        self.write_table_sql('mulcov_freeze', {'mulcov_freeze_id': 'integer', 'fit_node_id': 'integer',
+                                               'split_reference_id': 'integer', 'mulcov_id': 'integer'})
+
+        self.write_table_sql('split_reference', {'split_reference_id': 'integer', 'split_reference_name': 'text', 'split_reference_value': 'real'})
 
     def __init__(self,
 
@@ -273,7 +280,7 @@ class AllNodeDatabase:
                  decomp_step = 'iterative',
                  age_group_set_id = None,
 
-                 root_node_path = '/Users/gma/ihme/epi/at_cascade/data/{mvid}/dbs/{location_id}/{sex_id}/dismod.db',
+                 root_node_path = '/Users/gma/ihme/epi/at_cascade_brad/data/{mvid}/dismod.db',
                  in_parallel = False,
                  max_fit = 1000,
                  cause_id = None,
@@ -297,42 +304,16 @@ class AllNodeDatabase:
             model_version_id = self.mvid,
             conn_def = self.conn_def)
         settings = load_settings(settings_json=parameter_json)
+        global settings_dict
+        settings_dict = settings._to_dict_value()
 
         if settings.location_set_version_id:
             self.location_set_version_id = settings.location_set_version_id
         else:
             self.location_set_version_id = get_location_set_version_id(gbd_round_id = self.gbd_round_id)
 
-        self.parent_location_id = settings.model.drill_location_start
-        self.sex_id = settings.model.drill_sex if settings.model.drill_sex else 3
-
-        root_node_path = Path(root_node_path.format(mvid=self.mvid, location_id=self.parent_location_id, sex_id=self.sex_id))
-        self.root_node_db = DismodIO(root_node_path)
-
-        all_node_path = Path(os.path.join(*root_node_path.parts[:2 + root_node_path.parts.index(str(self.mvid))]))
-        self.all_node_db = all_node_path / 'all_node.db'
-
-        self.age = self.root_node_db.age
-        self.time = self.root_node_db.time
-        self.node = self.root_node_db.node
-
-        print ('*** Get options. ***')
-        root_node_name = self.root_node_db.node.loc[self.root_node_db.node.c_location_id == self.parent_location_id, 'node_name'].squeeze()
-        # split_level = -1, split_covariate_name = s_sex, 
-        # split_reference_list = [ -0.5, 0.0, 0.5 ] = [female, both, male]
-        split_list =  '-1 s_sex -0.5 0.0 +0.5'
-        self.all_option = pd.DataFrame([('root_node_name', root_node_name),
-                                        ('in_parallel', self.in_parallel),
-                                        ('max_abs_effect', None),
-                                        ('max_fit', self.max_fit),
-                                        ('split_list', split_list),
-                                        ],
-                                       columns = ['option_name', 'option_value'])
-
-        self.all_option['option_id'] = self.all_option.index
-                       
         print ('*** Get demographics. ***')
-        demographics = Demographics(gbd_round_id=self.gbd_round_id)
+        self.demographics = demographics = Demographics(gbd_round_id=self.gbd_round_id)
 
         # Subsample demographic years
         demographics.year_id = list(range(min(demographics.year_id), max(demographics.year_id)+5, 5))
@@ -341,7 +322,7 @@ class AllNodeDatabase:
         population = Population( demographics = demographics,
                                  decomp_step = self.decomp_step,
                                  gbd_round_id=self.gbd_round_id).get_population()
-            
+
         covariate_specs = CovariateSpecs(
             country_covariates=settings.country_covariate,
             study_covariates=settings.study_covariate)
@@ -350,27 +331,91 @@ class AllNodeDatabase:
 
         print ('*** Get locations. ***')
         inputs.location_dag = LocationDAG(location_set_version_id = self.location_set_version_id,
-                                   gbd_round_id = self.gbd_round_id)
+                                          gbd_round_id = self.gbd_round_id)
         if settings.model.drill:
-            self.drill_location_start = settings.model.drill_location_start
-            self.drill_location_end = settings.model.drill_location_end
+            drill_location_start = settings.model.drill_location_start
+            drill_location_end = settings.model.drill_location_end
         else:
-            self.drill_location_start = None
-            self.drill_location_end = None
+            drill_location_start = None
+            drill_location_end = None
 
         # Need to subset the locations to only those needed for
         # the drill. drill_locations_all is the set of locations
         # to pull data for, including all descendants. drill_locations
         # is the set of locations just parent-children in the drill.
         drill_locations_all, drill_locations = locations_by_drill(
-            drill_location_start=self.drill_location_start,
-            drill_location_end=self.drill_location_end,
+            drill_location_start=drill_location_start,
+            drill_location_end=drill_location_end,
             dag=inputs.location_dag)
 
         if drill_locations_all:
             demographics.location_id = drill_locations_all
             demographics.drill_locations = drill_locations
-        self.demographics = demographics
+
+        self.sex_id = settings.model.drill_sex if settings.model.drill_sex else 3
+
+        root_node_path = Path(root_node_path.format(mvid=self.mvid, location_id=drill_location_start, sex_id=self.sex_id))
+        self.root_node_db = DismodIO(root_node_path)
+
+        all_node_path = Path(os.path.join(*root_node_path.parts[:2 + root_node_path.parts.index(str(self.mvid))]))
+        self.all_node_db = all_node_path.parent / 'all_node.db'
+
+        self.age = self.root_node_db.age
+        self.time = self.root_node_db.time
+        self.node = self.root_node_db.node
+
+        print ('*** Get options. ***')
+        [[root_node_loc, root_node_name]] = self.root_node_db.node.loc[
+            self.root_node_db.node.c_location_id == drill_location_start, ['c_location_id', 'node_name']].values
+        root_node_name = f'{root_node_loc}_{root_node_name}'
+        
+
+        if settings.model.split_sex:
+            root_split_reference_name = 'Both'
+            split_covariate_name = 'sex'
+            split_list =  f'-1 s_{split_covariate_name} -0.5 0.0 +0.5'
+            split_node_id = self.node.loc[self.node.c_location_id == int(settings.model.split_sex), 'node_id'].squeeze()
+            self.node_split = pd.DataFrame([{'node_split_id': 0, 'node_id': split_node_id}])
+        else:
+            root_split_reference_name = ''
+            split_covariate_name = ''
+            split_list =  ''
+            self.node_split = pd.DataFrame([], columns = ['node_split_id', 'node_id'])
+
+        # The values values in this section have direct JSON file settings and/or are hardcoded 
+        if 1:
+            absolute_covariates = ['one']
+            max_number_cpu = max(1, multiprocessing.cpu_count() - 1)
+            max_abs_effect = 2
+
+            result_dir = root_node_path
+            shift_prior_std_factor = 2
+            perturb_optimization_scaling = 0.2
+            
+            print ('TO DO -- set up the mulcov_freeze table values')
+
+            self.mulcov_freeze = pd.DataFrame([], columns = ['mulcov_freeze_id', 'fit_node_id', 'split_reference_id', 'mulcov_id'])
+
+            self.split_reference = pd.DataFrame([{'split_reference_id': 0, 'split_reference_name': 'Female', 'split_reference_value': -0.5},
+                                                 {'split_reference_id': 1, 'split_reference_name': 'Both', 'split_reference_value': 0.0},
+                                                 {'split_reference_id': 0, 'split_reference_name': 'Male', 'split_reference_value': 0.5}])
+
+
+        self.all_option = pd.DataFrame([('absolute_covariates', ' '.join(absolute_covariates)),
+                                        ('split_covariate_name', split_covariate_name),
+                                        ('root_split_reference_name', root_split_reference_name),
+                                        ('result_dir', str(result_dir)),
+                                        ('root_node_name', root_node_name),
+                                        ('max_abs_effect', str(max_abs_effect)),
+                                        ('max_fit', str(self.max_fit)),
+                                        ('max_number_cpu', str(max_number_cpu)),
+                                        # ('split_list', split_list),
+                                        ('shift_prior_std_factor', str(shift_prior_std_factor)),
+                                        ('perturb_optimization_scaling', str(perturb_optimization_scaling)),
+                                        ],
+                                       columns = ['option_name', 'option_value'])
+
+        self.all_option['option_id'] = self.all_option.index
 
         print ("*** Drill information. ***")
         print (f"    Drill locations: {demographics.drill_locations}")
@@ -386,7 +431,6 @@ class AllNodeDatabase:
 
         self.country_covariate_ids = list(covariate_specs.country_covariate_ids)
 
-
         from cascade_at.dismod.api.fill_extract_helpers import reference_tables
 
         self.age = reference_tables.construct_age_time_table(
@@ -396,7 +440,6 @@ class AllNodeDatabase:
         self.time = reference_tables.construct_age_time_table(
             variable_name='time', variable=demographics.year_id,
             data_min=0, data_max=2020)
-
 
         print ('*** Get covariate_reference. ***')
         inputs.covariate_data = {c: CovariateData(
@@ -430,7 +473,7 @@ class AllNodeDatabase:
             c['covariate_id'] = covariate_id
             covariate = covariate.append(c)
 
-        covariate = self.root_node_db.node.merge(covariate, how='left', left_on = 'c_location_id', right_on='location_id')
+        covariate = self.root_node_db.node.merge(covariate, how='right', left_on = 'c_location_id', right_on='location_id')
         covariate['node_id'] = covariate['node_id'].astype(int)
         covariate['all_cov_reference_id'] = covariate.reset_index(drop=True).index
         split_map = { 1:2, 2:0, 3:1}
@@ -528,6 +571,7 @@ if __name__ == '__main__':
         _mvid_ = 475877
         _mvid_ = 475876
         _mvid_ = 475879
+        _mvid_ = 475873
         _cause_id_ = 975        # diabetes mellitus type 1
         _cause_id_ = 587        # diabetes mellitus
         _age_group_set_id_ = 12
