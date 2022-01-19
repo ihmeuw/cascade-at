@@ -162,16 +162,16 @@ class AllNodeDatabase:
 
         return covs
 
-    def write_table_sql(self, table_name, dtypes):
+    def write_table_sql(self, conn, table_name, dtypes):
         df = getattr(self, table_name)
         id_column = f"{table_name}_id"
         if id_column not in df:
             df[id_column] = df.reset_index(drop=True).index
         keys = ', '.join([f'{k} {v}' for k,v in dtypes.items() if k != id_column])
-        self.conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-        self.conn.execute(f"CREATE TABLE {table_name} ({id_column} integer primary key, {keys})")
+        conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+        conn.execute(f"CREATE TABLE {table_name} ({id_column} integer primary key, {keys})")
         cols = [k for k in dtypes if k != id_column]
-        df[cols].to_sql(table_name, self.conn, index_label = id_column, if_exists="append")
+        df[cols].to_sql(table_name, conn, index_label = id_column, if_exists="append")
 
     # def correct_all_node_database(self):
     #     # --------------------------------------------------------------------------
@@ -204,6 +204,8 @@ class AllNodeDatabase:
         #
         # integrand_table
         # All the covariate multipliers must be in integrand table
+        conn = sqlite3.connect(self.root_node_db.path)
+
         integrand_table = self.root_node_db.integrand
         mulcov_table    = self.root_node_db.mulcov
         mulcov_table['integrand_name'] = [f"mulcov_{name}" for name in mulcov_table.mulcov_id]
@@ -216,55 +218,64 @@ class AllNodeDatabase:
         # option table, parent_node_id
         # at_cascade requires one to use parent_node_name (not parent_node_id)
         # (turn on ipopt_trace)
-        option_table = self.root_node_db.option
-        ############# if 'parent_node_name' not in option_table.option_name
+        self.option = self.root_node_db.option
+        ############# if 'parent_node_name' not in self.option.option_name
         node_table = self.root_node_db.node
-        parent_node_id = int(option_table.loc[option_table.option_name == 'parent_node_id', 'option_value'])
+        parent_node_id = int(self.option.loc[self.option.option_name == 'parent_node_id', 'option_value'])
         parent_node_name = node_table.loc[node_table.node_id == parent_node_id, 'node_name'].squeeze()
-        option_table = option_table.append([dict(option_name = 'parent_node_name', option_value = parent_node_name)])
+        self.option = self.option.append([dict(option_id=len(self.option), option_name = 'parent_node_name', option_value = parent_node_name)]).reset_index(drop=True)
+        self.write_table_sql(conn, 'option', {'option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
         #
         # rate table
         # all omega rates must be null
-        rate_table    = self.root_node_db.rate
-        omega_rate_id = rate_table.loc[rate_table.rate_name == 'omega', 'rate_id']
-        rate_table.loc[omega_rate_id, ['parent_smooth_id', 'child_smooth_id', 'child_nslist_id']] = None, None, None
-        self.root_node_db.rate = rate_table
+        self.rate    = self.root_node_db.rate
+        omega_rate_id = self.rate.loc[self.rate.rate_name == 'omega', 'rate_id']
+        self.rate.loc[omega_rate_id, ['parent_smooth_id', 'child_smooth_id', 'child_nslist_id']] = None, None, None
+        self.root_node_db.rate = self.rate
+        self.write_table_sql(conn, 'rate', {'rate_id': 'integer', 'rate_name': 'text',
+                                            'parent_smooth_id': 'real', 'child_smooth_id': 'real', 'child_nslist_id': 'real'})
+
         #
         # nslist and nslist_pair tables
         self.root_node_db.nslist = pd.DataFrame()
         self.root_node_db.nslist_pair = pd.DataFrame()
+        self.nslist = self.root_node_db.nslist
+        self.nslist_pair = self.root_node_db.nslist_pair
+        self.write_table_sql(conn, 'nslist', {'nslist_id': 'integer', 'nslist_name': 'text'})
+        self.write_table_sql(conn, 'nslist_pair', {'nslist_pair_id': 'integer', 'nslist_id': 'integer', 'node_id': 'integer', 'smooth_id': 'integer'})
+        print (f'*** Modified {self.root_node_db.path}')
         #
 
     def save_to_sql(self):
         print (f"*** Writing {self.all_node_db} ***")
-        self.conn = sqlite3.connect(self.all_node_db)
+        conn = sqlite3.connect(self.all_node_db)
 
         self.all_cov_reference = self.covariate
  
-        self.write_table_sql('all_option', {'all_option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
-        # self.write_table_sql('fit_goal', {'fit_goal_id': 'integer', 'node_id': 'integer'})
-        # self.write_table_sql('all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'sex_id':'integer', 'covariate_id':'integer', 'reference': 'real'})
-        self.write_table_sql('all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'split_reference_id':'integer', 'covariate_id':'integer', 'reference': 'real'})
-        self.write_table_sql('omega_age_grid', {'omega_age_grid_id': 'integer', 'age_id': 'integer'})
-        self.write_table_sql('omega_time_grid', {'omega_time_grid_id': 'integer', 'time_id': 'integer'})
+        self.write_table_sql(conn, 'all_option', {'all_option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
+        # self.write_table_sql(conn, 'fit_goal', {'fit_goal_id': 'integer', 'node_id': 'integer'})
+        # self.write_table_sql(conn, 'all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'sex_id':'integer', 'covariate_id':'integer', 'reference': 'real'})
+        self.write_table_sql(conn, 'all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'split_reference_id':'integer', 'covariate_id':'integer', 'reference': 'real'})
+        self.write_table_sql(conn, 'omega_age_grid', {'omega_age_grid_id': 'integer', 'age_id': 'integer'})
+        self.write_table_sql(conn, 'omega_time_grid', {'omega_time_grid_id': 'integer', 'time_id': 'integer'})
         
-        self.write_table_sql('node_split', {'node_split_id': 'integer', 'node_id': 'integer'})
+        self.write_table_sql(conn, 'node_split', {'node_split_id': 'integer', 'node_id': 'integer'})
 
         # Brad insists on calling sex_id split_reference_id
         brads_name_for_sex_id = 'split_reference_id'
 
         self.mtall_index.rename(columns={'sex_id': brads_name_for_sex_id}, inplace=True)
-        self.write_table_sql('mtall_index', {'mtall_index_id': 'integer', 'node_id': 'integer', brads_name_for_sex_id: 'integer', 'all_mtall_id': 'integer'})
-        self.write_table_sql('all_mtall', {'all_mtall_id': 'integer', 'all_mtall_value': 'real'})
+        self.write_table_sql(conn, 'mtall_index', {'mtall_index_id': 'integer', 'node_id': 'integer', brads_name_for_sex_id: 'integer', 'all_mtall_id': 'integer'})
+        self.write_table_sql(conn, 'all_mtall', {'all_mtall_id': 'integer', 'all_mtall_value': 'real'})
 
         self.mtspecific_index.rename(columns={'sex_id': brads_name_for_sex_id}, inplace=True)
-        self.write_table_sql('mtspecific_index', {'mtspecific_index_id': 'integer', 'node_id': 'integer', brads_name_for_sex_id: 'integer', 'all_mtspecific_id': 'integer'})
-        self.write_table_sql('all_mtspecific', {'all_mtspecific_id': 'integer', 'all_mtspecific_value': 'real'})
+        self.write_table_sql(conn, 'mtspecific_index', {'mtspecific_index_id': 'integer', 'node_id': 'integer', brads_name_for_sex_id: 'integer', 'all_mtspecific_id': 'integer'})
+        self.write_table_sql(conn, 'all_mtspecific', {'all_mtspecific_id': 'integer', 'all_mtspecific_value': 'real'})
 
-        self.write_table_sql('mulcov_freeze', {'mulcov_freeze_id': 'integer', 'fit_node_id': 'integer',
+        self.write_table_sql(conn, 'mulcov_freeze', {'mulcov_freeze_id': 'integer', 'fit_node_id': 'integer',
                                                'split_reference_id': 'integer', 'mulcov_id': 'integer'})
 
-        self.write_table_sql('split_reference', {'split_reference_id': 'integer', 'split_reference_name': 'text', 'split_reference_value': 'real'})
+        self.write_table_sql(conn, 'split_reference', {'split_reference_id': 'integer', 'split_reference_name': 'text', 'split_reference_value': 'real'})
 
     def __init__(self,
 
@@ -285,6 +296,8 @@ class AllNodeDatabase:
                  max_fit = 1000,
                  cause_id = None,
                  ):
+
+        print (root_node_path)
 
         self.conn_def = conn_def
 
@@ -540,41 +553,91 @@ class AllNodeDatabase:
         import cascade_at.core.db
         self.age_groups = cascade_at.core.db.db_queries.get_age_metadata(age_group_set_id=age_group_set_id, gbd_round_id=self.gbd_round_id)
 
-def main(mvid = None, cause_id = None, age_group_set_id = None):
+def main(root_node_path = '', mvid = None, cause_id = None, age_group_set_id = None):
 
     global self
-    self = AllNodeDatabase(mvid = mvid, cause_id = cause_id, age_group_set_id = age_group_set_id)
+    self = AllNodeDatabase(root_node_path = root_node_path, mvid = mvid, cause_id = cause_id, age_group_set_id = age_group_set_id)
 
-    # self.correct_all_node_database()
     self.correct_root_node_database()
 
     self.save_to_sql()
 
 if __name__ == '__main__':
 
-    def parse_args(mvid=None, cause_id=None, age_group_set_id = None):
-        import argparse
-        from distutils.util import strtobool as str2bool
-        parser = argparse.ArgumentParser()
-        name_string = "-filename" if sys.argv[0] == '' else "filename"
-        parser.add_argument("-v", "--model_version_id", type = int, default = mvid,
-                            help = f"Model Version ID -- default = {mvid}")
-        parser.add_argument("-c", "--cause_id", type = int, default = cause_id,
-                            help = f"Cause ID -- default = {cause_id}")
-        parser.add_argument("-a", "--age_group_set_id", type = int, default = age_group_set_id,
-                            help = "Age Group Set ID -- default {age_group_set_id}")
-        args = parser.parse_args()
-        return args
+    if 0:
+        def parse_args(mvid=None, cause_id=None, age_group_set_id = None):
+            import argparse
+            from distutils.util import strtobool as str2bool
+            parser = argparse.ArgumentParser()
+            name_string = "-filename" if sys.argv[0] == '' else "filename"
+            parser.add_argument("-v", "--model_version_id", type = int, default = mvid,
+                                help = f"Model Version ID -- default = {mvid}")
+            parser.add_argument("-c", "--cause_id", type = int, default = cause_id,
+                                help = f"Cause ID -- default = {cause_id}")
+            parser.add_argument("-a", "--age_group_set_id", type = int, default = age_group_set_id,
+                                help = "Age Group Set ID -- default {age_group_set_id}")
+            args = parser.parse_args()
+            return args
 
-    defaults = {}
-    if (len(sys.argv) == 1 and sys.argv[0] == ''):
-        _mvid_ = 475877
-        _mvid_ = 475876
-        _mvid_ = 475879
-        _mvid_ = 475873
-        _cause_id_ = 975        # diabetes mellitus type 1
-        _cause_id_ = 587        # diabetes mellitus
-        _age_group_set_id_ = 12
-        defaults = dict(mvid = _mvid_, cause_id = _cause_id_, age_group_set_id = _age_group_set_id_)
-    args = parse_args(**defaults)
-    main(mvid = args.model_version_id, cause_id = args.cause_id, age_group_set_id = args.age_group_set_id)
+        defaults = {}
+        if (len(sys.argv) == 1 and sys.argv[0] == ''):
+            _mvid_ = 475877
+            _mvid_ = 475876
+            _mvid_ = 475879
+            _mvid_ = 475873
+            _cause_id_ = 975        # diabetes mellitus type 1
+            _cause_id_ = 587        # diabetes mellitus
+            _age_group_set_id_ = 12
+            defaults = dict(mvid = _mvid_, cause_id = _cause_id_, age_group_set_id = _age_group_set_id_)
+        args = parse_args(**defaults)
+        print (1111111111111, args)
+        breakpoint()
+        main(mvid = args.model_version_id, cause_id = args.cause_id, age_group_set_id = args.age_group_set_id)
+
+    else:
+        def parse_args(root_node_path = '', age_group_set_id = 4, mvid = 3, cause_id = 2):
+            import argparse
+            from distutils.util import strtobool as str2bool
+
+            parser = argparse.ArgumentParser()
+            parser.add_argument("-r", "--root-node-path", type = str, default = root_node_path,
+                                help = f"Age Group Set ID -- default ''")
+            parser.add_argument("-m", "--model-version-id", type = int, default = mvid,
+                                help = f"Model Version ID -- default = {mvid}")
+            parser.add_argument("-c", "--cause-id", type = int, default = cause_id,
+                                help = f"Cause ID -- default = {cause_id}")
+            parser.add_argument("-a", "--age-group-set-id", type = int, default = age_group_set_id,
+                                help = "Age Group Set ID -- default {age_group_set_id}")
+            args = parser.parse_args()
+            return args
+
+        if (len(sys.argv) == 1 and sys.argv[0] == ''):
+            _mvid_ = 475877
+            _mvid_ = 475876
+            _mvid_ = 475879
+            _mvid_ = 475873
+            _cause_id_ = 975        # diabetes mellitus type 1
+            _cause_id_ = 587        # diabetes mellitus
+            _age_group_set_id_ = 12
+            root_node_path = f'/Users/gma/ihme/epi/at_cascade_brad/data/{_mvid_}/dismod.db'
+            defaults = dict(root_node_path = root_node_path, mvid = _mvid_, cause_id = _cause_id_, age_group_set_id = _age_group_set_id_)
+            args = parse_args(**defaults)
+        else:
+            args = parse_args()
+
+        _mvid_ = 475863
+
+        sys.argv = f'all_node_database.py -m 475863 --cause-id 587 --age-group-set 12 --root-node-path /Users/gma/ihme/epi/at_cascade_brad/data/cascade_dir/data/475863/root_node.db'.split()
+        args = parse_args()
+        main(root_node_path = args.root_node_path, mvid = args.model_version_id, cause_id = args.cause_id, age_group_set_id = args.age_group_set_id)
+
+        """
+        if not __debug__ and _mvid_ == 475863:
+            _root_node_db_ = f'/Users/gma/ihme/epi/at_cascade_brad/data/cascade_dir/data/{_mvid_}/root_node.db'
+            copy_files = [f'/Users/gma/ihme/epi/at_cascade_brad/data/cascade_dir/data/{_mvid_}/dbs/100/3/dismod_ODE_import.db',
+                          _root_node_db_]
+            print (f'FOR TESTING -- Copying {copy_files[0]} to {copy_files[0]}')
+            shutil.copy(*copy_files)
+
+
+        """
