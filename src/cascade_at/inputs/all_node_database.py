@@ -206,6 +206,11 @@ class AllNodeDatabase:
         # All the covariate multipliers must be in integrand table
         conn = sqlite3.connect(self.root_node_db.path)
 
+        self.covariate = self.root_node_db.covariate
+        self.covariate['covariate_name'] = [(n[2:] if n[:2] in ['c_', 's_'] else n) for n in self.covariate.c_covariate_name]
+        self.write_table_sql(conn, 'covariate', {'covariate_id': 'integer', 'covariate_name': 'text',
+                                                 'reference': 'real', 'max_difference': 'real', 'c_covariate_name': 'text'})
+
         integrand_table = self.root_node_db.integrand
         mulcov_table    = self.root_node_db.mulcov
         mulcov_table['integrand_name'] = [f"mulcov_{name}" for name in mulcov_table.mulcov_id]
@@ -219,12 +224,37 @@ class AllNodeDatabase:
         # at_cascade requires one to use parent_node_name (not parent_node_id)
         # (turn on ipopt_trace)
         self.option = self.root_node_db.option
-        ############# if 'parent_node_name' not in self.option.option_name
-        node_table = self.root_node_db.node
-        parent_node_id = int(self.option.loc[self.option.option_name == 'parent_node_id', 'option_value'])
-        parent_node_name = node_table.loc[node_table.node_id == parent_node_id, 'node_name'].squeeze()
-        self.option = self.option.append([dict(option_id=len(self.option), option_name = 'parent_node_name', option_value = parent_node_name)]).reset_index(drop=True)
+        self.node = self.root_node_db.node
+        if 'parent_node_name' not in self.option.option_name.values:
+            parent_node_id = int(self.option.loc[self.option.option_name == 'parent_node_id', 'option_value'])
+            parent_node_name, parent_loc_id = self.node.loc[self.node.node_id == parent_node_id, ['node_name', 'c_location_id']].squeeze()
+            parent_node_name = (parent_node_name if parent_node_name.startswith(str(parent_loc_id)) else f'{parent_loc_id}_{parent_node_name}')
+            mask = self.option.option_name == 'parent_node_id'
+            self.option.loc[mask, 'option_name'] = 'parent_node_name'
+            self.option.loc[mask, 'option_value'] = parent_node_name
+        brads_options = {'trace_init_fit_model'        :'true',
+                         'data_extra_columns'          :'c_seq',
+                         'meas_noise_effect'           :'add_std_scale_none',
+                         'quasi_fixed'                 :'false' ,
+                         'tolerance_fixed'             :'1e-8',
+                         'max_num_iter_fixed'          :'40',
+                         'print_level_fixed'           :'5',
+                         'accept_after_max_steps_fixed':'10'}
+
+        for k,v in brads_options.items():
+            if k in self.option.option_name.values:
+                self.option.loc[self.option.option_name == k, 'option_value'] = v
+            else:
+                self.option = self.option.append({'option_name': k, 'option_value': v}, ignore_index=True)
+        self.option = self.option.reset_index(drop=True)
+        self.option.option_id = self.option.index
+        
+
         self.write_table_sql(conn, 'option', {'option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
+        self.node['node_name'] = [n.node_name if n.node_name.startswith(str(n.c_location_id))
+                                  else f'{n.c_location_id}_{n.node_name}' for i,n in self.node.iterrows()]
+        self.write_table_sql(conn, 'node', {'node_id': 'integer', 'node_name': 'text', 'parent': 'integer', 'c_location_id': 'integer'})
+        
         #
         # rate table
         # all omega rates must be null
@@ -233,7 +263,7 @@ class AllNodeDatabase:
         self.rate.loc[omega_rate_id, ['parent_smooth_id', 'child_smooth_id', 'child_nslist_id']] = None, None, None
         self.root_node_db.rate = self.rate
         self.write_table_sql(conn, 'rate', {'rate_id': 'integer', 'rate_name': 'text',
-                                            'parent_smooth_id': 'real', 'child_smooth_id': 'real', 'child_nslist_id': 'real'})
+                                            'parent_smooth_id': 'integer', 'child_smooth_id': 'integer', 'child_nslist_id': 'integer'})
 
         #
         # nslist and nslist_pair tables
@@ -250,8 +280,6 @@ class AllNodeDatabase:
         print (f"*** Writing {self.all_node_db} ***")
         conn = sqlite3.connect(self.all_node_db)
 
-        self.all_cov_reference = self.covariate
- 
         self.write_table_sql(conn, 'all_option', {'all_option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
         # self.write_table_sql(conn, 'fit_goal', {'fit_goal_id': 'integer', 'node_id': 'integer'})
         # self.write_table_sql(conn, 'all_cov_reference', {'all_cov_reference_id': 'integer', 'node_id': 'integer', 'sex_id':'integer', 'covariate_id':'integer', 'reference': 'real'})
@@ -370,8 +398,8 @@ class AllNodeDatabase:
         root_node_path = Path(root_node_path.format(mvid=self.mvid, location_id=drill_location_start, sex_id=self.sex_id))
         self.root_node_db = DismodIO(root_node_path)
 
-        all_node_path = Path(os.path.join(*root_node_path.parts[:2 + root_node_path.parts.index(str(self.mvid))]))
-        self.all_node_db = all_node_path.parent / 'all_node.db'
+        self.all_node_db = (Path(os.path.join(*root_node_path.parts[:2 + root_node_path.parts.index(str(self.mvid))]))
+                            .parent / 'all_node.db')
 
         self.age = self.root_node_db.age
         self.time = self.root_node_db.time
@@ -380,9 +408,9 @@ class AllNodeDatabase:
         print ('*** Get options. ***')
         [[root_node_loc, root_node_name]] = self.root_node_db.node.loc[
             self.root_node_db.node.c_location_id == drill_location_start, ['c_location_id', 'node_name']].values
-        root_node_name = f'{root_node_loc}_{root_node_name}'
-        
-
+        if not root_node_name.startswith(str(root_node_loc)):
+            root_node_name = f'{root_node_loc}_{root_node_name}'
+   
         if settings.model.split_sex:
             root_split_reference_name = 'Both'
             split_covariate_name = 'sex'
@@ -401,7 +429,7 @@ class AllNodeDatabase:
             max_number_cpu = max(1, multiprocessing.cpu_count() - 1)
             max_abs_effect = 2
 
-            result_dir = root_node_path
+            result_dir = root_node_path.parent
             shift_prior_std_factor = 2
             perturb_optimization_scaling = 0.2
             
@@ -491,7 +519,7 @@ class AllNodeDatabase:
         covariate['all_cov_reference_id'] = covariate.reset_index(drop=True).index
         split_map = { 1:2, 2:0, 3:1}
         covariate['split_reference_id'] = [split_map[x] for x in covariate.sex_id]
-        self.covariate = covariate
+        self.all_cov_reference = covariate
 
         asdr = self.get_asdr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step)
         csmr = self.get_csmr(demographics=demographics, gbd_round_id=self.gbd_round_id, decomp_step=self.decomp_step, cause_id = cause_id)
@@ -591,7 +619,6 @@ if __name__ == '__main__':
             defaults = dict(mvid = _mvid_, cause_id = _cause_id_, age_group_set_id = _age_group_set_id_)
         args = parse_args(**defaults)
         print (1111111111111, args)
-        breakpoint()
         main(mvid = args.model_version_id, cause_id = args.cause_id, age_group_set_id = args.age_group_set_id)
 
     else:
