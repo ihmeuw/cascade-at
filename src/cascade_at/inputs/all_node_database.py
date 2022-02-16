@@ -13,7 +13,7 @@ import multiprocessing
 
 from typing import List, Optional, Dict, Union
 
-from cascade_at.dismod.api.dismod_sqlite import get_engine
+# from cascade_at.dismod.api.dismod_sqlite import get_engine
 
 from cascade_at.core.db import decomp_step as ds
 
@@ -232,8 +232,7 @@ class AllNodeDatabase:
             mask = self.option.option_name == 'parent_node_id'
             self.option.loc[mask, 'option_name'] = 'parent_node_name'
             self.option.loc[mask, 'option_value'] = parent_node_name
-        brads_options = {'trace_init_fit_model'        :'true',
-                         'data_extra_columns'          :'c_seq',
+        brads_options = {'data_extra_columns'          :'c_seq',
                          'meas_noise_effect'           :'add_std_scale_none',
                          'quasi_fixed'                 :'false' ,
                          'tolerance_fixed'             :'1e-8',
@@ -321,7 +320,7 @@ class AllNodeDatabase:
 
                  root_node_path = '/Users/gma/ihme/epi/at_cascade_brad/data/{mvid}/dismod.db',
                  in_parallel = False,
-                 max_fit = 1000,
+                 max_fit = 250,
                  cause_id = None,
                  ):
 
@@ -514,7 +513,7 @@ class AllNodeDatabase:
             c['covariate_id'] = covariate_id
             covariate = covariate.append(c)
 
-        covariate = self.root_node_db.node.merge(covariate, how='right', left_on = 'c_location_id', right_on='location_id')
+        covariate = self.root_node_db.node.merge(covariate, how='left', left_on = 'c_location_id', right_on='location_id')
         covariate['node_id'] = covariate['node_id'].astype(int)
         covariate['all_cov_reference_id'] = covariate.reset_index(drop=True).index
         split_map = { 1:2, 2:0, 3:1}
@@ -652,14 +651,14 @@ if __name__ == '__main__':
         else:
             args = parse_args()
 
-        _mvid_ = 475863
+        _mvid_ = 475873
 
-        sys.argv = f'all_node_database.py -m 475863 --cause-id 587 --age-group-set 12 --root-node-path /Users/gma/ihme/epi/at_cascade_brad/data/cascade_dir/data/475863/root_node.db'.split()
+        sys.argv = f'all_node_database.py -m {_mvid_} --cause-id 587 --age-group-set 12 --root-node-path /Users/gma/ihme/epi/at_cascade_brad/data/cascade_dir/data/{_mvid_}/root_node.db'.split()
         args = parse_args()
         main(root_node_path = args.root_node_path, mvid = args.model_version_id, cause_id = args.cause_id, age_group_set_id = args.age_group_set_id)
 
         """
-        if not __debug__ and _mvid_ == 475863:
+        if not __debug__ and _mvid_ == _mvid_:
             _root_node_db_ = f'/Users/gma/ihme/epi/at_cascade_brad/data/cascade_dir/data/{_mvid_}/root_node.db'
             copy_files = [f'/Users/gma/ihme/epi/at_cascade_brad/data/cascade_dir/data/{_mvid_}/dbs/100/3/dismod_ODE_import.db',
                           _root_node_db_]
