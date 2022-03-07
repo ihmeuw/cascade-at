@@ -392,9 +392,10 @@ class MeasurementInputs:
         :return: self
         """
         for c in self.covariate_specs.covariate_specs:
-            if c.study_country == 'country':
+            # Select the correct covariate spec to apply
+            if c.study_country == 'country' and c.name in df:
                 LOG.info(f"Transforming the data for country covariate "
-                         f"{c.covariate_id}.")
+                         f"{c.name}, id: {c.covariate_id}.")
                 df[c.name] = df[c.name].apply(
                     lambda x: COVARIATE_TRANSFORMS[c.transformation_id](x)
                 )
