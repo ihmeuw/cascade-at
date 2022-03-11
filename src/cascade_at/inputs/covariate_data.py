@@ -1,5 +1,6 @@
 import pandas as pd
 from typing import List
+from itertools import chain
 
 from cascade_at.core.db import db_queries
 from cascade_at.core.log import get_loggers
@@ -66,14 +67,9 @@ class CovariateData(BaseInput):
             'location_id', 'year_id', 'age_group_id', 'sex_id', 'mean_value'
         ]]
         df = self._complete_covariate_ages(cov_df=df)
+        df = self._complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df,
+                                                locations=self.demographics.location_id)
         df = self._complete_covariate_sex(cov_df=df, pop_df=pop_df)
-
-        if 1:
-            LOG.warning(f"GMA removed the call to _complete_covariate_locations because it was computing erroneous BMI values.")
-        else:
-            df = self._complete_covariate_locations(cov_df=df, pop_df=pop_df, loc_df=loc_df,
-                                                    locations=self.demographics.location_id)
-
         df = self.convert_to_age_lower_upper(df)
         return df
     
@@ -91,56 +87,49 @@ class CovariateData(BaseInput):
             covs = cov_df.copy()
         return covs
 
-    if 0:
-        # The IHME databases are supposed to covariate values for all locations
-        # In the meantime, Brad's code is now supplying the missing values
-        @staticmethod
-        def _complete_covariate_locations(cov_df: pd.DataFrame, pop_df: pd.DataFrame, loc_df: pd.DataFrame,
-                                          locations: List[int]):
-            """
-            Completes the covariate locations that aren't in the database as a population-weighted average.
-            """
-            parent_pop = pop_df[['location_id', 'age_group_id', 'sex_id', 'year_id', 'population']].copy()
-            parent_pop.rename(columns={'location_id': 'parent_id', 'population': 'parent_population'}, inplace=True)
+    # The IHME databases are supposed to supply covariate values for all locations
+    # In the meantime, Brad's code is now supplying the missing values
+    @staticmethod
+    def _complete_covariate_locations(cov_df: pd.DataFrame, pop_df: pd.DataFrame, loc_df: pd.DataFrame,
+                                      locations: List[int]):
+        """
+        Completes the covariate locations that aren't in the database as a population-weighted average.
+        """
 
-            loc_subset_df = loc_df.loc[loc_df.location_id.isin(locations)]
-            all_levels = loc_subset_df.level.unique().tolist()
-            cov_locations = cov_df.location_id.unique().tolist()
-            cov_levels = loc_subset_df.loc[loc_subset_df.location_id.isin(cov_locations)].level.unique().tolist()
-            missing_levels = [x for x in all_levels if x not in cov_levels]
+        def ancestors(loc):
+            ploc = loc_df.loc[loc_df.location_id == loc, 'path_to_top_parent'].squeeze()
+            if ploc or not ploc.empty:
+                return [int(l) for l in ploc.split(',') if int(l) != loc]
+            return []
 
-            df = cov_df.copy()
+        cov_locations = set(cov_df.location_id.unique().tolist())
+        ancestor_locations = set(chain(*[ancestors(loc) for loc in locations]))
+        ancestors_without_covariates = ancestor_locations - cov_locations
 
-            for level in sorted(missing_levels, reverse=True):
-                LOG.info(f"Filling in covariate values at location hierarchy level {level}.")
-                # Get one location below this level
-                ldf = loc_subset_df.loc[loc_subset_df.level == level + 1].copy()
+        loc_subset_df = loc_df.loc[loc_df.location_id.isin(ancestors_without_covariates),
+                                   ['location_id', 'parent_id', 'level', 'location_name']]
+        all_levels = loc_subset_df.level.unique().tolist()
 
-                # Merge on the population just for these locations (left) --
-                # builds out the full age-sex-year data frame for populations
-                lp = ldf.merge(pop_df, on=['location_id'], how='left')
+        df = cov_df.merge(pop_df, how='left')
+        df['weighted_mean'] = df.population*df.mean_value
 
-                # Merge on the covariate data just for these location-populations
-                clp = lp.merge(df, on=['location_id', 'age_group_id', 'sex_id', 'year_id'], how='left')
-
-                # Get the parent population based on parent ID
-                dp = clp.merge(parent_pop, on=['parent_id', 'age_group_id', 'sex_id', 'year_id'], how='left')
-                dp.drop('location_id', inplace=True, axis=1)
-
-                # Calculate the weighted value for each row
-                dp['cov_weighted'] = dp.mean_value * dp.population / dp.parent_population
-
-                # Group by parent ID and other demographics, over location IDs, summing
-                # to get the final weighted covariate value
-                dp = dp.groupby([
-                    'parent_id', 'year_id', 'age_group_id', 'sex_id'
-                ])['cov_weighted'].sum().reset_index()
-
-                # Set the new parent ID as location ID so that it can be used one level up the tree
-                dp.rename(columns={'parent_id': 'location_id', 'cov_weighted': 'mean_value'}, inplace=True)
-                df = df.append(dp)
-
-            return df
+        add_cov = pd.DataFrame()
+        for level in sorted(all_levels, reverse=True):
+            for loc in ancestors_without_covariates:
+                if level in loc_subset_df.loc[loc_subset_df.location_id == loc, 'level'].values:
+                    LOG.info(f"Filling in covariate values for location hierarchy level {level}, location {loc}.")
+                    children = loc_subset_df.loc[loc_subset_df.parent_id == loc, 'location_id'].values
+                    child_covs = df[df.location_id.isin(children)]
+                    grps = child_covs.groupby(['year_id', 'age_group_id', 'sex_id'], as_index=False)
+                    x = grps['weighted_mean'].sum().merge(grps['population'].sum())
+                    x['mean_value'] = x['weighted_mean'] / x['population']
+                    x['location_id'] = loc
+                    x = x.merge(pop_df[['location_id', 'age_group_id', 'year_id', 'sex_id', 'age_lower', 'age_upper']],
+                                on=['location_id', 'year_id', 'age_group_id', 'sex_id'], how='left')
+                    add_cov = add_cov.append(x)
+        if not add_cov.empty:
+            cov_df = cov_df.append(add_cov[cov_df.columns]).reset_index(drop=True)
+        return cov_df
 
     @staticmethod
     def _complete_covariate_sex(cov_df: pd.DataFrame, pop_df: pd.DataFrame):
