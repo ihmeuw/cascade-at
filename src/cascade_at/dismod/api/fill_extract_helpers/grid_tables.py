@@ -43,13 +43,13 @@ def construct_weight_grid_tables(weights: Dict[str, Var],
         'n_age': [len(weights[name].ages) for name in names],
         'n_time': [len(weights[name].times) for name in names]
     })
-    weight_grid = []
+    weight_grid = pd.DataFrame()
     for w in WeightEnum:
         LOG.info(f"Writing weight {w.name}.")
         one_grid = weights[w.name].grid[["age", "time", "mean"]].rename(columns={"mean": "weight"})
         one_grid["weight_id"] = w.value
-        weight_grid.append(one_grid)
-    weight_grid = pd.concat(weight_grid).reset_index(drop=True)
+        weight_grid = pd.concat([weight_grid, pd.DataFrame(one_grid)])
+    weight_grid = weight_grid.reset_index(drop=True)
 
     weight_grid = utils.convert_age_time_to_id(
         df=weight_grid, age_df=age_df, time_df=time_df
@@ -224,9 +224,9 @@ def construct_model_tables(model: Model,
             smooth['smooth_id'] = smooth_id
             grid['smooth_id'] = smooth_id
 
-            smooth_table = smooth_table.append(smooth)
-            prior_table = prior_table.append(prior)
-            grid_table = grid_table.append(grid)
+            smooth_table = pd.concat([smooth_table, smooth])
+            prior_table = pd.concat([prior_table, prior])
+            grid_table = pd.concat([grid_table, grid])
 
             rate_table.loc[rate_table.rate_id == RateEnum[rate_name].value, "parent_smooth_id"] = smooth_id
 
@@ -253,9 +253,9 @@ def construct_model_tables(model: Model,
             smooth["smooth_id"] = smooth_id
             grid["smooth_id"] = smooth_id
 
-            smooth_table = smooth_table.append(smooth)
-            prior_table = prior_table.append(prior)
-            grid_table = grid_table.append(grid)
+            smooth_table = pd.concat([smooth_table, smooth])
+            prior_table = pd.concat([prior_table, prior])
+            grid_table = pd.concat([grid_table, grid])
 
             if child_location is None:
                 rate_table.loc[rate_table.rate_id == RateEnum[rate_name].value, "child_smooth_id"] = smooth_id
@@ -269,11 +269,11 @@ def construct_model_tables(model: Model,
                 else:
                     ns_id = nslist[rate_name]
                 rate_table.loc[rate_table.rate_id == RateEnum[rate_name].value, "child_nslist_id"] = ns_id
-                nslist_pair_table = nslist_pair_table.append(pd.DataFrame({
+                nslist_pair_table = pd.concat([nslist_pair_table, pd.DataFrame({
                     'nslist_id': [ns_id],
                     'node_id': [node_id],
                     'smooth_id': [smooth_id]
-                }))
+                })])
 
     potential_mulcovs = ["alpha", "beta", "gamma"]
     mulcovs = [x for x in potential_mulcovs if x in model]
@@ -294,9 +294,9 @@ def construct_model_tables(model: Model,
             smooth["smooth_id"] = smooth_id
             grid["smooth_id"] = smooth_id
 
-            prior_table = prior_table.append(prior)
-            smooth_table = smooth_table.append(smooth)
-            grid_table = grid_table.append(grid)
+            prior_table = pd.concat([prior_table, prior])
+            smooth_table = pd.concat([smooth_table, smooth])
+            grid_table = pd.concat([grid_table, grid])
 
             mulcov = pd.DataFrame({
                 "mulcov_type": [MulCovEnum[m].value],
@@ -311,7 +311,7 @@ def construct_model_tables(model: Model,
                 mulcov["integrand_id"] = IntegrandEnum[rate_or_integrand].value
             else:
                 raise RuntimeError(f"Unknown mulcov type {m}.")
-            mulcov_table = mulcov_table.append(mulcov)
+            mulcov_table = pd.concat([mulcov_table, mulcov])
 
     mulcov_table.reset_index(inplace=True, drop=True)
     mulcov_table["mulcov_id"] = mulcov_table.index

@@ -119,7 +119,7 @@ def construct_gbd_avgint_table(df: pd.DataFrame,
             continue
         df = avgint.copy()
         df['measure'] = i
-        avgint_df = avgint_df.append(df)
+        avgint_df = pd.concat([avgint_df, df])
 
     avgint_df = avgint_df.reset_index(drop=True)
 
