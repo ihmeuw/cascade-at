@@ -12,6 +12,8 @@ from cascade_at.executor.args.arg_utils import ArgumentList
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg
 
+import db_queries
+
 LOG = get_loggers(__name__)
 
 ARG_LIST = ArgumentList([
@@ -70,7 +72,7 @@ def all_locations(inputs, settings):
 
     
 
-def main():
+def main(query_ihme_databases = False):
 
     args = ARG_LIST.parse_args(sys.argv[1:])
     logging.basicConfig(level=LEVELS[args.log_level])
@@ -80,8 +82,9 @@ def main():
     with open(args.json_file) as f:
         settings_json = json.load(f)
     settings = load_settings(settings_json=settings_json)
+    age_groups = db_queries.get_age_metadata(gbd_round_id=settings.gbd_round_id)
 
-    if 0:
+    if query_ihme_databases:
         from cascade_at.executor.configure_inputs import configure_inputs
         global context, inputs
         context, inputs = configure_inputs(
@@ -99,7 +102,7 @@ def main():
             for integrand in sorted(d.dismod_data.measure.unique()):
                 print (integrand, len(d.dismod_data[d.dismod_data.measure == integrand]), 'locations', len(d.dismod_data.loc[d.dismod_data.measure == integrand].location_id.unique()))
 
-        if 1:
+        if 0:
             import shutil
             import dill
             with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'wb') as stream:
@@ -132,7 +135,7 @@ def main():
             
         import dill
 
-        with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'rb') as stream:
+        with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p', 'rb') as stream:
             inputs = dill.load(stream)
         global covariate_reference, data, asdr, csmr
 
@@ -151,7 +154,6 @@ def main():
             csmr_grps = csmr.groupby(['sex_id', 'location_id'])
             import numpy as np
             assert np.all(asdr_grps.count() == csmr_grps.count())
-
 
 
 if __name__ == '__main__':
@@ -176,6 +178,11 @@ if __name__ == '__main__':
         json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}_settings-Alabama.json'
         cmd = f'dismod_ihme_input --model-version-id {mvid} --configure {json_cmd} --test-dir /tmp'
 
+        mvid = 475873
+        json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}/inputs/settings-100_High-income_North_America.json'
+        json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}/inputs/settings-1_Global.json'
+        cmd = f'dismod_ihme_input --model-version-id {mvid} --configure {json_cmd} --test-dir /tmp'
+
         print (cmd)
         sys.argv = cmd.split()
 
@@ -184,4 +191,47 @@ if __name__ == '__main__':
     print (cmd)
 
 
-    main()
+    main(query_ihme_databases = not False)
+
+
+if 0:
+
+    dag = inputs.location_dag
+    dag_leaves = [n for n in dag.descendants(1) if dag.is_leaf(n)]
+
+    from functools import lru_cache
+    def leaves(self, location_id):
+        return sorted(set(self.descendants(location_id)).intersection(dag_leaves))
+    dag.__class__.leaves = lru_cache(leaves)
+    def depth_location_ids(self, depth, root = 1):
+        if depth == 0: return [root]
+        return sorted(set([l for l in self.descendants(1) if self.depth(l) == depth]))
+    dag.__class__.depth_location_ids = lru_cache(depth_location_ids)
+    
+    def merge_pop(cov, dag, pop):
+        cov = cov.merge(pop.raw, on=['location_id', 'sex_id', 'year_id', 'age_group_id'])
+        cov['meanXpop'] = cov.mean_value * cov.population
+        assert not cov['meanXpop'].isna().any(), "Population * mean is nan for some locations."
+        return cov
+    pop = inputs.population
+    cov = {k: merge_pop(v, dag, pop) for k,v in inputs.country_covariate_data.items()}
+
+    c = cov[57]
+    # delete non-leaf covariate data for testing
+    leaves = [n for n in dag.descendants(1) if dag.is_leaf(n)]
+    c = c[c.location_id.isin(leaves)]
+
+    print (c.location_id.unique())
+    cov_location_ids = sorted(set(c.location_id.unique()))
+    # cov_depth_dict = {depth: sorted(set(dag.depth_location_ids(depth)).intersection(cov_location_ids)) for depth in cov_depths}
+    max_depth = max([dag.depth(i) for i in cov_location_ids])
+    for depth in reversed(range(max_depth)):
+        locs = dag.depth_location_ids(depth)
+        missing = set(locs) - set(c.location_id.unique())
+        for location_id in missing:
+            children = c[c.location_id.isin(dag.children(location_id))]
+            grps = children.groupby(['year_id', 'age_group_id', 'sex_id'], as_index=False)
+            weighted_avg = grps.population.sum().merge(grps.meanXpop.mean())
+            weighted_avg['pop_weighted_avg'] = np.round(weighted_avg.meanXpop / weighted_avg.population, 2)
+            weighted_avg = weighted_avg.merge(inputs.age_groups, how='left')
+            
