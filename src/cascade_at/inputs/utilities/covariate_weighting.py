@@ -121,7 +121,7 @@ class CovariateInterpolator:
 
     @lru_cache
     def warn_missing_cov(self, loc_id, sex_id):
-        LOG.warning('There must be a better way to prevent logger repeated warnings -- using a cached function.')
+        # LOG.warning('There must be a better way to prevent logger repeated warnings -- using a cached function.')
         LOG.warning(f"Covariate is missing for location_id {loc_id},"
                     f"sex_id {sex_id} -- setting the value to None.")
 

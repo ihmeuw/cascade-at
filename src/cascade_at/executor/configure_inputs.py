@@ -108,4 +108,5 @@ def main():
 
 
 if __name__ == '__main__':
+    sys.argv='configure_inputs.py --model-version-id 475873 --make --configure'.split()
     main()

@@ -294,6 +294,7 @@ def main():
 
 if __name__ == '__main__':
     if not sys.argv[0]:
-        sys.argv = "dismod_db --model-version-id 475879 --parent-location-id 1 --sex-id 2 --fill".split()
-        sys.argv = "dismod_db --model-version-id 475879 --parent-location-id 1 --sex-id 2 --fill --dm-commands ODE-init ODE-fit predict-fit_var --save-prior --save-fit".split()
+        _mvid_ = 475873
+        sys.argv = f"dismod_db --model-version-id {_mvid_} --parent-location-id 1 --sex-id 2 --fill".split()
+        # sys.argv = f"dismod_db --model-version-id {_mvid_} --parent-location-id 1 --sex-id 2 --fill --dm-commands ODE-init ODE-fit predict-fit_var --save-prior --save-fit".split()
     main()
