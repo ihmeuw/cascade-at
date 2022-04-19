@@ -77,6 +77,9 @@ def construct_data_table(df: pd.DataFrame, node_df: pd.DataFrame,
 
     data = data.loc[(data.time_lower >= times.min()) & (data.time_upper <= times.max())].copy()
     data = data.loc[(data.age_lower >= ages.min()) & (data.age_upper <= ages.max())].copy()
+    for x in columns:
+        if x.startswith('x_'):
+            data[x] = data[x].astype(float)
     return data
 
 
