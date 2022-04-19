@@ -140,15 +140,15 @@ class FitNoODE(DismodIO):
         #
         # add value_prior to prior_table
         new_value_prior_id = len(prior)
-        prior = prior.append(copy.copy(value_prior), ignore_index=True)
+        prior = pd.concat([prior, pd.DataFrame([value_prior])], ignore_index=True)
         #
         # add dage_prior to prior table
         new_dage_prior_id = len(prior)
-        prior = prior.append(copy.copy(dage_prior), ignore_index=True)
+        prior = pd.concat([prior, pd.DataFrame([dage_prior])], ignore_index=True)
         #
         # add dtime_prior to prior table
         new_dtime_prior_id = len(prior)
-        prior = prior.append(copy.copy(dtime_prior), ignore_index=True)
+        prior = pd.concat([prior, pd.DataFrame([dtime_prior])], ignore_index=True)
         #
         # add row to smooth_table
         smooth_name    = f'{integrand_name}_noise_smoothing_{new_smooth_id}'
@@ -159,7 +159,7 @@ class FitNoODE(DismodIO):
                 'mulstd_dage_prior_id'  : None           ,
                 'mulstd_dtime_prior_id' : None           ,
                 }
-        smooth = smooth.append(row, ignore_index=True)
+        smooth = pd.concat([smooth, pd.DataFrame([row])], ignore_index=True)
         #
         # add rows to smooth_grid_table
         for i in range(n_age) :
@@ -172,7 +172,7 @@ class FitNoODE(DismodIO):
                        'dtime_prior_id' : new_dtime_prior_id              ,
                        'const_value'    : None                            ,
                        }
-                smooth_grid = smooth_grid.append(row, ignore_index=True)
+                smooth_grid = pd.concat([smooth_grid, pd.DataFrame([row])], ignore_index=True)
         #
         # return the new smoothing
         smooth = smooth.reset_index(drop=True); smooth['smooth_id'] = smooth.index
@@ -360,7 +360,7 @@ class FitNoODE(DismodIO):
         new_row = copy.copy( smooth_table.loc[smooth_id] )
         new_row['smooth_id'] = new_smooth_id
         new_row['smooth_name'] = f'{smooth_name}bound_smoothing_' + str( new_smooth_id )
-        smooth_table = smooth_table.append( new_row )
+        smooth_table = pd.concat([smooth_table, pd.DataFrame([new_row])])
         #
         new_prior_id  = len(prior_table)
         density_id    = int(db.density.loc[db.density.density_name == density_name, 'density_id'])
@@ -376,7 +376,7 @@ class FitNoODE(DismodIO):
             'eta'        : np.nan,
             'nu'         : np.nan,
         }
-        prior_table = prior_table.append( [value_prior] )
+        prior_table = pd.concat([prior_table, pd.DataFrame([value_prior])])
         #
         for i, old_row in smooth_grid_table.iterrows() :
             if old_row['smooth_id'] == smooth_id :
@@ -387,8 +387,7 @@ class FitNoODE(DismodIO):
                 new_row['dage_prior_id']  = None
                 new_row['dtime_prior_id'] = None
                 new_row['const_value']    = None
-                smooth_grid_table = smooth_grid_table.append( new_row )
-
+                smooth_grid_table = pd.concat([smooth_grid_table, pd.DataFrame([new_row])])
         smooth_table = smooth_table.reset_index(drop=True)
         smooth_grid_table = smooth_grid_table.reset_index(drop=True)
         db.smooth = smooth_table
@@ -624,7 +623,7 @@ class FitNoODE(DismodIO):
                    integrand_id     = integrand_id,
                    group_id         = group_id,
                    group_smooth_id  = smooth_id)
-        mulcov = mulcov.append(row, ignore_index=True)
+        mulcov = pd.concat([mulcov, pd.DataFrame([row])], ignore_index=True)
         #
         # write out the tables that changed
         mulcov = mulcov.reset_index(drop=True); mulcov['mulcov_id'] = mulcov.index
@@ -708,7 +707,7 @@ class FitNoODE(DismodIO):
         for integrand_id in predict_id_list:
             tmp = data.copy()
             tmp['integrand_id'] = integrand_id
-            avgint = avgint.append(tmp)
+            avgint = pd.concat([avgint, tmp])
         if avgint.empty:
             avgint = db.data[:0].rename(columns = {'data_id': 'avgint_id'})[avgint_cols]
         else:
