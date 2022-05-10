@@ -40,12 +40,6 @@ from at_cascade.ihme.dismod_db_api import DismodDbAPI
 # ----------------------------------------------------------------------------
 # Begin settings that can be changed without understanding this program
 # ----------------------------------------------------------------------------
-#
-# input files
-# Use None for csmr_inp_file if you do not want to include it in fit
-data_inp_file   = ""
-csmr_inp_file   = None
-
 data_path = f'/Users/gma/ihme/at_cascade.ihme_db/{_mvid_}'
 root_node_db = os.path.join(data_path, 'root_node.db')
 all_node_db = os.path.join(data_path, 'all_node.db')
@@ -179,11 +173,9 @@ else:
 # ----------------------------------------------------------------------------
 # End settings that can be changed without understanding this program
 # ----------------------------------------------------------------------------
-#
-# random.seed
-if __name__ == '__main__' :
-    if random_seed == 0 :
-        random_seed = int( time.time() )
+    if __name__ == '__main__' :
+        if random_seed == 0 :
+            random_seed = int( time.time() )
 # ----------------------------------------------------------------------------
 def write_table_sql(conn, table_name, df, dtypes=None):
     id_column = f"{table_name}_id"
@@ -235,9 +227,10 @@ def setup_function():
         db.covariate = covariate
 
         node = db.node
+        # Remove spaces and single quotes
         node['node_name'] = [v.replace(' ', '_') for k,v in node[['node_id', 'node_name']].values]
         node['node_name'] = [v.replace("'", "") for k,v in node[['node_id', 'node_name']].values]
-        breakpoint()
+        # Prepend the location id to the name
         name_update = [f"{k}_{v}" for k,v in node[['c_location_id', 'node_name']].values if not v.startswith(f"{k}_")]
         if name_update: node['node_name'] = name_update
         db.node = node
@@ -484,7 +477,7 @@ def setup_function():
 # ----------------------------------------------------------------------------
 # Without __name__ == '__main__', the mac will try to execute main on each processor.
 
-def run(gbd_round_id = None, fit_goal_set = fit_goal_set, cov_dict = {}):
+def main(gbd_round_id = None, fit_goal_set = fit_goal_set, cov_dict = {}):
     if 'drill' in sys.argv:
         root_path = '/Users/gma/Projects/IHME/GIT/at_cascade.git/ihme_db/DisMod_AT/results/475873/{root_node_name}'
         if os.path.exists(root_path): shutil.rmtree(root_path)
@@ -499,6 +492,7 @@ def run(gbd_round_id = None, fit_goal_set = fit_goal_set, cov_dict = {}):
     covariate_csv_file_dict = {},
     scale_covariate_dict    = {},
     root_node_database      = root_node_database,
+    all_node_database       = all_node_database,
     no_ode_fit              = False,
     fit_type_list = [ 'both', 'fixed' ],
     random_seed = random_seed,
@@ -569,13 +563,15 @@ if __name__ == '__main__':
                         print ('Running setup_function')
                         setup_function()
         
+            node = db.node
+            node.rename(columns = {'parent_node_id': 'parent', 'c_location_id': 'location_id'}).to_csv(f'{result_dir}/node_table.csv')
             for cmd in _cmds_:
                 tmp = f'{_mvid_}.py {cmd}'
                 print (tmp)
                 sys.argv = tmp.split()
-                run(gbd_round_id = gbd_round_id, fit_goal_set = fit_goal_set)
+                main(gbd_round_id = gbd_round_id, fit_goal_set = fit_goal_set)
         else:
-            run(gbd_round_id = gbd_round_id, fit_goal_set = fit_goal_set)
+            main(gbd_round_id = gbd_round_id, fit_goal_set = fit_goal_set)
     except:
         raise
     finally:
