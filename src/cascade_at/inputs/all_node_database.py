@@ -202,98 +202,98 @@ class AllNodeDatabase:
     #         connect_all, 'all_cov_reference', all_cov_reference_table
     #     )
 
-    def correct_root_node_database(self):
-        # ---------------------------------------------------------------------------
-        # Corrections to root_node_database
-        #
-        def sql_types(dtypes):
-            if not isinstance(dtypes, dict):
-                dtypes = dict(dtypes)
-            for k,v in dtypes.items():
-                if 'object' in str(v): dtypes[k] = 'text'
-                if 'int' in str(v): dtypes[k] = 'integer'
-                if 'float' in str(v): dtypes[k] = 'real'
-            return dtypes
+    # def correct_root_node_database(self):
+    #     # ---------------------------------------------------------------------------
+    #     # Corrections to root_node_database
+    #     #
+    #     def sql_types(dtypes):
+    #         if not isinstance(dtypes, dict):
+    #             dtypes = dict(dtypes)
+    #         for k,v in dtypes.items():
+    #             if 'object' in str(v): dtypes[k] = 'text'
+    #             if 'int' in str(v): dtypes[k] = 'integer'
+    #             if 'float' in str(v): dtypes[k] = 'real'
+    #         return dtypes
 
-        # integrand_table
-        # All the covariate multipliers must be in integrand table
-        conn = sqlite3.connect(self.root_node_db.path)
+    #     # integrand_table
+    #     # All the covariate multipliers must be in integrand table
+    #     conn = sqlite3.connect(self.root_node_db.path)
 
-        self.covariate = self.root_node_db.covariate
-        self.data = self.root_node_db.data
-        map = list(zip(*[(k, n, n[2:]) if n[:2] in ['c_', 's_'] else n for k,n in self.covariate[['covariate_name', 'c_covariate_name']].values]))
+    #     self.covariate = self.root_node_db.covariate
+    #     self.data = self.root_node_db.data
+    #     map = list(zip(*[(k, n, n[2:]) if n[:2] in ['c_', 's_'] else n for k,n in self.covariate[['covariate_name', 'c_covariate_name']].values]))
 
-        self.covariate['covariate_name'] = map[2]
-        self.write_table_sql(conn, 'covariate', {'covariate_id': 'integer', 'covariate_name': 'text',
-                                                 'reference': 'real', 'max_difference': 'real', 'c_covariate_name': 'text'})
+    #     self.covariate['covariate_name'] = map[2]
+    #     self.write_table_sql(conn, 'covariate', {'covariate_id': 'integer', 'covariate_name': 'text',
+    #                                              'reference': 'real', 'max_difference': 'real', 'c_covariate_name': 'text'})
 
-        self.write_table_sql(conn, 'covariate', {'covariate_id': 'integer', 'covariate_name': 'text',
-                                                 'reference': 'real', 'max_difference': 'real', 'c_covariate_name': 'text'})
-        self.write_table_sql(conn, 'data', sql_types(self.data.dtypes))
+    #     self.write_table_sql(conn, 'covariate', {'covariate_id': 'integer', 'covariate_name': 'text',
+    #                                              'reference': 'real', 'max_difference': 'real', 'c_covariate_name': 'text'})
+    #     self.write_table_sql(conn, 'data', sql_types(self.data.dtypes))
 
-        integrand_table = self.root_node_db.integrand
-        mulcov_table    = self.root_node_db.mulcov
-        mulcov_table['integrand_name'] = [f"mulcov_{name}" for name in mulcov_table.mulcov_id]
-        mulcov_table['minimum_meas_cv'] = 0
-        mask = mulcov_table.integrand_name.isin(integrand_table.integrand_name)
-        integrand_table = pd.concat([integrand_table, mulcov_table.loc[~mask, ['integrand_name', 'minimum_meas_cv']]]).reset_index(drop=True)
-        integrand_table['integrand_id'] = integrand_table.index
-        self.root_node_db.integrand = integrand_table
-        #
-        # option table, parent_node_id
-        # at_cascade requires one to use parent_node_name (not parent_node_id)
-        # (turn on ipopt_trace)
-        self.option = self.root_node_db.option
-        self.node = self.root_node_db.node
-        if 'parent_node_name' not in self.option.option_name.values:
-            parent_node_id = int(self.option.loc[self.option.option_name == 'parent_node_id', 'option_value'])
-            parent_node_name, parent_loc_id = self.node.loc[self.node.node_id == parent_node_id, ['node_name', 'c_location_id']].squeeze()
-            parent_node_name = (parent_node_name if parent_node_name.startswith(str(parent_loc_id)) else f'{parent_loc_id}_{parent_node_name}')
-            parent_node_name = parent_node_name.replace(' ', '_')
-            mask = self.option.option_name == 'parent_node_id'
-            self.option.loc[mask, ['option_name', 'option_value']] = ['parent_node_name', parent_node_name]
-        brads_options = {# 'data_extra_columns'          :'c_seq',
-                         'meas_noise_effect'           :'add_std_scale_none',
-                         'quasi_fixed'                 :'false' ,
-                         'tolerance_fixed'             :'1e-8',
-                         'max_num_iter_fixed'          :'40',
-                         'print_level_fixed'           :'5',
-                         'accept_after_max_steps_fixed':'10'}
+    #     integrand_table = self.root_node_db.integrand
+    #     mulcov_table    = self.root_node_db.mulcov
+    #     mulcov_table['integrand_name'] = [f"mulcov_{name}" for name in mulcov_table.mulcov_id]
+    #     mulcov_table['minimum_meas_cv'] = 0
+    #     mask = mulcov_table.integrand_name.isin(integrand_table.integrand_name)
+    #     integrand_table = pd.concat([integrand_table, mulcov_table.loc[~mask, ['integrand_name', 'minimum_meas_cv']]]).reset_index(drop=True)
+    #     integrand_table['integrand_id'] = integrand_table.index
+    #     self.root_node_db.integrand = integrand_table
+    #     #
+    #     # option table, parent_node_id
+    #     # at_cascade requires one to use parent_node_name (not parent_node_id)
+    #     # (turn on ipopt_trace)
+    #     self.option = self.root_node_db.option
+    #     self.node = self.root_node_db.node
+    #     if 'parent_node_name' not in self.option.option_name.values:
+    #         parent_node_id = int(self.option.loc[self.option.option_name == 'parent_node_id', 'option_value'])
+    #         parent_node_name, parent_loc_id = self.node.loc[self.node.node_id == parent_node_id, ['node_name', 'c_location_id']].squeeze()
+    #         parent_node_name = (parent_node_name if parent_node_name.startswith(str(parent_loc_id)) else f'{parent_loc_id}_{parent_node_name}')
+    #         parent_node_name = parent_node_name.replace(' ', '_')
+    #         mask = self.option.option_name == 'parent_node_id'
+    #         self.option.loc[mask, ['option_name', 'option_value']] = ['parent_node_name', parent_node_name]
+    #     brads_options = {# 'data_extra_columns'          :'c_seq',
+    #                      'meas_noise_effect'           :'add_std_scale_none',
+    #                      'quasi_fixed'                 :'false' ,
+    #                      'tolerance_fixed'             :'1e-8',
+    #                      'max_num_iter_fixed'          :'40',
+    #                      'print_level_fixed'           :'5',
+    #                      'accept_after_max_steps_fixed':'10'}
 
-        for k,v in brads_options.items():
-            if k in self.option.option_name.values:
-                self.option.loc[self.option.option_name == k, 'option_value'] = v
-            else:
-                self.option = pd.concat([self.option, pd.DataFrame([{'option_name': k, 'option_value': v}])])
-        self.option = self.option.reset_index(drop=True)
-        self.option.option_id = self.option.index
+    #     for k,v in brads_options.items():
+    #         if k in self.option.option_name.values:
+    #             self.option.loc[self.option.option_name == k, 'option_value'] = v
+    #         else:
+    #             self.option = pd.concat([self.option, pd.DataFrame([{'option_name': k, 'option_value': v}])])
+    #     self.option = self.option.reset_index(drop=True)
+    #     self.option.option_id = self.option.index
         
 
-        self.write_table_sql(conn, 'option', {'option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
-        self.node['node_name'] = [n.node_name if n.node_name.startswith(str(n.c_location_id))
-                                  else f'{n.c_location_id}_{n.node_name}' for i,n in self.node.iterrows()]
-        self.write_table_sql(conn, 'node', {'node_id': 'integer', 'node_name': 'text', 'parent': 'integer', 'c_location_id': 'integer'})
+    #     self.write_table_sql(conn, 'option', {'option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
+    #     self.node['node_name'] = [n.node_name if n.node_name.startswith(str(n.c_location_id))
+    #                               else f'{n.c_location_id}_{n.node_name}' for i,n in self.node.iterrows()]
+    #     self.write_table_sql(conn, 'node', {'node_id': 'integer', 'node_name': 'text', 'parent': 'integer', 'c_location_id': 'integer'})
 
-        #
-        # rate table
-        # all omega rates must be null
-        self.rate    = self.root_node_db.rate
-        omega_rate_id = self.rate.loc[self.rate.rate_name == 'omega', 'rate_id']
-        self.rate.loc[omega_rate_id, ['parent_smooth_id', 'child_smooth_id', 'child_nslist_id']] = None, None, None
-        self.root_node_db.rate = self.rate
-        self.write_table_sql(conn, 'rate', {'rate_id': 'integer', 'rate_name': 'text',
-                                            'parent_smooth_id': 'integer', 'child_smooth_id': 'integer', 'child_nslist_id': 'integer'})
+    #     #
+    #     # rate table
+    #     # all omega rates must be null
+    #     self.rate    = self.root_node_db.rate
+    #     omega_rate_id = self.rate.loc[self.rate.rate_name == 'omega', 'rate_id']
+    #     self.rate.loc[omega_rate_id, ['parent_smooth_id', 'child_smooth_id', 'child_nslist_id']] = None, None, None
+    #     self.root_node_db.rate = self.rate
+    #     self.write_table_sql(conn, 'rate', {'rate_id': 'integer', 'rate_name': 'text',
+    #                                         'parent_smooth_id': 'integer', 'child_smooth_id': 'integer', 'child_nslist_id': 'integer'})
 
-        #
-        # nslist and nslist_pair tables
-        self.root_node_db.nslist = pd.DataFrame()
-        self.root_node_db.nslist_pair = pd.DataFrame()
-        self.nslist = self.root_node_db.nslist
-        self.nslist_pair = self.root_node_db.nslist_pair
-        self.write_table_sql(conn, 'nslist', {'nslist_id': 'integer', 'nslist_name': 'text'})
-        self.write_table_sql(conn, 'nslist_pair', {'nslist_pair_id': 'integer', 'nslist_id': 'integer', 'node_id': 'integer', 'smooth_id': 'integer'})
-        print (f'*** Modified {self.root_node_db.path}')
-        #
+    #     #
+    #     # nslist and nslist_pair tables
+    #     self.root_node_db.nslist = pd.DataFrame()
+    #     self.root_node_db.nslist_pair = pd.DataFrame()
+    #     self.nslist = self.root_node_db.nslist
+    #     self.nslist_pair = self.root_node_db.nslist_pair
+    #     self.write_table_sql(conn, 'nslist', {'nslist_id': 'integer', 'nslist_name': 'text'})
+    #     self.write_table_sql(conn, 'nslist_pair', {'nslist_pair_id': 'integer', 'nslist_id': 'integer', 'node_id': 'integer', 'smooth_id': 'integer'})
+    #     print (f'*** Modified {self.root_node_db.path}')
+    #     #
 
     def save_to_sql(self):
         print (f"*** Writing {self.all_node_db} ***")
@@ -334,7 +334,7 @@ class AllNodeDatabase:
                  # decomp_step = 'iterative',
                  # age_group_set_id = 19,
 
-                 gbd_round_id = 6,
+                 gbd_round_id = None,
                  decomp_step = 'iterative',
                  age_group_set_id = None,
 
@@ -354,9 +354,6 @@ class AllNodeDatabase:
         self.mvid = mvid
         self.decomp_step = decomp_step
 
-        self.gbd_round_id = gbd_round_id
-        gbd_round = ds.gbd_round_from_gbd_round_id(gbd_round_id)
-
         self.in_parallel = in_parallel
         self.max_fit = max_fit
         
@@ -373,9 +370,15 @@ class AllNodeDatabase:
             parameter_json = settings_json_from_model_version_id(
                 model_version_id = self.mvid,
                 conn_def = self.conn_def)
+
         settings = load_settings(settings_json=parameter_json)
         global settings_dict
         settings_dict = settings._to_dict_value()
+
+        if not gbd_round_id:
+            gbd_round_id = parameter_json['gbd_round_id']
+        self.gbd_round_id = gbd_round_id
+        gbd_round = ds.gbd_round_from_gbd_round_id(gbd_round_id)
 
         if settings.location_set_version_id:
             self.location_set_version_id = settings.location_set_version_id
@@ -433,6 +436,7 @@ class AllNodeDatabase:
         self.age = self.root_node_db.age
         self.time = self.root_node_db.time
         self.node = self.root_node_db.node
+
 
         print ('*** Get options. ***')
         [[root_node_loc, root_node_name]] = self.root_node_db.node.loc[
@@ -633,7 +637,7 @@ def main(root_node_path = '', mvid = None, cause_id = None, age_group_set_id = N
     global self
     self = AllNodeDatabase(root_node_path = root_node_path, mvid = mvid, cause_id = cause_id, age_group_set_id = age_group_set_id, json_file = json_file)
 
-    self.correct_root_node_database()
+    # self.correct_root_node_database()
 
     self.save_to_sql()
 
@@ -678,7 +682,7 @@ if __name__ == '__main__':
     else:
         args = parse_args()
         _mvid_ = args.model_version_id
-    if 000000000000 and 1:
+    if 0:
         result_dir = f'/Users/gma/Projects/IHME/GIT/at_cascade.gma-additions/ihme_db/DisMod_AT/results/{_mvid_}'
         shutil.copy2(f'/Users/gma/ihme/epi/at_cascade/data/{_mvid_}/dbs/100/3/dismod_ODE_import.db',
                      args.root_node_path)
