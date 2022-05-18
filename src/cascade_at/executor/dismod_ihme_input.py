@@ -11,6 +11,8 @@ from functools import reduce
 from cascade_at.executor.args.arg_utils import ArgumentList
 from cascade_at.core.log import get_loggers, LEVELS
 from cascade_at.executor.args.args import ModelVersionID, BoolArg, LogLevel, StrArg
+from cascade_at.inputs.base_input import BaseInput
+from cascade_at.inputs.utilities.gbd_ids import SEX_NAME_TO_ID
 
 import db_queries
 
@@ -94,10 +96,36 @@ def main(query_ihme_databases = False):
             test_dir=args.test_dir,
             json_file=args.json_file,
         )
+        import dill
+        inputs = dill.load(open('/tmp/cascade_dir/data/475873/inputs/inputs.p', 'rb'))
+        with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p', 'rb') as stream:
+            inputs = dill.load(stream)
 
-        inputs2 = all_locations(inputs, settings)
+        cov_ref = CovariateReference(inputs)
+        covariate_reference = reduce(lambda x, y: pd.merge(x, y),
+                                     [cov_ref.configure_for_dismod(c) for c in inputs.covariate_data])
+
+        data = inputs.data.configure_for_dismod(relabel_incidence=settings.model.relabel_incidence)
+        data = inputs.add_covariates_to_data(data)
+
+        asdr = inputs.asdr.configure_for_dismod()
+        asdr['name'] = 'mtall'
+        csmr = inputs.csmr.configure_for_dismod()
+        csmr['name'] = 'mtspecific'
+        
+        cols = [n for n in data.columns if n in asdr] # Retain the order
+        for k in ['data', 'asdr', 'csmr']:
+            v = locals().get(k, None)
+            if k != 'data':
+                v = v[cols]
+                v = v.merge(pd.DataFrame([{'sex_id': v, 'sex': k} for k,v in SEX_NAME_TO_ID.items()]), how='left')
+            print (k, 'length:', len(v), 'cols:', ','.join(v.columns))
+
+        inputs2 = None
+        # inputs2 = all_locations(inputs, settings)
 
         for d in inputs, inputs2:
+            if d is None: continue
             print()
             for integrand in sorted(d.dismod_data.measure.unique()):
                 print (integrand, len(d.dismod_data[d.dismod_data.measure == integrand]), 'locations', len(d.dismod_data.loc[d.dismod_data.measure == integrand].location_id.unique()))
@@ -107,9 +135,10 @@ def main(query_ihme_databases = False):
             import dill
             with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs1.p', 'wb') as stream:
                 dill.dump(inputs, stream)
-            with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', 'wb') as stream:
-                dill.dump(inputs2, stream)
-            shutil.copy2(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p')
+            if inputs2:
+                with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', 'wb') as stream:
+                    dill.dump(inputs2, stream)
+                shutil.copy2(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs2.p', f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p')
 
         from cascade_at.executor.dismod_db import dismod_db
         # It seems that dismod_db gets mtall/mtspecific from inputs.p for just the parent and the parents children
@@ -137,7 +166,6 @@ def main(query_ihme_databases = False):
 
         with open(f'/tmp/cascade_dir/data/{args.model_version_id}/inputs/inputs.p', 'rb') as stream:
             inputs = dill.load(stream)
-        global covariate_reference, data, asdr, csmr
 
         cov_ref = CovariateReference(inputs)
         covariate_reference = reduce(lambda x, y: pd.merge(x, y),
@@ -180,7 +208,7 @@ if __name__ == '__main__':
 
         mvid = 475873
         json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}/inputs/settings-100_High-income_North_America.json'
-        json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}/inputs/settings-1_Global.json'
+        # json_cmd = f'--json-file /Users/gma/ihme/epi/at_cascade/data/{mvid}/inputs/settings-1_Global.json'
         cmd = f'dismod_ihme_input --model-version-id {mvid} --configure {json_cmd} --test-dir /tmp'
 
         print (cmd)
@@ -192,6 +220,22 @@ if __name__ == '__main__':
 
 
     main(query_ihme_databases = not False)
+    
+    from cascade_at.inputs.all_node_database import main as all_node_main
+
+    # sys.argv = (f'all_node_database.py -m {_mvid_} -c {_cause_id_} -a {_age_group_set_id_} --root-node-path '
+    #             f'/Users/gma/Projects/IHME/GIT/at_cascade.gma-additions/ihme_db/DisMod_AT/results/{mvid}/root_node.db '
+    #             f'--json-file /Users/gma/ihme/epi/at_cascade/data/{_mvid_}/inputs/settings-1_Global.json').split()
+
+    
+    # cause_id = None, age_group_set_id = None, 
+    import json
+    cause_id = int(json.load(open(json_cmd.split()[-1], 'r'))['model']['add_csmr_cause'])
+    '/tmp/cascade_dir/data/475873/dbs/covariates'
+    import os
+    os.makedirs('/tmp/cascade_dir/data/475873/dbs/covariates', exist_ok=True)
+    all_node_main(root_node_path = '/tmp/cascade_dir/data/475873/dbs/100/2/dismod.db', mvid = mvid,
+                  cause_id = cause_id, json_file = json_cmd.split()[-1])
 
 
 if 0:
