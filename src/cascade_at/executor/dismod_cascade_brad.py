@@ -19,182 +19,195 @@ import multiprocessing
 import shutil
 import pandas as pd
 from sqlalchemy import create_engine
+import db_queries
 
 _start_at_global_ = not True
-_clean_run_ = not True
+_clean_run_ = True
+_include_all_leaves_ = not True
 
-sys.path.append('/opt/prefix/dismod_at/lib/python3.9/site-packages')
-import dismod_at
-#
+if 1:
+    #
+    # root_node_name
+    # name of the node where the cascade will start
+    # root_node_name      = '1_Global'
+    if not _start_at_global_:
+        root_node_id = 100
+        root_node_name = f'{root_node_id}_High-income_North_America'
+    else:
+        root_node_id = 1
+        root_node_name = f'{root_node_id}_Global'
 
-_gma_dir_ = f'/Users/gma/Projects/IHME/GIT/at_cascade.git'
-_mvid_ = 475873
+    sys.path.append('/opt/prefix/dismod_at/lib/python3.9/site-packages')
+    import dismod_at
+    #
 
-sys.path.append(_gma_dir_)
-import at_cascade.ihme
-if __name__ == '__main__':
-    os.chdir(_gma_dir_)
-sys.path.append(_gma_dir_)
-sys.path.append('/Users/gma/Projects/IHME/GIT/at_cascade.git')
-from at_cascade.ihme.dismod_db_api import DismodDbAPI
+    _mvid_ = 475873
+
+    _gma_dir_ = f'/Users/gma/Projects/IHME/GIT/at_cascade.git'
+    sys.path.append(_gma_dir_)
+    import at_cascade.ihme
+    if __name__ == '__main__':
+        os.chdir(_gma_dir_)
+
+    from at_cascade.ihme.dismod_db_api import DismodDbAPI
+    from at_cascade.ihme.dag import DAG
+    # ----------------------------------------------------------------------------
+    # Begin settings that can be changed without understanding this program
+    # ----------------------------------------------------------------------------
+
+    # data locations
+    from cascade_at.context.model_context import Context
+    context = Context( model_version_id=_mvid_, root_directory = None )
+    result_dir = str(context.outputs_dir)
+    print ('result_dir', result_dir)
+    root_node_database = os.path.join(result_dir, 'root_node.db')
+    all_node_database = os.path.join(result_dir, 'all_node.db')
+    if __debug__:
+        db = DismodDbAPI(root_node_database)
+    #
+    # random_seed
+    # If this seed is zero, the clock is used for the random seed.
+    # Otherwise this value is used. In either case the actual seed is reported.
+    random_seed = 1234
+    #
+    # perturb_optimization_scale, perturb_optimization_start
+    # Amount to randomly move, in log space, the optimization scaling point
+    # starting points.
+    perturb_optimization_scale = 0.2
+    perturb_optimization_start = 0.2
+    #
+    # shift_prior_std_factor
+    # Factor that multipliers standard deviation that is passed down the cascade.
+    shift_prior_std_factor = 2.0
+    #
+    # max_number_cpu
+    # maximum number of processors, if one, run sequentally, otherwise
+    # run at most max_number_cpu jobs at at time.
+    max_number_cpu = max(1, multiprocessing.cpu_count() - 1)
+    #
+    # max_fit
+    # Maximum number of data rows per integrand to include in a f
+    max_fit             = 250
+    #
+    # max_abs_effect
+    # Maximum absolute effect for any covriate multiplier.
+    max_abs_effect      = 3.0
+    #
+    # max_plot
+    # Maximum number of data points to plot per integrand.
+    max_plot            = 2000
+    # ----------------------------------------------------------------------------
+    # End settings that can be changed without understanding this program
+    # ----------------------------------------------------------------------------
+
+if __debug__:
+    def fit_goal_subset(root_node_database, root_node_name, reduced_subset=True):
+        
+        db = DismodDbAPI(root_node_database)
+
+        if not reduced_subset:
+            node = db.node
+            dag = DAG(node)
+            root_location_id = int(root_node_name.split('_')[0])
+            root_node_id = int(node[node.c_location_id == root_location_id].node_id)
+            leaf_node_ids = dag.leaves(root_node_id)
+            fit_goal_set = set(node[node.node_id.isin(leaf_node_ids)].node_name)
+            return fit_goal_set
+
+        # fit_goal_set
+        # Name of the nodes that we are drilling to (must be below root_node).
+        # You can change this setting and then run
+        #   bin/ihme/{_mvid_}.py continue database
+
+        fit_goal_set = { '1_Global' }
+        fit_goal_set = { '64_High-income' }
+        fit_goal_set = { '81_Germany' }
+        fit_goal_set = { '161_Bangladesh' }
+        fit_goal_set = { '44758_Tower_Hamlets', '527_California' }
+        fit_goal_set = {
+            '527_California', '547_Mississippi', '81_Germany', '84_Ireland'
+        }
+        if '100_High-income_North_America' in root_node_name :
+            fit_goal_set = {
+                '527_California', '547_Mississippi', '101_Canada',
+            }
+        if '1_global' in root_node_name:
+            fit_goal_set = {
+                '8_Taiwan_(Province_of_China)',
+                '514_Shanghai',
+                '18_Thailand',
+                '16_Philippines',
+                '22_Fiji',
+                '26_Papua_New_Guinea',
+                '41_Uzbekistan',
+                '38_Mongolia',
+                '505_Inner_Mongolia',
+                '61_Republic_of_Moldova',
+                '44850_New_Zealand_Maori_population',
+                '44851_New_Zealand_non-Maori_population',
+                '35469_Kagoshima',
+                '68_Republic_of_Korea',
+                "7_Democratic_Peoples_Republic_of_Korea",
+                '349_Greenland',
+                '527_California',
+                '4644_Baja_California',
+                '4645_Baja_California_Sur',
+                '547_Mississippi',
+                '97_Argentina',
+                '99_Uruguay',
+                '81_Germany',
+                '84_Ireland',
+                '433_Northern_Ireland',
+                '44758_Tower_Hamlets',
+                '123_Peru',
+                '121_Bolivia_(Plurinational_State_of)',
+                '107_Barbados',
+                '116_Saint_Lucia',
+                '129_Honduras',
+                '4670_Tamaulipas',
+                '136_Paraguay',
+                '150_Oman',
+                '44872_Golestan',
+                '161_Bangladesh',
+                '171_Democratic_Republic_of_the_Congo',
+                '168_Angola',
+                '185_Rwanda',
+                '179_Ethiopia',
+                '194_Lesotho',
+                '482_Eastern_Cape',
+                '218_Togo',
+                '25329_Edo',
+            }
+        return fit_goal_set
+
 # ----------------------------------------------------------------------------
-# Begin settings that can be changed without understanding this program
-# ----------------------------------------------------------------------------
-data_path = f'/Users/gma/ihme/at_cascade.ihme_db/{_mvid_}'
-root_node_db = os.path.join(data_path, 'root_node.db')
-all_node_db = os.path.join(data_path, 'all_node.db')
+def sql_types(dtypes):
+    if not isinstance(dtypes, dict):
+        dtypes = dict(dtypes)
+    for k,v in dtypes.items():
+        if 'object' in str(v): dtypes[k] = 'text'
+        if 'int' in str(v): dtypes[k] = 'integer'
+        if 'float' in str(v): dtypes[k] = 'real'
+    return dtypes
 
-result_dir = f'{_gma_dir_}/ihme_db/DisMod_AT/results/{_mvid_}'
-
-root_node_database = f'{result_dir}/root_node.db'
-all_node_database = f'{result_dir}/all_node.db'
-
-#
-# root_node_name
-# name of the node where the cascade will start
-# root_node_name      = '1_Global'
-if not _start_at_global_:
-    root_node_name      = '100_High-income_North_America'
-    _parent_location_ = 100
-else:
-    root_node_name      = '1_Global'
-    _parent_location_ = 1
-#
-# random_seed
-# If this seed is zero, the clock is used for the random seed.
-# Otherwise this value is used. In either case the actual seed is reported.
-random_seed = 1234
-#
-# perturb_optimization_scale, perturb_optimization_start
-# Amount to randomly move, in log space, the optimization scaling point
-# starting points.
-perturb_optimization_scale = 0.2
-perturb_optimization_start = 0.2
-#
-# shift_prior_std_factor
-# Factor that multipliers standard deviation that is passed down the cascade.
-shift_prior_std_factor = 2.0
-#
-# max_number_cpu
-# maximum number of processors, if one, run sequentally, otherwise
-# run at most max_number_cpu jobs at at time.
-max_number_cpu = max(1, multiprocessing.cpu_count() - 1)
-#
-# max_fit
-# Maximum number of data rows per integrand to include in a f
-max_fit             = 250
-#
-# max_abs_effect
-# Maximum absolute effect for any covriate multiplier.
-max_abs_effect      = 3.0
-#
-# max_plot
-# Maximum number of data points to plot per integrand.
-max_plot            = 2000
-#
-# node_split_name_set
-# Name of the nodes where we are splitting from Both to Female, Male
-node_split_name_set = { root_node_name }
-
-# mulcov_freeze_list
-# Freeze the covariate multipliers at the Global level after the sex split
-mulcov_freeze_list = [
-    {   'node'      : root_node_name,
-        'sex'       : 'Male',
-    },
-    {   'node'      : root_node_name,
-        'sex'       : 'Female',
-    },
-]
-#
-# fit_goal_set
-# Name of the nodes that we are drilling to (must be below root_node).
-# You can change this setting and then run
-#   bin/ihme/{_mvid_}.py continue database
-# fit_goal_set = { '1_Global' }
-# fit_goal_set = { '64_High-income' }
-# fit_goal_set = { '81_Germany' }
-# fit_goal_set = { '161_Bangladesh' }
-# fit_goal_set = { '44758_Tower_Hamlets', '527_California' }
-# fit_goal_set = {
-#     '527_California', '547_Mississippi', '81_Germany', '84_Ireland'
-# }
-if not _start_at_global_:
-    fit_goal_set = {
-        '527_California', '547_Mississippi', '101_Canada',
-    }
-else:
-    fit_goal_set = {
-        '8_Taiwan_(Province_of_China)',
-        '514_Shanghai',
-        '18_Thailand',
-        '16_Philippines',
-        '22_Fiji',
-        '26_Papua_New_Guinea',
-        '41_Uzbekistan',
-        '38_Mongolia',
-        '505_Inner_Mongolia',
-        '61_Republic_of_Moldova',
-        '44850_New_Zealand_Maori_population',
-        '44851_New_Zealand_non-Maori_population',
-        '35469_Kagoshima',
-        '68_Republic_of_Korea',
-        "7_Democratic_Peoples_Republic_of_Korea",
-        '349_Greenland',
-        '527_California',
-        '4644_Baja_California',
-        '4645_Baja_California_Sur',
-        '547_Mississippi',
-        '97_Argentina',
-        '99_Uruguay',
-        '81_Germany',
-        '84_Ireland',
-        '433_Northern_Ireland',
-        '44758_Tower_Hamlets',
-        '123_Peru',
-        '121_Bolivia_(Plurinational_State_of)',
-        '107_Barbados',
-        '116_Saint_Lucia',
-        '129_Honduras',
-        '4670_Tamaulipas',
-        '136_Paraguay',
-        '150_Oman',
-        '44872_Golestan',
-        '161_Bangladesh',
-        '171_Democratic_Republic_of_the_Congo',
-        '168_Angola',
-        '185_Rwanda',
-        '179_Ethiopia',
-        '194_Lesotho',
-        '482_Eastern_Cape',
-        '218_Togo',
-        '25329_Edo',
-    }
-# ----------------------------------------------------------------------------
-# End settings that can be changed without understanding this program
-# ----------------------------------------------------------------------------
-    if __name__ == '__main__' :
-        if random_seed == 0 :
-            random_seed = int( time.time() )
-# ----------------------------------------------------------------------------
 def write_table_sql(conn, table_name, df, dtypes=None):
     id_column = f"{table_name}_id"
     if id_column not in df:
         df[id_column] = df.reset_index(drop=True).index
-    if dtypes:
-        keys = ', '.join([f'{k} {v}' for k,v in dtypes.items() if k != id_column])
-        conn.execute(f"DROP TABLE IF EXISTS '{table_name}'")
-        conn.execute(f"CREATE TABLE '{table_name}' ({id_column} integer primary key, {keys})")
-        cols = [k for k in dtypes if k != id_column]
-        df[cols].to_sql(table_name, conn, index_label = id_column, if_exists="append")
-    else:
-        try:
-            conn.execute(f"DELETE FROM '{table_name}'")
-        except:
-            pass
-        df.to_sql(table_name, conn, index_label = id_column, if_exists="append")
+    if not dtypes:
+        types = df.dtypes
+        dtypes = sql_types(types)
+    keys = ', '.join([f'{k} {v}' for k,v in dtypes.items() if k != id_column])
+    cols = [k for k in dtypes.keys() if k != id_column]
+    conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+    conn.execute(f"CREATE TABLE {table_name} ({id_column} integer primary key, {keys})")
+    df[cols].to_sql(table_name, conn, index_label = id_column, if_exists="append")
 
-def setup_function():
+def setup_function(root_node_database = None, all_node_database = None):
+    print ('Running setup_function')
+
+    db = DismodDbAPI(root_node_database)
+
     root_engine = create_engine("sqlite:///"+root_node_database)
     all_engine = create_engine("sqlite:///"+all_node_database)
 
@@ -202,20 +215,14 @@ def setup_function():
         db.avgint = pd.DataFrame()
         db.nslist = pd.DataFrame()
         db.nslist_pair = pd.DataFrame()
-        rate = db.rate
-        rate.loc[rate.rate_name == 'omega', ['parent_smooth_id', 'child_smooth_id', 'child_nslist_id']] = [None]*3
-        db.rate = rate
 
-    def switch_to_Brads_naming():
+    def switch_to_Brads_naming(db, root_node_name):
         # Change the covariate from bmi to obesity
         covariate = db.covariate
 
         covariate_name = [n for n in covariate.columns if 'name' in n and 'c_' in n]
         if covariate_name:
             covariate_name = covariate_name[0]
-
-        covariate.loc[covariate[covariate_name] == 'c_mean_BMI', 'c_covariate_name'] = 'c_mean_BMI'
-        covariate.loc[covariate[covariate_name] == 'c_LDI_pc_log', 'c_covariate_name'] = 'c_LDI_pc_log'
 
         data_rename = dict(covariate[['covariate_name', 'c_covariate_name']].values)
         for k,v in data_rename.items():
@@ -226,16 +233,19 @@ def setup_function():
             covariate['covariate_name'] = data_rename.values()
         db.covariate = covariate
 
-        node = db.node
-        # Remove spaces and single quotes
-        node['node_name'] = [v.replace(' ', '_') for k,v in node[['node_id', 'node_name']].values]
-        node['node_name'] = [v.replace("'", "") for k,v in node[['node_id', 'node_name']].values]
-        # Prepend the location id to the name
-        name_update = [f"{k}_{v}" for k,v in node[['c_location_id', 'node_name']].values if not v.startswith(f"{k}_")]
-        if name_update: node['node_name'] = name_update
-        db.node = node
+        if 1:
+            # This renaming is done by all_node_database.py
+            # Brad's node naming scheme
+            node = db.node
+            def node_name_change(row):
+                name = row.node_name.replace(' ', '_').replace("'", "")
+                if not name.startswith(f'{row.c_location_id}_'):
+                    name = f'{row.c_location_id}_{row.node_name}'
+                return name
+            node['node_name'] = node.apply(node_name_change, axis=1)
+            db.node = node
 
-        option = pd.read_sql('option', root_engine)
+        option = db.option
         option = option[option.option_value != 'data_extra_columns'].reset_index(drop=True)
         if not 'parent_node_name' in option.option_name.values:
             parent_node_id = int(option.loc[option.option_name == 'parent_node_id', 'option_value'])
@@ -246,24 +256,12 @@ def setup_function():
             option['option_id'] = option.index
         option.loc[option.option_name == 'parent_node_name', 'option_value'] = root_node_name
         option['option_id'] = option.index
-        write_table_sql(root_engine, 'option', option,
-                        dtypes = {'option_id': 'integer primary key',
-                                  'option_name': 'text', 
-                                  'option_value': 'text'})
+        db.option = option
 
-    def correct_root_node_database():
+    def correct_root_node_database(db):
         # ---------------------------------------------------------------------------
         # Corrections to root_node_database
         #
-        def sql_types(dtypes):
-            if not isinstance(dtypes, dict):
-                dtypes = dict(dtypes)
-            for k,v in dtypes.items():
-                if 'object' in str(v): dtypes[k] = 'text'
-                if 'int' in str(v): dtypes[k] = 'integer'
-                if 'float' in str(v): dtypes[k] = 'real'
-            return dtypes
-
         # integrand_table
         # All the covariate multipliers must be in integrand table
 
@@ -291,7 +289,7 @@ def setup_function():
             parent_node_id = int(option.loc[option.option_name == 'parent_node_id', 'option_value'])
             parent_node_name, parent_loc_id = node.loc[node.node_id == parent_node_id, ['node_name', 'c_location_id']].squeeze()
             parent_node_name = (parent_node_name if parent_node_name.startswith(str(parent_loc_id)) else f'{parent_loc_id}_{parent_node_name}')
-            parent_node_name = parent_node_name.replace(' ', '_')
+            parent_node_name = parent_node_name.replace(' ', '_').replace("'", "")
             mask = option.option_name == 'parent_node_id'
             option.loc[mask, ['option_name', 'option_value']] = ['parent_node_name', parent_node_name]
         brads_options = {# 'data_extra_columns'          :'c_seq c_nid',
@@ -329,7 +327,7 @@ def setup_function():
         print (f'*** Modified {db.filename}')
         #
 
-    def write_all_option():
+    def write_all_option(root_node_name = None):
         all_option = {
         'absolute_covariates'          : 'one',
         'split_covariate_name'         : 'sex',
@@ -430,11 +428,8 @@ def setup_function():
                         dtypes = {'node_split_id':  'INTEGER',
                                   'node_id': 'INTEGER'})
 
-
-
-
-    correct_root_node_database()
-    switch_to_Brads_naming()
+    correct_root_node_database(db)
+    switch_to_Brads_naming(db, root_node_name)
     clear_tables()
 
     mulcov = db.mulcov
@@ -448,7 +443,7 @@ def setup_function():
 
     #
     # write_all_option_table
-    write_all_option()
+    write_all_option(root_node_name = root_node_name)
 
     #
     # write_split_reference_table
@@ -461,12 +456,14 @@ def setup_function():
     #
     # write_mulcov_freeze_table
     write_mulcov_freeze_table(mulcov_freeze_list = mulcov_freeze_list)
+
     #
     # write_node_split_table
+    #
     write_node_split_table(result_dir, node_split_name_set, root_node_database)
+
     #
     # write_all_node_database
-
     print ('FIXME -- why do I have to do this?')
     data = db.data
     for col in data.columns:
@@ -474,36 +471,62 @@ def setup_function():
             data[col] = data[col].astype('float')
     db.data = data
 
+    # node = db.node
+    # node['node_name'] = [n.replace(' ', '_') for n in db.node.node_name.values]
+    # db.node = node
+
+
 # ----------------------------------------------------------------------------
 # Without __name__ == '__main__', the mac will try to execute main on each processor.
 
-def main(gbd_round_id = None, fit_goal_set = fit_goal_set, cov_dict = {}):
-    if 'drill' in sys.argv:
-        root_path = '/Users/gma/Projects/IHME/GIT/at_cascade.git/ihme_db/DisMod_AT/results/475873/{root_node_name}'
-        if os.path.exists(root_path): shutil.rmtree(root_path)
-        db.avgint = pd.DataFrame()
-
-    at_cascade.ihme.main(
-    result_dir              = result_dir,
-    root_node_name          = root_node_name,
-    fit_goal_set            = fit_goal_set,
-    setup_function          = lambda: None,
-    max_plot                = max_plot,
-    covariate_csv_file_dict = {},
-    scale_covariate_dict    = {},
-    root_node_database      = root_node_database,
-    all_node_database       = all_node_database,
-    no_ode_fit              = False,
-    fit_type_list = [ 'both', 'fixed' ],
-    random_seed = random_seed,
-    use_csv_files = False,
-    gbd_round_id = gbd_round_id,
-)
-
 if __name__ == '__main__':
-    import db_queries
+
+    #
+    # root_node_name
+    # name of the node where the cascade will start
+    # root_node_name      = '1_Global'
+    if not _start_at_global_:
+        root_node_name      = '100_High-income_North_America'
+    else:
+        root_node_name      = '1_Global'
+
+    # mulcov_freeze_list
+    # Freeze the covariate multipliers at the Global level after the sex split
+    mulcov_freeze_list = [ { 'node' : root_node_name, 'sex' : 'Male'},
+                           { 'node' : root_node_name, 'sex' : 'Female'} ]
+    # node_split_name_set
+    # Name of the nodes where we are splitting from Both to Female, Male
+    node_split_name_set = { root_node_name }
+
+
+    json_file = f'/Users/gma/ihme/epi/at_cascade/data/{_mvid_}/inputs/settings-{root_node_name}.json'
+    _json_ = f'--json-file {json_file}'
+    import json
+    with open(json_file, 'r') as stream:
+        settings = json.load(stream)
+    gbd_round_id = settings['gbd_round_id']
+    parent_location_id = settings['model']['drill_location_start']
+
+    if random_seed == 0 :
+        random_seed = int( time.time() )
+
+    kwds = dict(result_dir              = result_dir,
+                root_node_name          = root_node_name,
+                setup_function          = lambda: None,
+                max_plot                = max_plot,
+                covariate_csv_file_dict = {},
+                scale_covariate_dict    = {},
+                root_node_database      = root_node_database,
+                all_node_database       = all_node_database,
+                no_ode_fit              = False,
+                fit_type_list           = [ 'both', 'fixed' ],
+                random_seed             = random_seed,
+                use_csv_files           = False,
+                gbd_round_id            = gbd_round_id)
+
+
     if _clean_run_:
-        shutil.rmtree(result_dir)
+        shutil.rmtree(result_dir, ignore_errors=True)
     try:
         display_cmd = f'display {root_node_name}/dismod.db'
         _cmds_ = ['setup', 'drill',
@@ -514,64 +537,69 @@ if __name__ == '__main__':
         # _cmds_ = ['predict', 'summary', f'display {root_node_name}/dismod.db']
         # _cmds_ = [f'shared {result_dir}/all_node.db', 'drill']
         _sex_id_ = 3
-        json_file = f'/Users/gma/ihme/epi/at_cascade/data/{_mvid_}/inputs/settings-{root_node_name}.json'
-        _json_ = f'--json-file {json_file}'
-        import json
-        with open(json_file, 'r') as stream:
-            settings = json.load(stream)
-        gbd_round_id = settings['gbd_round_id']
         
+        run_setup = False
+
         if len(sys.argv) <= 1:
             if not os.path.exists(root_node_database):
+                run_setup = True
+                print ('FIXME -- change configure_inputs and/or dismod_db so I can control where the files are written.')
                 if 1:
-                    print ('Running configure_inputs')
-                    os.system(f'configure_inputs --model-version-id {_mvid_} --make --configure {_json_}')
+                    cmd = f'configure_inputs --model-version-id {_mvid_} --make --configure {_json_}'
+                    print (f'INFO: {cmd}')
+                    os.system(cmd)
                 if 1:
                     # Build the covariate values for all locations?
                     print ('Running dismod_db')
-                    os.system(f'dismod_db --model-version-id {_mvid_} --parent-location-id {_parent_location_} --sex-id {_sex_id_} --fill')
+                    os.system(f'dismod_db --model-version-id {_mvid_} --parent-location-id {parent_location_id} --sex-id {_sex_id_} --fill')
 
-                    os.makedirs(result_dir, exist_ok=True)
-                    shutil.copy2(f'/Users/gma/ihme/epi/at_cascade/data/{_mvid_}/dbs/100/3/dismod.db',
-                                 root_node_database)
+                    configure_inputs_path = f'/Users/gma/ihme/epi/at_cascade/data/475873/dbs/{root_node_id}/{_sex_id_}/dismod.db' 
+                    print (f'Copying {configure_inputs_path} to {root_node_database}')
+                    shutil.copy2(configure_inputs_path, root_node_database)
         db = DismodDbAPI(root_node_database)
-        db.node['node_name'] = [n.replace(' ', '_') for n in db.node.node_name.values]
-
+            
         if len(sys.argv) <= 1:
-            if 'setup' in _cmds_:
-                os.system (f'rm -rf {result_dir}/{root_node_name}')
-                if not os.path.exists(all_node_database):
-                    # The all_node_database command
-                    print ('Running all_node_database')
-                    if 0:
-                        os.system((f'python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
-                                   f' --root-node-path {result_dir}/root_node.db -m {_mvid_} -c 587 -a 12 {_json_}'))
-                    else:
-                        # An all_node_database call
-                        from cascade_at.inputs.all_node_database import main as all_node_main
-                        all_node_obj = all_node_main(root_node_path = os.path.join(result_dir, 'root_node.db'),
-                                                     mvid = _mvid_,
-                                                     cause_id = 587,
-                                                     age_group_set_id = 12,
-                                                     json_file = _json_.split()[-1])
-                        import sqlite3
-                        conn = sqlite3.connect(all_node_obj.all_node_db)
-                        for k in all_node_obj.covariate.c_covariate_name:
-                            if not k.startswith('c_'): continue
-                            v = getattr(all_node_obj, k, None)
-                            all_node_obj.write_table_sql(conn, k, v.dtypes)
-                        print ('Running setup_function')
-                        setup_function()
+            if not os.path.exists(all_node_database):
+                # The all_node_database command
+                run_setup = True
+                print ('Running all_node_database')
+                if 0:
+                    os.system((f'python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
+                               f' --root-node-path {result_dir}/root_node.db -m {_mvid_} -c 587 -a 12 {_json_}'))
+                else:
+                    # An all_node_database call
+                    from cascade_at.inputs.all_node_database import main as all_node_main
+                    json_file = _json_.split()[-1]
+                    inputs_file = os.path.join(os.path.dirname(json_file), 'inputs.p')
+                    if not os.path.isfile(inputs_file):
+                        inputs_file = None
+                    kwds2 = dict(root_node_path = os.path.join(result_dir, 'root_node.db'),
+                                 mvid = _mvid_,
+                                 cause_id = 587,
+                                 age_group_set_id = 12,
+                                 json_file = json_file,
+                                 inputs_file = inputs_file)
+                    all_node_obj = all_node_main(**kwds2)
+                    import sqlite3
+                    conn = sqlite3.connect(all_node_obj.all_node_db)
+                    for k in all_node_obj.covariate.c_covariate_name:
+                        if not k.startswith('c_'): continue
+                        v = getattr(all_node_obj, k, None)
+                        write_table_sql(conn, k, v)
         
-            node = db.node
-            node.rename(columns = {'parent_node_id': 'parent', 'c_location_id': 'location_id'}).to_csv(f'{result_dir}/node_table.csv')
+            if run_setup:
+                setup_function(root_node_database = root_node_database, all_node_database = all_node_database)
+            fit_goal_set = fit_goal_subset(root_node_database, root_node_name, reduced_subset = not _include_all_leaves_)
+
             for cmd in _cmds_:
+                if cmd == 'setup':
+                    os.system (f'rm -rf {result_dir}/{root_node_name}')
                 tmp = f'{_mvid_}.py {cmd}'
                 print (tmp)
                 sys.argv = tmp.split()
-                main(gbd_round_id = gbd_round_id, fit_goal_set = fit_goal_set)
+                at_cascade.ihme.main(fit_goal_set = fit_goal_set, **kwds)
         else:
-            main(gbd_round_id = gbd_round_id, fit_goal_set = fit_goal_set)
+            at_cascade.ihme.main(fit_goal_set = fit_goal_set, **kwds)
     except:
         raise
     finally:
