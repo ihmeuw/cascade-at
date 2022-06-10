@@ -57,5 +57,6 @@ setup(
         'plot_residuals=cascade_at.executor.plot_residuals:main',
         'dmdismod_script=cascade_at.fit_strategies.dismod_at_script:main',
         'dismod_ihme_input=cascade_at.executor.dismod_ihme_input:main'
+        'brad_cascade=cascade_at.fit_strategies.brad_cascade_script:main'
     ]}
 )
