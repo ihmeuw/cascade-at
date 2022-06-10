@@ -98,7 +98,8 @@ def main():
     args = ARG_LIST.parse_args(sys.argv[1:])
     logging.basicConfig(level=LEVELS[args.log_level])
 
-    configure_inputs(
+    global context, inputs
+    context, inputs = configure_inputs(
         model_version_id=args.model_version_id,
         make=args.make,
         configure=args.configure,
@@ -106,7 +107,6 @@ def main():
         json_file=args.json_file,
     )
 
-
 if __name__ == '__main__':
-    sys.argv='configure_inputs.py --model-version-id 475873 --make --configure'.split()
+    sys.argv='configure_inputs.py --model-version-id 475873 --make --test-dir /tmp/cascade'.split()
     main()
