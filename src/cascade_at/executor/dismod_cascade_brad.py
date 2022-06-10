@@ -22,7 +22,7 @@ from sqlalchemy import create_engine
 import db_queries
 
 _start_at_global_ = not True
-_clean_run_ = True
+_clean_run_ = not False
 _include_all_leaves_ = not True
 
 if 1:
@@ -38,6 +38,7 @@ if 1:
         root_node_name = f'{root_node_id}_Global'
 
     sys.path.append('/opt/prefix/dismod_at/lib/python3.9/site-packages')
+    sys.path.append('/opt/local/lib/python3.9/site-packages')
     import dismod_at
     #
 
@@ -57,13 +58,14 @@ if 1:
 
     # data locations
     from cascade_at.context.model_context import Context
-    context = Context( model_version_id=_mvid_, root_directory = None )
-    result_dir = str(context.outputs_dir)
-    print ('result_dir', result_dir)
-    root_node_database = os.path.join(result_dir, 'root_node.db')
-    all_node_database = os.path.join(result_dir, 'all_node.db')
-    if __debug__:
-        db = DismodDbAPI(root_node_database)
+    if 0000000000000:
+        context = Context( model_version_id=_mvid_, root_directory = None )
+        result_dir = _override_result_dir_ or str(context.outputs_dir)
+        print ('result_dir', result_dir)
+        root_node_database = os.path.join(result_dir, 'root_node.db')
+        all_node_database = os.path.join(result_dir, 'all_node.db')
+        if __debug__:
+            db = DismodDbAPI(root_node_database)
     #
     # random_seed
     # If this seed is zero, the clock is used for the random seed.
@@ -489,6 +491,17 @@ def setup_function(root_node_database = None, all_node_database = None):
 
 if __name__ == '__main__':
 
+    
+    _override_result_dir_ = f'/tmp/at_cascade/{_mvid_}/outputs2'
+
+    context = Context( model_version_id=_mvid_, root_directory = None ) # root_directory doesn't seem to work
+    result_dir = _override_result_dir_ or str(context.outputs_dir)
+    print ('result_dir', result_dir)
+    root_node_database = os.path.join(result_dir, 'root_node.db')
+    all_node_database = os.path.join(result_dir, 'all_node.db')
+    if __debug__:
+        db = DismodDbAPI(root_node_database)
+
     #
     # root_node_name
     # name of the node where the cascade will start
@@ -506,12 +519,14 @@ if __name__ == '__main__':
     # Name of the nodes where we are splitting from Both to Female, Male
     node_split_name_set = { root_node_name }
 
-
     json_file = f'/Users/gma/ihme/epi/at_cascade/data/{_mvid_}/inputs/settings-{root_node_name}.json'
     _json_ = f'--json-file {json_file}'
     import json
     with open(json_file, 'r') as stream:
         settings = json.load(stream)
+    if random_seed:
+        settings['model']['random_seed'] = random_seed
+        
     gbd_round_id = settings['gbd_round_id']
     parent_location_id = settings['model']['drill_location_start']
 
@@ -533,48 +548,56 @@ if __name__ == '__main__':
                 gbd_round_id            = gbd_round_id)
 
 
-    if _clean_run_:
-        shutil.rmtree(result_dir, ignore_errors=True)
-    try:
+    _sex_id_ = 3
+    _cmds_ = []
+    if len(sys.argv) <= 1:
+        if _clean_run_:
+            shutil.rmtree(result_dir, ignore_errors=True)
         display_cmd = f'display {root_node_name}/dismod.db'
         _cmds_ = ['setup', 'drill',
                   'predict', 'summary', display_cmd]
         _cmds_ = [f'shared {result_dir}/all_node.db',
                   'setup', 'drill',
                   'predict', 'summary', display_cmd]
+        # _cmds_ = [display_cmd]
         # _cmds_ = ['predict', 'summary', f'display {root_node_name}/dismod.db']
         # _cmds_ = [f'shared {result_dir}/all_node.db', 'drill']
-        _sex_id_ = 3
         
+    try:
         run_setup = False
-
         if len(sys.argv) <= 1:
             if not os.path.exists(root_node_database):
                 run_setup = True
                 print ('FIXME -- change configure_inputs and/or dismod_db so I can control where the files are written.')
                 if 1:
                     cmd = f'configure_inputs --model-version-id {_mvid_} --make --configure {_json_}'
+                    # cmd = f'configure_inputs --model-version-id {_mvid_} --make --test-dir {result_dir} {_json_}'
                     print (f'INFO: {cmd}')
                     os.system(cmd)
                 if 1:
                     # Build the covariate values for all locations?
-                    print ('Running dismod_db')
-                    os.system(f'dismod_db --model-version-id {_mvid_} --parent-location-id {parent_location_id} --sex-id {_sex_id_} --fill')
+                    cmd = f'dismod_db --model-version-id {_mvid_} --parent-location-id {parent_location_id} --sex-id {_sex_id_} --fill'
+                    print (f'INFO: {cmd}')
+                    os.system(cmd)
 
                     configure_inputs_path = f'/Users/gma/ihme/epi/at_cascade/data/475873/dbs/{root_node_id}/{_sex_id_}/dismod.db' 
                     print (f'Copying {configure_inputs_path} to {root_node_database}')
+                    os.makedirs(os.path.dirname(root_node_database), exist_ok=True)
                     shutil.copy2(configure_inputs_path, root_node_database)
 
         db = DismodDbAPI(root_node_database)
-            
+        fit_goal_set = fit_goal_subset(root_node_database, root_node_name, reduced_subset = not _include_all_leaves_)
+
         if len(sys.argv) <= 1:
             if not os.path.exists(all_node_database):
                 # The all_node_database command
                 run_setup = True
                 print ('Running all_node_database')
                 if 0:
-                    os.system((f'python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
-                               f' --root-node-path {result_dir}/root_node.db -m {_mvid_} -c 587 -a 12 {_json_}'))
+                    cmd = (f'python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
+                               f' --root-node-path {result_dir}/root_node.db -m {_mvid_} -c 587 -a 12 {_json_}')
+                    print (f'INFO: {cmd}')
+                    os.system(cmd)
                 else:
                     # An all_node_database call
                     from cascade_at.inputs.all_node_database import main as all_node_main
@@ -589,7 +612,10 @@ if __name__ == '__main__':
                                  json_file = json_file,
                                  inputs_file = inputs_file
                                  )
+                    cmd = f"cascade_at.inputs.all_node_database({', '.join([f'{k}={v}' for k,v in kwds2.items()])})"
+                    print (f'INFO: {cmd}')
                     all_node_obj = all_node_main(**kwds2)
+
                     import sqlite3
                     conn = sqlite3.connect(all_node_obj.all_node_db)
                     for k in all_node_obj.covariate.c_covariate_name:
@@ -599,7 +625,7 @@ if __name__ == '__main__':
         
             if run_setup:
                 setup_function(root_node_database = root_node_database, all_node_database = all_node_database)
-            fit_goal_set = fit_goal_subset(root_node_database, root_node_name, reduced_subset = not _include_all_leaves_)
+            # fit_goal_set = fit_goal_subset(root_node_database, root_node_name, reduced_subset = not _include_all_leaves_)
 
             for cmd in _cmds_:
                 if cmd == 'setup':
@@ -609,6 +635,13 @@ if __name__ == '__main__':
                 sys.argv = tmp.split()
                 at_cascade.ihme.main(fit_goal_set = fit_goal_set, **kwds)
         else:
+            [module, path, cmd] = sys.argv[:3]
+            if cmd == 'setup':
+                os.system (f'rm -rf {result_dir}/{root_node_name}')
+            kwds['result_dir'] = path
+            kwds['root_node_database'] = os.path.join(path, 'root_node.db')
+            kwds['all_node_database'] = os.path.join(path, 'all_node.db')
+            sys.argv = sys.argv[:1] + sys.argv[2:]
             at_cascade.ihme.main(fit_goal_set = fit_goal_set, **kwds)
     except:
         raise
@@ -616,4 +649,55 @@ if __name__ == '__main__':
         sys.argv = [""]
         
 print('random_seed = ', random_seed)
-print(f'{_mvid_}.py: OK')
+print(f'    {__file__}::{_mvid_}: OK')
+
+
+"""
+TEST_DIR=/tmp/cascade
+DATA_DIR=${TEST_DIR}/cascade_dir/data/${mvid}
+# This places the outputs in test-dir
+CONFIG_ARGS="--test-dir ${TEST_DIR}"
+DISMOD_ARGS=""
+"""
+
+"""
+TEST_DIR=/Users/gma/ihme/epi
+DATA_DIR=${TEST_DIR}/at_cascade/data/${mvid}
+# This places the outputs according to the cascade_config module
+CONFIG_ARGS="--configure"
+DISMOD_ARGS=""
+"""
+
+"""
+mvid=475873
+sex_id=3
+
+parent_id=100
+parent_location=100_High-income_North_America
+
+JSON_FILE=/Users/gma/ihme/epi/at_cascade/data/${mvid}/inputs/settings-${parent_location}.json
+
+
+rm -rf ${DATA_DIR}/outputs/*
+
+# Build inputs.p
+configure_inputs --model-version-id ${mvid} --make ${CONFIG_ARGS} --json-file ${JSON_FILE} 
+# Build root_node.db
+dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} --fill ${DISMOD_ARGS}
+
+# This copy is required if not using test-dir -- damn implied pathnames!!!
+cp -p ${DATA_DIR}/dbs/100/3/dismod_ODE_import.db ${DATA_DIR}/outputs/root_node.db
+
+# Build all_node.db
+ALL_NODE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
+${ALL_NODE_CMD} --root-node-path ${DATA_DIR}/outputs/root_node.db --json-file ${JSON_FILE} -m ${mvid} -c 587 -a 12
+
+CASCADE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/executor/dismod_cascade_brad.py'
+
+${CASCADE_CMD} ${DATA_DIR}/outputs shared ${DATA_DIR}/outputs/all_node.db
+${CASCADE_CMD} ${DATA_DIR}/outputs setup
+${CASCADE_CMD} ${DATA_DIR}/outputs drill
+${CASCADE_CMD} ${DATA_DIR}/outputs predict
+${CASCADE_CMD} ${DATA_DIR}/outputs summary
+${CASCADE_CMD} ${DATA_DIR}/outputs display ${parent_location}/dismod.db
+"""

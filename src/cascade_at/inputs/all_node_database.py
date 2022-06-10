@@ -72,6 +72,10 @@ def sql_types(dtypes):
         if 'float' in str(v): dtypes[k] = 'real'
     return dtypes
 
+def change_node_name_str(name):
+    return name.replace(' ', '_').replace("'", "")
+
+
 class Inputs:
     def __init__(self, demographics, population, covariate_specs):
         self.demographics = demographics
@@ -94,10 +98,11 @@ class Inputs:
 
 class AllNodeDatabase:
     def dataframe_compression_index(self, name = '', df = None):
-        index = df[(df.index == 0) | (df.node_id.diff() > 0) | df.sex_id.diff() > 0]
+        mask = ((df.index == 0) | (df.node_id.diff() > 0) | df.sex_id.diff() > 0)
+        index = df.copy()[mask]
         index[f'all_{name}_id'] = index.index
         index.reset_index(inplace=True, drop=True)
-        index[f'{name}_index_id'] = index.index
+        index.loc[:, f'{name}_index_id'] = index.index
         index = index[[f'{name}_index_id', 'node_id', 'sex_id', f'all_{name}_id']]
         return index
 
@@ -176,6 +181,10 @@ class AllNodeDatabase:
 
         return covs
 
+    def clear_table_sql(self, conn, table_name):
+        conn.execute(f"DELETE FROM '{table_name}';")
+        conn.commit()
+
     def write_table_sql(self, conn, table_name, dtypes):
         dtypes = sql_types(dtypes)
         df = getattr(self, table_name)
@@ -214,10 +223,9 @@ class AllNodeDatabase:
     #     )
 
     def change_node_name(self, row):
-        name = str(row.node_name).replace(' ', '_').replace("'", "")
+        name = change_node_name_str(str(row.node_name))
         if not name.startswith(f'{row.c_location_id}_'):
             name = f'{row.c_location_id}_{name}'
-            # name = f'{row.c_location_id}_{row.node_name}'
         return name
 
     def correct_root_node_database(self):
@@ -261,10 +269,11 @@ class AllNodeDatabase:
             mask = self.option.option_name == 'parent_node_id'
             parent_node_id = int(self.option.loc[mask, 'option_value'])
             self.option = self.option[~mask] # Brad's code requires parent_node_name -- parent_node_id raises an error.
+        elif self.drill_location_start:
+            parent_node_id = int(self.node.loc[self.node.c_location_id == self.drill_location_start, 'node_id'])
         else:
             parent_node_id = 0
-
-        parent_node_name = self.node.loc[self.node.node_id == parent_node_id, 'node_name'].squeeze()
+        parent_node_name = change_node_name_str(self.node.loc[self.node.node_id == parent_node_id, 'node_name'].squeeze())
 
         brads_options = {# 'data_extra_columns'          :'c_seq',
                          'meas_noise_effect'           :'add_std_scale_none',
@@ -303,11 +312,13 @@ class AllNodeDatabase:
         self.nslist_pair = self.root_node_db.nslist_pair
         self.write_table_sql(conn, 'nslist', {'nslist_id': 'integer', 'nslist_name': 'text'})
         self.write_table_sql(conn, 'nslist_pair', {'nslist_pair_id': 'integer', 'nslist_id': 'integer', 'node_id': 'integer', 'smooth_id': 'integer'})
+        self.clear_table_sql(conn, 'avgint')
+
         print (f'*** Modified {self.root_node_db.path}')
         #
 
     def save_to_sql(self):
-        print (f"*** Writing {self.all_node_db} ***")
+        print (f"*** Writing {self.all_node_db}")
         conn = sqlite3.connect(self.all_node_db)
 
         self.write_table_sql(conn, 'all_option', {'all_option_id': 'integer', 'option_name': 'text', 'option_value': 'text'})
@@ -386,7 +397,6 @@ class AllNodeDatabase:
                 model_version_id = self.mvid,
                 conn_def = self.conn_def)
         settings = load_settings(settings_json=parameter_json)
-        global settings_dict
         settings_dict = settings._to_dict_value()
 
         try:
@@ -427,6 +437,7 @@ class AllNodeDatabase:
         else:
             drill_location_start = None
             drill_location_end = None
+        self.drill_location_start = drill_location_start
 
         # Need to subset the locations to only those needed for
         # the drill. drill_locations_all is the set of locations
@@ -499,7 +510,7 @@ class AllNodeDatabase:
                                         ('split_covariate_name', split_covariate_name),
                                         ('root_split_reference_name', root_split_reference_name),
                                         ('result_dir', str(result_dir)),
-                                        ('root_node_name', root_node_name),
+                                        ('root_node_name', change_node_name_str(root_node_name)),
                                         ('max_abs_effect', str(max_abs_effect)),
                                         ('max_fit', str(self.max_fit)),
                                         ('max_number_cpu', str(max_number_cpu)),
