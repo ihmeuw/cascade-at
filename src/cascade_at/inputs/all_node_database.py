@@ -75,7 +75,6 @@ def sql_types(dtypes):
 def change_node_name_str(name):
     return name.replace(' ', '_').replace("'", "")
 
-
 class Inputs:
     def __init__(self, demographics, population, covariate_specs):
         self.demographics = demographics

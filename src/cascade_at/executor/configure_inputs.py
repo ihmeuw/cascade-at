@@ -98,7 +98,6 @@ def main():
     args = ARG_LIST.parse_args(sys.argv[1:])
     logging.basicConfig(level=LEVELS[args.log_level])
 
-    global context, inputs
     context, inputs = configure_inputs(
         model_version_id=args.model_version_id,
         make=args.make,
