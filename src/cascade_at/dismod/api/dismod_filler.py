@@ -279,8 +279,7 @@ class DismodFiller(DismodIO):
             )
         option_dict.update(**kwargs)
 
-        df = pd.DataFrame()
-        df = df.append([pd.Series({'option_name': k, 'option_value': v}) for k, v in option_dict.items()])
+        df = pd.DataFrame([{'option_name': k, 'option_value': v} for k, v in option_dict.items()])
         df['option_id'] = df.index
         df['option_value'] = df['option_value'].astype(str)
 
