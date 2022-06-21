@@ -345,6 +345,12 @@ class AllNodeDatabase:
 
         self.write_table_sql(conn, 'split_reference', {'split_reference_id': 'integer', 'split_reference_name': 'text', 'split_reference_value': 'real'})
 
+        conn = sqlite3.connect(self.all_node_db)
+        for k in self.covariate.c_covariate_name:
+            if not k.startswith('c_'): continue
+            v = getattr(self, k, None)
+            self.write_table_sql(conn, k, v)
+    
     def __init__(self,
 
                  mvid = None,
@@ -679,7 +685,6 @@ class AllNodeDatabase:
                 group.to_csv(path)
 
 def main(root_node_path = '', mvid = None, cause_id = None, age_group_set_id = None,
-         json_file = None, inputs_file = None):
     self = AllNodeDatabase(root_node_path = root_node_path, mvid = mvid, cause_id = cause_id, age_group_set_id = age_group_set_id,
                            json_file = json_file, inputs_file = inputs_file)
 
@@ -704,6 +709,8 @@ if __name__ == '__main__':
                             help = "Age Group Set ID -- default {age_group_set_id}")
         parser.add_argument("-j", "--json-file", type = str, default = '',
                             help = "JSON file (if not from the IHME server databases).")
+        parser.add_argument("-i", "--inputs-file", type = str, default = '',
+                            help = "inputs.p file.")
         args = parser.parse_args()
         return args
 
@@ -735,7 +742,7 @@ if __name__ == '__main__':
                      args.root_node_path)
 
     main(root_node_path = args.root_node_path, mvid = args.model_version_id, cause_id = args.cause_id, age_group_set_id = args.age_group_set_id,
-         json_file = args.json_file)
+         json_file = args.json_file, inputs_file = args.inputs_file)
 
     """
     if not __debug__ and _mvid_ == _mvid_:
