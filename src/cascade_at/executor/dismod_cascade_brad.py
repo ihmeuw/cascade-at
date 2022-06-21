@@ -373,17 +373,17 @@ def setup_function(root_node_database = None, all_node_database = None):
                                   'split_reference_name': 'INTEGER',
                                   'split_reference_value': 'REAL'})
 
-    def write_split_goal_table():
-        sex_info_dict      = at_cascade.ihme.sex_info_dict
-        split_goal = pd.DataFrame([{'split_goal_id': v['split_reference_id'],
-                                         'split_goal_name': k,
-                                         'split_goal_value': v['covariate_value']}
-                                        for k,v in sex_info_dict.items()])
+    # def write_split_goal_table():
+    #     sex_info_dict      = at_cascade.ihme.sex_info_dict
+    #     split_goal = pd.DataFrame([{'split_goal_id': v['split_reference_id'],
+    #                                      'split_goal_name': k,
+    #                                      'split_goal_value': v['covariate_value']}
+    #                                     for k,v in sex_info_dict.items()])
 
-        write_table_sql(all_engine, 'split_goal', split_goal, 
-                        dtypes = {'split_goal_id': 'INTEGER PRIMARY KEY',
-                                  'split_goal_name': 'INTEGER',
-                                  'split_goal_value': 'REAL'})
+    #     write_table_sql(all_engine, 'split_goal', split_goal, 
+    #                     dtypes = {'split_goal_id': 'INTEGER PRIMARY KEY',
+    #                               'split_goal_name': 'INTEGER',
+    #                               'split_goal_value': 'REAL'})
 
     def write_mulcov_freeze_table(mulcov_freeze_list = None):
         assert type(result_dir) == str
@@ -459,9 +459,9 @@ def setup_function(root_node_database = None, all_node_database = None):
     # write_split_reference_table
     write_split_reference_table()
 
-    #
-    # write_split_goal_table
-    write_split_goal_table()
+    # #
+    # # write_split_goal_table
+    # write_split_goal_table()
 
     #
     # write_mulcov_freeze_table
@@ -473,7 +473,7 @@ def setup_function(root_node_database = None, all_node_database = None):
     write_node_split_table(result_dir, node_split_name_set, root_node_database)
 
     #
-    # write_all_node_database
+    # write_all_node_data
     print ('FIXME -- why do I have to do this?')
     data = db.data
     for col in data.columns:
@@ -492,7 +492,8 @@ def setup_function(root_node_database = None, all_node_database = None):
 if __name__ == '__main__':
 
     
-    _override_result_dir_ = f'/tmp/at_cascade/{_mvid_}/outputs2'
+    _override_result_dir_ = None
+    # _override_result_dir_ = f'/tmp/at_cascade/{_mvid_}/outputs'
 
     context = Context( model_version_id=_mvid_, root_directory = None ) # root_directory doesn't seem to work
     result_dir = _override_result_dir_ or str(context.outputs_dir)
@@ -552,17 +553,15 @@ if __name__ == '__main__':
     _cmds_ = []
     if len(sys.argv) <= 1:
         if _clean_run_:
-            shutil.rmtree(result_dir, ignore_errors=True)
+            shutil.rmtree(result_dir, ignore_errors=True) 
         display_cmd = f'display {root_node_name}/dismod.db'
         _cmds_ = ['setup', 'drill',
                   'predict', 'summary', display_cmd]
         _cmds_ = [f'shared {result_dir}/all_node.db',
                   'setup', 'drill',
                   'predict', 'summary', display_cmd]
-        # _cmds_ = [display_cmd]
-        # _cmds_ = ['predict', 'summary', f'display {root_node_name}/dismod.db']
-        # _cmds_ = [f'shared {result_dir}/all_node.db', 'drill']
-        
+        # _cmds_ = [f'shared {result_dir}/all_node.db',
+        #           'setup']
     try:
         run_setup = False
         if len(sys.argv) <= 1:
@@ -581,7 +580,7 @@ if __name__ == '__main__':
                     os.system(cmd)
 
                     configure_inputs_path = f'/Users/gma/ihme/epi/at_cascade/data/475873/dbs/{root_node_id}/{_sex_id_}/dismod.db' 
-                    print (f'Copying {configure_inputs_path} to {root_node_database}')
+                    print (f'INFO: Copying {configure_inputs_path} to {root_node_database}')
                     os.makedirs(os.path.dirname(root_node_database), exist_ok=True)
                     shutil.copy2(configure_inputs_path, root_node_database)
 
@@ -616,13 +615,6 @@ if __name__ == '__main__':
                     print (f'INFO: {cmd}')
                     all_node_obj = all_node_main(**kwds2)
 
-                    import sqlite3
-                    conn = sqlite3.connect(all_node_obj.all_node_db)
-                    for k in all_node_obj.covariate.c_covariate_name:
-                        if not k.startswith('c_'): continue
-                        v = getattr(all_node_obj, k, None)
-                        write_table_sql(conn, k, v)
-        
             if run_setup:
                 setup_function(root_node_database = root_node_database, all_node_database = all_node_database)
             # fit_goal_set = fit_goal_subset(root_node_database, root_node_name, reduced_subset = not _include_all_leaves_)
@@ -649,55 +641,76 @@ if __name__ == '__main__':
         sys.argv = [""]
         
 print('random_seed = ', random_seed)
-print(f'    {__file__}::{_mvid_}: OK')
+try: msg = __file__
+except: msg = sys.argv[0]
+print(f'    {msg}::{_mvid_}: OK')
 
 
 """
+# This places the outputs in test-dir
+
+mvid=475873
 TEST_DIR=/tmp/cascade
 DATA_DIR=${TEST_DIR}/cascade_dir/data/${mvid}
-# This places the outputs in test-dir
-CONFIG_ARGS="--test-dir ${TEST_DIR}"
-DISMOD_ARGS=""
+CONFIG_ARGS=""
+DISMOD_ARGS="--test-dir ${TEST_DIR}"
 """
 
 """
+# This places the outputs according to the cascade_config module
+
+mvid=475873
 TEST_DIR=/Users/gma/ihme/epi
 DATA_DIR=${TEST_DIR}/at_cascade/data/${mvid}
-# This places the outputs according to the cascade_config module
 CONFIG_ARGS="--configure"
 DISMOD_ARGS=""
 """
 
 """
-mvid=475873
 sex_id=3
 
 parent_id=100
 parent_location=100_High-income_North_America
 
-JSON_FILE=/Users/gma/ihme/epi/at_cascade/data/${mvid}/inputs/settings-${parent_location}.json
-
+JSON_IN=/Users/gma/ihme/epi/at_cascade/data/${mvid}/inputs/settings-${parent_location}.json
 
 rm -rf ${DATA_DIR}/outputs/*
 
 # Build inputs.p
-configure_inputs --model-version-id ${mvid} --make ${CONFIG_ARGS} --json-file ${JSON_FILE} 
+echo configure_inputs --model-version-id ${mvid} --make ${CONFIG_ARGS} ${DISMOD_ARGS} --json-file ${JSON_IN}
+configure_inputs --model-version-id ${mvid} --make ${CONFIG_ARGS} ${DISMOD_ARGS} --json-file ${JSON_IN}
 # Build root_node.db
-dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} --fill ${DISMOD_ARGS}
+echo dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
+dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
 
 # This copy is required if not using test-dir -- damn implied pathnames!!!
+echo cp -p ${DATA_DIR}/dbs/100/3/dismod_ODE_import.db ${DATA_DIR}/outputs/root_node.db
 cp -p ${DATA_DIR}/dbs/100/3/dismod_ODE_import.db ${DATA_DIR}/outputs/root_node.db
 
 # Build all_node.db
 ALL_NODE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
-${ALL_NODE_CMD} --root-node-path ${DATA_DIR}/outputs/root_node.db --json-file ${JSON_FILE} -m ${mvid} -c 587 -a 12
+echo ${ALL_NODE_CMD} --root-node-path ${DATA_DIR}/outputs/root_node.db --inputs-file $DATA_DIR/inputs/inputs.p --json-file $DATA_DIR/inputs/settings.json -m ${mvid} -c 587 -a 12 
+${ALL_NODE_CMD} --root-node-path ${DATA_DIR}/outputs/root_node.db --inputs-file $DATA_DIR/inputs/inputs.p --json-file $DATA_DIR/inputs/settings.json -m ${mvid} -c 587 -a 12 
 
 CASCADE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/executor/dismod_cascade_brad.py'
 
+echo ${CASCADE_CMD} ${DATA_DIR}/outputs shared ${DATA_DIR}/outputs/all_node.db
 ${CASCADE_CMD} ${DATA_DIR}/outputs shared ${DATA_DIR}/outputs/all_node.db
+
+echo ${CASCADE_CMD} ${DATA_DIR}/outputs setup
 ${CASCADE_CMD} ${DATA_DIR}/outputs setup
+
+echo ${CASCADE_CMD} ${DATA_DIR}/outputs drill
 ${CASCADE_CMD} ${DATA_DIR}/outputs drill
+
+echo ${CASCADE_CMD} ${DATA_DIR}/outputs predict
 ${CASCADE_CMD} ${DATA_DIR}/outputs predict
+
+echo ${CASCADE_CMD} ${DATA_DIR}/outputs summary
 ${CASCADE_CMD} ${DATA_DIR}/outputs summary
+
+echo ${CASCADE_CMD} ${DATA_DIR}/outputs display ${parent_location}/dismod.db
 ${CASCADE_CMD} ${DATA_DIR}/outputs display ${parent_location}/dismod.db
 """
+
+print ('OK')
