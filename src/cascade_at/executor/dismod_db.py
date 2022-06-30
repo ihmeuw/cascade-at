@@ -254,11 +254,13 @@ def dismod_db(model_version_id: int, parent_location_id: int, sex_id: int = None
 
     
     save_path = db_path.parent / db_path.name.replace('.db', '_ODE_import.db')
-    LOG.info(f'Saving imported file to {save_path}')
-    shutil.copy2(db_path, save_path)
+    # LOG.info(f'Saving imported file to {save_path}')
+    # print (f'Copying {save_path} to {db_path}')
+    # shutil.copy2(db_path, save_path)
 
     if dm_commands:
-        run_dismod_commands(dm_file=str(db_path), commands=dm_commands)
+        # gma out 6/29/2022 # run_dismod_commands(dm_file=str(db_path), commands=dm_commands)
+        run_dismod_commands(dm_file=str(os.path.dirname(context.database_dir)), commands=dm_commands)
 
     if save_fit:
         save_predictions(
@@ -294,7 +296,29 @@ def main():
 
 if __name__ == '__main__':
     if not sys.argv[0]:
-        _mvid_ = 475873
-        sys.argv = f"dismod_db --model-version-id {_mvid_} --parent-location-id 1 --sex-id 2 --fill".split()
-        # sys.argv = f"dismod_db --model-version-id {_mvid_} --parent-location-id 1 --sex-id 2 --fill --dm-commands ODE-init ODE-fit predict-fit_var --save-prior --save-fit".split()
+        mvid = 475873
+        test_dir = '/tmp/cascade'
+
+        if 0:
+            sys.argv = f"dismod_db --model-version-id {mvid} --parent-location-id 1 --sex-id 2 --fill".split()
+        if 0:
+            cmds = '--fill --dm-commands ODE-init ODE-fit predict-fit_var --save-prior --save-fit'
+            if 1:
+                os.system(f"configure_inputs --model-version-id {mvid} --make --test-dir {test_dir}")
+                sys.argv = f"dismod_db --model-version-id {mvid} --parent-location-id 1 --sex-id 2 {cmds}".split()
+            else:
+                os.system(f"configure_inputs --model-version-id {mvid} --make --configure")
+                sys.argv = f"dismod_db --model-version-id {mvid} --parent-location-id 1 --sex-id 2 {cmds}".split()
+                
+
+        if 1:
+            if 1:
+                os.system(f"configure_inputs --model-version-id {mvid} --make --test-dir {test_dir}")
+                sys.argv = (f"dismod_db --model-version-id {mvid} --parent-location-id 100 --sex-id 3 --test-dir {test_dir} --fill "
+                            f"--dm-commands BB-all_node BB-shared BB-setup BB-drill BB-predict BB-summary").split()
+            else:
+                os.system(f"configure_inputs --model-version-id {mvid} --make --configure")
+                sys.argv = (f"dismod_db --model-version-id {mvid} --parent-location-id 100 --sex-id 3 --fill "
+                            f"--dm-commands BB-all_node BB-shared BB-setup BB-drill BB-predict BB-summary").split()
+
     main()

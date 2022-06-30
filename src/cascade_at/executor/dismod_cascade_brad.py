@@ -18,6 +18,7 @@ import time
 import multiprocessing
 import shutil
 import pandas as pd
+from pprint import pprint
 from sqlalchemy import create_engine
 import db_queries
 
@@ -571,17 +572,18 @@ if __name__ == '__main__':
                 if 1:
                     cmd = f'configure_inputs --model-version-id {_mvid_} --make --configure {_json_}'
                     # cmd = f'configure_inputs --model-version-id {_mvid_} --make --test-dir {result_dir} {_json_}'
-                    print (f'INFO: {cmd}')
+                    print (f'INFO: Run {cmd}')
                     os.system(cmd)
                 if 1:
                     # Build the covariate values for all locations?
                     cmd = f'dismod_db --model-version-id {_mvid_} --parent-location-id {parent_location_id} --sex-id {_sex_id_} --fill'
-                    print (f'INFO: {cmd}')
+                    print (f'INFO: Run {cmd}')
                     os.system(cmd)
 
                     configure_inputs_path = f'/Users/gma/ihme/epi/at_cascade/data/475873/dbs/{root_node_id}/{_sex_id_}/dismod.db' 
                     print (f'INFO: Copying {configure_inputs_path} to {root_node_database}')
                     os.makedirs(os.path.dirname(root_node_database), exist_ok=True)
+                    print (f'INFO: Copy {configure_inputs_path} to {root_node_database}')
                     shutil.copy2(configure_inputs_path, root_node_database)
 
         db = DismodDbAPI(root_node_database)
@@ -595,7 +597,7 @@ if __name__ == '__main__':
                 if 0:
                     cmd = (f'python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
                                f' --root-node-path {result_dir}/root_node.db -m {_mvid_} -c 587 -a 12 {_json_}')
-                    print (f'INFO: {cmd}')
+                    print (f'INFO: Running {cmd}')
                     os.system(cmd)
                 else:
                     # An all_node_database call
@@ -625,7 +627,12 @@ if __name__ == '__main__':
                 tmp = f'{_mvid_}.py {cmd}'
                 print (tmp)
                 sys.argv = tmp.split()
-                at_cascade.ihme.main(fit_goal_set = fit_goal_set, **kwds)
+                kwds['fit_goal_set'] = fit_goal_set
+                _ = f'INFO: Running dismod_cascade_brad.py {kwds["result_dir"]} {cmd} '
+                if cmd == 'shared': _ += f'{kwds["result_dir"]}/all_node.db'
+                print (_)
+                pprint (f'INFO: Calling at_cascade.ihme.main({kwds})')
+                at_cascade.ihme.main(**kwds)
         else:
             [module, path, cmd] = sys.argv[:3]
             if cmd == 'setup':
@@ -633,8 +640,13 @@ if __name__ == '__main__':
             kwds['result_dir'] = path
             kwds['root_node_database'] = os.path.join(path, 'root_node.db')
             kwds['all_node_database'] = os.path.join(path, 'all_node.db')
+            kwds['fit_goal_set'] = fit_goal_set
             sys.argv = sys.argv[:1] + sys.argv[2:]
-            at_cascade.ihme.main(fit_goal_set = fit_goal_set, **kwds)
+            _ = f'INFO: Running dismod_cascade_brad.py {kwds["result_dir"]} {cmd} '
+            if cmd == 'shared': _ += f'{kwds["result_dir"]}/all_node.db'
+            print (_)
+            pprint (f'INFO: Calling at_cascade.ihme.main({kwds})')
+            at_cascade.ihme.main(**kwds)
     except:
         raise
     finally:

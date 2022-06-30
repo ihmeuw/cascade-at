@@ -80,17 +80,8 @@ def dmdismod(cmd):
             args.mulcov_values = [[a,b,float(c)] for a,b,c in np.asarray(args.mulcov_values).reshape(-1, 3)]
         return args
 
-    args = cmd.split()
-    p_args = parse_args(cmd.split())
-    print ('-'*10)
-    LOG.info(cmd)
-    print ('-'*10)
-    
-    if p_args.random_seed:
-        random_seed = p_args.random_seed
-        LOG.info(f"Setting the subsampling random_seed to the dmdismod argument value = {random_seed}")
-    else:
-        db = DismodIO(p_args.path)
+    def get_random_seed(path, random_seed):
+        db = DismodIO(path)
         option = db.option
         random_seed = option.loc[option.option_name == 'random_seed', 'option_value']
         if not random_seed.empty:
@@ -100,32 +91,70 @@ def dmdismod(cmd):
             random_seed = None
             LOG.info(f"The subsampling random_seed not set.")
 
-    if p_args.option == "init":
-        db = init_ode_command([_dismod_cmd_] + args[1:], 
-                              max_covariate_effect = p_args.max_covariate_effect,
-                              mulcov_values = p_args.mulcov_values,
-                              ode_hold_out_list = p_args.ode_hold_out_list,
-                              # random_seed = p_args.random_seed,
-                              random_seed = random_seed,
-                              random_subsample = p_args.random_subsample,
-                              save_to_path = p_args.save_to_path,
-                              reference_db = p_args.reference_db)
-    elif p_args.option == "fit":
-        db = fit_ode_command([_dismod_cmd_] + args[1:],
-                             ode_hold_out_list = p_args.ode_hold_out_list,
-                             # random_seed = p_args.random_seed,
-                             random_seed = random_seed,
-                             random_subsample = p_args.random_subsample,
-                             save_to_path = p_args.save_to_path,
-                             reference_db = p_args.reference_db)
-    elif p_args.option == "students":
-        fit_students_command([_dismod_cmd_] + args[1:],
-                             ode_hold_out_list = p_args.ode_hold_out_list,
-                             # random_seed = p_args.random_seed,
-                             random_seed = random_seed,
-                             random_subsample = p_args.random_subsample,
-                             save_to_path = p_args.save_to_path,
-                             reference_db = p_args.reference_db)
+
+    args = cmd.split()
+    p_args = parse_args(cmd.split())
+    print ('-'*10)
+    LOG.info(cmd)
+    print ('-'*10)
+
+    random_seed = None
+    if p_args.random_seed:
+        random_seed = p_args.random_seed
+        LOG.info(f"Setting the subsampling random_seed to the dmdismod argument value = {random_seed}")
+    
+    if p_args.dispatch != 'BB':
+        if p_args.option == "init":
+            if random_seed:
+                random_seed = get_random_seed(p_args.path, random_seed) 
+            db = init_ode_command([_dismod_cmd_] + args[1:], 
+                                  max_covariate_effect = p_args.max_covariate_effect,
+                                  mulcov_values = p_args.mulcov_values,
+                                  ode_hold_out_list = p_args.ode_hold_out_list,
+                                  random_seed = random_seed,
+                                  random_subsample = p_args.random_subsample,
+                                  save_to_path = p_args.save_to_path,
+                                  reference_db = p_args.reference_db)
+            set_random_seed(db, random_seed)
+        elif p_args.option == "fit":
+            db = fit_ode_command([_dismod_cmd_] + args[1:],
+                                 ode_hold_out_list = p_args.ode_hold_out_list,
+                                 random_seed = random_seed,
+                                 random_subsample = p_args.random_subsample,
+                                 save_to_path = p_args.save_to_path,
+                                 reference_db = p_args.reference_db)
+        elif p_args.option == "students":
+            fit_students_command([_dismod_cmd_] + args[1:],
+                                 ode_hold_out_list = p_args.ode_hold_out_list,
+                                 random_seed = random_seed,
+                                 random_subsample = p_args.random_subsample,
+                                 save_to_path = p_args.save_to_path,
+                                 reference_db = p_args.reference_db)
+    else:
+
+        DATA_DIR = p_args.path
+        if p_args.option in ('all_node', 'shared', 'setup', 'drill', 'predict', 'summary'):
+            ALL_NODE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
+            CASCADE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/executor/dismod_cascade_brad.py'
+            if p_args.option == 'all_node':
+                I = os.path.join(DATA_DIR, 'dbs/100/3/dismod.db')
+                O = os.path.join(DATA_DIR, 'outputs/root_node.db')
+                os.makedirs(os.path.dirname(O), exist_ok=True)
+                print (f'Copy {I} to {O}')
+                shutil.copy2(I, O)
+                json_file = f'{DATA_DIR}/inputs/settings.json'
+                cmd = (f'{ALL_NODE_CMD} --root-node-path {DATA_DIR}/outputs/root_node.db --model-version-id 475873 '
+                       f'--inputs-file {DATA_DIR}/inputs/inputs.p --json-file {json_file} --cause-id 587 --age-group-set-id 12')
+            elif p_args.option == 'shared':
+                cmd = f"{CASCADE_CMD} {p_args.path}/outputs {p_args.option} {p_args.path}/outputs/root_node.db"
+            elif p_args.option == 'setup':
+                cmd = f"{CASCADE_CMD} {p_args.path}/outputs {p_args.option}"
+                if random_seed:
+                    cmd += ' --random-seed {random_seed}'
+            else:
+                cmd = f"{CASCADE_CMD} {p_args.path}/outputs {p_args.option}"
+            print (cmd)
+            os.system(cmd)
 
 if __name__ == '__main__':
 
