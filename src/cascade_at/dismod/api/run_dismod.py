@@ -66,6 +66,7 @@ def run_dismod(dm_file: str, command: str):
     # Apple Darwin does not forward library_path variables to subprocesses for security reasons
     # so set it explicitly for the subprocess.
     lib_path = 'LD_LIBRARY_PATH=' + os.getenv('DISMOD_LIBRARY_PATH', '').strip(':')
+    lib_path = ''
     LOG.info(f"Running {lib_path} {command}")
     process = subprocess.run(f'{lib_path} {command}', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 

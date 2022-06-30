@@ -74,7 +74,7 @@ def get_mulcovs(dbs: List[DismodIO], covs: List[str],
             ]]
         except AttributeError:
             df = pd.DataFrame()
-        dfs = dfs.append(df)
+        dfs = pd.merge([dfs, df])
     return dfs
 
 

@@ -685,6 +685,8 @@ class AllNodeDatabase:
                 group.to_csv(path)
 
 def main(root_node_path = '', mvid = None, cause_id = None, age_group_set_id = None,
+         json_file = None, inputs_file = None):
+
     self = AllNodeDatabase(root_node_path = root_node_path, mvid = mvid, cause_id = cause_id, age_group_set_id = age_group_set_id,
                            json_file = json_file, inputs_file = inputs_file)
 

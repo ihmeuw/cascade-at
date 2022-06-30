@@ -39,3 +39,6 @@ class Demographics:
         else:
             self.location_id = []
             self.drill_locations = []
+
+if __name__ == '__main__':
+    d = Demographics(gbd_round_id = 6)
