@@ -74,7 +74,7 @@ def get_mulcovs(dbs: List[DismodIO], covs: List[str],
             ]]
         except AttributeError:
             df = pd.DataFrame()
-        dfs = pd.merge([dfs, df])
+        dfs = pd.concat([dfs, df])
     return dfs
 
 
@@ -161,8 +161,9 @@ def mulcov_statistics(model_version_id: int, locations: List[int], sexes: List[i
         )
     else:
         stats = mulcov_estimates
-    LOG.info('Write to output file.')
-    stats.to_csv(context.outputs_dir / f'{outfile_name}.csv', index=False)
+    fn = context.outputs_dir / f'{outfile_name}.csv'
+    LOG.info(f'Write to output file {fn}.')
+    stats.to_csv(fn, index=False)
 
 
 def main():
@@ -183,4 +184,6 @@ def main():
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        sys.argv = '/Users/gma/Library/Python/3.9/bin/mulcov_statistics --model-version-id 475873 --locations 100 --sexes 3 --sample --mean --std --quantile 0.025 0.975'.split()
     main()
