@@ -109,8 +109,36 @@ class Context:
             )
 
     def db_folder(self, location_id: int, sex_id: int):
-        os.makedirs(self.database_dir / str(location_id) / str(sex_id), exist_ok=True)
-        return self.database_dir / str(location_id) / str(sex_id)
+        import_dir = self.database_dir / str(location_id) / str(sex_id)
+        import_fn = import_dir / 'dismod.db'
+        # This craziness is because Brad's cascade uses a directory structure different from the old cascade
+        # Since I can't modify Brad's code, this works around that problem
+        if not import_fn.exists():
+            # 1) No database exists
+            os.makedirs(import_dir, exist_ok=True)
+            return import_dir
+        else:
+            # 2) Import database exists ...
+            from cascade_at.dismod.api.dismod_io import DismodIO
+            db = DismodIO(import_fn)
+            try:
+                # ... and has a var table -- this is the old cascade
+                db.var
+                return import_dir
+            except ValueError:
+                # ... no var table -- this is Brad's cascade
+                pass
+            node_name = f"{location_id}_{db.node.loc[db.node.c_location_id == location_id, 'node_name'].values[0]}"
+            node_name = node_name.replace(' ', '_').replace("'", "")
+            fn = self.outputs_dir / node_name / 'dismod.db'
+            db = DismodIO(fn)
+            try:
+                # ... and has sample table 
+                db.sample
+                return fn.parent
+            except ValueError:
+                # ... but has no sample table 
+                return import_dir
 
     def db_file(self, location_id: int, sex_id: int) -> Path:
         """
