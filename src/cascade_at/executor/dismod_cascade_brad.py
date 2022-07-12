@@ -521,7 +521,7 @@ if __name__ == '__main__':
     # Name of the nodes where we are splitting from Both to Female, Male
     node_split_name_set = { root_node_name }
 
-    json_file = f'/Users/gma/ihme/epi/at_cascade/data/{_mvid_}/inputs/settings-{root_node_name}.json'
+    json_file = os.path.join(os.path.dirname(result_dir), 'inputs/settings.json')
     _json_ = f'--json-file {json_file}'
     import json
     with open(json_file, 'r') as stream:
