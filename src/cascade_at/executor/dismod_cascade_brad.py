@@ -684,20 +684,28 @@ sex_id=3
 parent_id=100
 parent_location=100_High-income_North_America
 
-JSON_IN=/Users/gma/ihme/epi/at_cascade/data/${mvid}/inputs/settings-${parent_location}.json
+JSON_IN=/Users/gma/ihme/epi/at_cascade/data/${mvid}/inputs/settings.json
 
-rm -rf ${DATA_DIR}/outputs/*
+echo rm -rf ${DATA_DIR}/outputs ${DATA_DIR}/dbs ${DATA_DIR}/inputs/inputs.p
+rm -rf ${DATA_DIR}/outputs ${DATA_DIR}/dbs ${DATA_DIR}/inputs/inputs.p
 
 # Build inputs.p
 echo configure_inputs --model-version-id ${mvid} --make ${CONFIG_ARGS} ${DISMOD_ARGS} --json-file ${JSON_IN}
 configure_inputs --model-version-id ${mvid} --make ${CONFIG_ARGS} ${DISMOD_ARGS} --json-file ${JSON_IN}
+
+# FIRST RUN WITH EVERYTHING CLEAN WORKS
 # Build root_node.db
 echo dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
 dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
+ls ${DATA_DIR}/dbs/100/3
 
 # This copy is required if not using test-dir -- damn implied pathnames!!!
-echo cp -p ${DATA_DIR}/dbs/100/3/dismod_ODE_import.db ${DATA_DIR}/outputs/root_node.db
-cp -p ${DATA_DIR}/dbs/100/3/dismod_ODE_import.db ${DATA_DIR}/outputs/root_node.db
+echo cp -p ${DATA_DIR}/dbs/${parent_id}/${sex_id}/dismod.db ${DATA_DIR}/outputs/root_node.db
+cp -p ${DATA_DIR}/dbs/${parent_id}/${sex_id}/dismod.db ${DATA_DIR}/outputs/root_node.db
+
+# SECOND RUN WITH EVERYTHING CLEAN FAILS???
+echo dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
+dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
 
 # Build all_node.db
 ALL_NODE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'

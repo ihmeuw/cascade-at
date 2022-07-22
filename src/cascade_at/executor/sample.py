@@ -254,4 +254,6 @@ def main():
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        sys.argv = 'sample --model-version-id 475873 --parent-location-id 100 --sex-id 3 --n-sim 10 --n-pool 1 --fit-type both --asymptotic'.split()
     main()

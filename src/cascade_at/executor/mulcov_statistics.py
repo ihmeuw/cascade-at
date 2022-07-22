@@ -185,5 +185,5 @@ def main():
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        sys.argv = '/Users/gma/Library/Python/3.9/bin/mulcov_statistics --model-version-id 475873 --locations 100 --sexes 3 --sample --mean --std --quantile 0.025 0.975'.split()
+        sys.argv = '/Users/gma/Library/Python/3.9/bin/mulcov_statistics --model-version-id 475873 --locations 100 101 102 --sexes 3 --sample --mean --std --quantile 0.025 0.975'.split()
     main()
