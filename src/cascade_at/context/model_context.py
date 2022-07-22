@@ -14,6 +14,7 @@ from cascade_at.settings.settings import load_settings
 from cascade_at.settings.settings_config import SettingsConfig
 from cascade_at.executor.utils.utils import MODEL_STATUS, update_model_status
 from cascade_at.core.db import db_tools
+from cascade_at.dismod.api.dismod_io import DismodIO
 
 LOG = get_loggers(__name__)
 
@@ -95,6 +96,8 @@ class Context:
             os.makedirs(self.database_dir, exist_ok=True)
             os.makedirs(self.log_dir, exist_ok=True)
     
+        self.root_node_db = DismodIO(self.outputs_dir / 'root_node.db')
+
     def update_status(self, status: str):
         """
         Updates status in the database.
@@ -119,7 +122,6 @@ class Context:
             return import_dir
         else:
             # 2) Import database exists ...
-            from cascade_at.dismod.api.dismod_io import DismodIO
             db = DismodIO(import_fn)
             try:
                 # ... and has a var table -- this is the old cascade
@@ -127,18 +129,20 @@ class Context:
                 return import_dir
             except ValueError:
                 # ... no var table -- this is Brad's cascade
-                pass
-            node_name = f"{location_id}_{db.node.loc[db.node.c_location_id == location_id, 'node_name'].values[0]}"
-            node_name = node_name.replace(' ', '_').replace("'", "")
-            fn = self.outputs_dir / node_name / 'dismod.db'
-            db = DismodIO(fn)
-            try:
-                # ... and has sample table 
-                db.sample
-                return fn.parent
-            except ValueError:
-                # ... but has no sample table 
-                return import_dir
+                if self.root_node_db.path.exists():
+                    fn = self.root_node_db.path
+                else:
+                    node_name = f"{location_id}_{db.node.loc[db.node.c_location_id == location_id, 'node_name'].values[0]}"
+                    node_name = node_name.replace(' ', '_').replace("'", "")
+                    fn = self.outputs_dir / node_name / 'dismod.db'
+                db = DismodIO(fn)
+                try:
+                    # ... database exists and has sample table 
+                    db.var
+                    return fn.parent
+                except:
+                    # ... database doesn't exist, or has no sample table 
+                    return import_dir
 
     def db_file(self, location_id: int, sex_id: int) -> Path:
         """
