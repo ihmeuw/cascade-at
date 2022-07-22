@@ -59,6 +59,8 @@ import db_tools
 
 LOG = get_loggers(__name__)
 
+try: _file = __file__
+except: _file = sys.argv[0]
 
 __quick_test__ = False
 __to_do__ = True
@@ -278,10 +280,11 @@ class AllNodeDatabase:
                          'meas_noise_effect'           :'add_std_scale_none',
                          'quasi_fixed'                 :'false' ,
                          'tolerance_fixed'             :'1e-8',
-                         'max_num_iter_fixed'          :'40',
+                         # 'max_num_iter_fixed'          :'40',
                          'print_level_fixed'           :'5',
                          'accept_after_max_steps_fixed':'10',
-                         'parent_node_name'            :parent_node_name}
+                         'parent_node_name'            :parent_node_name,
+                         'bound_random'                :'2'}
 
         for k,v in brads_options.items():
             if k in self.option.option_name.values:
@@ -351,6 +354,50 @@ class AllNodeDatabase:
             v = getattr(self, k, None)
             self.write_table_sql(conn, k, v)
     
+    def mulcov_freeze_df(self, mulcov_freeze_list, mulcov_list_dict):
+        mulcov_freeze_table = []
+        for row_freeze in mulcov_freeze_list :
+            #
+            # node_name, sex_name
+            node_name      = row_freeze['node']
+            sex_name       = row_freeze['sex']
+            #
+            for row_mulcov in mulcov_list_dict :
+                #
+                # rate_name, covariate_name
+                rate_name      = row_mulcov['effected']
+                covariate_name = row_mulcov['covariate']
+                db = self.root_node_db
+                #
+                # rate_id
+                rate_id        = db.rate.loc[db.rate.rate_name == rate_name, 'rate_id'].squeeze()
+                # covariate_id
+                covariate_id   = db.covariate.loc[db.covariate.covariate_name == covariate_name, 'covariate_id'].squeeze()
+                # fit_node_id
+                fit_node_id    = db.node.loc[db.node.node_name == node_name, 'node_id'].squeeze()
+                #
+                # mulcov_id
+                mulcov_id = None
+                for (row_id, row) in self.root_node_db.mulcov.iterrows() :
+                    if row['mulcov_type'] == 'rate_value' :
+                        if row['rate_id'] == rate_id :
+                            if row['covariate_id'] == covariate_id :
+                                mulcov_id = row_id
+                assert mulcov_id is not None
+                #
+                # split_reference_id
+                sex_info_dict      = ihme.sex_info_dict
+                split_reference_id = sex_info_dict[sex_name]['split_reference_id']
+                #
+                # row_out
+                row_out = {
+                    'fit_node_id'        : fit_node_id ,
+                    'split_reference_id' : split_reference_id,
+                    'mulcov_id'          : mulcov_id,
+                }
+                mulcov_freeze_table.append( row_out )
+        return pd.DataFrame(mulcov_freeze_table)
+
     def __init__(self,
 
                  mvid = None,
@@ -471,8 +518,8 @@ class AllNodeDatabase:
         self.node = self.root_node_db.node
 
         print ('*** Get options. ***')
-        [[root_node_loc, root_node_name]] = self.root_node_db.node.loc[
-            self.root_node_db.node.c_location_id == drill_location_start, ['c_location_id', 'node_name']].values
+        [[root_node_id, root_node_loc, root_node_name]] = self.root_node_db.node.loc[
+            self.root_node_db.node.c_location_id == drill_location_start, ['node_id', 'c_location_id', 'node_name']].values
         if not root_node_name.startswith(str(root_node_loc)):
             root_node_name = f'{root_node_loc}_{root_node_name}'
    
@@ -480,7 +527,12 @@ class AllNodeDatabase:
             root_split_reference_name = 'Both'
             split_covariate_name = 'sex'
             split_list =  f'-1 s_{split_covariate_name} -0.5 0.0 +0.5'
-            split_node_id = self.node.loc[self.node.c_location_id == int(settings.model.split_sex), 'node_id'].squeeze()
+            if 0:
+                split_node_id = self.node.loc[self.node.c_location_id == int(settings.model.split_sex), 'node_id'].squeeze()
+            else:
+                LOG.warning(f"There may be a problem with the json validator -- e.g., it doesn't allow split_sex = 100.")
+                LOG.warning(f"Thus the root_node_location is being used to set the node_split location in {_file}.")
+                split_node_id = root_node_id
             self.node_split = pd.DataFrame([{'node_split_id': 0, 'node_id': split_node_id}])
         else:
             root_split_reference_name = ''
@@ -496,9 +548,51 @@ class AllNodeDatabase:
 
             result_dir = root_node_path.parent
             shift_prior_std_factor = 2
+            perturb_optimization_start = 0.2
             perturb_optimization_scaling = 0.2
+            balance_fit = 'sex -0.5 0.5'
             
-            print ('TO DO -- set up the mulcov_freeze table values')
+            print (f'TO DO -- set up the mulcov_freeze table values in {_file}')
+
+            sex_info_dict = ihme.sex_info_dict.copy()
+            for k,v in sex_info_dict.items():
+                v.update({'split_reference_name': k, 'split_reference_value': v['covariate_value']})
+            self.split_reference = pd.DataFrame(sex_info_dict.values())
+
+            rate = self.root_node_db.rate
+            covariate = self.root_node_db.covariate
+            mulcov = self.root_node_db.mulcov
+            smooth = self.root_node_db.smooth
+
+            #
+            # mulcov_list_dict
+            # define the covariate multipliers that affect rate values
+
+            # Brad's example
+            # mulcov_list_dict = [
+            #         # alpha_pini_log_folic_acid
+            #     { 'covariate': 'log_folic_acid', 'effected': 'pini', 'smooth': 'alpha_folic_acid_smooth'},
+            #         # alpha_pini_folic_fortified
+            #     { 'covariate': 'folic_fortified', 'effected': 'pini', 'smooth': 'alpha_folic_fortified_smooth'},
+            #         # alpha_chi_haqi
+            #     { 'covariate': 'haqi', 'effected': 'chi', 'smooth': 'alpha_haqi_smooth'}]
+
+            if 0:
+                node_split = pd.DataFrame([{'node_split_id': 0, 'node_id': root_node_id}])
+                self.node_split = node_split
+
+            mulcov_list_dict = [{'covariate': covariate.loc[covariate.covariate_id == row.covariate_id, 'covariate_name'].squeeze(),
+                                 'effected': rate.loc[rate.rate_id == row.rate_id, 'rate_name'].squeeze(),
+                                 'smooth': smooth.loc[smooth.smooth_id == row.group_smooth_id, 'smooth_name'].squeeze()}
+                                for i, row in mulcov.iterrows()]
+            # mulcov_freeze_list
+            # Freeze the covariate multipliers at the Global level after the sex split
+            mulcov_freeze_list = [ { 'node' :  root_node_name ,
+                                     'sex' : 'Male'},
+                                   { 'node' :  root_node_name ,
+                                     'sex' : 'Female'}]
+            self.mulcov_freeze = self.mulcov_freeze_df(mulcov_freeze_list, mulcov_list_dict)
+            self.mulcov_freeze['mulcov_freeze_id'] = self.mulcov_freeze.index
 
             self.mulcov_freeze = pd.DataFrame([], columns = ['mulcov_freeze_id', 'fit_node_id', 'split_reference_id', 'mulcov_id'])
 
@@ -511,6 +605,7 @@ class AllNodeDatabase:
         # self.split_reference = pd.DataFrame([{'split_reference_id': 0, 'split_reference_name': 'Female', 'split_reference_value': -0.5},
         #                                      {'split_reference_id': 1, 'split_reference_name': 'Both', 'split_reference_value': 0.0},
         #                                      {'split_reference_id': 2, 'split_reference_name': 'Male', 'split_reference_value': 0.5}])
+
         self.all_option = pd.DataFrame([('absolute_covariates', ' '.join(absolute_covariates)),
                                         ('split_covariate_name', split_covariate_name),
                                         ('root_split_reference_name', root_split_reference_name),
@@ -519,8 +614,10 @@ class AllNodeDatabase:
                                         ('max_abs_effect', str(max_abs_effect)),
                                         ('max_fit', str(self.max_fit)),
                                         ('max_number_cpu', str(max_number_cpu)),
+                                        ('balance_fit', balance_fit),
                                         # ('split_list', split_list),
                                         ('shift_prior_std_factor', str(shift_prior_std_factor)),
+                                        ('perturb_optimization_start', str(perturb_optimization_start)),
                                         ('perturb_optimization_scaling', str(perturb_optimization_scaling)),
                                         ],
                                        columns = ['option_name', 'option_value'])
@@ -731,7 +828,8 @@ if __name__ == '__main__':
 
         sys.argv = (f'all_node_database.py -m {_mvid_} -c {_cause_id_} -a {_age_group_set_id_} --root-node-path '
                     f'/Users/gma/Projects/IHME/GIT/at_cascade.gma-additions/ihme_db/DisMod_AT/results/{_mvid_}/root_node.db '
-                    f'--json-file /Users/gma/ihme/epi/at_cascade/data/{_mvid_}/inputs/settings-1_Global.json').split()
+                    # f'--json-file /Users/gma/ihme/epi/at_cascade/data/{_mvid_}/inputs/settings-1_Global.json').split()
+                    f'--json-file /Users/gma/ihme/epi/at_cascade/data/{_mvid_}/inputs/settings.json').split()
 
         defaults = dict(root_node_path = root_node_path, mvid = _mvid_, cause_id = _cause_id_, age_group_set_id = _age_group_set_id_)
         args = parse_args(**defaults)
