@@ -22,21 +22,21 @@ from pprint import pprint
 from sqlalchemy import create_engine
 import db_queries
 
-_start_at_global_ = not True
+_start_at_global_ = False
 _clean_run_ = not False
-_include_all_leaves_ = not True
+_include_all_leaves_ = True
 
 if 1:
     #
     # root_node_name
     # name of the node where the cascade will start
     # root_node_name      = '1_Global'
-    if not _start_at_global_:
-        root_node_id = 100
-        root_node_name = f'{root_node_id}_High-income_North_America'
-    else:
-        root_node_id = 1
-        root_node_name = f'{root_node_id}_Global'
+    # if not _start_at_global_:
+    #     root_node_id = 100
+    #     root_node_name = f'{root_node_id}_High-income_North_America'
+    # else:
+    #     root_node_id = 1
+    #     root_node_name = f'{root_node_id}_Global'
 
     sys.path.append('/opt/prefix/dismod_at/lib/python3.9/site-packages')
     sys.path.append('/opt/local/lib/python3.9/site-packages')
@@ -114,7 +114,7 @@ if __debug__:
             root_location_id = int(root_node_name.split('_')[0])
             root_node_id = int(node[node.c_location_id == root_location_id].node_id)
             leaf_node_ids = dag.leaves(root_node_id)
-            fit_goal_set = set(node[node.node_id.isin(leaf_node_ids)].node_name)
+            fit_goal_set = set(node_name_change(row) for i,row in node[node.node_id.isin(leaf_node_ids)].iterrows())
             return fit_goal_set
 
         # fit_goal_set
@@ -210,7 +210,7 @@ def write_table_sql(conn, table_name, df, dtypes=None):
 def node_name_change(row):
     name = row.node_name.replace(' ', '_').replace("'", "")
     if not name.startswith(f'{row.c_location_id}_'):
-        name = f'{row.c_location_id}_{row.node_name}'
+        name = f'{row.c_location_id}_{name}'
     return name
 
 def setup_function(root_node_database = None, all_node_database = None):
@@ -298,9 +298,12 @@ def setup_function(root_node_database = None, all_node_database = None):
         node = db.node
         if 'parent_node_name' not in option.option_name.values:
             parent_node_id = int(option.loc[option.option_name == 'parent_node_id', 'option_value'])
-            parent_node_name, parent_loc_id = node.loc[node.node_id == parent_node_id, ['node_name', 'c_location_id']].squeeze()
-            parent_node_name = (parent_node_name if parent_node_name.startswith(str(parent_loc_id)) else f'{parent_loc_id}_{parent_node_name}')
-            parent_node_name = parent_node_name.replace(' ', '_').replace("'", "")
+            if 0:
+                parent_node_name, parent_loc_id = node.loc[node.node_id == parent_node_id, ['node_name', 'c_location_id']].squeeze()
+                parent_node_name = (parent_node_name if parent_node_name.startswith(str(parent_loc_id)) else f'{parent_loc_id}_{parent_node_name}')
+                parent_node_name = parent_node_name.replace(' ', '_').replace("'", "")
+            else:
+                parent_node_name = node_name_change(node.loc[node.node_id == parent_node_id].squeeze())
             mask = option.option_name == 'parent_node_id'
             option.loc[mask, ['option_name', 'option_value']] = ['parent_node_name', parent_node_name]
         brads_options = {# 'data_extra_columns'          :'c_seq c_nid',
@@ -398,9 +401,10 @@ def setup_function(root_node_database = None, all_node_database = None):
         mulcov = root_table['mulcov']
 
         sex_info_dict      = at_cascade.ihme.sex_info_dict
-
+        
         # mulcov_freeze_table_file
-        mulcov_freeze_table = pd.DataFrame([{'fit_node_id': int(node.loc[node.node_name == row_freeze['node'], 'node_id']),
+        breakpoint()
+        mulcov_freeze_table = pd.DataFrame([{'fit_node_id': int(node.loc[node.node_name == row_freeze['node'], 'node_id'].squeeze()),
                                              'split_reference_id': int(sex_info_dict[row_freeze['sex']]['split_reference_id']),
                                              'mulcov_id': mulcov_id}
                                             for mulcov_id in mulcov.mulcov_id.values
@@ -482,11 +486,6 @@ def setup_function(root_node_database = None, all_node_database = None):
             data[col] = data[col].astype('float')
     db.data = data
 
-    # node = db.node
-    # node['node_name'] = [n.replace(' ', '_') for n in db.node.node_name.values]
-    # db.node = node
-
-
 # ----------------------------------------------------------------------------
 # Without __name__ == '__main__', the mac will try to execute main on each processor.
 
@@ -508,18 +507,10 @@ if __name__ == '__main__':
     # root_node_name
     # name of the node where the cascade will start
     # root_node_name      = '1_Global'
-    if not _start_at_global_:
-        root_node_name      = '100_High-income_North_America'
-    else:
-        root_node_name      = '1_Global'
-
-    # mulcov_freeze_list
-    # Freeze the covariate multipliers at the Global level after the sex split
-    mulcov_freeze_list = [ { 'node' : root_node_name, 'sex' : 'Male'},
-                           { 'node' : root_node_name, 'sex' : 'Female'} ]
-    # node_split_name_set
-    # Name of the nodes where we are splitting from Both to Female, Male
-    node_split_name_set = { root_node_name }
+    # if not _start_at_global_:
+    #     root_node_name      = '100_High-income_North_America'
+    # else:
+    #     root_node_name      = '1_Global'
 
     json_file = os.path.join(os.path.dirname(result_dir), 'inputs/settings.json')
     _json_ = f'--json-file {json_file}'
@@ -535,32 +526,16 @@ if __name__ == '__main__':
     if random_seed == 0 :
         random_seed = int( time.time() )
 
-    kwds = dict(result_dir              = result_dir,
-                root_node_name          = root_node_name,
-                setup_function          = lambda: None,
-                max_plot                = max_plot,
-                covariate_csv_file_dict = {},
-                scale_covariate_dict    = {},
-                root_node_database      = root_node_database,
-                all_node_database       = all_node_database,
-                no_ode_fit              = False,
-                fit_type_list           = [ 'both', 'fixed' ],
-                random_seed             = random_seed,
-                use_csv_files           = False,
-                gbd_round_id            = gbd_round_id)
-
-
     _sex_id_ = 3
     _cmds_ = []
     if len(sys.argv) <= 1:
         if _clean_run_:
             shutil.rmtree(result_dir, ignore_errors=True) 
-        display_cmd = f'display {root_node_name}/dismod.db'
         _cmds_ = ['setup', 'drill',
-                  'predict', 'summary', display_cmd]
+                  'predict', 'summary']
         _cmds_ = [f'shared {result_dir}/all_node.db',
                   'setup', 'drill',
-                  'predict', 'summary', display_cmd]
+                  'predict', 'summary']
         # _cmds_ = [f'shared {result_dir}/all_node.db',
         #           'setup']
     try:
@@ -580,14 +555,42 @@ if __name__ == '__main__':
                     print (f'INFO: Run {cmd}')
                     os.system(cmd)
 
-                    configure_inputs_path = f'/Users/gma/ihme/epi/at_cascade/data/475873/dbs/{root_node_id}/{_sex_id_}/dismod.db' 
+                    configure_inputs_path = f'/Users/gma/ihme/epi/at_cascade/data/475873/dbs/{parent_location_id}/{_sex_id_}/dismod.db'
                     print (f'INFO: Copying {configure_inputs_path} to {root_node_database}')
                     os.makedirs(os.path.dirname(root_node_database), exist_ok=True)
                     print (f'INFO: Copy {configure_inputs_path} to {root_node_database}')
                     shutil.copy2(configure_inputs_path, root_node_database)
 
         db = DismodDbAPI(root_node_database)
+        if 0:
+            root_node_name = ('_'.join([str(n) for n in db.node.loc[db.node.c_location_id == parent_location_id, ['c_location_id', 'node_name']].values[0]])
+                              .replace(' ', '_').replace("'",""))
+        else:
+            root_node_name = node_name_change(db.node[db.node.c_location_id == parent_location_id].squeeze())
+        # mulcov_freeze_list
+        # Freeze the covariate multipliers at the Global level after the sex split
+        breakpoint()
+        mulcov_freeze_list = [ { 'node' : root_node_name, 'sex' : 'Male'},
+                               { 'node' : root_node_name, 'sex' : 'Female'} ]
+        # node_split_name_set
+        # Name of the nodes where we are splitting from Both to Female, Male
+        node_split_name_set = { root_node_name }
+
         fit_goal_set = fit_goal_subset(root_node_database, root_node_name, reduced_subset = not _include_all_leaves_)
+
+        kwds = dict(result_dir              = result_dir,
+                    root_node_name          = root_node_name,
+                    setup_function          = lambda: None,
+                    max_plot                = max_plot,
+                    covariate_csv_file_dict = {},
+                    scale_covariate_dict    = {},
+                    root_node_database      = root_node_database,
+                    all_node_database       = all_node_database,
+                    no_ode_fit              = False,
+                    fit_type_list           = [ 'both', 'fixed' ],
+                    random_seed             = random_seed,
+                    use_csv_files           = False,
+                    gbd_round_id            = gbd_round_id)
 
         if len(sys.argv) <= 1:
             if not os.path.exists(all_node_database):
@@ -619,7 +622,10 @@ if __name__ == '__main__':
 
             if run_setup:
                 setup_function(root_node_database = root_node_database, all_node_database = all_node_database)
-            # fit_goal_set = fit_goal_subset(root_node_database, root_node_name, reduced_subset = not _include_all_leaves_)
+
+            _cmds_ += ['display_cmd']
+
+            root_node_id = int(db.node.loc[db.node.c_location_id == parent_location_id, 'node_id'].squeeze())
 
             for cmd in _cmds_:
                 if cmd == 'setup':
@@ -693,7 +699,6 @@ rm -rf ${DATA_DIR}/outputs ${DATA_DIR}/dbs ${DATA_DIR}/inputs/inputs.p
 echo configure_inputs --model-version-id ${mvid} --make ${CONFIG_ARGS} ${DISMOD_ARGS} --json-file ${JSON_IN}
 configure_inputs --model-version-id ${mvid} --make ${CONFIG_ARGS} ${DISMOD_ARGS} --json-file ${JSON_IN}
 
-# FIRST RUN WITH EVERYTHING CLEAN WORKS
 # Build root_node.db
 echo dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
 dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
@@ -702,10 +707,6 @@ ls ${DATA_DIR}/dbs/100/3
 # This copy is required if not using test-dir -- damn implied pathnames!!!
 echo cp -p ${DATA_DIR}/dbs/${parent_id}/${sex_id}/dismod.db ${DATA_DIR}/outputs/root_node.db
 cp -p ${DATA_DIR}/dbs/${parent_id}/${sex_id}/dismod.db ${DATA_DIR}/outputs/root_node.db
-
-# SECOND RUN WITH EVERYTHING CLEAN FAILS???
-echo dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
-dismod_db --model-version-id ${mvid} --parent-location-id ${parent_id} --sex-id ${sex_id} ${DISMOD_ARGS} --fill 
 
 # Build all_node.db
 ALL_NODE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
