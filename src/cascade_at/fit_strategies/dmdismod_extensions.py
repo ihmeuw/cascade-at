@@ -142,7 +142,6 @@ def dmdismod(cmd):
                     json_in = json.load(stream)
                     parent_loc_id = json_in['model'].get('drill_location_start', 0)
                     sex_id = json_in['model'].get('drill_sex', 3)
-                # I = os.path.join(DATA_DIR, 'dbs/100/3/dismod.db')
                 I = os.path.join(DATA_DIR, f'dbs/{parent_loc_id}/3/dismod.db')
                 O = os.path.join(DATA_DIR, 'outputs/root_node.db')
                 os.makedirs(os.path.dirname(O), exist_ok=True)
