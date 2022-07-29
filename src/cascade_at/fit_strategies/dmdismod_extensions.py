@@ -18,12 +18,12 @@ import os
 import pandas as pd
 import numpy as np
 import shutil
+import json
 
 from collections import OrderedDict
 from cascade_at.fit_strategies.init_no_ode import init_ode_command, fit_ode_command, fit_students_command
 from cascade_at.dismod.api.dismod_io import DismodIO
 from cascade_at.core.log import logging, get_loggers, LEVELS
-
 
 LOG = get_loggers(__name__)
 logging.basicConfig(level=LEVELS['info'])
@@ -137,12 +137,17 @@ def dmdismod(cmd):
             ALL_NODE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
             CASCADE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/executor/dismod_cascade_brad.py'
             if p_args.option == 'all_node':
-                I = os.path.join(DATA_DIR, 'dbs/100/3/dismod.db')
+                json_file = f'{DATA_DIR}/inputs/settings.json'
+                with open(json_file, 'r') as stream:
+                    json_in = json.load(stream)
+                    parent_loc_id = json_in['model'].get('drill_location_start', 0)
+                    sex_id = json_in['model'].get('drill_sex', 3)
+                # I = os.path.join(DATA_DIR, 'dbs/100/3/dismod.db')
+                I = os.path.join(DATA_DIR, f'dbs/{parent_loc_id}/3/dismod.db')
                 O = os.path.join(DATA_DIR, 'outputs/root_node.db')
                 os.makedirs(os.path.dirname(O), exist_ok=True)
                 print (f'Copy {I} to {O}')
                 shutil.copy2(I, O)
-                json_file = f'{DATA_DIR}/inputs/settings.json'
                 cmd = (f'{ALL_NODE_CMD} --root-node-path {DATA_DIR}/outputs/root_node.db --model-version-id 475873 '
                        f'--inputs-file {DATA_DIR}/inputs/inputs.p --json-file {json_file} --cause-id 587 --age-group-set-id 12')
             elif p_args.option == 'shared':
