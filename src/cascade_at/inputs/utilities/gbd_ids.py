@@ -28,10 +28,9 @@ SEX_NAME_TO_ID = {
     v: k for k, v in SEX_ID_TO_NAME.items()
 }
 
-gbd_id_sex = SEX_NAME_TO_ID
-dismod_sex_cov = {'female':-.5, 'both':0, 'male':.5}
 dismod_sex_id  = {'female':  0, 'both':1, 'male': 2}
-gbd2dismod_sex_ids = {1:2, 2:0, 3:1}
+gbd2dismod_sex_ids = {1:2, 2:0, 3:1} # gbd->dismod is {1:female, 2:male, 3:both}
+dismod2gbd_sex_ids = {2:1, 0:2, 1:3}
 
 class CascadeConstants:
     NON_SEX_SPECIFIC_ID = 3
