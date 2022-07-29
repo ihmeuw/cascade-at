@@ -86,7 +86,7 @@ if 1:
     # max_number_cpu
     # maximum number of processors, if one, run sequentally, otherwise
     # run at most max_number_cpu jobs at at time.
-    max_number_cpu = max(1, multiprocessing.cpu_count() - 1)
+    max_number_cpu = max(1, multiprocessing.cpu_count())
     #
     # max_fit
     # Maximum number of data rows per integrand to include in a f
@@ -403,7 +403,6 @@ def setup_function(root_node_database = None, all_node_database = None):
         sex_info_dict      = at_cascade.ihme.sex_info_dict
         
         # mulcov_freeze_table_file
-        breakpoint()
         mulcov_freeze_table = pd.DataFrame([{'fit_node_id': int(node.loc[node.node_name == row_freeze['node'], 'node_id'].squeeze()),
                                              'split_reference_id': int(sex_info_dict[row_freeze['sex']]['split_reference_id']),
                                              'mulcov_id': mulcov_id}
@@ -569,7 +568,6 @@ if __name__ == '__main__':
             root_node_name = node_name_change(db.node[db.node.c_location_id == parent_location_id].squeeze())
         # mulcov_freeze_list
         # Freeze the covariate multipliers at the Global level after the sex split
-        breakpoint()
         mulcov_freeze_list = [ { 'node' : root_node_name, 'sex' : 'Male'},
                                { 'node' : root_node_name, 'sex' : 'Female'} ]
         # node_split_name_set
