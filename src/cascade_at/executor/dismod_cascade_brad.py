@@ -17,6 +17,7 @@ import copy
 import time
 import multiprocessing
 import shutil
+import json
 import pandas as pd
 from pprint import pprint
 from sqlalchemy import create_engine
@@ -59,14 +60,6 @@ if 1:
 
     # data locations
     from cascade_at.context.model_context import Context
-    if 0000000000000:
-        context = Context( model_version_id=_mvid_, root_directory = None )
-        result_dir = _override_result_dir_ or str(context.outputs_dir)
-        print ('result_dir', result_dir)
-        root_node_database = os.path.join(result_dir, 'root_node.db')
-        all_node_database = os.path.join(result_dir, 'all_node.db')
-        if __debug__:
-            db = DismodDbAPI(root_node_database)
     #
     # random_seed
     # If this seed is zero, the clock is used for the random seed.
@@ -489,6 +482,101 @@ def setup_function(root_node_database = None, all_node_database = None):
 # Without __name__ == '__main__', the mac will try to execute main on each processor.
 
 if __name__ == '__main__':
+    mvid=475873
+    JSON_IN=f'/Users/gma/ihme/epi/at_cascade/data/{mvid}/inputs/settings.json'
+
+    if len(sys.argv) <= 1: 
+
+        parent_id=64
+        parent_id=100
+        parent_id=101
+
+        sex_id=3
+
+        TEST_DIR='/Users/gma/ihme/epi'
+        DATA_DIR=f'{TEST_DIR}/at_cascade/data/{mvid}'
+        CONFIG_ARGS="--configure"
+        DISMOD_ARGS=""
+
+        ALL_NODE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/inputs/all_node_database.py'
+        CASCADE_CMD='python /Users/gma/Projects/IHME/GIT/cascade-at/src/cascade_at/executor/dismod_cascade_brad.py'
+        JSON_IN=f'/Users/gma/ihme/epi/at_cascade/data/{mvid}/inputs/settings-{parent_id}.json'
+        JSON_OUT=f'/Users/gma/ihme/epi/at_cascade/data/{mvid}/inputs/settings.json'
+        shutil.copy2(JSON_IN, JSON_OUT)
+
+        # Replace this with a display of a portion, or all, of the directory tree
+        # parent_location=f'{parent_id}_Canada'
+
+        _cmds_ = [
+            f'rm -rf {DATA_DIR}/outputs {DATA_DIR}/dbs {DATA_DIR}/inputs/inputs.p',
+            f'rm -rf {DATA_DIR}/outputs {DATA_DIR}/dbs {DATA_DIR}/outputs',
+            f'rm -rf {DATA_DIR}/outputs {DATA_DIR}/dbs {DATA_DIR}/dbs',
+            f'configure_inputs --model-version-id {mvid} --make {CONFIG_ARGS} {DISMOD_ARGS} --json-file {JSON_IN}',
+            f'dismod_db --model-version-id {mvid} --parent-location-id {parent_id} --sex-id {sex_id} {DISMOD_ARGS} --fill',
+            f'cp -p {DATA_DIR}/dbs/{parent_id}/{sex_id}/dismod.db {DATA_DIR}/outputs/root_node.db',
+            f'{ALL_NODE_CMD} --root-node-path {DATA_DIR}/outputs/root_node.db --inputs-file {DATA_DIR}/inputs/inputs.p --json-file {DATA_DIR}/inputs/settings.json -m {mvid} -c 587 -a 12',
+            f'{CASCADE_CMD} {DATA_DIR}/outputs shared {DATA_DIR}/outputs/all_node.db',
+            f'{CASCADE_CMD} {DATA_DIR}/outputs setup',
+            f'{CASCADE_CMD} {DATA_DIR}/outputs drill',
+            f'{CASCADE_CMD} {DATA_DIR}/outputs predict',
+            f'{CASCADE_CMD} {DATA_DIR}/outputs summary',
+            # f'{CASCADE_CMD} {DATA_DIR}/outputs display {parent_location}/dismod.db'
+            ]
+        for cmd in _cmds_:
+            print ('>>>', cmd)
+            os.system(cmd)
+    else:
+        with open(JSON_IN, 'r') as stream:
+            settings = json.load(stream)
+        gbd_round_id = settings['gbd_round_id']
+        parent_location_id = settings['model']['drill_location_start']
+
+        context = Context( model_version_id=mvid, root_directory = None ) # root_directory doesn't seem to work
+        result_dir = str(context.outputs_dir)
+        print ('result_dir', result_dir)
+        root_node_database = os.path.join(result_dir, 'root_node.db')
+        all_node_database = os.path.join(result_dir, 'all_node.db')
+        db = DismodDbAPI(root_node_database)
+        root_node_name = node_name_change(db.node[db.node.c_location_id == parent_location_id].squeeze())
+        mulcov_freeze_list = [ { 'node' : root_node_name, 'sex' : 'Male'},
+                               { 'node' : root_node_name, 'sex' : 'Female'} ]
+        # node_split_name_set
+        # Name of the nodes where we are splitting from Both to Female, Male
+        node_split_name_set = { root_node_name }
+
+        fit_goal_set = fit_goal_subset(root_node_database, root_node_name, reduced_subset = not _include_all_leaves_)
+
+        kwds = dict(result_dir              = result_dir,
+                    root_node_name          = root_node_name,
+                    setup_function          = lambda: None,
+                    max_plot                = max_plot,
+                    covariate_csv_file_dict = {},
+                    scale_covariate_dict    = {},
+                    root_node_database      = root_node_database,
+                    all_node_database       = all_node_database,
+                    no_ode_fit              = False,
+                    fit_type_list           = [ 'both', 'fixed' ],
+                    random_seed             = random_seed,
+                    use_csv_files           = False,
+                    gbd_round_id            = gbd_round_id)
+
+        [module, path, cmd] = sys.argv[:3]
+        if cmd == 'setup':
+            os.system (f'rm -rf {result_dir}/{root_node_name}')
+        kwds['result_dir'] = path
+        kwds['root_node_database'] = os.path.join(path, 'root_node.db')
+        kwds['all_node_database'] = os.path.join(path, 'all_node.db')
+        kwds['fit_goal_set'] = fit_goal_set
+        sys.argv = sys.argv[:1] + sys.argv[2:]
+        _ = f'INFO: Running dismod_cascade_brad.py {kwds["result_dir"]} {cmd} '
+        if cmd == 'shared': _ += f'{kwds["result_dir"]}/all_node.db'
+        print (_)
+        pprint (f'INFO: Calling at_cascade.ihme.main({kwds})')
+        at_cascade.ihme.main(**kwds)
+        
+
+
+if 0 and __name__ == '__main__':
 
     
     _override_result_dir_ = None
@@ -656,10 +744,10 @@ if __name__ == '__main__':
     finally:
         sys.argv = [""]
         
-print('random_seed = ', random_seed)
-try: msg = __file__
-except: msg = sys.argv[0]
-print(f'    {msg}::{_mvid_}: OK')
+    print('random_seed = ', random_seed)
+    try: msg = __file__
+    except: msg = sys.argv[0]
+    print(f'    {msg}::{_mvid_}: OK')
 
 
 """
